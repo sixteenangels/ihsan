@@ -83,6 +83,7 @@ export default defineConfig(({ mode }) => ({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff,woff2}"],
+        importScripts: ["/sw-push.js"],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/.*supabase\.co\/.*/i,
