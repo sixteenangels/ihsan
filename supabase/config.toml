@@ -1,0 +1,16 @@
+project_id = "jcwagkwjdhtuugcfbhui"
+
+[functions.send-push-notification]
+verify_jwt = false
+
+[functions.get-paystack-key]
+verify_jwt = false
+
+[functions.verify-paystack-payment]
+verify_jwt = false
+
+[functions.check-birthdays]
+verify_jwt = false
+
+[functions.process-referral-reward]
+verify_jwt = false

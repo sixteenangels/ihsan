@@ -1,0 +1,700 @@
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { Card, CardContent } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { toast } from 'sonner';
+import { Plus, Pencil, Loader2, Package, Archive, ArchiveRestore } from 'lucide-react';
+import { useCategories } from '@/hooks/useCategories';
+import { ProductImageUpload, uploadProductImages } from './ProductImageUpload';
+import { ProductVariantsManager, VariantData } from './ProductVariantsManager';
+import { ProductShippingRules, ShippingRuleData } from './ProductShippingRules';
+import { productSchema, validateForm } from '@/lib/validations/admin';
+import { useCurrency } from '@/hooks/useCurrency';
+
+interface ProductForm {
+  name: string;
+  description: string;
+  item_code: string;
+  base_price: string;
+  category_id: string;
+  is_group_buy_eligible: boolean;
+  is_flash_deal: boolean;
+  flash_deal_ends_at: string;
+  is_free_shipping: boolean;
+  is_ready_now: boolean;
+  is_active: boolean;
+  is_fragile: boolean;
+  reinforced_packaging_cost: string;
+}
+
+const defaultForm: ProductForm = {
+  name: '',
+  description: '',
+  item_code: '',
+  base_price: '',
+  category_id: '',
+  is_group_buy_eligible: false,
+  is_flash_deal: false,
+  flash_deal_ends_at: '',
+  is_free_shipping: false,
+  is_ready_now: false,
+  is_active: true,
+  is_fragile: false,
+  reinforced_packaging_cost: '',
+};
+
+export function AdminProducts() {
+  const queryClient = useQueryClient();
+  const { formatPrice } = useCurrency();
+  const [isOpen, setIsOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState<ProductForm>(defaultForm);
+  const [pendingImages, setPendingImages] = useState<File[]>([]);
+  const [existingImages, setExistingImages] = useState<{ id: string; image_url: string; order_index: number }[]>([]);
+  const [variants, setVariants] = useState<VariantData[]>([]);
+  const [shippingRules, setShippingRules] = useState<ShippingRuleData[]>([]);
+
+  const { data: categories, isLoading: categoriesLoading } = useCategories();
+
+  const { data: products, isLoading } = useQuery({
+    queryKey: ['admin-products'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*, categories(name), product_images(id, image_url, order_index)')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (data: ProductForm) => {
+      const { data: product, error } = await supabase.from('products').insert({
+        name: data.name,
+        description: data.description,
+        item_code: data.item_code,
+        base_price: parseFloat(data.base_price),
+        category_id: data.category_id || null,
+        is_group_buy_eligible: data.is_group_buy_eligible,
+        is_flash_deal: data.is_flash_deal,
+        flash_deal_ends_at: data.is_flash_deal && data.flash_deal_ends_at ? new Date(data.flash_deal_ends_at).toISOString() : null,
+        is_free_shipping: data.is_free_shipping,
+        is_ready_now: data.is_ready_now,
+        is_active: data.is_active,
+        is_fragile: data.is_fragile,
+        reinforced_packaging_cost: data.reinforced_packaging_cost ? parseFloat(data.reinforced_packaging_cost) : null,
+      } as any).select().single();
+      if (error) throw error;
+
+      // Upload images if any
+      if (pendingImages.length > 0 && product) {
+        const imageUrls = await uploadProductImages(product.id, pendingImages);
+        const imageRecords = imageUrls.map((url, index) => ({
+          product_id: product.id,
+          image_url: url,
+          order_index: index,
+        }));
+        await supabase.from('product_images').insert(imageRecords);
+      }
+
+      // Create variants if any
+      if (variants.length > 0 && product) {
+        const variantRecords = variants.map((v) => ({
+          product_id: product.id,
+          size: v.size || null,
+          color: v.color || null,
+          price_override: v.price_override ? parseFloat(v.price_override) : null,
+          stock: parseInt(v.stock) || 0,
+          sku: v.sku || null,
+        }));
+        await supabase.from('product_variants').insert(variantRecords);
+      }
+
+      // Create shipping rules if any
+      if (shippingRules.length > 0 && product) {
+        const ruleRecords = shippingRules.map((r) => ({
+          product_id: product.id,
+          shipping_class_id: r.shipping_class_id,
+          price: parseFloat(r.price) || 0,
+          is_allowed: r.is_allowed,
+        }));
+        await supabase.from('product_shipping_rules').insert(ruleRecords);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      toast.success('Product created successfully');
+      handleClose();
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: ProductForm }) => {
+      const { error } = await supabase
+        .from('products')
+        .update({
+          name: data.name,
+          description: data.description,
+          item_code: data.item_code,
+          base_price: parseFloat(data.base_price),
+          category_id: data.category_id || null,
+          is_group_buy_eligible: data.is_group_buy_eligible,
+          is_flash_deal: data.is_flash_deal,
+          flash_deal_ends_at: data.is_flash_deal && data.flash_deal_ends_at ? new Date(data.flash_deal_ends_at).toISOString() : null,
+          is_free_shipping: data.is_free_shipping,
+          is_ready_now: data.is_ready_now,
+          is_active: data.is_active,
+          is_fragile: data.is_fragile,
+          reinforced_packaging_cost: data.reinforced_packaging_cost ? parseFloat(data.reinforced_packaging_cost) : null,
+        } as any)
+        .eq('id', id);
+      if (error) throw error;
+
+      // Upload new images if any
+      if (pendingImages.length > 0) {
+        const currentMaxIndex = existingImages.length > 0 
+          ? Math.max(...existingImages.map(i => i.order_index)) + 1 
+          : 0;
+        const imageUrls = await uploadProductImages(id, pendingImages);
+        const imageRecords = imageUrls.map((url, index) => ({
+          product_id: id,
+          image_url: url,
+          order_index: currentMaxIndex + index,
+        }));
+        await supabase.from('product_images').insert(imageRecords);
+      }
+
+      // Handle variants: delete existing and insert new
+      await supabase.from('product_variants').delete().eq('product_id', id);
+      if (variants.length > 0) {
+        const variantRecords = variants.map((v) => ({
+          product_id: id,
+          size: v.size || null,
+          color: v.color || null,
+          price_override: v.price_override ? parseFloat(v.price_override) : null,
+          stock: parseInt(v.stock) || 0,
+          sku: v.sku || null,
+        }));
+        await supabase.from('product_variants').insert(variantRecords);
+      }
+
+      // Handle shipping rules: delete existing and insert new
+      await supabase.from('product_shipping_rules').delete().eq('product_id', id);
+      if (shippingRules.length > 0) {
+        const ruleRecords = shippingRules.map((r) => ({
+          product_id: id,
+          shipping_class_id: r.shipping_class_id,
+          price: parseFloat(r.price) || 0,
+          is_allowed: r.is_allowed,
+        }));
+        await supabase.from('product_shipping_rules').insert(ruleRecords);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      toast.success('Product updated successfully');
+      handleClose();
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: async ({ id, nextActive }: { id: string; nextActive: boolean }) => {
+      const { error } = await supabase
+        .from('products')
+        .update({
+          is_active: nextActive,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      toast.success(variables.nextActive ? 'Product restored successfully' : 'Product archived successfully');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const handleEdit = async (product: any) => {
+    try {
+      setEditingId(product.id);
+      setForm({
+        name: product.name || '',
+        description: product.description || '',
+        item_code: product.item_code || '',
+        base_price: String(product.base_price || 0),
+        category_id: product.category_id || '',
+        is_group_buy_eligible: product.is_group_buy_eligible || false,
+        is_flash_deal: product.is_flash_deal || false,
+        flash_deal_ends_at: product.flash_deal_ends_at ? new Date(product.flash_deal_ends_at).toISOString().slice(0, 16) : '',
+        is_free_shipping: product.is_free_shipping || false,
+        is_ready_now: product.is_ready_now || false,
+        is_active: product.is_active ?? true,
+        is_fragile: (product as any).is_fragile || false,
+        reinforced_packaging_cost: (product as any).reinforced_packaging_cost != null ? String((product as any).reinforced_packaging_cost) : '',
+      });
+      setExistingImages(product.product_images || []);
+      setPendingImages([]);
+      
+      // Load existing variants
+      const { data: existingVariants } = await supabase
+        .from('product_variants')
+        .select('*')
+        .eq('product_id', product.id);
+      
+      if (existingVariants) {
+        setVariants(existingVariants.map(v => ({
+          id: v.id,
+          size: v.size || '',
+          color: v.color || '',
+          price_override: v.price_override ? String(v.price_override) : '',
+          stock: String(v.stock || 0),
+          sku: v.sku || '',
+        })));
+      } else {
+        setVariants([]);
+      }
+
+      // Load existing shipping rules
+      const { data: existingRules } = await supabase
+        .from('product_shipping_rules')
+        .select('*')
+        .eq('product_id', product.id);
+
+      if (existingRules) {
+        setShippingRules(existingRules.map(r => ({
+          shipping_class_id: r.shipping_class_id,
+          price: String(r.price || 0),
+          is_allowed: r.is_allowed ?? true,
+        })));
+      } else {
+        setShippingRules([]);
+      }
+
+      setIsOpen(true);
+    } catch (error) {
+      console.error('Error loading product:', error);
+      toast.error('Error loading product details');
+    }
+  };
+
+  const handleOpenAdd = () => {
+    setEditingId(null);
+    setForm(defaultForm);
+    setPendingImages([]);
+    setExistingImages([]);
+    setVariants([]);
+    setShippingRules([]);
+    setIsOpen(true);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const validation = validateForm(productSchema, form);
+    if (!validation.success) {
+      const firstError = Object.values(validation.errors || {})[0];
+      toast.error(firstError || 'Please fix the form errors');
+      return;
+    }
+    
+    if (editingId) {
+      updateMutation.mutate({ id: editingId, data: form });
+    } else {
+      createMutation.mutate(form);
+    }
+  };
+
+  const handleClose = () => {
+    setIsOpen(false);
+    setEditingId(null);
+    setForm(defaultForm);
+    setPendingImages([]);
+    setExistingImages([]);
+    setVariants([]);
+    setShippingRules([]);
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-8">
+        <h1 className="text-3xl font-bold font-serif text-foreground">Products</h1>
+        <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+          <DialogTrigger asChild>
+            <Button onClick={handleOpenAdd}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Product
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-background">
+            <DialogHeader>
+              <DialogTitle>
+                {editingId ? 'Edit Product' : 'Add New Product'}
+              </DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Name *</Label>
+                  <Input
+                    id="name"
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="item_code">Item Code *</Label>
+                  <Input
+                    id="item_code"
+                    value={form.item_code}
+                    onChange={(e) => setForm({ ...form, item_code: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  rows={3}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="base_price">Base Price *</Label>
+                  <Input
+                    id="base_price"
+                    type="number"
+                    step="0.01"
+                    value={form.base_price}
+                    onChange={(e) => setForm({ ...form, base_price: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="category">Category</Label>
+                  <Select
+                    value={form.category_id}
+                    onValueChange={(value) => setForm({ ...form, category_id: value })}
+                  >
+                    <SelectTrigger className="bg-background">
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent className="z-[100] bg-popover border border-border shadow-lg">
+                      {categoriesLoading ? (
+                        <div className="p-2 text-center text-muted-foreground">Loading...</div>
+                      ) : categories && categories.length > 0 ? (
+                        categories.map((cat) => (
+                          <SelectItem key={cat.id} value={cat.id} className="cursor-pointer">
+                            {cat.name}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <div className="p-2 text-center text-muted-foreground">No categories available</div>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex items-center justify-between rounded-lg border border-border p-3">
+                  <Label htmlFor="is_group_buy_eligible">Group Buy Eligible</Label>
+                  <Switch
+                    id="is_group_buy_eligible"
+                    checked={form.is_group_buy_eligible}
+                    onCheckedChange={(checked) =>
+                      setForm({ ...form, is_group_buy_eligible: checked })
+                    }
+                  />
+                </div>
+                <div className="flex items-center justify-between rounded-lg border border-border p-3">
+                  <Label htmlFor="is_flash_deal">Flash Deal</Label>
+                  <Switch
+                    id="is_flash_deal"
+                    checked={form.is_flash_deal}
+                    onCheckedChange={(checked) =>
+                      setForm({ ...form, is_flash_deal: checked })
+                    }
+                  />
+                </div>
+              </div>
+
+              {form.is_flash_deal && (
+                <div className="space-y-2">
+                  <Label htmlFor="flash_deal_ends_at">Flash Deal End Time</Label>
+                  <Input
+                    id="flash_deal_ends_at"
+                    type="datetime-local"
+                    value={form.flash_deal_ends_at}
+                    onChange={(e) => setForm({ ...form, flash_deal_ends_at: e.target.value })}
+                    min={new Date().toISOString().slice(0, 16)}
+                  />
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex items-center justify-between rounded-lg border border-border p-3">
+                  <Label htmlFor="is_free_shipping">Free Shipping</Label>
+                  <Switch
+                    id="is_free_shipping"
+                    checked={form.is_free_shipping}
+                    onCheckedChange={(checked) =>
+                      setForm({ ...form, is_free_shipping: checked })
+                    }
+                  />
+                </div>
+                <div className="flex items-center justify-between rounded-lg border border-border p-3">
+                  <Label htmlFor="is_active">Active</Label>
+                  <Switch
+                    id="is_active"
+                    checked={form.is_active}
+                    onCheckedChange={(checked) =>
+                      setForm({ ...form, is_active: checked })
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg border border-primary/50 p-3 bg-primary/5">
+                <div>
+                  <Label htmlFor="is_ready_now" className="text-primary font-semibold">Ready Now</Label>
+                  <p className="text-xs text-muted-foreground">Mark as immediately available for shipping</p>
+                </div>
+                <Switch
+                  id="is_ready_now"
+                  checked={form.is_ready_now}
+                  onCheckedChange={(checked) =>
+                    setForm({ ...form, is_ready_now: checked })
+                  }
+                />
+              </div>
+
+              <div className="rounded-lg border border-amber-500/50 p-3 bg-amber-500/5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="is_fragile" className="text-amber-700 dark:text-amber-300 font-semibold">Fragile Item</Label>
+                    <p className="text-xs text-muted-foreground">Customer will see Standard / Reinforced packaging choice at checkout</p>
+                  </div>
+                  <Switch
+                    id="is_fragile"
+                    checked={form.is_fragile}
+                    onCheckedChange={(checked) =>
+                      setForm({ ...form, is_fragile: checked })
+                    }
+                  />
+                </div>
+                {form.is_fragile && (
+                  <div className="space-y-2">
+                    <Label htmlFor="reinforced_packaging_cost">Reinforced Packaging Cost (₵) — leave blank to use store default</Label>
+                    <Input
+                      id="reinforced_packaging_cost"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={form.reinforced_packaging_cost}
+                      onChange={(e) => setForm({ ...form, reinforced_packaging_cost: e.target.value })}
+                      placeholder="e.g. 25.00"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Image Upload Section */}
+              <div className="border-t border-border pt-4">
+                <ProductImageUpload
+                  productId={editingId || undefined}
+                  existingImages={existingImages}
+                  pendingImages={pendingImages}
+                  onImagesChange={setPendingImages}
+                />
+              </div>
+
+              {/* Variants Section */}
+              <div className="border-t border-border pt-4">
+                <ProductVariantsManager
+                  variants={variants}
+                  onVariantsChange={setVariants}
+                  basePrice={form.base_price}
+                />
+              </div>
+
+              {/* Shipping Rules Section */}
+              <div className="border-t border-border pt-4">
+                <ProductShippingRules
+                  rules={shippingRules}
+                  onRulesChange={setShippingRules}
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4">
+                <Button type="button" variant="outline" onClick={handleClose}>
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={createMutation.isPending || updateMutation.isPending}
+                >
+                  {(createMutation.isPending || updateMutation.isPending) && (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  )}
+                  {editingId ? 'Update' : 'Create'}
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <Card>
+        <CardContent className="p-0">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-16">Image</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Price</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {products?.map((product: any) => {
+                  const images = product.product_images as { image_url: string }[] | undefined;
+                  const firstImage = images?.[0]?.image_url;
+                  
+                  return (
+                    <TableRow key={product.id}>
+                      <TableCell>
+                        {firstImage ? (
+                          <img
+                            src={firstImage}
+                            alt={product.name}
+                            className="w-12 h-12 object-cover rounded-md border border-border"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 bg-muted rounded-md flex items-center justify-center">
+                            <Package className="h-5 w-5 text-muted-foreground" />
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        {product.name}
+                        {product.is_ready_now && (
+                          <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                            Ready
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {(product.categories as { name: string } | null)?.name || '-'}
+                      </TableCell>
+                      <TableCell>{formatPrice(Number(product.base_price))}</TableCell>
+                      <TableCell>
+                        <span
+                          className={`inline-flex px-2 py-1 text-xs rounded-full ${
+                            product.is_active
+                              ? 'bg-primary/10 text-primary'
+                              : 'bg-muted text-muted-foreground'
+                          }`}
+                        >
+                          {product.is_active ? 'Active' : 'Archived'}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEdit(product)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() =>
+                              archiveMutation.mutate({
+                                id: product.id,
+                                nextActive: !product.is_active,
+                              })
+                            }
+                            title={product.is_active ? 'Archive product' : 'Restore product'}
+                            aria-label={product.is_active ? 'Archive product' : 'Restore product'}
+                          >
+                            {product.is_active ? (
+                              <Archive className="h-4 w-4 text-amber-600" />
+                            ) : (
+                              <ArchiveRestore className="h-4 w-4 text-primary" />
+                            )}
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+                {products?.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                      No products yet. Add your first product to get started.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

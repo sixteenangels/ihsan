@@ -1,0 +1,26 @@
+{
+  "name": "Ihsan App",
+  "short_name": "Ihsan",
+  "description": "Premium E-Commerce Shopping - Your trusted shopping destination",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f5f5f5",
+  "theme_color": "#e65c00",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["shopping", "lifestyle"],
+  "prefer_related_applications": false
+}
