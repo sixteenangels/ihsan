@@ -420,45 +420,45 @@ export default function Profile() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="container py-8 max-w-4xl">
-        <h1 className="text-3xl font-bold font-serif text-foreground mb-8">My Account</h1>
+      <main className="container max-w-4xl px-4 py-6 pb-24 sm:px-6 md:py-8 md:pb-8">
+        <h1 className="mb-6 text-2xl font-bold font-serif text-foreground md:mb-8 md:text-3xl">My Account</h1>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4 md:grid-cols-7 mb-8 h-auto">
-            <TabsTrigger value="profile" className="flex items-center gap-2">
+          <TabsList className="mb-6 grid h-auto w-full grid-cols-2 gap-2 rounded-2xl bg-muted/70 p-2 sm:grid-cols-3 md:mb-8 md:grid-cols-7">
+            <TabsTrigger value="profile" className="flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs sm:text-sm">
               <User className="h-4 w-4" />
-              <span className="hidden sm:inline">Profile</span>
+              <span>Profile</span>
             </TabsTrigger>
-            <TabsTrigger value="addresses" className="flex items-center gap-2">
+            <TabsTrigger value="addresses" className="flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs sm:text-sm">
               <MapPin className="h-4 w-4" />
-              <span className="hidden sm:inline">Addresses</span>
+              <span>Addresses</span>
             </TabsTrigger>
-            <TabsTrigger value="orders" className="flex items-center gap-2">
+            <TabsTrigger value="orders" className="flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs sm:text-sm">
               <Package className="h-4 w-4" />
-              <span className="hidden sm:inline">Orders</span>
+              <span>Orders</span>
             </TabsTrigger>
-            <TabsTrigger value="wallet" className="flex items-center gap-2">
+            <TabsTrigger value="wallet" className="flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs sm:text-sm">
               <Wallet className="h-4 w-4" />
-              <span className="hidden sm:inline">Wallet</span>
+              <span>Wallet</span>
             </TabsTrigger>
-            <TabsTrigger value="refunds" className="flex items-center gap-2">
+            <TabsTrigger value="refunds" className="flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs sm:text-sm">
               <RefreshCcw className="h-4 w-4" />
-              <span className="hidden sm:inline">Refunds</span>
+              <span>Refunds</span>
             </TabsTrigger>
-            <TabsTrigger value="referral" className="flex items-center gap-2">
+            <TabsTrigger value="referral" className="flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs sm:text-sm">
               <Gift className="h-4 w-4" />
-              <span className="hidden sm:inline">Referral</span>
+              <span>Referral</span>
             </TabsTrigger>
-            <TabsTrigger value="loyalty" className="flex items-center gap-2">
+            <TabsTrigger value="loyalty" className="flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs sm:text-sm">
               <Award className="h-4 w-4" />
-              <span className="hidden sm:inline">Points</span>
+              <span>Points</span>
             </TabsTrigger>
           </TabsList>
 
           {/* Profile Tab */}
           <TabsContent value="profile" className="space-y-6">
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
+              <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <CardTitle className="flex items-center gap-2">
                     <User className="h-5 w-5" />
@@ -472,7 +472,7 @@ export default function Profile() {
                     Edit
                   </Button>
                 ) : (
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 self-start sm:self-auto">
                     <Button variant="outline" size="sm" onClick={() => setEditingProfile(false)}>
                       <X className="h-4 w-4" />
                     </Button>
@@ -549,7 +549,7 @@ export default function Profile() {
           {/* Addresses Tab */}
           <TabsContent value="addresses">
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
+              <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <CardTitle className="flex items-center gap-2">
                     <MapPin className="h-5 w-5" />
@@ -565,7 +565,7 @@ export default function Profile() {
                   }
                 }}>
                   <DialogTrigger asChild>
-                    <Button size="sm">
+                    <Button size="sm" className="self-start sm:self-auto">
                       <Plus className="h-4 w-4 mr-2" />
                       Add Address
                     </Button>
@@ -575,7 +575,7 @@ export default function Profile() {
                       <DialogTitle>{editingAddress ? 'Edit Address' : 'Add New Address'}</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div className="space-y-2">
                           <Label>Label (optional)</Label>
                           <Input
@@ -617,7 +617,7 @@ export default function Profile() {
                           placeholder="Apt, suite, etc."
                         />
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div className="space-y-2">
                           <Label>City *</Label>
                           <Input
@@ -635,7 +635,7 @@ export default function Profile() {
                           />
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div className="space-y-2">
                           <Label>Postal Code</Label>
                           <Input

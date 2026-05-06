@@ -256,9 +256,9 @@ export default function Help() {
     <div className="min-h-screen bg-background">
       <Header />
       
-      <main className="container py-8 pb-24 md:pb-8">
+      <main className="container px-4 py-6 pb-24 sm:px-6 md:py-8 md:pb-8">
         {/* Hero Section */}
-        <div className="text-center mb-12">
+        <div className="mb-10 text-center md:mb-12">
           <h1 className="text-3xl md:text-4xl font-bold font-serif mb-4">
             How Can We Help?
           </h1>
@@ -268,7 +268,7 @@ export default function Help() {
         </div>
 
         {/* Quick Contact Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12">
+        <div className="mb-10 grid grid-cols-1 gap-4 md:mb-12 md:grid-cols-3">
           <Card className="text-center hover:shadow-lg transition-shadow">
             <CardHeader className="pb-2">
               <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
@@ -330,7 +330,7 @@ export default function Help() {
             Frequently Asked Questions
           </h2>
           
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-6">
             {faqs.map((category) => (
               <Card key={category.category}>
                 <CardHeader className="pb-2">
@@ -365,7 +365,7 @@ export default function Help() {
         </div>
 
         {/* Contact Form */}
-        <Card className="max-w-2xl mx-auto">
+        <Card className="mx-auto max-w-2xl">
           <CardHeader>
             <CardTitle>Still Need Help?</CardTitle>
             <CardDescription>
@@ -381,7 +381,7 @@ export default function Help() {
                   You can send a guest request here. Sign in if you want the full tracked support chat experience.
                 </div>
               )}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <label htmlFor="name" className="text-sm font-medium">
                     Name

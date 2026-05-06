@@ -145,9 +145,9 @@ export default function Admin() {
       </aside>
 
       {/* Mobile Header */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-card border-b border-border p-4">
+      <div className="fixed left-0 right-0 top-0 z-50 border-b border-border bg-card px-4 py-3 md:hidden">
         <div className="flex items-center justify-between">
-          <Link to="/" className="text-xl font-bold font-serif text-primary">
+          <Link to="/" className="text-lg font-bold font-serif text-primary">
             Ihsan Admin
           </Link>
           <Link to="/">
@@ -156,14 +156,14 @@ export default function Admin() {
             </Button>
           </Link>
         </div>
-        <ScrollArea className="mt-4">
-          <nav className="flex gap-2 pb-2">
+        <ScrollArea className="mt-3">
+          <nav className="flex gap-2 pb-1">
             {navItems.map((item) => (
               <Link
                 key={item.name}
                 to={item.href}
                 className={cn(
-                  'flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors',
+                  'flex min-h-10 items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors',
                   isActive(item.href)
                     ? 'bg-primary text-primary-foreground'
                     : 'bg-muted text-muted-foreground'
@@ -178,7 +178,7 @@ export default function Admin() {
       </div>
 
       {/* Main Content */}
-      <main className="flex-1 p-6 md:p-8 mt-32 md:mt-0 overflow-auto">
+      <main className="mt-28 flex-1 overflow-auto px-4 py-5 sm:px-6 md:mt-0 md:p-8">
         <Routes>
           <Route path="/" element={<AdminDashboard />} />
           <Route path="/products" element={<AdminProducts />} />

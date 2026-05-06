@@ -307,8 +307,8 @@ export default function Auth() {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <main className="container py-16">
-          <div className="max-w-md mx-auto">
+        <main className="container px-4 py-8 pb-24 sm:px-6 md:py-16 md:pb-8">
+          <div className="mx-auto max-w-md">
             <Card className="border-border">
               <CardHeader className="text-center">
                 <CardTitle className="text-2xl font-serif">Set New Password</CardTitle>
@@ -373,8 +373,8 @@ export default function Auth() {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <main className="container py-16">
-          <div className="max-w-md mx-auto">
+        <main className="container px-4 py-8 pb-24 sm:px-6 md:py-16 md:pb-8">
+          <div className="mx-auto max-w-md">
             <Card className="border-border">
               <CardHeader className="text-center">
                 <div className="mx-auto mb-4 h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
@@ -436,8 +436,8 @@ export default function Auth() {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <main className="container py-16">
-          <div className="max-w-md mx-auto">
+        <main className="container px-4 py-8 pb-24 sm:px-6 md:py-16 md:pb-8">
+          <div className="mx-auto max-w-md">
             <Card className="border-border">
               <CardHeader className="text-center">
                 <CardTitle className="text-2xl font-serif">Reset Password</CardTitle>
@@ -495,10 +495,10 @@ export default function Auth() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="container py-16">
-        <div className="max-w-md mx-auto">
+      <main className="container px-4 py-8 pb-24 sm:px-6 md:py-16 md:pb-8">
+        <div className="mx-auto max-w-md">
           <Card className="border-border">
-            <CardHeader className="text-center">
+            <CardHeader className="space-y-2 px-5 text-center sm:px-6">
               <CardTitle className="text-2xl font-serif">Welcome to Ihsan</CardTitle>
               <CardDescription>
                 Sign in to your account or create a new one
@@ -506,9 +506,9 @@ export default function Auth() {
             </CardHeader>
             <CardContent>
               <Tabs defaultValue="login" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="login">Sign In</TabsTrigger>
-                  <TabsTrigger value="signup">Sign Up</TabsTrigger>
+                <TabsList className="grid h-auto w-full grid-cols-2 rounded-2xl p-1.5">
+                  <TabsTrigger value="login" className="min-h-11 rounded-xl">Sign In</TabsTrigger>
+                  <TabsTrigger value="signup" className="min-h-11 rounded-xl">Sign Up</TabsTrigger>
                 </TabsList>
                 
                 <TabsContent value="login">
@@ -549,7 +549,7 @@ export default function Auth() {
                       )}
                     </div>
                     
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="flex items-center space-x-2">
                         <Checkbox 
                           id="remember-me" 
@@ -563,7 +563,7 @@ export default function Auth() {
                       <Button 
                         type="button" 
                         variant="link" 
-                        className="text-sm p-0 h-auto" 
+                        className="h-auto p-0 text-left text-sm sm:text-right" 
                         onClick={() => setShowForgotPassword(true)}
                       >
                         Forgot password?
