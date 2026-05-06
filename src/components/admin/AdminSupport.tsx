@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Loader2, Send, MessageCircle, User, Circle, Clock, CheckCircle, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
@@ -36,11 +37,26 @@ interface Message {
   created_at: string;
 }
 
+interface SupportRequest {
+  id: string;
+  user_id: string | null;
+  name: string;
+  email: string;
+  message: string;
+  status: 'new' | 'in_progress' | 'resolved' | 'closed';
+  source: string;
+  internal_notes: string | null;
+  responded_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export function AdminSupport() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [replyMessage, setReplyMessage] = useState('');
+  const [requestNotes, setRequestNotes] = useState<Record<string, string>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -105,6 +121,19 @@ export function AdminSupport() {
     enabled: !!selectedConversationId,
   });
 
+  const { data: supportRequests, isLoading: loadingSupportRequests } = useQuery({
+    queryKey: ['admin-support-requests'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('support_requests')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return (data || []) as SupportRequest[];
+    },
+  });
+
   // Mark messages as read when conversation is selected
   useEffect(() => {
     if (selectedConversationId && messages) {
@@ -122,7 +151,7 @@ export function AdminSupport() {
           });
       }
     }
-  }, [selectedConversationId, messages]);
+  }, [selectedConversationId, messages, queryClient]);
 
   // Subscribe to realtime messages
   useEffect(() => {
@@ -222,6 +251,38 @@ export function AdminSupport() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-support-conversations'] });
       toast.success('Conversation status updated');
+    },
+  });
+
+  const updateSupportRequestMutation = useMutation({
+    mutationFn: async ({
+      requestId,
+      status,
+      internalNotes,
+    }: {
+      requestId: string;
+      status: SupportRequest['status'];
+      internalNotes: string;
+    }) => {
+      const { error } = await supabase
+        .from('support_requests')
+        .update({
+          status,
+          internal_notes: internalNotes || null,
+          responded_at: status === 'resolved' || status === 'closed'
+            ? new Date().toISOString()
+            : null,
+        })
+        .eq('id', requestId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-support-requests'] });
+      toast.success('Support request updated');
+    },
+    onError: () => {
+      toast.error('Failed to update support request');
     },
   });
 
@@ -449,6 +510,108 @@ export function AdminSupport() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-lg">Guest Help Center Requests</CardTitle>
+          <Badge variant="outline">{supportRequests?.length || 0} requests</Badge>
+        </CardHeader>
+        <CardContent>
+          {loadingSupportRequests ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          ) : supportRequests && supportRequests.length > 0 ? (
+            <div className="space-y-4">
+              {supportRequests.map((request) => {
+                const draftNotes = requestNotes[request.id] ?? request.internal_notes ?? '';
+                return (
+                  <div key={request.id} className="rounded-xl border border-border p-4 space-y-3">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                      <div>
+                        <p className="font-medium text-foreground">{request.name}</p>
+                        <button
+                          type="button"
+                          className="text-sm text-primary underline-offset-4 hover:underline"
+                          onClick={() => {
+                            window.location.href = `mailto:${request.email}?subject=${encodeURIComponent('Ihsan Support')}`;
+                          }}
+                        >
+                          {request.email}
+                        </button>
+                        <p className="text-xs text-muted-foreground">
+                          {format(new Date(request.created_at), 'MMM d, yyyy h:mm a')} via {request.source.replaceAll('_', ' ')}
+                        </p>
+                      </div>
+                      <Badge variant={request.status === 'resolved' || request.status === 'closed' ? 'secondary' : 'default'}>
+                        {request.status.replaceAll('_', ' ')}
+                      </Badge>
+                    </div>
+
+                    <div className="rounded-lg bg-muted/40 p-3 text-sm whitespace-pre-wrap">
+                      {request.message}
+                    </div>
+
+                    <div className="space-y-2">
+                      <label htmlFor={`request-notes-${request.id}`} className="text-sm font-medium">
+                        Internal notes
+                      </label>
+                      <Textarea
+                        id={`request-notes-${request.id}`}
+                        value={draftNotes}
+                        onChange={(e) => {
+                          setRequestNotes((prev) => ({ ...prev, [request.id]: e.target.value }));
+                        }}
+                        placeholder="Add notes before marking this request as handled..."
+                        rows={3}
+                      />
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => updateSupportRequestMutation.mutate({
+                          requestId: request.id,
+                          status: 'in_progress',
+                          internalNotes: draftNotes,
+                        })}
+                        disabled={updateSupportRequestMutation.isPending}
+                      >
+                        Mark In Progress
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => updateSupportRequestMutation.mutate({
+                          requestId: request.id,
+                          status: 'resolved',
+                          internalNotes: draftNotes,
+                        })}
+                        disabled={updateSupportRequestMutation.isPending}
+                      >
+                        Resolve
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          window.location.href = `mailto:${request.email}?subject=${encodeURIComponent('Re: your Ihsan support request')}`;
+                        }}
+                      >
+                        Reply by Email
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              No guest Help Center requests yet.
+            </p>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

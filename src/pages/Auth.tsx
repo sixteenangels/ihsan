@@ -41,6 +41,30 @@ export default function Auth() {
   const [rememberMe, setRememberMe] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const hashParams = new URLSearchParams(url.hash.startsWith('#') ? url.hash.slice(1) : url.hash);
+    const error = searchParams.get('error') || hashParams.get('error');
+    const errorDescription =
+      searchParams.get('error_description') || hashParams.get('error_description') || '';
+
+    if (!error && !errorDescription) {
+      return;
+    }
+
+    const message = decodeURIComponent(errorDescription || error).replace(/\+/g, ' ');
+
+    if (/access.?blocked|disallowed_useragent|redirect_uri_mismatch|invalid_client/i.test(message)) {
+      toast.error(
+        'Google sign-in is blocked by OAuth settings. Add this app URL to the Supabase Google provider authorized redirect URLs and origins.'
+      );
+    } else if (/server_error|provider/i.test(message)) {
+      toast.error('Google sign-in is not fully configured in Supabase yet. Please review the Google provider settings.');
+    } else {
+      toast.error(`Google sign-in failed: ${message}`);
+    }
+  }, [searchParams]);
+
   // Check if user is coming from password reset link
   useEffect(() => {
     const tab = searchParams.get('tab');
@@ -190,6 +214,12 @@ export default function Auth() {
       const { error } = await signInWithGoogle();
       if (error) {
         const msg = error.message || '';
+        if (/access.?blocked|disallowed_useragent|redirect_uri_mismatch|invalid_client/i.test(msg)) {
+          toast.error(
+            'Google blocked this sign-in. Verify the Supabase Google provider callback URL and authorized origins for this app.'
+          );
+          return;
+        }
         if (/access.?blocked|disallowed_useragent|redirect_uri_mismatch|invalid_client/i.test(msg)) {
           toast.error(
             'Google blocked this sign-in. The OAuth client is misconfigured — verify the callback URL and authorized origins, or switch to Lovable-managed Google credentials.'

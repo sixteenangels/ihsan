@@ -10,7 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import { useCurrency } from '@/hooks/useCurrency';
 import { toast } from 'sonner';
-import { Product } from '@/types';
+import { Product, ProductVariant } from '@/types';
 
 interface ExtendedProduct extends Product {
   isReadyNow?: boolean;
@@ -30,27 +30,29 @@ export function ProductQuickView({ product, open, onOpenChange }: ProductQuickVi
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [selectedVariant, setSelectedVariant] = useState<string | null>(null);
 
-  if (!product) return null;
-
-  const inWishlist = isInWishlist(product.id);
-  const images = product.images.length > 0 ? product.images : ['https://via.placeholder.com/400'];
+  const variants = useMemo(() => product?.variants ?? [], [product?.variants]);
 
   // Get unique colors and sizes from variants
   const colors = useMemo(() => {
     const colorSet = new Set<string>();
-    product.variants?.forEach(v => {
+    variants.forEach((v) => {
       if (v.color) colorSet.add(v.color);
     });
     return Array.from(colorSet);
-  }, [product.variants]);
+  }, [variants]);
 
   const sizes = useMemo(() => {
     const sizeSet = new Set<string>();
-    product.variants?.forEach(v => {
+    variants.forEach((v) => {
       if (v.size) sizeSet.add(v.size);
     });
     return Array.from(sizeSet);
-  }, [product.variants]);
+  }, [variants]);
+
+  if (!product) return null;
+
+  const inWishlist = isInWishlist(product.id);
+  const images = product.images.length > 0 ? product.images : ['https://via.placeholder.com/400'];
 
   const handleWishlistClick = () => {
     if (!user) {
@@ -61,8 +63,8 @@ export function ProductQuickView({ product, open, onOpenChange }: ProductQuickVi
   };
 
   const handleAddToCart = () => {
-    const variant = selectedVariant 
-      ? product.variants?.find(v => v.id === selectedVariant)
+    const variant: ProductVariant | null = selectedVariant
+      ? product.variants?.find((v) => v.id === selectedVariant) || null
       : null;
 
     if (!variant && product.variants && product.variants.length > 0) {
@@ -72,7 +74,7 @@ export function ProductQuickView({ product, open, onOpenChange }: ProductQuickVi
       return;
     }
 
-    addToCart(product, (variant || null) as any, 1);
+    addToCart(product, variant, 1);
     toast.success('Added to cart');
     onOpenChange(false);
   };

@@ -48,7 +48,9 @@ export function SwipeableOrderCard({
         if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
           navigator.vibrate(pattern);
         }
-      } catch {}
+      } catch {
+        // Ignore browsers that block vibration.
+      }
     };
     if (info.offset.x > SWIPE_THRESHOLD && onSwipeRight) {
       setCommitted('right');

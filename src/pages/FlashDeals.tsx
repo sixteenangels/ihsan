@@ -6,9 +6,37 @@ import { Footer } from '@/components/layout/Footer';
 import { ProductCard } from '@/components/products/ProductCard';
 import { Badge } from '@/components/ui/badge';
 import { Zap, Clock, Loader2, Ban } from 'lucide-react';
-import { useCurrency } from '@/hooks/useCurrency';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
-import { Product } from '@/types';
+import { Product, ProductVariant } from '@/types';
+
+interface FlashDealImage {
+  image_url: string;
+  order_index: number | null;
+}
+
+interface FlashDealVariant {
+  id: string;
+  size: string | null;
+  color: string | null;
+  price_override: number | null;
+  stock: number | null;
+  is_active: boolean | null;
+}
+
+interface FlashDealProductRecord {
+  id: string;
+  name: string;
+  description: string | null;
+  base_price: number;
+  is_group_buy_eligible: boolean | null;
+  is_free_shipping: boolean | null;
+  rating: number | null;
+  review_count: number | null;
+  flash_deal_ends_at: string | null;
+  product_images: FlashDealImage[];
+  product_variants: FlashDealVariant[];
+  categories: { name: string } | null;
+}
 
 function CountdownTimer({ endsAt }: { endsAt: string }) {
   const [timeLeft, setTimeLeft] = useState('');
@@ -49,11 +77,72 @@ function CountdownTimer({ endsAt }: { endsAt: string }) {
   );
 }
 
-export default function FlashDeals() {
-  const { formatPrice } = useCurrency();
-  const { isEnabled } = useFeatureFlags();
+function toProduct(record: FlashDealProductRecord): Product {
+  const images = (record.product_images || [])
+    .sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
+    .map((image) => image.image_url);
 
-  if (!isEnabled('flash_deals')) {
+  const variants = (record.product_variants || [])
+    .filter((variant) => variant.is_active)
+    .map<ProductVariant>((variant) => ({
+      id: variant.id,
+      size: variant.size || undefined,
+      color: variant.color || undefined,
+      price: variant.price_override || record.base_price,
+      stock: variant.stock || 0,
+    }));
+
+  return {
+    id: record.id,
+    name: record.name,
+    description: record.description || '',
+    category: record.categories?.name || 'Uncategorized',
+    basePrice: record.base_price,
+    images: images.length > 0 ? images : ['/placeholder.svg'],
+    variants,
+    shippingOptions: [],
+    isGroupBuyEligible: record.is_group_buy_eligible || false,
+    isFlashDeal: true,
+    isFreeShippingEligible: record.is_free_shipping || false,
+    rating: record.rating || 0,
+    reviewCount: record.review_count || 0,
+  };
+}
+
+export default function FlashDeals() {
+  const { isEnabled } = useFeatureFlags();
+  const flashDealsEnabled = isEnabled('flash_deals');
+
+  const { data: flashProducts, isLoading } = useQuery({
+    queryKey: ['flash-deals'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('products')
+        .select(`
+          id,
+          name,
+          description,
+          base_price,
+          is_group_buy_eligible,
+          is_free_shipping,
+          rating,
+          review_count,
+          flash_deal_ends_at,
+          product_images (image_url, order_index),
+          product_variants (id, size, color, price_override, stock, is_active),
+          categories (name)
+        `)
+        .eq('is_flash_deal', true)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return (data || []) as FlashDealProductRecord[];
+    },
+    enabled: flashDealsEnabled,
+  });
+
+  if (!flashDealsEnabled) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
@@ -67,55 +156,6 @@ export default function FlashDeals() {
     );
   }
 
-  const { data: flashProducts, isLoading } = useQuery({
-    queryKey: ['flash-deals'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('products')
-        .select(`
-          *,
-          product_images (image_url, order_index),
-          product_variants (id, size, color, price_override, stock, is_active),
-          categories (name)
-        `)
-        .eq('is_flash_deal', true)
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      return data || [];
-    },
-  });
-
-  const toProduct = (p: any): Product => {
-    const images = (p.product_images || [])
-      .sort((a: any, b: any) => (a.order_index || 0) - (b.order_index || 0))
-      .map((img: any) => img.image_url);
-    const variants = (p.product_variants || []).filter((v: any) => v.is_active);
-
-    return {
-      id: p.id,
-      name: p.name,
-      description: p.description || '',
-      category: p.categories?.name || 'Uncategorized',
-      basePrice: p.base_price,
-      images: images.length > 0 ? images : ['/placeholder.svg'],
-      variants: variants.map((v: any) => ({
-        id: v.id,
-        size: v.size || undefined,
-        color: v.color || undefined,
-        price: v.price_override || p.base_price,
-        stock: v.stock || 0,
-      })),
-      shippingOptions: [],
-      isGroupBuyEligible: p.is_group_buy_eligible || false,
-      isFlashDeal: true,
-      isFreeShippingEligible: p.is_free_shipping || false,
-      rating: p.rating || 0,
-      reviewCount: p.review_count || 0,
-    };
-  };
-
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -126,7 +166,7 @@ export default function FlashDeals() {
           </div>
           <div>
             <h1 className="text-3xl font-bold font-serif text-foreground">Flash Deals</h1>
-            <p className="text-muted-foreground">Limited time offers — grab them before they're gone!</p>
+            <p className="text-muted-foreground">Limited time offers - grab them before they are gone.</p>
           </div>
         </div>
 
@@ -141,14 +181,14 @@ export default function FlashDeals() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {flashProducts.map((p: any) => (
-              <div key={p.id} className="relative">
-                {p.flash_deal_ends_at && (
+            {flashProducts.map((product) => (
+              <div key={product.id} className="relative">
+                {product.flash_deal_ends_at ? (
                   <div className="absolute top-2 right-2 z-10">
-                    <CountdownTimer endsAt={p.flash_deal_ends_at} />
+                    <CountdownTimer endsAt={product.flash_deal_ends_at} />
                   </div>
-                )}
-                <ProductCard product={toProduct(p)} />
+                ) : null}
+                <ProductCard product={toProduct(product)} />
               </div>
             ))}
           </div>

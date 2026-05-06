@@ -11,6 +11,8 @@ export interface RefundRequest {
   status: 'pending' | 'approved' | 'rejected' | 'processed';
   admin_notes: string | null;
   refund_amount: number | null;
+  refund_channel: string;
+  wallet_credit_amount: number;
   created_at: string;
   updated_at: string;
   processed_at: string | null;
@@ -20,17 +22,27 @@ export interface RefundRequest {
   };
 }
 
+export interface AdminRefundRequest extends RefundRequest {
+  orders: {
+    order_number: string;
+    total_amount: number;
+    user_id: string;
+  } | null;
+  profiles: {
+    name: string | null;
+    email: string | null;
+  } | null;
+}
+
 export function useRefundRequests() {
   const { user } = useAuth();
-  const queryClient = useQueryClient();
 
   const { data: refundRequests = [], isLoading } = useQuery({
     queryKey: ['refund-requests', user?.id],
     queryFn: async () => {
       if (!user) return [];
 
-      const client = supabase as any;
-      const { data, error } = await client
+      const { data, error } = await supabase
         .from('refund_requests')
         .select(`
           *,
@@ -44,9 +56,9 @@ export function useRefundRequests() {
         return [];
       }
 
-      return (data || []).map((r: any) => ({
-        ...r,
-        order: r.orders,
+      return (data || []).map((request) => ({
+        ...request,
+        order: request.orders || undefined,
       })) as RefundRequest[];
     },
     enabled: !!user,
@@ -60,12 +72,12 @@ export function useRefundRequests() {
 
 export function useAdminRefundRequests() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const { data: refundRequests = [], isLoading } = useQuery({
     queryKey: ['admin-refund-requests'],
     queryFn: async () => {
-      const client = supabase as any;
-      const { data, error } = await client
+      const { data, error } = await supabase
         .from('refund_requests')
         .select(`
           *,
@@ -79,7 +91,7 @@ export function useAdminRefundRequests() {
         return [];
       }
 
-      return data as any[];
+      return (data || []) as AdminRefundRequest[];
     },
   });
 
@@ -88,18 +100,24 @@ export function useAdminRefundRequests() {
       id,
       status,
       admin_notes,
+      refund_channel,
+      wallet_credit_amount,
     }: {
       id: string;
       status: 'approved' | 'rejected' | 'processed';
       admin_notes?: string;
+      refund_channel?: string;
+      wallet_credit_amount?: number;
     }) => {
-      const client = supabase as any;
-      const { error } = await client
+      const { error } = await supabase
         .from('refund_requests')
         .update({
           status,
           admin_notes,
+          refund_channel,
+          wallet_credit_amount,
           processed_at: status === 'processed' ? new Date().toISOString() : null,
+          processed_by: status === 'processed' ? user?.id || null : null,
         })
         .eq('id', id);
 
@@ -107,13 +125,14 @@ export function useAdminRefundRequests() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-refund-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['refund-requests'] });
     },
   });
 
   return {
     refundRequests,
     isLoading,
-    updateRefund: updateRefundMutation.mutate,
+    updateRefund: updateRefundMutation.mutateAsync,
     isUpdating: updateRefundMutation.isPending,
   };
 }

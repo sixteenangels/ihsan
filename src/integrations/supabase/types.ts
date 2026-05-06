@@ -1,4 +1,4 @@
-export type Json =
+﻿export type Json =
   | string
   | number
   | boolean
@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.1"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -473,6 +473,7 @@ export type Database = {
           current_participants: number | null
           discount_percentage: number | null
           expires_at: string
+          group_price: number | null
           id: string
           max_participants: number | null
           min_participants: number
@@ -487,6 +488,7 @@ export type Database = {
           current_participants?: number | null
           discount_percentage?: number | null
           expires_at: string
+          group_price?: number | null
           id?: string
           max_participants?: number | null
           min_participants: number
@@ -501,6 +503,7 @@ export type Database = {
           current_participants?: number | null
           discount_percentage?: number | null
           expires_at?: string
+          group_price?: number | null
           id?: string
           max_participants?: number | null
           min_participants?: number
@@ -1041,11 +1044,14 @@ export type Database = {
       }
       products: {
         Row: {
+          allow_reinforced_packaging: boolean
+          allow_standard_packaging: boolean
           base_price: number
           category_id: string | null
           created_at: string
           description: string | null
           flash_deal_ends_at: string | null
+          group_buy_price: number | null
           id: string
           is_active: boolean | null
           is_flash_deal: boolean | null
@@ -1062,11 +1068,14 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          allow_reinforced_packaging?: boolean
+          allow_standard_packaging?: boolean
           base_price: number
           category_id?: string | null
           created_at?: string
           description?: string | null
           flash_deal_ends_at?: string | null
+          group_buy_price?: number | null
           id?: string
           is_active?: boolean | null
           is_flash_deal?: boolean | null
@@ -1083,11 +1092,14 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          allow_reinforced_packaging?: boolean
+          allow_standard_packaging?: boolean
           base_price?: number
           category_id?: string | null
           created_at?: string
           description?: string | null
           flash_deal_ends_at?: string | null
+          group_buy_price?: number | null
           id?: string
           is_active?: boolean | null
           is_flash_deal?: boolean | null
@@ -1273,9 +1285,11 @@ export type Database = {
           processed_by: string | null
           reason: string
           refund_amount: number | null
+          refund_channel: string
           status: string
           updated_at: string
           user_id: string
+          wallet_credit_amount: number
         }
         Insert: {
           admin_notes?: string | null
@@ -1287,9 +1301,11 @@ export type Database = {
           processed_by?: string | null
           reason: string
           refund_amount?: number | null
+          refund_channel?: string
           status?: string
           updated_at?: string
           user_id: string
+          wallet_credit_amount?: number
         }
         Update: {
           admin_notes?: string | null
@@ -1301,9 +1317,11 @@ export type Database = {
           processed_by?: string | null
           reason?: string
           refund_amount?: number | null
+          refund_channel?: string
           status?: string
           updated_at?: string
           user_id?: string
+          wallet_credit_amount?: number
         }
         Relationships: []
       }
@@ -1489,6 +1507,48 @@ export type Database = {
         }
         Relationships: []
       }
+      support_requests: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          internal_notes: string | null
+          message: string
+          name: string
+          responded_at: string | null
+          source: string
+          status: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          internal_notes?: string | null
+          message: string
+          name: string
+          responded_at?: string | null
+          source?: string
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          internal_notes?: string | null
+          message?: string
+          name?: string
+          responded_at?: string | null
+          source?: string
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -1557,6 +1617,7 @@ export type Database = {
           description: string
           id: string
           order_id: string | null
+          reference_key: string | null
           type: string
           user_id: string
         }
@@ -1567,6 +1628,7 @@ export type Database = {
           description: string
           id?: string
           order_id?: string | null
+          reference_key?: string | null
           type: string
           user_id: string
         }
@@ -1577,6 +1639,7 @@ export type Database = {
           description?: string
           id?: string
           order_id?: string | null
+          reference_key?: string | null
           type?: string
           user_id?: string
         }

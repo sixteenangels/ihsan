@@ -15,6 +15,10 @@ interface SettingsState {
   emailNotifications: boolean;
   orderEmailsEnabled: boolean;
   marketingEmailsEnabled: boolean;
+  supportEmail: string;
+  supportPhone: string;
+  supportLocation: string;
+  supportHours: string;
   mapProvider: string;
   otpEnabled: boolean;
   otpLength: number;
@@ -48,6 +52,10 @@ const DEFAULT_SETTINGS: SettingsState = {
   emailNotifications: true,
   orderEmailsEnabled: true,
   marketingEmailsEnabled: false,
+  supportEmail: '',
+  supportPhone: '',
+  supportLocation: 'Accra, Ghana',
+  supportHours: '9 AM - 6 PM GMT',
   mapProvider: 'openstreetmap',
   otpEnabled: true,
   otpLength: 6,
@@ -93,6 +101,24 @@ const FEATURE_TOGGLES = [
   { key: 'feature_push_notifications' as const, label: 'Push Notifications', description: 'Enable browser push notification prompts' },
 ];
 
+function coerceSettingValue<K extends keyof SettingsState>(
+  key: K,
+  value: unknown,
+): SettingsState[K] {
+  const fallback = DEFAULT_SETTINGS[key];
+
+  if (typeof fallback === 'boolean') {
+    return Boolean(value) as SettingsState[K];
+  }
+
+  if (typeof fallback === 'number') {
+    const parsedNumber = typeof value === 'number' ? value : Number(value);
+    return (Number.isFinite(parsedNumber) ? parsedNumber : fallback) as SettingsState[K];
+  }
+
+  return (typeof value === 'string' ? value : fallback) as SettingsState[K];
+}
+
 export function AdminSettings() {
   const queryClient = useQueryClient();
 
@@ -103,7 +129,7 @@ export function AdminSettings() {
         .from('store_settings')
         .select('key, value');
       if (error) throw error;
-      const map: Record<string, any> = {};
+      const map: Record<string, unknown> = {};
       data?.forEach((row) => { map[row.key] = row.value; });
       return map;
     },
@@ -117,7 +143,7 @@ export function AdminSettings() {
         const next = { ...DEFAULT_SETTINGS };
         for (const key of Object.keys(next) as (keyof SettingsState)[]) {
           if (dbSettings[key] !== undefined && dbSettings[key] !== null) {
-            (next as any)[key] = dbSettings[key];
+            next[key] = coerceSettingValue(key, dbSettings[key]);
           }
         }
         return next;
@@ -287,6 +313,52 @@ export function AdminSettings() {
               </div>
               <div className="pt-4 border-t border-border">
                 <div className="flex items-center gap-2 mb-4">
+                  <Mail className="h-5 w-5 text-muted-foreground" />
+                  <h3 className="font-medium">Support Contact</h3>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                  <div className="space-y-1">
+                    <Label htmlFor="support-email">Support Email</Label>
+                    <Input
+                      id="support-email"
+                      type="email"
+                      value={settings.supportEmail}
+                      onChange={(e) => setSettings((prev) => ({ ...prev, supportEmail: e.target.value }))}
+                      placeholder="support@example.com"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="support-phone">Support Phone</Label>
+                    <Input
+                      id="support-phone"
+                      value={settings.supportPhone}
+                      onChange={(e) => setSettings((prev) => ({ ...prev, supportPhone: e.target.value }))}
+                      placeholder="+233..."
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="support-location">Support Location</Label>
+                    <Input
+                      id="support-location"
+                      value={settings.supportLocation}
+                      onChange={(e) => setSettings((prev) => ({ ...prev, supportLocation: e.target.value }))}
+                      placeholder="Accra, Ghana"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="support-hours">Support Hours</Label>
+                    <Input
+                      id="support-hours"
+                      value={settings.supportHours}
+                      onChange={(e) => setSettings((prev) => ({ ...prev, supportHours: e.target.value }))}
+                      placeholder="9 AM - 6 PM GMT"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-border">
+                <div className="flex items-center gap-2 mb-4">
                   <Database className="h-5 w-5 text-muted-foreground" />
                   <h3 className="font-medium">Database Status</h3>
                 </div>
@@ -297,7 +369,7 @@ export function AdminSettings() {
                   </div>
                   <div className="p-3 border border-border rounded-lg">
                     <p className="text-sm text-muted-foreground">Provider</p>
-                    <p className="font-medium">Lovable Cloud</p>
+                    <p className="font-medium">Supabase</p>
                   </div>
                 </div>
               </div>
@@ -484,7 +556,7 @@ export function AdminSettings() {
                 </div>
                 <p className="text-sm text-muted-foreground">
                   API keys are securely stored and encrypted. They are never exposed in the frontend code.
-                  To update API keys, please use the Lovable Cloud secrets management.
+                  To update API keys, please use your deployment provider and Supabase project settings.
                 </p>
               </div>
               <div className="space-y-4">

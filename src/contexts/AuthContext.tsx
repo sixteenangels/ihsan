@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { lovable } from '@/integrations/lovable';
 
 interface AuthContextType {
   user: User | null;
@@ -20,6 +19,22 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+function getOAuthRedirectUrl() {
+  if (typeof window === 'undefined') {
+    return '/auth';
+  }
+
+  const currentUrl = new URL(window.location.href);
+  const callbackUrl = new URL('/auth', currentUrl.origin);
+  callbackUrl.hash = '';
+
+  if (currentUrl.pathname === '/auth') {
+    callbackUrl.search = currentUrl.search;
+  }
+
+  return callbackUrl.toString();
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -120,10 +135,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signInWithGoogle = async () => {
-    const result = await lovable.auth.signInWithOAuth('google', {
-      redirect_uri: `${window.location.origin}/`,
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: getOAuthRedirectUrl(),
+        queryParams: {
+          prompt: 'select_account',
+        },
+      },
     });
-    return { error: (result.error as Error | undefined) ?? null };
+
+    return { error: error as Error | null };
   };
 
   const resetPassword = async (email: string) => {

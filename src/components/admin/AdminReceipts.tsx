@@ -1,19 +1,112 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, FileText, Download, Plus, Printer, QrCode } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Loader2, Download, Plus, Printer, QrCode } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import {
+  buildReceiptHtml,
+  buildReceiptQrPayload,
+  buildReceiptQrUrl,
+  downloadReceipt,
+  printReceipt,
+  type PrintableReceipt,
+} from '@/lib/receipt-utils';
+
+interface ReceiptProfile {
+  name: string | null;
+  email: string | null;
+}
+
+interface ReceiptOrderItem {
+  product_name: string;
+  variant_details: string | null;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+}
+
+interface ReceiptOrder {
+  order_number: string;
+  total_amount: number;
+  subtotal: number;
+  shipping_price: number | null;
+  packaging_cost: number | null;
+  wallet_credit_used: number | null;
+  status: string;
+  created_at: string;
+  shipping_address: PrintableReceipt['shippingAddress'] | null;
+  profiles: ReceiptProfile | null;
+  order_items: ReceiptOrderItem[];
+}
+
+interface ReceiptRecord {
+  id: string;
+  generated_at: string;
+  order_id: string;
+  pdf_url: string | null;
+  qr_code: string | null;
+  receipt_number: string;
+  orders: ReceiptOrder | null;
+}
+
+interface ReceiptCandidate {
+  id: string;
+  order_number: string;
+  total_amount: number;
+  status: string;
+}
+
+function mapReceiptForPrinting(receipt: ReceiptRecord): PrintableReceipt {
+  const order = receipt.orders;
+  return {
+    receiptNumber: receipt.receipt_number,
+    generatedAt: receipt.generated_at,
+    qrPayload: receipt.qr_code || buildReceiptQrPayload(receipt.receipt_number, order?.order_number || receipt.order_id),
+    orderNumber: order?.order_number || 'Unknown Order',
+    orderStatus: order?.status || 'unknown',
+    orderDate: order?.created_at,
+    customerName: order?.profiles?.name || 'Unknown Customer',
+    customerEmail: order?.profiles?.email || null,
+    subtotal: Number(order?.subtotal || 0),
+    shippingPrice: Number(order?.shipping_price || 0),
+    packagingCost: Number(order?.packaging_cost || 0),
+    walletCreditUsed: Number(order?.wallet_credit_used || 0),
+    totalAmount: Number(order?.total_amount || 0),
+    shippingAddress: order?.shipping_address || null,
+    items: (order?.order_items || []).map((item) => ({
+      productName: item.product_name,
+      variantDetails: item.variant_details,
+      quantity: item.quantity,
+      unitPrice: Number(item.unit_price),
+      totalPrice: Number(item.total_price),
+    })),
+  };
+}
 
 export function AdminReceipts() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedReceipt, setSelectedReceipt] = useState<ReceiptRecord | null>(null);
 
   const { data: receipts, isLoading } = useQuery({
     queryKey: ['admin-receipts'],
@@ -25,15 +118,21 @@ export function AdminReceipts() {
           orders(
             order_number,
             total_amount,
+            subtotal,
+            shipping_price,
+            packaging_cost,
+            wallet_credit_used,
             status,
+            created_at,
             shipping_address,
-            profiles:user_id(name, email)
+            profiles:user_id(name, email),
+            order_items(product_name, variant_details, quantity, unit_price, total_price)
           )
         `)
         .order('generated_at', { ascending: false });
-      
+
       if (error) throw error;
-      return data;
+      return (data || []) as ReceiptRecord[];
     },
   });
 
@@ -44,34 +143,40 @@ export function AdminReceipts() {
         .from('orders')
         .select('id, order_number, total_amount, status')
         .in('status', ['delivered', 'shipped', 'in_transit']);
-      
+
       if (ordersError) throw ordersError;
 
       const { data: existingReceipts, error: receiptsError } = await supabase
         .from('receipts')
         .select('order_id');
-      
+
       if (receiptsError) throw receiptsError;
 
-      const receiptOrderIds = new Set(existingReceipts?.map(r => r.order_id));
-      return allOrders?.filter(order => !receiptOrderIds.has(order.id)) || [];
+      const receiptOrderIds = new Set((existingReceipts || []).map((receipt) => receipt.order_id));
+      return ((allOrders || []) as ReceiptCandidate[]).filter((order) => !receiptOrderIds.has(order.id));
     },
   });
 
   const generateReceiptMutation = useMutation({
-    mutationFn: async (orderId: string) => {
-      // Generate a simple QR code data (in real app, this would be a proper QR code)
-      const qrCodeData = `ORDER:${orderId}`;
-      
-      const { error } = await supabase
+    mutationFn: async (order: ReceiptCandidate) => {
+      const { data: createdReceipt, error: insertError } = await supabase
         .from('receipts')
         .insert({
-          order_id: orderId,
-          qr_code: qrCodeData,
-          receipt_number: '', // Will be auto-generated by trigger
-        } as any);
-      
-      if (error) throw error;
+          order_id: order.id,
+          receipt_number: 'PENDING',
+        })
+        .select('id, receipt_number')
+        .single();
+
+      if (insertError) throw insertError;
+
+      const qrPayload = buildReceiptQrPayload(createdReceipt.receipt_number, order.order_number);
+      const { error: updateError } = await supabase
+        .from('receipts')
+        .update({ qr_code: qrPayload })
+        .eq('id', createdReceipt.id);
+
+      if (updateError) throw updateError;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-receipts'] });
@@ -84,10 +189,18 @@ export function AdminReceipts() {
     },
   });
 
-  const filteredReceipts = receipts?.filter(receipt => 
-    receipt.receipt_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    receipt.orders?.order_number.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredReceipts = useMemo(() => {
+    const normalizedQuery = searchTerm.trim().toLowerCase();
+    if (!normalizedQuery) {
+      return receipts || [];
+    }
+
+    return (receipts || []).filter((receipt) =>
+      receipt.receipt_number.toLowerCase().includes(normalizedQuery) ||
+      receipt.orders?.order_number.toLowerCase().includes(normalizedQuery) ||
+      receipt.orders?.profiles?.name?.toLowerCase().includes(normalizedQuery),
+    );
+  }, [receipts, searchTerm]);
 
   if (isLoading) {
     return (
@@ -120,19 +233,19 @@ export function AdminReceipts() {
               ) : (
                 <div className="space-y-2">
                   {ordersWithoutReceipts?.map((order) => (
-                    <div 
+                    <div
                       key={order.id}
                       className="flex items-center justify-between p-3 border border-border rounded-lg"
                     >
                       <div>
                         <p className="font-medium">{order.order_number}</p>
                         <p className="text-sm text-muted-foreground">
-                          GH₵{order.total_amount.toFixed(2)} - {order.status}
+                          ₵{Number(order.total_amount).toFixed(2)} - {order.status}
                         </p>
                       </div>
-                      <Button 
+                      <Button
                         size="sm"
-                        onClick={() => generateReceiptMutation.mutate(order.id)}
+                        onClick={() => generateReceiptMutation.mutate(order)}
                         disabled={generateReceiptMutation.isPending}
                       >
                         Generate
@@ -148,7 +261,7 @@ export function AdminReceipts() {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4">
             <CardTitle>All Receipts</CardTitle>
             <Input
               placeholder="Search receipts..."
@@ -159,7 +272,7 @@ export function AdminReceipts() {
           </div>
         </CardHeader>
         <CardContent>
-          {filteredReceipts?.length === 0 ? (
+          {filteredReceipts.length === 0 ? (
             <p className="text-center text-muted-foreground py-8">
               No receipts found
             </p>
@@ -176,41 +289,91 @@ export function AdminReceipts() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredReceipts?.map((receipt) => (
-                  <TableRow key={receipt.id}>
-                    <TableCell className="font-mono text-sm">
-                      {receipt.receipt_number}
-                    </TableCell>
-                    <TableCell className="font-mono text-sm">
-                      {receipt.orders?.order_number}
-                    </TableCell>
-                    <TableCell>
-                      {(receipt.orders?.profiles as any)?.name || 'Unknown'}
-                    </TableCell>
-                    <TableCell>
-                      GH₵{receipt.orders?.total_amount.toFixed(2)}
-                    </TableCell>
-                    <TableCell>
-                      {format(new Date(receipt.generated_at), 'MMM d, yyyy')}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm">
-                          <Printer className="h-4 w-4 mr-1" />
-                          Print
-                        </Button>
-                        <Button variant="outline" size="sm">
-                          <QrCode className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {filteredReceipts.map((receipt) => {
+                  const printableReceipt = mapReceiptForPrinting(receipt);
+                  return (
+                    <TableRow key={receipt.id}>
+                      <TableCell className="font-mono text-sm">
+                        {receipt.receipt_number}
+                      </TableCell>
+                      <TableCell className="font-mono text-sm">
+                        {receipt.orders?.order_number}
+                      </TableCell>
+                      <TableCell>
+                        {receipt.orders?.profiles?.name || 'Unknown'}
+                      </TableCell>
+                      <TableCell>
+                        ₵{Number(receipt.orders?.total_amount || 0).toFixed(2)}
+                      </TableCell>
+                      <TableCell>
+                        {format(new Date(receipt.generated_at), 'MMM d, yyyy')}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSelectedReceipt(receipt)}
+                          >
+                            <QrCode className="h-4 w-4 mr-1" />
+                            Preview
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => printReceipt(printableReceipt)}
+                          >
+                            <Printer className="h-4 w-4 mr-1" />
+                            Print
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => downloadReceipt(printableReceipt)}
+                          >
+                            <Download className="h-4 w-4 mr-1" />
+                            Download
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={!!selectedReceipt} onOpenChange={(open) => !open && setSelectedReceipt(null)}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Receipt Preview</DialogTitle>
+          </DialogHeader>
+          {selectedReceipt ? (
+            <div className="space-y-6">
+              <iframe
+                title={`Receipt preview ${selectedReceipt.receipt_number}`}
+                srcDoc={buildReceiptHtml(mapReceiptForPrinting(selectedReceipt))}
+                className="h-[70vh] w-full rounded-xl border border-border bg-background"
+              />
+              <div className="flex flex-wrap justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => downloadReceipt(mapReceiptForPrinting(selectedReceipt))}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download
+                </Button>
+                <Button onClick={() => printReceipt(mapReceiptForPrinting(selectedReceipt))}>
+                  <Printer className="h-4 w-4 mr-2" />
+                  Print
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

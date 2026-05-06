@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
+import { useStoreSettings } from '@/hooks/useStoreSettings';
 import { 
   MessageCircle, 
   Mail, 
@@ -88,11 +89,11 @@ const faqs = [
     questions: [
       {
         q: 'What is a Group Buy?',
-        a: 'Group Buys allow multiple customers to purchase together and enjoy discounts. When enough people join, everyone gets a reduced price on their order.'
+        a: 'Group Buys let shoppers join a shared purchase at a fixed group price. When the required number of participants joins before the deadline, the group order moves forward.'
       },
       {
         q: 'How do I join a Group Buy?',
-        a: 'Browse our Group Buys section, select a product you\'re interested in, and click "Join Group Buy". You\'ll be charged only when the minimum participants are reached.'
+        a: 'Browse our Group Buys section, open the offer you want, choose your variant and quantity, then pay to secure your spot at the listed group price.'
       },
       {
         q: 'What happens if a Group Buy doesn\'t reach its target?',
@@ -104,11 +105,21 @@ const faqs = [
 
 export default function Help() {
   const { user } = useAuth();
+  const { data: storeSettings } = useStoreSettings();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+
+  const supportEmail = typeof storeSettings?.supportEmail === 'string' ? storeSettings.supportEmail.trim() : '';
+  const supportPhone = typeof storeSettings?.supportPhone === 'string' ? storeSettings.supportPhone.trim() : '';
+  const supportLocation = typeof storeSettings?.supportLocation === 'string'
+    ? storeSettings.supportLocation.trim()
+    : 'Accra, Ghana';
+  const supportHours = typeof storeSettings?.supportHours === 'string'
+    ? storeSettings.supportHours.trim()
+    : '9 AM - 6 PM GMT';
 
   useEffect(() => {
     if (!user) return;
@@ -129,11 +140,14 @@ export default function Help() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim();
+    const trimmedMessage = message.trim();
 
-    if (!user) {
+    if (!trimmedName || !trimmedEmail || !trimmedMessage) {
       toast({
-        title: 'Sign in required',
-        description: 'Please sign in to send a tracked support request from the Help Center.',
+        title: 'Complete the form',
+        description: 'Please add your name, email, and message before sending.',
       });
       return;
     }
@@ -141,10 +155,27 @@ export default function Help() {
     setIsSubmitting(true);
 
     try {
+      if (!user) {
+        const { error: guestRequestError } = await supabase
+          .from('support_requests')
+          .insert({
+            name: trimmedName,
+            email: trimmedEmail,
+            message: trimmedMessage,
+            source: 'help_center',
+          });
+
+        if (guestRequestError) throw guestRequestError;
+
+        toast({
+          title: 'Request received',
+          description: `Support has your message and will follow up at ${trimmedEmail}.`,
+        });
+        setMessage('');
+        return;
+      }
+
       const subject = 'Help Center Contact Form';
-      const trimmedName = name.trim();
-      const trimmedEmail = email.trim();
-      const trimmedMessage = message.trim();
 
       const { data: existingConversation, error: lookupError } = await supabase
         .from('chat_support_conversations')
@@ -246,7 +277,7 @@ export default function Help() {
               </CardDescription>
               <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                 <Clock className="h-4 w-4" />
-                <span>9 AM - 6 PM GMT</span>
+                <span>{supportHours}</span>
               </div>
             </CardContent>
           </Card>
@@ -260,11 +291,11 @@ export default function Help() {
             </CardHeader>
             <CardContent>
               <CardDescription className="mb-3">
-                support@ihsan.com
+                {supportEmail || 'Use the contact form below'}
               </CardDescription>
               <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                 <ShieldCheck className="h-4 w-4" />
-                <span>Response in 24 hours</span>
+                <span>{supportEmail ? 'Response in 24 hours' : 'Fastest route for guest requests'}</span>
               </div>
             </CardContent>
           </Card>
@@ -274,15 +305,15 @@ export default function Help() {
               <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
                 <Phone className="h-6 w-6 text-primary" />
               </div>
-              <CardTitle className="text-lg">Call Us</CardTitle>
+              <CardTitle className="text-lg">{supportPhone ? 'Call Us' : 'Support Base'}</CardTitle>
             </CardHeader>
             <CardContent>
               <CardDescription className="mb-3">
-                +233 XX XXX XXXX
+                {supportPhone || supportLocation}
               </CardDescription>
               <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                 <MapPin className="h-4 w-4" />
-                <span>Accra, Ghana</span>
+                <span>{supportPhone ? supportLocation : supportHours}</span>
               </div>
             </CardContent>
           </Card>
@@ -333,14 +364,16 @@ export default function Help() {
           <CardHeader>
             <CardTitle>Still Need Help?</CardTitle>
             <CardDescription>
-              Send us a message and we&apos;ll route it into your support conversation
+              {user
+                ? 'Send us a message and we\'ll route it into your support conversation'
+                : 'Send us a guest support request and we\'ll reply by email'}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               {!user && (
                 <div className="rounded-lg border border-dashed border-border bg-muted/40 p-3 text-sm text-muted-foreground">
-                  Sign in first to send a tracked support request from this form.
+                  You can send a guest request here. Sign in if you want the full tracked support chat experience.
                 </div>
               )}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

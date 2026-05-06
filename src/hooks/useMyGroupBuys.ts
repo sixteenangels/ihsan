@@ -1,6 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import type { Database } from '@/integrations/supabase/types';
+
+type GroupBuyParticipantRecord = Database['public']['Tables']['group_buy_participants']['Row'] & {
+  group_buys: (Database['public']['Tables']['group_buys']['Row'] & {
+    products: {
+      name: string;
+      base_price: number;
+    } | null;
+  }) | null;
+};
 
 export interface MyGroupBuyParticipation {
   id: string;
@@ -52,8 +62,9 @@ export function useMyGroupBuys() {
       if (error) throw error;
 
       // Fetch images for products
-      const productIds = (data || [])
-        .map((p: any) => p.group_buys?.product_id)
+      const participations = (data || []) as GroupBuyParticipantRecord[];
+      const productIds = participations
+        .map((participation) => participation.group_buys?.product_id)
         .filter(Boolean);
 
       const { data: images } = await supabase
@@ -69,17 +80,17 @@ export function useMyGroupBuys() {
         imagesMap.set(img.product_id, existing);
       });
 
-      return (data || []).map((p: any) => {
-        const gb = p.group_buys;
+      return participations.map((participation) => {
+        const gb = participation.group_buys;
         const product = gb?.products;
         return {
-          id: p.id,
-          group_buy_id: p.group_buy_id,
-          quantity: p.quantity,
-          payment_status: p.payment_status,
-          payment_reference: p.payment_reference,
-          joined_at: p.joined_at,
-          variant_id: p.variant_id,
+          id: participation.id,
+          group_buy_id: participation.group_buy_id,
+          quantity: participation.quantity,
+          payment_status: participation.payment_status,
+          payment_reference: participation.payment_reference,
+          joined_at: participation.joined_at,
+          variant_id: participation.variant_id,
           group_buy: {
             id: gb?.id,
             title: gb?.title,

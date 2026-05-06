@@ -1,11 +1,21 @@
 import { useState } from 'react';
-import { useAdminRefundRequests } from '@/hooks/useRefundRequests';
+import { useAdminRefundRequests, type AdminRefundRequest } from '@/hooks/useRefundRequests';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { creditWalletByAdmin } from '@/lib/wallet';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
@@ -25,11 +35,30 @@ import { Loader2, Eye, Check, X, RefreshCcw } from 'lucide-react';
 import { format } from 'date-fns';
 import { useCurrency } from '@/hooks/useCurrency';
 
+type RefundChannel = 'original_payment' | 'wallet_credit' | 'mixed';
+
 export function AdminRefunds() {
+  const { user } = useAuth();
   const { refundRequests, isLoading, updateRefund, isUpdating } = useAdminRefundRequests();
   const { formatPrice } = useCurrency();
-  const [selectedRequest, setSelectedRequest] = useState<any>(null);
+  const [selectedRequest, setSelectedRequest] = useState<AdminRefundRequest | null>(null);
   const [adminNotes, setAdminNotes] = useState('');
+  const [refundChannel, setRefundChannel] = useState<RefundChannel>('original_payment');
+  const [walletCreditAmount, setWalletCreditAmount] = useState('');
+
+  const resetDialog = () => {
+    setSelectedRequest(null);
+    setAdminNotes('');
+    setRefundChannel('original_payment');
+    setWalletCreditAmount('');
+  };
+
+  const openRequest = (request: AdminRefundRequest) => {
+    setSelectedRequest(request);
+    setAdminNotes(request.admin_notes || '');
+    setRefundChannel((request.refund_channel as RefundChannel) || 'original_payment');
+    setWalletCreditAmount(request.wallet_credit_amount ? String(request.wallet_credit_amount) : '');
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -46,50 +75,98 @@ export function AdminRefunds() {
     }
   };
 
-  const handleAction = async (id: string, status: 'approved' | 'rejected' | 'processed') => {
-    const request = selectedRequest;
-    
-    updateRefund(
-      { id, status, admin_notes: adminNotes },
-      {
-        onSuccess: async () => {
-          toast.success(`Refund request ${status}`);
-          
-          // Send push notification to customer
-          if (request?.user_id) {
-            const statusMessages: Record<string, string> = {
-              approved: 'Your refund request has been approved! We will process your refund shortly.',
-              rejected: 'Your refund request has been reviewed. Please check the details in your account.',
-              processed: 'Your refund has been processed! The amount will be credited to your account.',
-            };
-            
-            try {
-              await supabase.functions.invoke('send-push-notification', {
-                body: {
-                  user_id: request.user_id,
-                  title: `Refund ${status.charAt(0).toUpperCase() + status.slice(1)}`,
-                  body: statusMessages[status],
-                  data: { 
-                    type: 'refund_status',
-                    refund_id: id,
-                    order_number: request.orders?.order_number,
-                    status,
-                  },
-                },
-              });
-            } catch (error) {
-              console.log('Push notification failed:', error);
-            }
-          }
-          
-          setSelectedRequest(null);
-          setAdminNotes('');
-        },
-        onError: (error: Error) => {
-          toast.error(error.message);
-        },
+  const handleAction = async (
+    request: AdminRefundRequest,
+    status: 'approved' | 'rejected' | 'processed',
+  ) => {
+    const walletCredit = Number.parseFloat(walletCreditAmount || '0') || 0;
+
+    if (walletCredit < 0) {
+      toast.error('Wallet credit amount cannot be negative.');
+      return;
+    }
+
+    if (refundChannel !== 'original_payment' && walletCredit <= 0) {
+      toast.error('Add a wallet credit amount for wallet-based refunds.');
+      return;
+    }
+
+    try {
+      await updateRefund({
+        id: request.id,
+        status,
+        admin_notes: adminNotes,
+        refund_channel: refundChannel,
+        wallet_credit_amount: walletCredit,
+      });
+
+      if (status === 'processed') {
+        if (walletCredit > 0) {
+          await creditWalletByAdmin({
+            userId: request.user_id,
+            amount: walletCredit,
+            description: `Shipping buffer refund for order ${request.orders?.order_number || request.order_id}`,
+            createdBy: user?.id,
+            orderId: request.order_id,
+            referenceKey: `refund:${request.id}:wallet-credit`,
+            notificationTitle: 'Wallet Refund Received',
+            notificationMessage: `${formatPrice(walletCredit)} has been credited to your Ihsan wallet for order ${request.orders?.order_number || request.order_id}.`,
+          });
+        }
+
+        await supabase
+          .from('orders')
+          .update({ status: 'refunded', updated_at: new Date().toISOString() })
+          .eq('id', request.order_id);
+
+        const refundTrackingNote = walletCredit > 0
+          ? `Refund processed. ${formatPrice(walletCredit)} credited to the customer's wallet for shipping buffer adjustment.`
+          : 'Refund processed and recorded by support.';
+
+        await supabase.from('order_tracking').insert({
+          order_id: request.order_id,
+          status: 'refunded',
+          location_name: 'Ihsan Support Desk',
+          notes: refundTrackingNote,
+        });
       }
-    );
+
+      if (request.user_id) {
+        const statusMessages: Record<string, string> = {
+          approved: 'Your refund request has been approved! We will process your refund shortly.',
+          rejected: 'Your refund request has been reviewed. Please check the details in your account.',
+          processed: walletCredit > 0
+            ? `Your refund has been processed. ${formatPrice(walletCredit)} was credited to your wallet for future checkout use.`
+            : 'Your refund has been processed! Please check your original payment channel.',
+        };
+
+        try {
+          await supabase.functions.invoke('send-push-notification', {
+            body: {
+              user_id: request.user_id,
+              title: `Refund ${status.charAt(0).toUpperCase() + status.slice(1)}`,
+              body: statusMessages[status],
+              data: {
+                type: 'refund_status',
+                refund_id: request.id,
+                order_number: request.orders?.order_number,
+                status,
+                refund_channel: refundChannel,
+                wallet_credit_amount: walletCredit,
+              },
+            },
+          });
+        } catch (error) {
+          console.log('Push notification failed:', error);
+        }
+      }
+
+      toast.success(`Refund request ${status}`);
+      resetDialog();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to update refund request';
+      toast.error(message);
+    }
   };
 
   if (isLoading) {
@@ -121,7 +198,7 @@ export function AdminRefunds() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {refundRequests.map((request: any) => (
+              {refundRequests.map((request) => (
                 <TableRow key={request.id}>
                   <TableCell className="font-medium">
                     {request.orders?.order_number || '-'}
@@ -144,10 +221,7 @@ export function AdminRefunds() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => {
-                        setSelectedRequest(request);
-                        setAdminNotes(request.admin_notes || '');
-                      }}
+                      onClick={() => openRequest(request)}
                     >
                       <Eye className="h-4 w-4" />
                     </Button>
@@ -166,8 +240,7 @@ export function AdminRefunds() {
         </CardContent>
       </Card>
 
-      {/* Request Details Dialog */}
-      <Dialog open={!!selectedRequest} onOpenChange={() => setSelectedRequest(null)}>
+      <Dialog open={!!selectedRequest} onOpenChange={(open) => !open && resetDialog()}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Refund Request Details</DialogTitle>
@@ -205,52 +278,88 @@ export function AdminRefunds() {
                 {getStatusBadge(selectedRequest.status)}
               </div>
 
-              {selectedRequest.status === 'pending' && (
-                <>
+              {selectedRequest.status !== 'rejected' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Admin Notes (optional)</Label>
-                    <Textarea
-                      value={adminNotes}
-                      onChange={(e) => setAdminNotes(e.target.value)}
-                      placeholder="Add notes about this refund decision..."
-                      rows={3}
+                    <Label htmlFor="refund-channel">Refund route</Label>
+                    <Select
+                      value={refundChannel}
+                      onValueChange={(value) => setRefundChannel(value as RefundChannel)}
+                    >
+                      <SelectTrigger id="refund-channel">
+                        <SelectValue placeholder="Select refund route" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="original_payment">Original payment</SelectItem>
+                        <SelectItem value="wallet_credit">Wallet credit only</SelectItem>
+                        <SelectItem value="mixed">Mixed refund + wallet credit</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="wallet-credit-amount">Wallet credit amount</Label>
+                    <Input
+                      id="wallet-credit-amount"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={walletCreditAmount}
+                      onChange={(e) => setWalletCreditAmount(e.target.value)}
+                      placeholder="0.00"
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Use this for shipping-buffer refunds or store-credit-only adjustments.
+                    </p>
                   </div>
+                </div>
+              )}
 
-                  <div className="flex gap-2 pt-4">
-                    <Button
-                      variant="destructive"
-                      className="flex-1"
-                      onClick={() => handleAction(selectedRequest.id, 'rejected')}
-                      disabled={isUpdating}
-                    >
-                      {isUpdating ? (
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      ) : (
-                        <X className="h-4 w-4 mr-2" />
-                      )}
-                      Reject
-                    </Button>
-                    <Button
-                      className="flex-1"
-                      onClick={() => handleAction(selectedRequest.id, 'approved')}
-                      disabled={isUpdating}
-                    >
-                      {isUpdating ? (
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      ) : (
-                        <Check className="h-4 w-4 mr-2" />
-                      )}
-                      Approve
-                    </Button>
-                  </div>
-                </>
+              {(selectedRequest.status === 'pending' || selectedRequest.status === 'approved') && (
+                <div className="space-y-2">
+                  <Label>Admin Notes (optional)</Label>
+                  <Textarea
+                    value={adminNotes}
+                    onChange={(e) => setAdminNotes(e.target.value)}
+                    placeholder="Add notes about this refund decision..."
+                    rows={3}
+                  />
+                </div>
+              )}
+
+              {selectedRequest.status === 'pending' && (
+                <div className="flex gap-2 pt-4">
+                  <Button
+                    variant="destructive"
+                    className="flex-1"
+                    onClick={() => handleAction(selectedRequest, 'rejected')}
+                    disabled={isUpdating}
+                  >
+                    {isUpdating ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      <X className="h-4 w-4 mr-2" />
+                    )}
+                    Reject
+                  </Button>
+                  <Button
+                    className="flex-1"
+                    onClick={() => handleAction(selectedRequest, 'approved')}
+                    disabled={isUpdating}
+                  >
+                    {isUpdating ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      <Check className="h-4 w-4 mr-2" />
+                    )}
+                    Approve
+                  </Button>
+                </div>
               )}
 
               {selectedRequest.status === 'approved' && (
                 <Button
                   className="w-full"
-                  onClick={() => handleAction(selectedRequest.id, 'processed')}
+                  onClick={() => handleAction(selectedRequest, 'processed')}
                   disabled={isUpdating}
                 >
                   {isUpdating ? (
@@ -258,7 +367,7 @@ export function AdminRefunds() {
                   ) : (
                     <RefreshCcw className="h-4 w-4 mr-2" />
                   )}
-                  Mark as Processed (Refund Issued)
+                  Mark as Processed
                 </Button>
               )}
 

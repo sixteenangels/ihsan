@@ -12,6 +12,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Link } from 'react-router-dom';
+import { getGroupBuySavingsPercent, getGroupBuyUnitPrice } from '@/lib/groupBuyPricing';
 
 export default function GroupBuys() {
   const { user } = useAuth();
@@ -34,14 +35,20 @@ export default function GroupBuys() {
     );
   }
 
-  const activeGroupBuys = groupBuys?.filter(gb => gb.status === 'open') || [];
-  const totalParticipants = activeGroupBuys.reduce((sum, g) => sum + (g.current_participants || 0), 0);
-  const maxDiscount = Math.max(...activeGroupBuys.map((g) => {
-    if (g.group_price != null && g.product?.base_price) {
-      return Math.max(0, Math.round(((g.product.base_price - g.group_price) / g.product.base_price) * 100));
-    }
-    return g.discount_percentage || 0;
-  }), 0);
+  const activeGroupBuys = groupBuys?.filter((groupBuy) => groupBuy.status === 'open') || [];
+  const totalParticipants = activeGroupBuys.reduce((sum, groupBuy) => {
+    return sum + (groupBuy.current_participants || 0);
+  }, 0);
+  const maxSavings = Math.max(
+    ...activeGroupBuys.map((groupBuy) =>
+      getGroupBuySavingsPercent({
+        basePrice: groupBuy.product?.base_price || 0,
+        groupPrice: groupBuy.group_price,
+        discountPercentage: groupBuy.discount_percentage,
+      }),
+    ),
+    0,
+  );
 
   if (isLoading) {
     return (
@@ -59,18 +66,16 @@ export default function GroupBuys() {
     <div className="min-h-screen bg-background">
       <Header />
       <main className="container py-8 pb-24 md:pb-8">
-        {/* Page Header */}
         <div className="text-center mb-12">
           <div className="inline-flex p-4 rounded-2xl bg-primary/10 mb-4">
             <Users className="h-12 w-12 text-primary" />
           </div>
           <h1 className="text-4xl font-bold font-serif text-foreground mb-3">Group Buys</h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Join forces with other shoppers to unlock exclusive discounts.
+            Join other shoppers to unlock fixed group pricing on products you already want.
           </p>
         </div>
 
-        {/* Stats */}
         <div className="grid grid-cols-3 gap-4 max-w-2xl mx-auto mb-8">
           <div className="text-center p-4 rounded-xl bg-card border border-border">
             <p className="text-3xl font-bold text-primary">{activeGroupBuys.length}</p>
@@ -81,23 +86,22 @@ export default function GroupBuys() {
             <p className="text-sm text-muted-foreground">Participants</p>
           </div>
           <div className="text-center p-4 rounded-xl bg-card border border-border">
-            <p className="text-3xl font-bold text-primary">Up to {maxDiscount}%</p>
-            <p className="text-sm text-muted-foreground">Savings</p>
+            <p className="text-3xl font-bold text-primary">Up to {maxSavings}%</p>
+            <p className="text-sm text-muted-foreground">Potential Savings</p>
           </div>
         </div>
 
-        {/* Tabs: Active / My Group Buys */}
         <Tabs defaultValue="active" className="mb-8">
           <TabsList className="mb-6">
             <TabsTrigger value="active">Active Group Buys</TabsTrigger>
-            {user && (
+            {user ? (
               <TabsTrigger value="mine">
                 My Group Buys
-                {myGroupBuys && myGroupBuys.length > 0 && (
+                {myGroupBuys && myGroupBuys.length > 0 ? (
                   <Badge variant="secondary" className="ml-2">{myGroupBuys.length}</Badge>
-                )}
+                ) : null}
               </TabsTrigger>
-            )}
+            ) : null}
           </TabsList>
 
           <TabsContent value="active">
@@ -116,7 +120,7 @@ export default function GroupBuys() {
             )}
           </TabsContent>
 
-          {user && (
+          {user ? (
             <TabsContent value="mine">
               {myLoading ? (
                 <div className="flex justify-center py-8">
@@ -124,47 +128,57 @@ export default function GroupBuys() {
                 </div>
               ) : myGroupBuys && myGroupBuys.length > 0 ? (
                 <div className="space-y-4">
-                  {myGroupBuys.map((p) => {
-                    const gb = p.group_buy;
-                    const progress = ((gb.current_participants || 0) / gb.min_participants) * 100;
-                    const discountedPrice = gb.group_price ?? (gb.product.base_price * (1 - (gb.discount_percentage || 0) / 100));
-                    const statusIcon = gb.status === 'filled' ? <CheckCircle className="h-4 w-4" /> :
-                                       gb.status === 'cancelled' ? <XCircle className="h-4 w-4" /> :
-                                       <Clock className="h-4 w-4" />;
-                    const statusColor = gb.status === 'filled' ? 'bg-primary/10 text-primary' :
-                                        gb.status === 'cancelled' ? 'bg-destructive/10 text-destructive' :
-                                        'bg-accent/10 text-accent-foreground';
+                  {myGroupBuys.map((participation) => {
+                    const groupBuy = participation.group_buy;
+                    const progress = ((groupBuy.current_participants || 0) / groupBuy.min_participants) * 100;
+                    const groupPrice = getGroupBuyUnitPrice({
+                      basePrice: groupBuy.product.base_price,
+                      groupPrice: groupBuy.group_price,
+                      discountPercentage: groupBuy.discount_percentage,
+                    });
+                    const statusIcon = groupBuy.status === 'filled'
+                      ? <CheckCircle className="h-4 w-4" />
+                      : groupBuy.status === 'cancelled'
+                        ? <XCircle className="h-4 w-4" />
+                        : <Clock className="h-4 w-4" />;
+                    const statusColor = groupBuy.status === 'filled'
+                      ? 'bg-primary/10 text-primary'
+                      : groupBuy.status === 'cancelled'
+                        ? 'bg-destructive/10 text-destructive'
+                        : 'bg-accent/10 text-accent-foreground';
 
                     return (
-                      <Link key={p.id} to={`/group-buy/${gb.id}`}>
+                      <Link key={participation.id} to={`/group-buy/${groupBuy.id}`}>
                         <Card className="hover:shadow-md transition-shadow">
                           <CardContent className="p-4">
                             <div className="flex gap-4">
                               <div className="w-20 h-20 rounded-lg overflow-hidden bg-muted flex-shrink-0">
                                 <img
-                                  src={gb.product.images[0] || '/placeholder.svg'}
-                                  alt={gb.product.name}
+                                  src={groupBuy.product.images[0] || '/placeholder.svg'}
+                                  alt={groupBuy.product.name}
                                   className="w-full h-full object-cover"
                                 />
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-1">
-                                  <h3 className="font-medium text-foreground truncate">{gb.title || gb.product.name}</h3>
+                                  <h3 className="font-medium text-foreground truncate">
+                                    {groupBuy.title || groupBuy.product.name}
+                                  </h3>
                                   <Badge className={`${statusColor} gap-1 flex-shrink-0`}>
-                                    {statusIcon} {gb.status}
+                                    {statusIcon} {groupBuy.status}
                                   </Badge>
                                 </div>
                                 <div className="flex items-center gap-4 text-sm mb-2">
-                                  <span className="text-primary font-bold">{formatPrice(discountedPrice)}</span>
-                                  <span className="text-muted-foreground">Qty: {p.quantity || 1}</span>
-                                  {p.payment_status === 'paid' && (
-                                    <span className="text-primary text-xs">✓ Paid</span>
-                                  )}
+                                  <span className="text-primary font-bold">{formatPrice(groupPrice)}</span>
+                                  <span className="text-muted-foreground">Qty: {participation.quantity || 1}</span>
+                                  {participation.payment_status === 'paid' ? (
+                                    <span className="text-primary text-xs">Paid</span>
+                                  ) : null}
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <Progress value={Math.min(progress, 100)} className="h-1.5 flex-1" />
                                   <span className="text-xs text-muted-foreground">
-                                    {gb.current_participants || 0}/{gb.min_participants}
+                                    {groupBuy.current_participants || 0}/{groupBuy.min_participants}
                                   </span>
                                 </div>
                               </div>
@@ -183,27 +197,26 @@ export default function GroupBuys() {
                 </div>
               )}
             </TabsContent>
-          )}
+          ) : null}
         </Tabs>
 
-        {/* Info Section */}
         <div className="mt-16 grid md:grid-cols-2 gap-8">
           <div className="p-8 rounded-2xl bg-card border border-border">
             <h3 className="text-xl font-bold text-foreground mb-4">Why Group Buy?</h3>
             <ul className="space-y-3 text-muted-foreground">
-              <li className="flex items-start gap-2"><span className="text-primary">✓</span> Save up to 25% on regular prices</li>
-              <li className="flex items-start gap-2"><span className="text-primary">✓</span> Share shipping costs with others</li>
-              <li className="flex items-start gap-2"><span className="text-primary">✓</span> Get access to bulk pricing</li>
-              <li className="flex items-start gap-2"><span className="text-primary">✓</span> Easy refund if group doesn't fill</li>
+              <li className="flex items-start gap-2"><span className="text-primary">+</span> Lock in a fixed group price before checkout</li>
+              <li className="flex items-start gap-2"><span className="text-primary">+</span> Share the link to fill the target faster</li>
+              <li className="flex items-start gap-2"><span className="text-primary">+</span> Keep the same price for every approved participant</li>
+              <li className="flex items-start gap-2"><span className="text-primary">+</span> Get refunded if the group does not fill</li>
             </ul>
           </div>
           <div className="p-8 rounded-2xl bg-card border border-border">
             <h3 className="text-xl font-bold text-foreground mb-4">Group Buy Rules</h3>
             <ul className="space-y-3 text-muted-foreground">
               <li className="flex items-start gap-2"><span className="text-primary">1.</span> Pay when you join to secure your spot</li>
-              <li className="flex items-start gap-2"><span className="text-primary">2.</span> Share the link to fill the group faster</li>
-              <li className="flex items-start gap-2"><span className="text-primary">3.</span> When group fills, admin creates your order</li>
-              <li className="flex items-start gap-2"><span className="text-primary">4.</span> Full refund if the group doesn't reach its goal</li>
+              <li className="flex items-start gap-2"><span className="text-primary">2.</span> The listed group price stays fixed for the offer</li>
+              <li className="flex items-start gap-2"><span className="text-primary">3.</span> When the target fills, admin creates the collective order</li>
+              <li className="flex items-start gap-2"><span className="text-primary">4.</span> Full refund if the group does not reach its goal</li>
             </ul>
           </div>
         </div>

@@ -11,6 +11,37 @@ import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { useCurrency } from '@/hooks/useCurrency';
 import { Users, Clock, ArrowLeft, Loader2, CheckCircle } from 'lucide-react';
+import { getGroupBuySavingsPercent, getGroupBuyUnitPrice } from '@/lib/groupBuyPricing';
+import type { Database } from '@/integrations/supabase/types';
+
+type GroupBuyParticipantSummary = Pick<
+  Database['public']['Tables']['group_buy_participants']['Row'],
+  'id' | 'joined_at'
+>;
+
+interface GroupBuyDetailData {
+  id: string;
+  product_id: string;
+  title: string | null;
+  min_participants: number;
+  max_participants: number | null;
+  current_participants: number | null;
+  discount_percentage: number | null;
+  group_price: number | null;
+  expires_at: string;
+  status: string | null;
+  product: {
+    id: string;
+    name: string;
+    description: string | null;
+    base_price: number;
+    rating: number | null;
+    review_count: number | null;
+    category_name: string | null;
+    images: string[];
+  } | null;
+  participants: GroupBuyParticipantSummary[];
+}
 
 export default function GroupBuyDetail() {
   const { id } = useParams<{ id: string }>();
@@ -18,7 +49,7 @@ export default function GroupBuyDetail() {
 
   const { data: groupBuy, isLoading } = useQuery({
     queryKey: ['group-buy-detail', id],
-    queryFn: async () => {
+    queryFn: async (): Promise<GroupBuyDetailData> => {
       const { data, error } = await supabase
         .from('group_buys')
         .select(`
@@ -27,37 +58,47 @@ export default function GroupBuyDetail() {
         `)
         .eq('id', id!)
         .single();
+
       if (error) throw error;
 
-      // Fetch images
       const { data: images } = await supabase
         .from('product_images')
         .select('image_url')
         .eq('product_id', data.product_id)
         .order('order_index');
 
-      // Fetch participant count with avatars
       const { data: participants } = await supabase
         .from('group_buy_participants')
         .select('id, joined_at')
         .eq('group_buy_id', id!);
 
-      const product = data.products as any;
+      const productData = data.products as {
+        id: string;
+        name: string;
+        description: string | null;
+        base_price: number;
+        rating: number | null;
+        review_count: number | null;
+        categories: { name: string } | null;
+      } | null;
+
       return {
         ...data,
         discount_percentage: data.discount_percentage ? Number(data.discount_percentage) : null,
-        group_price: (data as any).group_price != null ? Number((data as any).group_price) : null,
-        product: product ? {
-          id: product.id,
-          name: product.name,
-          description: product.description,
-          base_price: Number(product.base_price),
-          rating: product.rating ? Number(product.rating) : null,
-          review_count: product.review_count,
-          category_name: product.categories?.name || null,
-          images: images?.map((i) => i.image_url) || [],
-        } : null,
-        participants: participants || [],
+        group_price: data.group_price != null ? Number(data.group_price) : null,
+        product: productData
+          ? {
+              id: productData.id,
+              name: productData.name,
+              description: productData.description,
+              base_price: Number(productData.base_price),
+              rating: productData.rating ? Number(productData.rating) : null,
+              review_count: productData.review_count,
+              category_name: productData.categories?.name || null,
+              images: images?.map((image) => image.image_url) || [],
+            }
+          : null,
+        participants: (participants || []) as GroupBuyParticipantSummary[],
       };
     },
     enabled: !!id,
@@ -90,12 +131,18 @@ export default function GroupBuyDetail() {
 
   const progress = ((groupBuy.current_participants || 0) / groupBuy.min_participants) * 100;
   const daysLeft = Math.ceil(
-    (new Date(groupBuy.expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+    (new Date(groupBuy.expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24),
   );
-  const discountedPrice = groupBuy.group_price ?? (groupBuy.product.base_price * (1 - (groupBuy.discount_percentage || 0) / 100));
-  const effectiveDiscount = groupBuy.product.base_price > 0
-    ? Math.max(0, Math.round(((groupBuy.product.base_price - discountedPrice) / groupBuy.product.base_price) * 100))
-    : 0;
+  const groupPrice = getGroupBuyUnitPrice({
+    basePrice: groupBuy.product.base_price,
+    groupPrice: groupBuy.group_price,
+    discountPercentage: groupBuy.discount_percentage,
+  });
+  const savingsPercent = getGroupBuySavingsPercent({
+    basePrice: groupBuy.product.base_price,
+    groupPrice: groupBuy.group_price,
+    discountPercentage: groupBuy.discount_percentage,
+  });
   const isFilled = groupBuy.status === 'filled';
   const isCancelled = groupBuy.status === 'cancelled' || groupBuy.status === 'closed';
 
@@ -109,7 +156,6 @@ export default function GroupBuyDetail() {
         </Link>
 
         <div className="grid lg:grid-cols-2 gap-8">
-          {/* Product Image */}
           <div>
             <div className="relative aspect-square rounded-2xl overflow-hidden bg-muted">
               <img
@@ -117,20 +163,20 @@ export default function GroupBuyDetail() {
                 alt={groupBuy.product.name}
                 className="w-full h-full object-cover"
               />
-              {effectiveDiscount > 0 && (
+              {savingsPercent > 0 ? (
                 <Badge className="absolute top-4 left-4 bg-accent text-accent-foreground text-lg px-4 py-1.5">
-                  {effectiveDiscount}% OFF
+                  {savingsPercent}% OFF
                 </Badge>
-              )}
-              {isFilled && (
+              ) : null}
+              {isFilled ? (
                 <Badge className="absolute top-4 right-4 bg-green-600 text-white text-lg px-4 py-1.5">
-                  <CheckCircle className="h-4 w-4 mr-1" /> FILLED
+                  <CheckCircle className="h-4 w-4 mr-1" />
+                  FILLED
                 </Badge>
-              )}
+              ) : null}
             </div>
           </div>
 
-          {/* Details */}
           <div className="space-y-6">
             <div>
               <p className="text-sm text-muted-foreground">{groupBuy.product.category_name}</p>
@@ -140,7 +186,6 @@ export default function GroupBuyDetail() {
               <p className="text-muted-foreground mt-2">{groupBuy.product.description}</p>
             </div>
 
-            {/* Pricing */}
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center justify-between mb-4">
@@ -149,7 +194,7 @@ export default function GroupBuyDetail() {
                       {formatPrice(groupBuy.product.base_price)}
                     </p>
                     <p className="text-3xl font-bold text-primary">
-                      {formatPrice(discountedPrice)}
+                      {formatPrice(groupPrice)}
                     </p>
                   </div>
                   <div className="text-right">
@@ -162,7 +207,6 @@ export default function GroupBuyDetail() {
                   </div>
                 </div>
 
-                {/* Progress */}
                 <div className="space-y-3">
                   <div className="flex items-center justify-between text-sm">
                     <div className="flex items-center gap-1">
@@ -174,36 +218,34 @@ export default function GroupBuyDetail() {
                     <span className="font-medium text-primary">{Math.round(progress)}%</span>
                   </div>
                   <Progress value={Math.min(progress, 100)} className="h-3" />
-                  {groupBuy.max_participants && (
+                  {groupBuy.max_participants ? (
                     <p className="text-xs text-muted-foreground">
                       Max {groupBuy.max_participants} participants
                     </p>
-                  )}
+                  ) : null}
                 </div>
               </CardContent>
             </Card>
 
-            {/* Participant Avatars */}
             <div className="flex items-center gap-2">
               <div className="flex -space-x-2">
-                {(groupBuy.participants || []).slice(0, 8).map((p: any, i: number) => (
+                {groupBuy.participants.slice(0, 8).map((participant, index) => (
                   <div
-                    key={p.id}
+                    key={participant.id}
                     className="w-8 h-8 rounded-full bg-primary/20 border-2 border-background flex items-center justify-center text-xs font-medium text-primary"
                   >
-                    {i + 1}
+                    {index + 1}
                   </div>
                 ))}
               </div>
-              {(groupBuy.participants?.length || 0) > 8 && (
+              {groupBuy.participants.length > 8 ? (
                 <span className="text-sm text-muted-foreground">
-                  +{(groupBuy.participants?.length || 0) - 8} more
+                  +{groupBuy.participants.length - 8} more
                 </span>
-              )}
+              ) : null}
             </div>
 
-            {/* Actions */}
-            {!isCancelled && (
+            {!isCancelled ? (
               <div className="space-y-3">
                 <JoinGroupBuyDialog
                   groupBuy={{
@@ -223,20 +265,18 @@ export default function GroupBuyDetail() {
                 <GroupBuyShareSheet
                   groupBuyId={groupBuy.id}
                   title={groupBuy.title || groupBuy.product.name}
-                  discount={groupBuy.discount_percentage}
+                  price={groupPrice}
+                  savingsPercent={savingsPercent}
                 />
               </div>
-            )}
-
-            {isCancelled && (
+            ) : (
               <Card className="border-destructive/50">
                 <CardContent className="p-4 text-center">
-                  <p className="font-medium text-destructive">This group buy has been cancelled/expired.</p>
+                  <p className="font-medium text-destructive">This group buy has been cancelled or expired.</p>
                 </CardContent>
               </Card>
             )}
 
-            {/* View product link */}
             <Link to={`/product/${groupBuy.product.id}`}>
               <Button variant="outline" className="w-full">View Full Product Details</Button>
             </Link>

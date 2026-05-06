@@ -8,6 +8,7 @@ import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { JoinGroupBuyDialog } from '@/components/groupbuy/JoinGroupBuyDialog';
 import { toast } from 'sonner';
+import { getGroupBuySavingsPercent, getGroupBuyUnitPrice } from '@/lib/groupBuyPricing';
 
 interface GroupBuyCardProps {
   groupBuy: GroupBuyWithProduct;
@@ -22,11 +23,16 @@ export function GroupBuyCard({ groupBuy }: GroupBuyCardProps) {
   const daysLeft = Math.ceil(
     (new Date(groupBuy.expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
   );
-  const discountedPrice =
-    groupBuy.group_price ?? (groupBuy.product.base_price * (1 - (groupBuy.discount_percentage || 0) / 100));
-  const effectiveDiscount = groupBuy.product.base_price > 0
-    ? Math.max(0, Math.round(((groupBuy.product.base_price - discountedPrice) / groupBuy.product.base_price) * 100))
-    : 0;
+  const discountedPrice = getGroupBuyUnitPrice({
+    basePrice: groupBuy.product.base_price,
+    groupPrice: groupBuy.group_price,
+    discountPercentage: groupBuy.discount_percentage,
+  });
+  const effectiveDiscount = getGroupBuySavingsPercent({
+    basePrice: groupBuy.product.base_price,
+    groupPrice: groupBuy.group_price,
+    discountPercentage: groupBuy.discount_percentage,
+  });
 
   const handleShare = (e: React.MouseEvent) => {
     e.preventDefault();

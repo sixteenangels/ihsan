@@ -10,7 +10,9 @@ export function useRecentlyViewed() {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) setRecentlyViewed(JSON.parse(stored));
-    } catch {}
+    } catch {
+      // Ignore corrupted local storage payloads.
+    }
   }, []);
 
   const addProduct = useCallback((productId: string) => {

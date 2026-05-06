@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { ProductWithDetails } from './useProducts';
+import type { Database } from '@/integrations/supabase/types';
+
+type GroupBuyRecord = Database['public']['Tables']['group_buys']['Row'];
 
 export interface GroupBuyWithProduct {
   id: string;
@@ -64,7 +66,7 @@ async function fetchGroupBuys(): Promise<GroupBuyWithProduct[]> {
     imagesMap.set(img.product_id, existing);
   });
 
-  return (groupBuys || []).map((gb) => {
+  return ((groupBuys || []) as GroupBuyRecord[]).map((gb) => {
     const product = gb.products as {
       id: string;
       name: string;
@@ -78,12 +80,12 @@ async function fetchGroupBuys(): Promise<GroupBuyWithProduct[]> {
     return {
       id: gb.id,
       product_id: gb.product_id,
-      title: (gb as any).title || null,
+      title: gb.title || null,
       current_participants: gb.current_participants,
       min_participants: gb.min_participants,
-      max_participants: (gb as any).max_participants || null,
+      max_participants: gb.max_participants || null,
       discount_percentage: gb.discount_percentage ? Number(gb.discount_percentage) : null,
-      group_price: (gb as any).group_price != null ? Number((gb as any).group_price) : null,
+      group_price: gb.group_price != null ? Number(gb.group_price) : null,
       expires_at: gb.expires_at,
       status: gb.status,
       product: product ? {

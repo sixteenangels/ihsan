@@ -5,12 +5,13 @@ import { toast } from 'sonner';
 interface GroupBuyShareSheetProps {
   groupBuyId: string;
   title: string;
-  discount: number | null;
+  price: number;
+  savingsPercent: number;
 }
 
-export function GroupBuyShareSheet({ groupBuyId, title, discount }: GroupBuyShareSheetProps) {
+export function GroupBuyShareSheet({ groupBuyId, title, price, savingsPercent }: GroupBuyShareSheetProps) {
   const shareUrl = `${window.location.origin}/group-buy/${groupBuyId}`;
-  const shareText = `Join my group buy "${title}" and save ${discount || 0}%! ${shareUrl}`;
+  const shareText = `Join my group buy "${title}" for a fixed price of GHS ${price.toFixed(2)} and save up to ${savingsPercent}%: ${shareUrl}`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(shareUrl);
