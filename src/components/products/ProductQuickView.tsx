@@ -63,14 +63,16 @@ export function ProductQuickView({ product, open, onOpenChange }: ProductQuickVi
   const handleAddToCart = () => {
     const variant = selectedVariant 
       ? product.variants?.find(v => v.id === selectedVariant)
-      : product.variants?.[0];
-    
-    if (!variant) {
-      toast.error('Please select a variant');
+      : null;
+
+    if (!variant && product.variants && product.variants.length > 0) {
+      addToCart(product, null, 1);
+      toast.success('Added to cart. Choose your variant at checkout.');
+      onOpenChange(false);
       return;
     }
 
-    addToCart(product, variant as any, 1);
+    addToCart(product, (variant || null) as any, 1);
     toast.success('Added to cart');
     onOpenChange(false);
   };
@@ -285,7 +287,6 @@ export function ProductQuickView({ product, open, onOpenChange }: ProductQuickVi
               <Button
                 className="flex-1"
                 onClick={handleAddToCart}
-                disabled={!product.variants || product.variants.length === 0}
               >
                 <ShoppingCart className="h-4 w-4 mr-2" />
                 Add to Cart

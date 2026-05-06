@@ -1,11 +1,12 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { Trash2, Minus, Plus, Ship, Plane, Package, ArrowLeft, ShoppingBag } from 'lucide-react';
+import { Trash2, Minus, Plus, ArrowLeft, ShoppingBag } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
-import { useCart } from '@/contexts/CartContext';
+import { isVariantPlaceholder, useCart } from '@/contexts/CartContext';
 import { useCurrency } from '@/hooks/useCurrency';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 
@@ -14,37 +15,26 @@ export default function Cart() {
   const { formatPrice } = useCurrency();
   const {
     items,
-    selectedShipping,
+    selectedItemIds,
     removeFromCart,
     updateQuantity,
-    setShipping,
+    toggleItemSelection,
+    setSelectedItemIds,
     clearCart,
     subtotal,
-    shippingCost,
-    total,
+    selectedSubtotal,
   } = useCart();
 
-  // Get common shipping options from first item (simplified)
-  const shippingOptions = items.length > 0 ? items[0].product.shippingOptions : [];
-
-  const getShippingIcon = (type: string) => {
-    switch (type) {
-      case 'sea':
-        return <Ship className="h-5 w-5" />;
-      case 'air_express':
-        return <Package className="h-5 w-5" />;
-      default:
-        return <Plane className="h-5 w-5" />;
-    }
-  };
-
   const handleCheckout = () => {
-    if (!selectedShipping) {
-      toast.error('Please select a shipping method');
+    if (selectedItemIds.length === 0) {
+      toast.error('Select at least one item to continue');
       return;
     }
+
     navigate('/checkout');
   };
+
+  const allSelected = items.length > 0 && selectedItemIds.length === items.length;
 
   if (items.length === 0) {
     return (
@@ -75,7 +65,6 @@ export default function Cart() {
     <div className="min-h-screen bg-background">
       <Header />
       <main className="container py-8">
-        {/* Breadcrumb */}
         <Link
           to="/products"
           className="inline-flex items-center text-sm text-muted-foreground hover:text-primary mb-6"
@@ -89,12 +78,18 @@ export default function Cart() {
         </h1>
 
         <div className="grid lg:grid-cols-3 gap-8">
-          {/* Cart Items */}
           <div className="lg:col-span-2 space-y-4">
             {items.map((item) => (
               <Card key={item.id} className="overflow-hidden">
                 <CardContent className="p-4">
                   <div className="flex gap-4">
+                    <div className="pt-1">
+                      <Checkbox
+                        checked={selectedItemIds.includes(item.id)}
+                        onCheckedChange={() => toggleItemSelection(item.id)}
+                        aria-label={`Select ${item.product.name}`}
+                      />
+                    </div>
                     <div className="w-24 h-24 rounded-lg overflow-hidden flex-shrink-0">
                       <img
                         src={item.product.images[0]}
@@ -103,14 +98,15 @@ export default function Cart() {
                       />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-start">
+                      <div className="flex justify-between items-start gap-3">
                         <div>
                           <h3 className="font-semibold text-foreground line-clamp-1">
                             {item.product.name}
                           </h3>
                           <p className="text-sm text-muted-foreground">
-                            {item.variant.color}
-                            {item.variant.size && ` • ${item.variant.size}`}
+                            {isVariantPlaceholder(item.variant.id)
+                              ? 'Variant will be selected at checkout'
+                              : `${item.variant.color || ''}${item.variant.size ? ` • ${item.variant.size}` : ''}`.trim() || 'Standard option'}
                           </p>
                         </div>
                         <Button
@@ -128,9 +124,7 @@ export default function Cart() {
                             size="icon"
                             variant="outline"
                             className="h-8 w-8"
-                            onClick={() =>
-                              updateQuantity(item.id, item.quantity - 1)
-                            }
+                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
                           >
                             <Minus className="h-3 w-3" />
                           </Button>
@@ -141,9 +135,7 @@ export default function Cart() {
                             size="icon"
                             variant="outline"
                             className="h-8 w-8"
-                            onClick={() =>
-                              updateQuantity(item.id, item.quantity + 1)
-                            }
+                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
                           >
                             <Plus className="h-3 w-3" />
                           </Button>
@@ -158,80 +150,47 @@ export default function Cart() {
               </Card>
             ))}
 
-            <Button
-              variant="outline"
-              className="text-muted-foreground"
-              onClick={clearCart}
-            >
-              Clear Cart
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                onClick={() =>
+                  setSelectedItemIds(allSelected ? [] : items.map((item) => item.id))
+                }
+              >
+                {allSelected ? 'Unselect All' : 'Select All'}
+              </Button>
+              <Button
+                variant="outline"
+                className="text-muted-foreground"
+                onClick={clearCart}
+              >
+                Clear Cart
+              </Button>
+            </div>
           </div>
 
-          {/* Order Summary */}
           <div className="lg:col-span-1">
             <Card className="sticky top-24">
               <CardHeader>
                 <CardTitle>Order Summary</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* Shipping Selection */}
-                <div className="space-y-3">
-                  <h4 className="font-medium text-foreground">Select Shipping</h4>
-                  {shippingOptions.map((option) => (
-                    <div
-                      key={option.id}
-                      className={`p-3 rounded-lg border cursor-pointer transition-all ${
-                        option.available
-                          ? selectedShipping?.id === option.id
-                            ? 'border-primary bg-primary/5'
-                            : 'border-border hover:border-primary/50'
-                          : 'border-border opacity-50 cursor-not-allowed'
-                      }`}
-                      onClick={() => option.available && setShipping(option)}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="text-primary">
-                            {getShippingIcon(option.type)}
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-foreground">
-                              {option.name}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {option.estimatedDays}
-                            </p>
-                          </div>
-                        </div>
-                        <p className="font-medium text-foreground">
-                          {formatPrice(option.price)}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <Separator />
-
-                {/* Totals */}
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Subtotal</span>
+                    <span className="text-muted-foreground">Cart subtotal</span>
                     <span className="text-foreground">{formatPrice(subtotal)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Shipping</span>
+                    <span className="text-muted-foreground">Selected for checkout</span>
                     <span className="text-foreground">
-                      {selectedShipping
-                        ? formatPrice(shippingCost)
-                        : 'Select shipping'}
+                      {selectedItemIds.length} item{selectedItemIds.length === 1 ? '' : 's'}
                     </span>
                   </div>
                   <Separator />
                   <div className="flex justify-between">
-                    <span className="font-semibold text-foreground">Total</span>
+                    <span className="font-semibold text-foreground">Selected subtotal</span>
                     <span className="text-xl font-bold text-primary">
-                      {formatPrice(total)}
+                      {formatPrice(selectedSubtotal)}
                     </span>
                   </div>
                 </div>
@@ -245,7 +204,7 @@ export default function Cart() {
                 </Button>
 
                 <p className="text-xs text-center text-muted-foreground">
-                  Secure checkout powered by trusted payment providers
+                  Shipping and any missing variant choices will be completed at checkout
                 </p>
               </CardContent>
             </Card>

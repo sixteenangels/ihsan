@@ -22,6 +22,7 @@ interface Review {
   admin_response_at: string | null;
   is_verified: boolean;
   created_at: string;
+  user_id: string;
   profiles: {
     name: string | null;
   } | null;
@@ -56,10 +57,13 @@ export function ProductReviews({ productId, productName }: ProductReviewsProps) 
   }, [productId, user]);
 
   const fetchReviews = async () => {
+    setLoading(true);
+
     const { data, error } = await supabase
       .from('reviews')
       .select(`
         id,
+        user_id,
         rating,
         title,
         comment,
@@ -67,16 +71,41 @@ export function ProductReviews({ productId, productName }: ProductReviewsProps) 
         admin_response,
         admin_response_at,
         is_verified,
-        created_at,
-        profiles:user_id (name)
+        created_at
       `)
       .eq('product_id', productId)
       .eq('is_approved', true)
       .order('created_at', { ascending: false });
 
-    if (data) {
-      setReviews(data as unknown as Review[]);
+    if (error) {
+      console.error('Failed to load reviews:', error);
+      toast.error('Failed to load reviews');
+      setLoading(false);
+      return;
     }
+
+    const userIds = [...new Set((data || []).map((review) => review.user_id).filter(Boolean))];
+    const { data: profilesData, error: profilesError } = userIds.length > 0
+      ? await supabase
+          .from('profiles')
+          .select('user_id, name')
+          .in('user_id', userIds)
+      : { data: [], error: null };
+
+    if (profilesError) {
+      console.error('Failed to load review profiles:', profilesError);
+    }
+
+    const profilesMap = new Map(
+      (profilesData || []).map((profile) => [profile.user_id, { name: profile.name }])
+    );
+
+    setReviews(
+      (data || []).map((review) => ({
+        ...review,
+        profiles: profilesMap.get(review.user_id) || null,
+      })) as Review[]
+    );
     setLoading(false);
   };
 
@@ -92,6 +121,7 @@ export function ProductReviews({ productId, productName }: ProductReviewsProps) 
           )
         )
       `)
+      .eq('user_id', user!.id)
       .eq('status', 'delivered');
 
     if (orders) {
@@ -101,12 +131,16 @@ export function ProductReviews({ productId, productName }: ProductReviewsProps) 
         )
       );
 
-      const { data: existingReview } = await supabase
+      const { data: existingReview, error: reviewLookupError } = await supabase
         .from('reviews')
         .select('id')
         .eq('product_id', productId)
         .eq('user_id', user?.id)
-        .single();
+        .maybeSingle();
+
+      if (reviewLookupError) {
+        console.error('Failed to check existing review:', reviewLookupError);
+      }
 
       setCanReview(hasPurchased && !existingReview);
     }

@@ -43,6 +43,7 @@ interface ProductForm {
   description: string;
   item_code: string;
   base_price: string;
+  group_buy_price: string;
   category_id: string;
   is_group_buy_eligible: boolean;
   is_flash_deal: boolean;
@@ -51,6 +52,8 @@ interface ProductForm {
   is_ready_now: boolean;
   is_active: boolean;
   is_fragile: boolean;
+  allow_standard_packaging: boolean;
+  allow_reinforced_packaging: boolean;
   reinforced_packaging_cost: string;
 }
 
@@ -59,6 +62,7 @@ const defaultForm: ProductForm = {
   description: '',
   item_code: '',
   base_price: '',
+  group_buy_price: '',
   category_id: '',
   is_group_buy_eligible: false,
   is_flash_deal: false,
@@ -67,6 +71,8 @@ const defaultForm: ProductForm = {
   is_ready_now: false,
   is_active: true,
   is_fragile: false,
+  allow_standard_packaging: true,
+  allow_reinforced_packaging: true,
   reinforced_packaging_cost: '',
 };
 
@@ -102,6 +108,7 @@ export function AdminProducts() {
         description: data.description,
         item_code: data.item_code,
         base_price: parseFloat(data.base_price),
+        group_buy_price: data.group_buy_price ? parseFloat(data.group_buy_price) : null,
         category_id: data.category_id || null,
         is_group_buy_eligible: data.is_group_buy_eligible,
         is_flash_deal: data.is_flash_deal,
@@ -110,6 +117,8 @@ export function AdminProducts() {
         is_ready_now: data.is_ready_now,
         is_active: data.is_active,
         is_fragile: data.is_fragile,
+        allow_standard_packaging: data.allow_standard_packaging,
+        allow_reinforced_packaging: data.allow_reinforced_packaging,
         reinforced_packaging_cost: data.reinforced_packaging_cost ? parseFloat(data.reinforced_packaging_cost) : null,
       } as any).select().single();
       if (error) throw error;
@@ -169,6 +178,7 @@ export function AdminProducts() {
           description: data.description,
           item_code: data.item_code,
           base_price: parseFloat(data.base_price),
+          group_buy_price: data.group_buy_price ? parseFloat(data.group_buy_price) : null,
           category_id: data.category_id || null,
           is_group_buy_eligible: data.is_group_buy_eligible,
           is_flash_deal: data.is_flash_deal,
@@ -177,6 +187,8 @@ export function AdminProducts() {
           is_ready_now: data.is_ready_now,
           is_active: data.is_active,
           is_fragile: data.is_fragile,
+          allow_standard_packaging: data.allow_standard_packaging,
+          allow_reinforced_packaging: data.allow_reinforced_packaging,
           reinforced_packaging_cost: data.reinforced_packaging_cost ? parseFloat(data.reinforced_packaging_cost) : null,
         } as any)
         .eq('id', id);
@@ -262,6 +274,7 @@ export function AdminProducts() {
         description: product.description || '',
         item_code: product.item_code || '',
         base_price: String(product.base_price || 0),
+        group_buy_price: (product as any).group_buy_price != null ? String((product as any).group_buy_price) : '',
         category_id: product.category_id || '',
         is_group_buy_eligible: product.is_group_buy_eligible || false,
         is_flash_deal: product.is_flash_deal || false,
@@ -270,6 +283,8 @@ export function AdminProducts() {
         is_ready_now: product.is_ready_now || false,
         is_active: product.is_active ?? true,
         is_fragile: (product as any).is_fragile || false,
+        allow_standard_packaging: (product as any).allow_standard_packaging !== false,
+        allow_reinforced_packaging: (product as any).allow_reinforced_packaging !== false,
         reinforced_packaging_cost: (product as any).reinforced_packaging_cost != null ? String((product as any).reinforced_packaging_cost) : '',
       });
       setExistingImages(product.product_images || []);
@@ -416,6 +431,21 @@ export function AdminProducts() {
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="group_buy_price">Group Buy Price</Label>
+                  <Input
+                    id="group_buy_price"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={form.group_buy_price}
+                    onChange={(e) => setForm({ ...form, group_buy_price: e.target.value })}
+                    placeholder="Optional fixed group-buy price"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
                   <Label htmlFor="category">Category</Label>
                   <Select
                     value={form.category_id}
@@ -439,6 +469,7 @@ export function AdminProducts() {
                     </SelectContent>
                   </Select>
                 </div>
+                <div />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -530,6 +561,28 @@ export function AdminProducts() {
                 </div>
                 {form.is_fragile && (
                   <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="flex items-center justify-between rounded-lg border border-border p-3">
+                        <Label htmlFor="allow_standard_packaging">Standard Packaging</Label>
+                        <Switch
+                          id="allow_standard_packaging"
+                          checked={form.allow_standard_packaging}
+                          onCheckedChange={(checked) =>
+                            setForm({ ...form, allow_standard_packaging: checked })
+                          }
+                        />
+                      </div>
+                      <div className="flex items-center justify-between rounded-lg border border-border p-3">
+                        <Label htmlFor="allow_reinforced_packaging">Reinforced Protection</Label>
+                        <Switch
+                          id="allow_reinforced_packaging"
+                          checked={form.allow_reinforced_packaging}
+                          onCheckedChange={(checked) =>
+                            setForm({ ...form, allow_reinforced_packaging: checked })
+                          }
+                        />
+                      </div>
+                    </div>
                     <Label htmlFor="reinforced_packaging_cost">Reinforced Packaging Cost (₵) — leave blank to use store default</Label>
                     <Input
                       id="reinforced_packaging_cost"

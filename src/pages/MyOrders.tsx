@@ -390,10 +390,16 @@ export default function MyOrders() {
     if (error) {
       toast.error('Failed to confirm delivery');
     } else {
+      await supabase.from('order_tracking').insert({
+        order_id: order.id,
+        status: 'delivered',
+        location_name: 'Delivered',
+        notes: 'Customer confirmed delivery.',
+      });
       toast.success('Delivery confirmed!');
       fetchOrders();
       // Prompt to review
-      setReviewDialogOrder(order);
+      setReviewDialogOrder({ ...order, status: 'delivered' });
     }
   };
 
@@ -639,16 +645,16 @@ export default function MyOrders() {
                               <Button
                                 size="sm"
                                 onClick={() => handleConfirmDelivery(order)}
-                                disabled={order.status !== 'out_for_delivery' && order.status !== 'ready_for_delivery'}
+                                disabled={order.status !== 'out_for_delivery'}
                                 className="w-full"
                                 title={
-                                  order.status !== 'out_for_delivery' && order.status !== 'ready_for_delivery'
+                                  order.status !== 'out_for_delivery'
                                     ? 'Available once order is out for delivery'
                                     : undefined
                                 }
                               >
                                 <CheckCircle className="h-3.5 w-3.5 mr-1" />
-                                Confirm
+                                Confirm Delivery
                               </Button>
                             )}
                           </div>
@@ -737,6 +743,10 @@ export default function MyOrders() {
                                     </tbody>
                                   </table>
                                 </div>
+                                <div className="flex flex-wrap gap-2 mt-3">
+                                  <OrderInvoice order={order} />
+                                  <RefundRequestDialog order={order} />
+                                </div>
                               </div>
                             )}
 
@@ -805,7 +815,7 @@ export default function MyOrders() {
                                   Confirm Payment
                                 </Button>
                               )}
-                              {(order.status === 'ready_for_delivery' || order.status === 'out_for_delivery') && (
+                              {order.status === 'out_for_delivery' && (
                                 <Button
                                   size="sm"
                                   onClick={() => handleConfirmDelivery(order)}
@@ -840,7 +850,6 @@ export default function MyOrders() {
                                   Track
                                 </Button>
                               </Link>
-                              <OrderInvoice order={order} />
                               
                               {/* Buy Again & Review - always visible for delivered */}
                               {order.status === 'delivered' && (
@@ -848,10 +857,7 @@ export default function MyOrders() {
                                   <Button
                                     size="sm"
                                     variant="default"
-                                    onClick={() => {
-                                      toast.success('Items added to cart! Redirecting...');
-                                      navigate('/cart');
-                                    }}
+                                    onClick={() => handleBuyAgain(order)}
                                   >
                                     <ShoppingBag className="h-3.5 w-3.5 mr-1" />
                                     Buy Again

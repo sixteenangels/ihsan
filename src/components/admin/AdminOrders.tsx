@@ -12,11 +12,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
-import { Loader2, Eye, MapPin, Package, Calendar, Clock, CreditCard, ShoppingBag, PackageCheck, Truck, Plane, MapPinned, Home, CheckCircle, XCircle, RotateCcw, Search, Download, StickyNote, CheckSquare, BellRing, MessageSquare } from 'lucide-react';
+import { Loader2, Eye, MapPin, Package, Calendar, Clock, CreditCard, ShoppingBag, PackageCheck, Truck, Plane, MapPinned, Home, CheckCircle, XCircle, RotateCcw, Search, Download, StickyNote, CheckSquare, BellRing, MessageSquare, Plus } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { format } from 'date-fns';
 import { useCurrency } from '@/hooks/useCurrency';
-import { useMessageTemplates } from '@/hooks/useMessageTemplates';
+import { useMessageTemplates, useSaveTemplate } from '@/hooks/useMessageTemplates';
 import { SwipeableOrderCard } from './SwipeableOrderCard';
 import { SwipeHintOverlay } from './SwipeHintOverlay';
 
@@ -40,6 +40,24 @@ const ORDER_STATUSES = [
 ] as const;
 
 type OrderStatus = typeof ORDER_STATUSES[number];
+
+const ORDER_STATUS_OPTIONS: OrderStatus[] = [
+  'pending',
+  'payment_received',
+  'confirmed',
+  'order_placed',
+  'order_processed',
+  'shipped',
+  'in_transit',
+  'in_ghana',
+  'processing',
+  'ready_for_delivery',
+  'handed_to_courier',
+  'out_for_delivery',
+  'delivered',
+  'cancelled',
+  'refunded',
+];
 
 interface StatusTabConfig {
   value: string;
@@ -84,6 +102,7 @@ export function AdminOrders() {
   const queryClient = useQueryClient();
   const { formatPrice } = useCurrency();
   const { data: templates = [] } = useMessageTemplates();
+  const saveTemplateMutation = useSaveTemplate();
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -92,6 +111,7 @@ export function AdminOrders() {
   const [deliveryDates, setDeliveryDates] = useState<{ orderId: string; start: string; end: string }>({ orderId: '', start: '', end: '' });
   const [newOrderAlert, setNewOrderAlert] = useState(false);
   const [statusNotes, setStatusNotes] = useState<Record<string, string>>({});
+  const [adminNotes, setAdminNotes] = useState<Record<string, string>>({});
 
   // Real-time subscription for new/updated orders
   useEffect(() => {
@@ -361,6 +381,76 @@ export function AdminOrders() {
     },
     onError: (error: Error) => {
       toast.error(error.message);
+    },
+  });
+
+  const saveAdminNotesMutation = useMutation({
+    mutationFn: async ({ orderId, notes }: { orderId: string; notes: string }) => {
+      const { error } = await supabase
+        .from('orders')
+        .update({ admin_notes: notes, updated_at: new Date().toISOString() })
+        .eq('id', orderId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
+      toast.success('Admin note saved');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to save admin note');
+    },
+  });
+
+  const addCustomerNoteMutation = useMutation({
+    mutationFn: async ({
+      orderId,
+      orderStatus,
+      note,
+      userId,
+    }: {
+      orderId: string;
+      orderStatus: OrderStatus;
+      note: string;
+      userId?: string;
+    }) => {
+      const trimmed = note.trim();
+      if (!trimmed) {
+        throw new Error('Enter a note for the customer first');
+      }
+
+      const { error: trackingError } = await supabase
+        .from('order_tracking')
+        .insert({
+          order_id: orderId,
+          status: orderStatus,
+          location_name: STATUS_LABELS[orderStatus],
+          notes: trimmed,
+        });
+
+      if (trackingError) throw trackingError;
+
+      await supabase
+        .from('orders')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', orderId);
+
+      if (userId) {
+        await supabase.from('notifications').insert({
+          user_id: userId,
+          title: 'Order Update',
+          message: trimmed,
+          type: 'order_status',
+          data: { orderId, status: orderStatus, note: trimmed },
+        });
+      }
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
+      setStatusNotes((prev) => ({ ...prev, [variables.orderId]: '' }));
+      toast.success('Customer note added');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to add customer note');
     },
   });
 
@@ -656,26 +746,32 @@ export function AdminOrders() {
                         <StickyNote className="h-4 w-4 text-muted-foreground" />
                         <span className="text-sm font-medium text-foreground">Admin Notes</span>
                       </div>
-                      <Textarea
-                        defaultValue={order.admin_notes || ''}
-                        placeholder="Add internal notes about this order..."
-                        className="text-sm min-h-[60px]"
-                        onBlur={async (e) => {
-                          const newNotes = e.target.value;
-                          if (newNotes !== (order.admin_notes || '')) {
-                            const { error } = await supabase
-                              .from('orders')
-                              .update({ admin_notes: newNotes })
-                              .eq('id', order.id);
-                            if (error) {
-                              toast.error('Failed to save note');
-                            } else {
-                              toast.success('Note saved');
-                              queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
-                            }
+                      <div className="space-y-2">
+                        <Textarea
+                          value={adminNotes[order.id] ?? order.admin_notes ?? ''}
+                          placeholder="Add internal notes about this order..."
+                          className="text-sm min-h-[60px]"
+                          onChange={(e) =>
+                            setAdminNotes((prev) => ({ ...prev, [order.id]: e.target.value }))
                           }
-                        }}
-                      />
+                        />
+                        <div className="flex justify-end">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              saveAdminNotesMutation.mutate({
+                                orderId: order.id,
+                                notes: adminNotes[order.id] ?? order.admin_notes ?? '',
+                              })
+                            }
+                            disabled={saveAdminNotesMutation.isPending}
+                          >
+                            <Plus className="h-4 w-4 mr-1" />
+                            Save Note
+                          </Button>
+                        </div>
+                      </div>
                     </div>
 
                     {/* Actions */}
@@ -698,7 +794,7 @@ export function AdminOrders() {
                               <SelectValue placeholder="Update status" />
                             </SelectTrigger>
                             <SelectContent className="bg-popover z-50">
-                              {ORDER_STATUSES.map((status) => (
+                              {ORDER_STATUS_OPTIONS.map((status) => (
                                 <SelectItem key={status} value={status}>
                                   {STATUS_LABELS[status]}
                                 </SelectItem>
@@ -747,6 +843,50 @@ export function AdminOrders() {
                           onChange={(e) => setStatusNotes(prev => ({ ...prev, [order.id]: e.target.value }))}
                           className="text-sm"
                         />
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              addCustomerNoteMutation.mutate({
+                                orderId: order.id,
+                                orderStatus: order.status as OrderStatus,
+                                note: statusNotes[order.id] || '',
+                                userId: order.user_id,
+                              })
+                            }
+                            disabled={!statusNotes[order.id]?.trim() || addCustomerNoteMutation.isPending}
+                          >
+                            <Plus className="h-4 w-4 mr-1" />
+                            Add Note
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={async () => {
+                              const content = (statusNotes[order.id] || '').trim();
+                              if (!content) {
+                                toast.error('Type a note before saving a template');
+                                return;
+                              }
+
+                              const defaultName = `${STATUS_LABELS[order.status as OrderStatus]} Note`;
+                              const name = window.prompt('Template name', defaultName)?.trim();
+                              if (!name) return;
+
+                              await saveTemplateMutation.mutateAsync({
+                                name,
+                                content,
+                                category: 'Order Updates',
+                              });
+                              toast.success('Template saved');
+                            }}
+                            disabled={!statusNotes[order.id]?.trim() || saveTemplateMutation.isPending}
+                          >
+                            <MessageSquare className="h-4 w-4 mr-1" />
+                            Save as Template
+                          </Button>
+                        </div>
                       </div>
 
                       {/* Set Estimated Delivery Dialog */}

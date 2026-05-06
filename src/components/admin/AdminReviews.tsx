@@ -1,17 +1,15 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Star, Check, X, Trash2, Eye, EyeOff, Send } from 'lucide-react';
+import { Loader2, Star, Trash2, Eye, EyeOff, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 
 export function AdminReviews() {
-  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [responses, setResponses] = useState<Record<string, string>>({});
 
@@ -22,13 +20,30 @@ export function AdminReviews() {
         .from('reviews')
         .select(`
           *,
-          products(name),
-          profiles:user_id(name, email)
+          products(name)
         `)
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data;
+
+      const userIds = [...new Set((data || []).map((review) => review.user_id).filter(Boolean))];
+      const { data: profilesData, error: profilesError } = userIds.length > 0
+        ? await supabase
+            .from('profiles')
+            .select('user_id, name, email')
+            .in('user_id', userIds)
+        : { data: [], error: null };
+
+      if (profilesError) throw profilesError;
+
+      const profilesMap = new Map(
+        (profilesData || []).map((profile) => [profile.user_id, profile])
+      );
+
+      return (data || []).map((review) => ({
+        ...review,
+        profiles: profilesMap.get(review.user_id) || null,
+      }));
     },
   });
 

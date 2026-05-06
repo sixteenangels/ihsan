@@ -3,6 +3,7 @@ import { CartItem, Product, ProductVariant, ShippingOption } from '@/types';
 
 interface CartContextType {
   items: CartItem[];
+  selectedItems: CartItem[];
   selectedShipping: ShippingOption | null;
   selectedItemIds: string[];
   addToCart: (product: Product, variant: ProductVariant | null, quantity?: number) => void;
@@ -10,11 +11,13 @@ interface CartContextType {
   updateQuantity: (itemId: string, quantity: number) => void;
   updateVariant: (itemId: string, variant: ProductVariant) => void;
   clearCart: () => void;
+  clearSelectedItems: () => void;
   setShipping: (shipping: ShippingOption) => void;
   toggleItemSelection: (itemId: string) => void;
   setSelectedItemIds: (ids: string[]) => void;
   totalItems: number;
   subtotal: number;
+  selectedSubtotal: number;
   shippingCost: number;
   total: number;
 }
@@ -44,10 +47,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }, [items]);
 
-  // Default-select all items whenever the cart changes
+  // Keep selection in sync with cart contents while preserving intentional unchecks.
   useEffect(() => {
-    setSelectedItemIdsState(items.map((i) => i.id));
-  }, [items.length]);
+    setSelectedItemIdsState((prev) => {
+      const itemIds = items.map((item) => item.id);
+      const stillPresent = prev.filter((id) => itemIds.includes(id));
+      const newIds = itemIds.filter((id) => !stillPresent.includes(id));
+      return [...stillPresent, ...newIds];
+    });
+  }, [items]);
 
   const addToCart = (product: Product, variant: ProductVariant | null, quantity = 1) => {
     setItems((prev) => {
@@ -108,6 +116,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const clearCart = () => {
     setItems([]);
     setSelectedShipping(null);
+    setSelectedItemIdsState([]);
+  };
+
+  const clearSelectedItems = () => {
+    setItems((prev) => prev.filter((item) => !selectedItemIds.includes(item.id)));
+    setSelectedItemIdsState([]);
   };
 
   const setShipping = (shipping: ShippingOption) => {
@@ -122,8 +136,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const setSelectedItemIds = (ids: string[]) => setSelectedItemIdsState(ids);
 
+  const selectedItems = items.filter((item) => selectedItemIds.includes(item.id));
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
   const subtotal = items.reduce(
+    (sum, item) => sum + item.variant.price * item.quantity,
+    0
+  );
+  const selectedSubtotal = selectedItems.reduce(
     (sum, item) => sum + item.variant.price * item.quantity,
     0
   );
@@ -134,6 +153,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     <CartContext.Provider
       value={{
         items,
+        selectedItems,
         selectedShipping,
         selectedItemIds,
         addToCart,
@@ -141,11 +161,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
         updateQuantity,
         updateVariant,
         clearCart,
+        clearSelectedItems,
         setShipping,
         toggleItemSelection,
         setSelectedItemIds,
         totalItems,
         subtotal,
+        selectedSubtotal,
         shippingCost,
         total,
       }}

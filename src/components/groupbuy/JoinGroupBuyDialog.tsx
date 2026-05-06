@@ -22,6 +22,7 @@ interface JoinGroupBuyDialogProps {
     min_participants: number;
     current_participants: number | null;
     discount_percentage: number | null;
+    group_price: number | null;
     expires_at: string;
     product: {
       name: string;
@@ -86,13 +87,17 @@ export function JoinGroupBuyDialog({ groupBuy }: JoinGroupBuyDialogProps) {
     enabled: !!user,
   });
 
-  const discountedPrice = groupBuy.product
-    ? groupBuy.product.base_price * (1 - (groupBuy.discount_percentage || 0) / 100)
-    : 0;
+  const discountedPrice = groupBuy.group_price != null
+    ? groupBuy.group_price
+    : groupBuy.product
+      ? groupBuy.product.base_price * (1 - (groupBuy.discount_percentage || 0) / 100)
+      : 0;
 
   const selectedVariant = variants?.find((v) => v.id === selectedVariantId);
-  const unitPrice = selectedVariant?.price_override
-    ? Number(selectedVariant.price_override) * (1 - (groupBuy.discount_percentage || 0) / 100)
+  const unitPrice = selectedVariant?.price_override != null && groupBuy.product
+    ? groupBuy.group_price != null
+      ? Number(groupBuy.group_price)
+      : Number(selectedVariant.price_override) * (1 - (groupBuy.discount_percentage || 0) / 100)
     : discountedPrice;
   const totalAmount = unitPrice * parseInt(quantity || '1');
 

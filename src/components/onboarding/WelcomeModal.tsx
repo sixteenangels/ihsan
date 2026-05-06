@@ -31,11 +31,16 @@ export function WelcomeModal() {
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
+  const getShownKey = (userId: string) => `welcome-shown-${userId}`;
+
   useEffect(() => {
     if (user) {
-      const hasOnboarded = localStorage.getItem(`onboarded-${user.id}`);
-      if (!hasOnboarded) {
-        const timer = setTimeout(() => setOpen(true), 1500);
+      const hasShown = localStorage.getItem(getShownKey(user.id));
+      if (!hasShown) {
+        const timer = setTimeout(() => {
+          localStorage.setItem(getShownKey(user.id), 'true');
+          setOpen(true);
+        }, 1500);
         return () => clearTimeout(timer);
       }
     }
@@ -65,7 +70,15 @@ export function WelcomeModal() {
   if (!user || !isEnabled('welcome_modal')) return null;
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen && user) {
+          localStorage.setItem(getShownKey(user.id), 'true');
+        }
+        setOpen(nextOpen);
+      }}
+    >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-2xl font-serif">

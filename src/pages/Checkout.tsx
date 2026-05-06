@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, MapPin, Plus, Ship, Plane, Package, CreditCard, Check, Tag, X, AlertTriangle, Wallet, Shield } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
-import { useCart } from '@/contexts/CartContext';
+import { isVariantPlaceholder, useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCurrency } from '@/hooks/useCurrency';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useWalletBalance } from '@/hooks/useWallet';
@@ -38,10 +39,19 @@ interface ShippingClass {
   base_price: number;
   estimated_days_min: number;
   estimated_days_max: number;
+  product_prices: Record<string, number>;
   shipping_type: {
     id: string;
     name: string;
   };
+}
+
+interface VariantOption {
+  id: string;
+  color: string | null;
+  size: string | null;
+  price_override: number | null;
+  stock: number | null;
 }
 
 interface Coupon {
@@ -62,7 +72,14 @@ declare global {
 export default function Checkout() {
   const navigate = useNavigate();
   const { user, isLoading: authLoading } = useAuth();
-  const { items, subtotal, clearCart } = useCart();
+  const {
+    items,
+    selectedItems,
+    subtotal,
+    selectedSubtotal,
+    updateVariant,
+    clearSelectedItems,
+  } = useCart();
   const { formatPrice, currency } = useCurrency();
   
   const [addresses, setAddresses] = useState<Address[]>([]);
@@ -77,6 +94,8 @@ export default function Checkout() {
   const [pendingPaymentRef, setPendingPaymentRef] = useState<string | null>(null);
   const [showPaymentRecovery, setShowPaymentRecovery] = useState(false);
   const [courierAcknowledged, setCourierAcknowledged] = useState(false);
+  const [showCourierDialog, setShowCourierDialog] = useState(false);
+  const [pendingCourierShippingId, setPendingCourierShippingId] = useState<string | null>(null);
   const callbackFiredRef = useRef(false);
   const [orderCreationInProgress, setOrderCreationInProgress] = useState(false);
 
@@ -85,7 +104,14 @@ export default function Checkout() {
   const [useWalletCredit, setUseWalletCredit] = useState(false);
 
   // Fragile / packaging — keyed by product_id
-  const [productMeta, setProductMeta] = useState<Record<string, { is_fragile: boolean; reinforced_cost: number; is_free_shipping: boolean }>>({});
+  const [productMeta, setProductMeta] = useState<Record<string, {
+    is_fragile: boolean;
+    reinforced_cost: number;
+    is_free_shipping: boolean;
+    allow_standard_packaging: boolean;
+    allow_reinforced_packaging: boolean;
+  }>>({});
+  const [productVariantOptions, setProductVariantOptions] = useState<Record<string, VariantOption[]>>({});
   const [globalReinforcedCost, setGlobalReinforcedCost] = useState<number>(0);
   const [packagingChoice, setPackagingChoice] = useState<'standard' | 'reinforced'>('reinforced');
   const [showStandardWarning, setShowStandardWarning] = useState(false);
@@ -111,10 +137,10 @@ export default function Checkout() {
 
   // Redirect if cart is empty
   useEffect(() => {
-    if (items.length === 0) {
+    if (items.length === 0 || selectedItems.length === 0) {
       navigate('/cart');
     }
-  }, [items, navigate]);
+  }, [items.length, selectedItems.length, navigate]);
 
   // Load Paystack script
   useEffect(() => {
@@ -131,14 +157,18 @@ export default function Checkout() {
   useEffect(() => {
     if (user) {
       fetchAddresses();
-      fetchShippingClasses();
     }
   }, [user]);
+
+  useEffect(() => {
+    fetchShippingClasses();
+  }, [cartProductIds.join(','), JSON.stringify(productMeta)]);
 
   const fetchAddresses = async () => {
     const { data, error } = await supabase
       .from('addresses')
       .select('*')
+      .eq('user_id', user!.id)
       .order('is_default', { ascending: false });
     
     if (data) {
@@ -154,61 +184,115 @@ export default function Checkout() {
 
   // Get product IDs from cart
   const cartProductIds = useMemo(() => {
-    return [...new Set(items.map(item => item.product.id))];
-  }, [items]);
+    return [...new Set(selectedItems.map(item => item.product.id))];
+  }, [selectedItems]);
 
   // Fetch product meta (fragile / reinforced cost / free shipping) + global default reinforced cost
   useEffect(() => {
-    if (cartProductIds.length === 0) return;
+    if (cartProductIds.length === 0) {
+      setProductMeta({});
+      setProductVariantOptions({});
+      return;
+    }
+
     (async () => {
-      const [{ data: products }, { data: settings }] = await Promise.all([
+      const [{ data: products }, { data: variants }, { data: settings }] = await Promise.all([
         supabase
           .from('products')
-          .select('id, is_fragile, reinforced_packaging_cost, is_free_shipping')
+          .select('id, is_fragile, reinforced_packaging_cost, is_free_shipping, allow_standard_packaging, allow_reinforced_packaging')
           .in('id', cartProductIds),
+        supabase
+          .from('product_variants')
+          .select('id, product_id, color, size, price_override, stock')
+          .in('product_id', cartProductIds)
+          .eq('is_active', true),
         supabase
           .from('store_settings')
           .select('value')
           .eq('key', 'reinforcedPackagingCost')
           .maybeSingle(),
       ]);
-      const meta: Record<string, { is_fragile: boolean; reinforced_cost: number; is_free_shipping: boolean }> = {};
+      const meta: Record<string, {
+        is_fragile: boolean;
+        reinforced_cost: number;
+        is_free_shipping: boolean;
+        allow_standard_packaging: boolean;
+        allow_reinforced_packaging: boolean;
+      }> = {};
       (products || []).forEach((p: any) => {
         meta[p.id] = {
           is_fragile: !!p.is_fragile,
           reinforced_cost: Number(p.reinforced_packaging_cost) || 0,
           is_free_shipping: !!p.is_free_shipping,
+          allow_standard_packaging: p.allow_standard_packaging !== false,
+          allow_reinforced_packaging: p.allow_reinforced_packaging !== false,
         };
       });
       setProductMeta(meta);
+
+      const variantsMap: Record<string, VariantOption[]> = {};
+      (variants || []).forEach((variant: any) => {
+        if (!variantsMap[variant.product_id]) {
+          variantsMap[variant.product_id] = [];
+        }
+        variantsMap[variant.product_id].push({
+          id: variant.id,
+          color: variant.color,
+          size: variant.size,
+          price_override: variant.price_override != null ? Number(variant.price_override) : null,
+          stock: variant.stock,
+        });
+      });
+      setProductVariantOptions(variantsMap);
+
       const globalDefault = Number((settings as any)?.value) || 0;
       setGlobalReinforcedCost(globalDefault);
     })();
   }, [cartProductIds.join(',')]);
 
-  // Cart-level fragile / free shipping detection
-  const hasFragile = items.some((it) => productMeta[it.product.id]?.is_fragile);
-  const allFreeShipping = items.length > 0 && items.every((it) =>
+  // Cart-level fragile / free shipping detection for the selected checkout items
+  const hasFragile = selectedItems.some((it) => productMeta[it.product.id]?.is_fragile);
+  const allFreeShipping = selectedItems.length > 0 && selectedItems.every((it) =>
     productMeta[it.product.id]?.is_free_shipping || it.product.isFreeShippingEligible
   );
+  const allowsStandardPackaging = selectedItems.every((it) =>
+    !productMeta[it.product.id]?.is_fragile || productMeta[it.product.id]?.allow_standard_packaging
+  );
+  const allowsReinforcedPackaging = selectedItems.every((it) =>
+    !productMeta[it.product.id]?.is_fragile || productMeta[it.product.id]?.allow_reinforced_packaging
+  );
+
+  useEffect(() => {
+    if (!hasFragile) return;
+
+    if (!allowsReinforcedPackaging) {
+      setPackagingChoice('standard');
+      return;
+    }
+
+    if (!allowsStandardPackaging) {
+      setPackagingChoice('reinforced');
+    }
+  }, [allowsReinforcedPackaging, allowsStandardPackaging, hasFragile]);
 
   // Reinforced packaging cost = sum of per-product overrides, falling back to global default
   const reinforcedPackagingCost = useMemo(() => {
     if (!hasFragile || packagingChoice !== 'reinforced') return 0;
     let total = 0;
-    items.forEach((it) => {
+    selectedItems.forEach((it) => {
       const m = productMeta[it.product.id];
       if (!m?.is_fragile) return;
       const cost = m.reinforced_cost > 0 ? m.reinforced_cost : globalReinforcedCost;
       total += cost * it.quantity;
     });
     return total;
-  }, [items, productMeta, globalReinforcedCost, hasFragile, packagingChoice]);
+  }, [selectedItems, productMeta, globalReinforcedCost, hasFragile, packagingChoice]);
 
   // Fetch shipping classes that are allowed for ALL products in cart
   const fetchShippingClasses = async () => {
     if (cartProductIds.length === 0) {
       setShippingClasses([]);
+      setSelectedShippingId('');
       return;
     }
 
@@ -245,21 +329,31 @@ export default function Checkout() {
     shippingRules?.forEach((rule: any) => {
       const sc = rule.shipping_classes;
       if (!sc || !sc.is_active) return;
+
+      const productIsFreeShipping =
+        productMeta[rule.product_id]?.is_free_shipping ||
+        selectedItems.some((item) =>
+          item.product.id === rule.product_id && item.product.isFreeShippingEligible
+        );
       
       const existing = shippingClassCounts.get(sc.id);
       if (existing) {
         existing.count++;
-        existing.totalPrice += rule.price;
+        existing.totalPrice += productIsFreeShipping ? 0 : Number(rule.price || 0);
+        existing.data.product_prices[rule.product_id] = Number(rule.price || 0);
       } else {
         shippingClassCounts.set(sc.id, {
           count: 1,
-          totalPrice: rule.price,
+          totalPrice: productIsFreeShipping ? 0 : Number(rule.price || 0),
           data: {
             id: sc.id,
             name: sc.name,
             base_price: sc.base_price,
             estimated_days_min: sc.estimated_days_min,
             estimated_days_max: sc.estimated_days_max,
+            product_prices: {
+              [rule.product_id]: Number(rule.price || 0),
+            },
             shipping_type: sc.shipping_types ? {
               id: sc.shipping_types.id,
               name: sc.shipping_types.name
@@ -282,7 +376,13 @@ export default function Checkout() {
     });
 
     setShippingClasses(validClasses);
-    if (validClasses.length > 0 && !selectedShippingId) {
+    if (validClasses.length === 0) {
+      setSelectedShippingId('');
+      return;
+    }
+
+    const stillAvailable = validClasses.some((shippingClass) => shippingClass.id === selectedShippingId);
+    if (!stillAvailable) {
       setSelectedShippingId(validClasses[0].id);
     }
   };
@@ -328,7 +428,6 @@ export default function Checkout() {
   };
 
   const selectedShipping = shippingClasses.find(s => s.id === selectedShippingId);
-  // Free shipping override: if every cart item is marked free shipping, force shipping cost to 0
   const rawShippingCost = selectedShipping?.base_price || 0;
   const shippingCost = allFreeShipping ? 0 : rawShippingCost;
 
@@ -336,13 +435,13 @@ export default function Checkout() {
   const calculateDiscount = () => {
     if (!appliedCoupon) return 0;
     if (appliedCoupon.type === 'percentage') {
-      return (subtotal * appliedCoupon.value) / 100;
+      return (selectedSubtotal * appliedCoupon.value) / 100;
     }
     return appliedCoupon.value;
   };
 
   const discount = calculateDiscount();
-  const subtotalBeforeWallet = subtotal + shippingCost + reinforcedPackagingCost - discount;
+  const subtotalBeforeWallet = selectedSubtotal + shippingCost + reinforcedPackagingCost - discount;
   const walletApplied = useWalletCredit ? Math.min(walletBalance, subtotalBeforeWallet) : 0;
   const total = Math.max(0, subtotalBeforeWallet - walletApplied);
 
@@ -375,7 +474,7 @@ export default function Checkout() {
     }
     
     // Check minimum order amount
-    if (data.min_order_amount && subtotal < data.min_order_amount) {
+    if (data.min_order_amount && selectedSubtotal < data.min_order_amount) {
       toast.error(`Minimum order amount of ${formatPrice(data.min_order_amount)} required`);
       setIsApplyingCoupon(false);
       return;
@@ -405,6 +504,24 @@ export default function Checkout() {
     return <Plane className="h-5 w-5" />;
   };
 
+  const unresolvedVariantItems = selectedItems.filter((item) =>
+    isVariantPlaceholder(item.variant.id) && (productVariantOptions[item.product.id] || []).length > 0
+  );
+
+  const handleShippingSelection = (id: string) => {
+    const shipping = shippingClasses.find((shippingClass) => shippingClass.id === id);
+    if (!shipping) return;
+
+    if (shipping.name.toLowerCase().includes('courier')) {
+      setPendingCourierShippingId(id);
+      setShowCourierDialog(true);
+      return;
+    }
+
+    setSelectedShippingId(id);
+    setCourierAcknowledged(false);
+  };
+
   const handlePaystackPayment = async () => {
     if (!selectedAddressId) {
       toast.error('Please select a delivery address');
@@ -414,10 +531,14 @@ export default function Checkout() {
       toast.error('Please select a shipping method');
       return;
     }
-    // Check courier acknowledgment
+    if (unresolvedVariantItems.length > 0) {
+      toast.error('Choose variants for all selected items before payment');
+      return;
+    }
+
     const isCourierShipping = selectedShipping?.name.toLowerCase().includes('courier');
     if (isCourierShipping && !courierAcknowledged) {
-      toast.error('Please acknowledge the courier delivery fee terms');
+      toast.error('Confirm the courier delivery fee terms before payment');
       return;
     }
     if (!user?.email) {
@@ -535,7 +656,10 @@ export default function Checkout() {
       if (existingOrder) {
         console.warn('Order already exists for this payment reference');
         toast.success('Order already created!');
-        clearCart();
+        clearSelectedItems();
+        setPendingPaymentRef(null);
+        setIsProcessing(false);
+        setOrderCreationInProgress(false);
         navigate(`/order-confirmation/${existingOrder.id}`);
         return;
       }
@@ -546,7 +670,7 @@ export default function Checkout() {
         .insert([{
           order_number: `IHS-${Date.now()}`,
           user_id: user?.id as string,
-          subtotal,
+          subtotal: selectedSubtotal,
           shipping_price: shippingCost,
           total_amount: total,
           shipping_class_id: selectedShippingId,
@@ -582,7 +706,7 @@ export default function Checkout() {
       }
 
       // Create order items
-      const orderItems = items.map(item => ({
+      const orderItems = selectedItems.map(item => ({
         order_id: order.id,
         product_variant_id: item.variant.id,
         product_name: item.product.name,
@@ -603,7 +727,7 @@ export default function Checkout() {
         .from('order_tracking')
         .insert({
           order_id: order.id,
-          status: 'Payment Received',
+          status: 'payment_received',
           location_name: 'Payment Gateway',
           notes: 'Payment verified successfully via Paystack.',
         });
@@ -667,9 +791,9 @@ export default function Checkout() {
         console.error('Admin notification error (non-blocking):', notifErr);
       }
 
-      // Fix #6: clearCart only after ALL DB writes succeed
+      // Remove only the items that were actually checked out.
       setPendingPaymentRef(null);
-      clearCart();
+      clearSelectedItems();
       toast.success('Order placed successfully!');
       navigate(`/order-confirmation/${order.id}`);
       // Fix #7: Reset processing state after navigation
@@ -707,7 +831,7 @@ export default function Checkout() {
     setIsProcessing(false);
   };
 
-  if (authLoading || items.length === 0) {
+  if (authLoading || items.length === 0 || selectedItems.length === 0) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
@@ -886,13 +1010,14 @@ export default function Checkout() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <RadioGroup value={selectedShippingId} onValueChange={(id) => {
-                  setSelectedShippingId(id);
-                  setCourierAcknowledged(false);
-                }}>
+                <RadioGroup value={selectedShippingId} onValueChange={handleShippingSelection}>
                   <div className="space-y-3">
+                    {shippingClasses.length === 0 && (
+                      <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
+                        No shared shipping method is available for the items you selected.
+                      </div>
+                    )}
                     {shippingClasses.map((shipping) => {
-                      const isCourier = shipping.name.toLowerCase().includes('courier');
                       return (
                         <div
                           key={shipping.id}
@@ -901,7 +1026,7 @@ export default function Checkout() {
                               ? 'border-primary bg-primary/5'
                               : 'border-border hover:border-primary/50'
                           }`}
-                          onClick={() => { setSelectedShippingId(shipping.id); setCourierAcknowledged(false); }}
+                          onClick={() => handleShippingSelection(shipping.id)}
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
@@ -920,27 +1045,6 @@ export default function Checkout() {
                               {formatPrice(shipping.base_price)}
                             </p>
                           </div>
-                          {/* Courier acknowledgment checkbox */}
-                          {isCourier && selectedShippingId === shipping.id && (
-                            <div className="mt-3 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
-                              <div className="flex items-start gap-2">
-                                <Checkbox
-                                  id="courier-ack"
-                                  checked={courierAcknowledged}
-                                  onCheckedChange={(checked) => setCourierAcknowledged(!!checked)}
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="mt-0.5"
-                                />
-                                <label
-                                  htmlFor="courier-ack"
-                                  className="text-xs text-amber-800 dark:text-amber-200 cursor-pointer leading-relaxed"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <span className="font-semibold">I understand</span> that I will pay the courier service directly for delivery upon receipt.
-                                </label>
-                              </div>
-                            </div>
-                          )}
                         </div>
                       );
                     })}
@@ -970,6 +1074,7 @@ export default function Checkout() {
                     }}
                   >
                     <div className="space-y-3">
+                      {allowsReinforcedPackaging && (
                       <div
                         className={`p-4 rounded-lg border cursor-pointer transition-all ${
                           packagingChoice === 'reinforced' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
@@ -991,6 +1096,8 @@ export default function Checkout() {
                           </p>
                         </div>
                       </div>
+                      )}
+                      {allowsStandardPackaging && (
                       <div
                         className={`p-4 rounded-lg border cursor-pointer transition-all ${
                           packagingChoice === 'standard' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
@@ -1010,6 +1117,7 @@ export default function Checkout() {
                           <p className="font-semibold text-foreground">Free</p>
                         </div>
                       </div>
+                      )}
                     </div>
                   </RadioGroup>
                 </CardContent>
@@ -1045,13 +1153,57 @@ export default function Checkout() {
               </Card>
             )}
 
+            {unresolvedVariantItems.length > 0 && (
+              <Card className="border-amber-500/40 bg-amber-500/5">
+                <CardHeader>
+                  <CardTitle className="text-base">Choose Variants Before Payment</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {unresolvedVariantItems.map((item) => (
+                    <div key={item.id} className="space-y-2">
+                      <div>
+                        <p className="font-medium text-foreground">{item.product.name}</p>
+                        <p className="text-sm text-muted-foreground">Quantity: {item.quantity}</p>
+                      </div>
+                      <Select
+                        value=""
+                        onValueChange={(variantId) => {
+                          const variant = (productVariantOptions[item.product.id] || []).find((option) => option.id === variantId);
+                          if (!variant) return;
+
+                          updateVariant(item.id, {
+                            id: variant.id,
+                            color: variant.color || undefined,
+                            size: variant.size || undefined,
+                            price: variant.price_override ?? item.product.basePrice,
+                            stock: variant.stock || 0,
+                          });
+                        }}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select variant" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(productVariantOptions[item.product.id] || []).map((variant) => (
+                            <SelectItem key={variant.id} value={variant.id}>
+                              {[variant.color, variant.size].filter(Boolean).join(' / ') || 'Default'}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
             <Card>
               <CardHeader>
-                <CardTitle>Order Items ({items.length})</CardTitle>
+                <CardTitle>Order Items ({selectedItems.length})</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {items.map((item) => (
+                  {selectedItems.map((item) => (
                     <div key={item.id} className="flex gap-3">
                       <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
                         <img
@@ -1127,11 +1279,11 @@ export default function Checkout() {
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Subtotal</span>
-                    <span className="text-foreground">{formatPrice(subtotal)}</span>
+                    <span className="text-foreground">{formatPrice(selectedSubtotal)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">
-                      Shipping{allFreeShipping && rawShippingCost > 0 ? ' (free)' : ''}
+                      Shipping{allFreeShipping && rawShippingCost > 0 ? ' (free)' : shippingCost < rawShippingCost ? ' (free items excluded)' : ''}
                     </span>
                     <span className="text-foreground">{formatPrice(shippingCost)}</span>
                   </div>
@@ -1164,7 +1316,7 @@ export default function Checkout() {
                   className="w-full"
                   size="lg"
                   onClick={handlePaystackPayment}
-                  disabled={isProcessing || !selectedAddressId || !selectedShippingId}
+                  disabled={isProcessing || !selectedAddressId || !selectedShippingId || unresolvedVariantItems.length > 0}
                 >
                   {isProcessing ? (
                     'Processing...'
@@ -1225,6 +1377,51 @@ export default function Checkout() {
         </DialogContent>
       </Dialog>
 
+      <Dialog
+        open={showCourierDialog}
+        onOpenChange={(open) => {
+          setShowCourierDialog(open);
+          if (!open) {
+            setPendingCourierShippingId(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Courier Delivery Fee</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-foreground">
+              Standard Courier means your package will be delivered first, and you will pay the courier fee on receipt.
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => {
+                  setShowCourierDialog(false);
+                  setPendingCourierShippingId(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1"
+                onClick={() => {
+                  if (!pendingCourierShippingId) return;
+                  setSelectedShippingId(pendingCourierShippingId);
+                  setCourierAcknowledged(true);
+                  setShowCourierDialog(false);
+                  setPendingCourierShippingId(null);
+                }}
+              >
+                I Understand
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Standard Packaging Damage Disclaimer */}
       <Dialog open={showStandardWarning} onOpenChange={setShowStandardWarning}>
         <DialogContent>
@@ -1242,15 +1439,6 @@ export default function Checkout() {
             </p>
             <div className="flex gap-2">
               <Button
-                className="flex-1"
-                onClick={() => {
-                  setPackagingChoice('reinforced');
-                  setShowStandardWarning(false);
-                }}
-              >
-                Switch to Reinforced
-              </Button>
-              <Button
                 variant="outline"
                 className="flex-1"
                 onClick={() => {
@@ -1259,6 +1447,15 @@ export default function Checkout() {
                 }}
               >
                 Proceed Anyway
+              </Button>
+              <Button
+                className="flex-1"
+                onClick={() => {
+                  setPackagingChoice('reinforced');
+                  setShowStandardWarning(false);
+                }}
+              >
+                Switch to Reinforced
               </Button>
             </div>
           </div>

@@ -14,6 +14,7 @@ import { CookieConsent } from "@/components/CookieConsent";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { WelcomeModal } from "@/components/onboarding/WelcomeModal";
 import { MaintenanceMode } from "@/components/MaintenanceMode";
+import { missingSupabaseEnvVars, supabaseConfigError } from "@/integrations/supabase/client";
 import { ThemeProvider } from "next-themes";
 import { lazy, Suspense } from "react";
 import { Loader2 } from "lucide-react";
@@ -51,64 +52,104 @@ function PageLoader() {
   );
 }
 
-const App = () => (
-  <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <AuthProvider>
-          <CartProvider>
-            <CompareProvider>
-              <ErrorBoundary>
-                <Toaster />
-                <Sonner />
-                <BrowserRouter
-                  future={{
-                    v7_startTransition: true,
-                    v7_relativeSplatPath: true,
-                  }}
-                >
-                  <MaintenanceMode>
-                    <Suspense fallback={<PageLoader />}>
-                      <Routes>
-                        <Route path="/" element={<Index />} />
-                        <Route path="/products" element={<Products />} />
-                        <Route path="/product/:id" element={<ProductDetail />} />
-                        <Route path="/cart" element={<Cart />} />
-                        <Route path="/checkout" element={<Checkout />} />
-                        <Route path="/order-confirmation/:orderId" element={<OrderConfirmation />} />
-                        <Route path="/my-orders" element={<MyOrders />} />
-                        <Route path="/group-buys" element={<GroupBuys />} />
-                        <Route path="/group-buy/:id" element={<GroupBuyDetail />} />
-                        <Route path="/categories" element={<Categories />} />
-                        <Route path="/auth" element={<Auth />} />
-                        <Route path="/admin/*" element={<Admin />} />
-                        <Route path="/track-order" element={<TrackOrder />} />
-                        <Route path="/track-order/:orderId" element={<TrackOrder />} />
-                        <Route path="/profile" element={<Profile />} />
-                        <Route path="/wishlist" element={<Wishlist />} />
-                        <Route path="/compare" element={<Compare />} />
-                        <Route path="/help" element={<Help />} />
-                        <Route path="/flash-deals" element={<FlashDeals />} />
-                        <Route path="/delivery-zones" element={<DeliveryZones />} />
-                        <Route path="/customs-estimator" element={<CustomsDutyEstimator />} />
-                        <Route path="*" element={<NotFound />} />
-                      </Routes>
-                    </Suspense>
-                    <CompareBar />
-                    <MobileNavBar />
-                    <LiveChatWidget />
-                    <AbandonedCartReminder />
-                    <WelcomeModal />
-                    <CookieConsent />
-                  </MaintenanceMode>
-                </BrowserRouter>
-              </ErrorBoundary>
-            </CompareProvider>
-          </CartProvider>
-        </AuthProvider>
-      </TooltipProvider>
-    </QueryClientProvider>
-  </ThemeProvider>
-);
+function SupabaseConfigScreen() {
+  return (
+    <div className="min-h-screen bg-background px-6 py-16 text-foreground">
+      <div className="mx-auto flex max-w-2xl flex-col gap-6 rounded-3xl border border-border bg-card p-8 shadow-sm">
+        <div className="space-y-2">
+          <p className="text-sm font-medium uppercase tracking-[0.3em] text-primary">Deployment Setup</p>
+          <h1 className="text-3xl font-semibold">Supabase environment variables are missing</h1>
+          <p className="text-muted-foreground">
+            This deployment cannot start because the Vercel project was built without the required
+            Supabase configuration.
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">
+          {supabaseConfigError}
+        </div>
+
+        <div className="space-y-3 text-sm text-muted-foreground">
+          <p>Add these environment variables in Vercel, then redeploy the project:</p>
+          <div className="rounded-2xl border border-border bg-muted/40 p-4 font-mono text-foreground">
+            {missingSupabaseEnvVars.map((variable) => (
+              <div key={variable}>{variable}</div>
+            ))}
+          </div>
+          <p>
+            After redeploying, hard refresh the site once so any old cached service worker assets are
+            replaced.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const App = () => {
+  if (supabaseConfigError) {
+    return <SupabaseConfigScreen />;
+  }
+
+  return (
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <AuthProvider>
+            <CartProvider>
+              <CompareProvider>
+                <ErrorBoundary>
+                  <Toaster />
+                  <Sonner />
+                  <BrowserRouter
+                    future={{
+                      v7_startTransition: true,
+                      v7_relativeSplatPath: true,
+                    }}
+                  >
+                    <MaintenanceMode>
+                      <Suspense fallback={<PageLoader />}>
+                        <Routes>
+                          <Route path="/" element={<Index />} />
+                          <Route path="/products" element={<Products />} />
+                          <Route path="/product/:id" element={<ProductDetail />} />
+                          <Route path="/cart" element={<Cart />} />
+                          <Route path="/checkout" element={<Checkout />} />
+                          <Route path="/order-confirmation/:orderId" element={<OrderConfirmation />} />
+                          <Route path="/my-orders" element={<MyOrders />} />
+                          <Route path="/group-buys" element={<GroupBuys />} />
+                          <Route path="/group-buy/:id" element={<GroupBuyDetail />} />
+                          <Route path="/categories" element={<Categories />} />
+                          <Route path="/auth" element={<Auth />} />
+                          <Route path="/admin/*" element={<Admin />} />
+                          <Route path="/track-order" element={<TrackOrder />} />
+                          <Route path="/track-order/:orderId" element={<TrackOrder />} />
+                          <Route path="/profile" element={<Profile />} />
+                          <Route path="/wishlist" element={<Wishlist />} />
+                          <Route path="/compare" element={<Compare />} />
+                          <Route path="/help" element={<Help />} />
+                          <Route path="/flash-deals" element={<FlashDeals />} />
+                          <Route path="/delivery-zones" element={<DeliveryZones />} />
+                          <Route path="/customs-estimator" element={<CustomsDutyEstimator />} />
+                          <Route path="*" element={<NotFound />} />
+                        </Routes>
+                      </Suspense>
+                      <CompareBar />
+                      <MobileNavBar />
+                      <LiveChatWidget />
+                      <AbandonedCartReminder />
+                      <WelcomeModal />
+                      <CookieConsent />
+                    </MaintenanceMode>
+                  </BrowserRouter>
+                </ErrorBoundary>
+              </CompareProvider>
+            </CartProvider>
+          </AuthProvider>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
+  );
+};
 
 export default App;

@@ -8,10 +8,15 @@ export interface ProductWithDetails {
   item_code: string;
   product_number: string | null;
   base_price: number;
+  group_buy_price: number | null;
   is_group_buy_eligible: boolean | null;
   is_flash_deal: boolean | null;
   is_free_shipping: boolean | null;
   is_active: boolean | null;
+  is_fragile: boolean | null;
+  reinforced_packaging_cost: number | null;
+  allow_standard_packaging: boolean | null;
+  allow_reinforced_packaging: boolean | null;
   rating: number | null;
   review_count: number | null;
   category_id: string | null;
@@ -117,10 +122,15 @@ async function fetchProducts(): Promise<ProductWithDetails[]> {
     item_code: product.item_code,
     product_number: product.product_number,
     base_price: Number(product.base_price),
+    group_buy_price: product.group_buy_price != null ? Number(product.group_buy_price) : null,
     is_group_buy_eligible: product.is_group_buy_eligible,
     is_flash_deal: product.is_flash_deal,
     is_free_shipping: product.is_free_shipping,
     is_active: product.is_active,
+    is_fragile: product.is_fragile,
+    reinforced_packaging_cost: product.reinforced_packaging_cost != null ? Number(product.reinforced_packaging_cost) : null,
+    allow_standard_packaging: product.allow_standard_packaging,
+    allow_reinforced_packaging: product.allow_reinforced_packaging,
     rating: product.rating ? Number(product.rating) : null,
     review_count: product.review_count,
     category_id: product.category_id,
@@ -206,10 +216,15 @@ async function fetchProductById(id: string): Promise<ProductWithDetails | null> 
     item_code: product.item_code,
     product_number: product.product_number,
     base_price: Number(product.base_price),
+    group_buy_price: product.group_buy_price != null ? Number(product.group_buy_price) : null,
     is_group_buy_eligible: product.is_group_buy_eligible,
     is_flash_deal: product.is_flash_deal,
     is_free_shipping: product.is_free_shipping,
     is_active: product.is_active,
+    is_fragile: product.is_fragile,
+    reinforced_packaging_cost: product.reinforced_packaging_cost != null ? Number(product.reinforced_packaging_cost) : null,
+    allow_standard_packaging: product.allow_standard_packaging,
+    allow_reinforced_packaging: product.allow_reinforced_packaging,
     rating: product.rating ? Number(product.rating) : null,
     review_count: product.review_count,
     category_id: product.category_id,

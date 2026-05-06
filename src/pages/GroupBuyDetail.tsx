@@ -46,6 +46,7 @@ export default function GroupBuyDetail() {
       return {
         ...data,
         discount_percentage: data.discount_percentage ? Number(data.discount_percentage) : null,
+        group_price: (data as any).group_price != null ? Number((data as any).group_price) : null,
         product: product ? {
           id: product.id,
           name: product.name,
@@ -91,7 +92,10 @@ export default function GroupBuyDetail() {
   const daysLeft = Math.ceil(
     (new Date(groupBuy.expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
   );
-  const discountedPrice = groupBuy.product.base_price * (1 - (groupBuy.discount_percentage || 0) / 100);
+  const discountedPrice = groupBuy.group_price ?? (groupBuy.product.base_price * (1 - (groupBuy.discount_percentage || 0) / 100));
+  const effectiveDiscount = groupBuy.product.base_price > 0
+    ? Math.max(0, Math.round(((groupBuy.product.base_price - discountedPrice) / groupBuy.product.base_price) * 100))
+    : 0;
   const isFilled = groupBuy.status === 'filled';
   const isCancelled = groupBuy.status === 'cancelled' || groupBuy.status === 'closed';
 
@@ -113,9 +117,9 @@ export default function GroupBuyDetail() {
                 alt={groupBuy.product.name}
                 className="w-full h-full object-cover"
               />
-              {groupBuy.discount_percentage && (
+              {effectiveDiscount > 0 && (
                 <Badge className="absolute top-4 left-4 bg-accent text-accent-foreground text-lg px-4 py-1.5">
-                  {groupBuy.discount_percentage}% OFF
+                  {effectiveDiscount}% OFF
                 </Badge>
               )}
               {isFilled && (
@@ -208,6 +212,7 @@ export default function GroupBuyDetail() {
                     min_participants: groupBuy.min_participants,
                     current_participants: groupBuy.current_participants,
                     discount_percentage: groupBuy.discount_percentage,
+                    group_price: groupBuy.group_price,
                     expires_at: groupBuy.expires_at,
                     product: {
                       name: groupBuy.product.name,

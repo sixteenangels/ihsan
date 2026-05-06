@@ -23,13 +23,16 @@ export function GroupBuyCard({ groupBuy }: GroupBuyCardProps) {
     (new Date(groupBuy.expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
   );
   const discountedPrice =
-    groupBuy.product.base_price * (1 - (groupBuy.discount_percentage || 0) / 100);
+    groupBuy.group_price ?? (groupBuy.product.base_price * (1 - (groupBuy.discount_percentage || 0) / 100));
+  const effectiveDiscount = groupBuy.product.base_price > 0
+    ? Math.max(0, Math.round(((groupBuy.product.base_price - discountedPrice) / groupBuy.product.base_price) * 100))
+    : 0;
 
   const handleShare = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     const url = `${window.location.origin}/group-buy/${groupBuy.id}`;
-    const text = `Join this group buy and save ${groupBuy.discount_percentage || 0}%! ${url}`;
+    const text = `Join this group buy on ${groupBuy.product.name} for ${formatPrice(discountedPrice)}. ${url}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
   };
 
@@ -44,7 +47,7 @@ export function GroupBuyCard({ groupBuy }: GroupBuyCardProps) {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 to-transparent" />
           <Badge className="absolute top-3 left-3 bg-accent text-accent-foreground text-lg px-3 py-1">
-            {groupBuy.discount_percentage || 0}% OFF
+            {effectiveDiscount}% OFF
           </Badge>
           <Button
             variant="ghost"
@@ -109,6 +112,7 @@ export function GroupBuyCard({ groupBuy }: GroupBuyCardProps) {
             min_participants: groupBuy.min_participants,
             current_participants: groupBuy.current_participants,
             discount_percentage: groupBuy.discount_percentage,
+            group_price: groupBuy.group_price,
             expires_at: groupBuy.expires_at,
             product: {
               name: groupBuy.product.name,

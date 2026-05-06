@@ -17,6 +17,7 @@ export interface MyGroupBuyParticipation {
     min_participants: number;
     current_participants: number | null;
     discount_percentage: number | null;
+    group_price: number | null;
     expires_at: string;
     status: string | null;
     product: {
@@ -41,7 +42,7 @@ export function useMyGroupBuys() {
           *,
           group_buys(
             id, title, product_id, min_participants, current_participants,
-            discount_percentage, expires_at, status,
+            discount_percentage, group_price, expires_at, status,
             products(name, base_price)
           )
         `)
@@ -86,6 +87,7 @@ export function useMyGroupBuys() {
             min_participants: gb?.min_participants,
             current_participants: gb?.current_participants,
             discount_percentage: gb?.discount_percentage ? Number(gb.discount_percentage) : null,
+            group_price: gb?.group_price != null ? Number(gb.group_price) : null,
             expires_at: gb?.expires_at,
             status: gb?.status,
             product: {

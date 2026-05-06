@@ -29,7 +29,7 @@ interface GroupBuyForm {
   title: string;
   min_participants: string;
   max_participants: string;
-  discount_percentage: string;
+  group_price: string;
   expires_at: string;
 }
 
@@ -38,7 +38,7 @@ const defaultForm: GroupBuyForm = {
   title: '',
   min_participants: '10',
   max_participants: '',
-  discount_percentage: '20',
+  group_price: '',
   expires_at: '',
 };
 
@@ -72,7 +72,8 @@ export function AdminGroupBuys() {
         title: data.title || null,
         min_participants: parseInt(data.min_participants),
         max_participants: data.max_participants ? parseInt(data.max_participants) : null,
-        discount_percentage: parseFloat(data.discount_percentage),
+        group_price: data.group_price ? parseFloat(data.group_price) : null,
+        discount_percentage: 0,
         expires_at: data.expires_at,
         created_by: user?.id,
         status: 'open',
@@ -144,7 +145,9 @@ export function AdminGroupBuys() {
       if (!participants || participants.length === 0) throw new Error('No paid participants');
 
       const product = gb.products as any;
-      const discountedPrice = Number(product?.base_price || 0) * (1 - (Number(gb.discount_percentage) || 0) / 100);
+      const discountedPrice = gb.group_price != null
+        ? Number(gb.group_price)
+        : Number(product?.base_price || 0) * (1 - (Number(gb.discount_percentage) || 0) / 100);
 
       // Create master order
       const totalAmount = participants.reduce((sum, p) => sum + discountedPrice * (p.quantity || 1), 0);
@@ -260,7 +263,19 @@ export function AdminGroupBuys() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
                   <Label>Product *</Label>
-                  <Select value={form.product_id} onValueChange={(v) => setForm({ ...form, product_id: v })}>
+                  <Select
+                    value={form.product_id}
+                    onValueChange={(v) => {
+                      const selectedProduct = products?.find((product) => product.id === v);
+                      setForm({
+                        ...form,
+                        product_id: v,
+                        group_price: selectedProduct?.group_buy_price != null
+                          ? String(selectedProduct.group_buy_price)
+                          : form.group_price,
+                      });
+                    }}
+                  >
                     <SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger>
                     <SelectContent>
                       {products?.filter((p) => p.is_group_buy_eligible).map((p) => (
@@ -279,8 +294,8 @@ export function AdminGroupBuys() {
                     <Input type="number" min="2" value={form.min_participants} onChange={(e) => setForm({ ...form, min_participants: e.target.value })} />
                   </div>
                   <div className="space-y-2">
-                    <Label>Discount % *</Label>
-                    <Input type="number" min="1" max="99" value={form.discount_percentage} onChange={(e) => setForm({ ...form, discount_percentage: e.target.value })} />
+                    <Label>Group Price *</Label>
+                    <Input type="number" min="0" step="0.01" value={form.group_price} onChange={(e) => setForm({ ...form, group_price: e.target.value })} />
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -366,7 +381,7 @@ export function AdminGroupBuys() {
                 <TableRow>
                   <TableHead>Title / Product</TableHead>
                   <TableHead>Participants</TableHead>
-                  <TableHead>Discount</TableHead>
+                  <TableHead>Group Price</TableHead>
                   <TableHead>Expires</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -390,7 +405,11 @@ export function AdminGroupBuys() {
                           {(gb as any).max_participants && <span className="text-xs text-muted-foreground"> (max {(gb as any).max_participants})</span>}
                         </div>
                       </TableCell>
-                      <TableCell>{gb.discount_percentage}%</TableCell>
+                      <TableCell>
+                        {formatPrice(gb.group_price != null
+                          ? Number(gb.group_price)
+                          : Number(product?.base_price || 0) * (1 - (Number(gb.discount_percentage) || 0) / 100))}
+                      </TableCell>
                       <TableCell>{new Date(gb.expires_at).toLocaleDateString()}</TableCell>
                       <TableCell>{getStatusBadge(gb.status)}</TableCell>
                       <TableCell className="text-right">

@@ -266,7 +266,7 @@ export default function ProductDetail() {
                     <p className="font-medium text-foreground">Start a Group Buy</p>
                     <p className="text-sm text-muted-foreground">Get discounts when others join!</p>
                   </div>
-                  <StartGroupBuyDialog product={{ id: product.id, name: product.name, base_price: product.base_price }} />
+                  <StartGroupBuyDialog product={{ id: product.id, name: product.name, base_price: product.base_price, group_buy_price: product.group_buy_price ?? null }} />
                 </div>
               </div>
             )}

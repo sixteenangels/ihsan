@@ -10,6 +10,7 @@ export interface GroupBuyWithProduct {
   min_participants: number;
   max_participants: number | null;
   discount_percentage: number | null;
+  group_price: number | null;
   expires_at: string;
   status: string | null;
   product: {
@@ -82,6 +83,7 @@ async function fetchGroupBuys(): Promise<GroupBuyWithProduct[]> {
       min_participants: gb.min_participants,
       max_participants: (gb as any).max_participants || null,
       discount_percentage: gb.discount_percentage ? Number(gb.discount_percentage) : null,
+      group_price: (gb as any).group_price != null ? Number((gb as any).group_price) : null,
       expires_at: gb.expires_at,
       status: gb.status,
       product: product ? {

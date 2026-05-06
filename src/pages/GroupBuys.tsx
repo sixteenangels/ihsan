@@ -36,7 +36,12 @@ export default function GroupBuys() {
 
   const activeGroupBuys = groupBuys?.filter(gb => gb.status === 'open') || [];
   const totalParticipants = activeGroupBuys.reduce((sum, g) => sum + (g.current_participants || 0), 0);
-  const maxDiscount = Math.max(...activeGroupBuys.map(g => g.discount_percentage || 0), 0);
+  const maxDiscount = Math.max(...activeGroupBuys.map((g) => {
+    if (g.group_price != null && g.product?.base_price) {
+      return Math.max(0, Math.round(((g.product.base_price - g.group_price) / g.product.base_price) * 100));
+    }
+    return g.discount_percentage || 0;
+  }), 0);
 
   if (isLoading) {
     return (
@@ -122,7 +127,7 @@ export default function GroupBuys() {
                   {myGroupBuys.map((p) => {
                     const gb = p.group_buy;
                     const progress = ((gb.current_participants || 0) / gb.min_participants) * 100;
-                    const discountedPrice = gb.product.base_price * (1 - (gb.discount_percentage || 0) / 100);
+                    const discountedPrice = gb.group_price ?? (gb.product.base_price * (1 - (gb.discount_percentage || 0) / 100));
                     const statusIcon = gb.status === 'filled' ? <CheckCircle className="h-4 w-4" /> :
                                        gb.status === 'cancelled' ? <XCircle className="h-4 w-4" /> :
                                        <Clock className="h-4 w-4" />;
