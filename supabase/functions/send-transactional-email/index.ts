@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import nodemailer from 'npm:nodemailer'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -14,6 +15,91 @@ interface EmailPayload {
   relatedEntityType?: string
   relatedEntityId?: string
   requestedBy?: string
+}
+
+type EmailProvider = 'resend' | 'gmail_smtp'
+
+async function updateOutboxStatus(
+  supabase: ReturnType<typeof createClient>,
+  id: string,
+  input: {
+    status: 'queued' | 'sent' | 'failed'
+    providerMessageId?: string | null
+    errorMessage?: string | null
+    sentAt?: string | null
+  },
+) {
+  await supabase
+    .from('outgoing_emails')
+    .update({
+      status: input.status,
+      provider_message_id: input.providerMessageId ?? null,
+      error_message: input.errorMessage ?? null,
+      sent_at: input.sentAt ?? null,
+    })
+    .eq('id', id)
+}
+
+async function sendWithResend(payload: EmailPayload, fromEmail: string, apiKey: string) {
+  const resendResponse = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from: fromEmail,
+      to: [payload.to],
+      subject: payload.subject,
+      html: payload.html,
+      text: payload.text || undefined,
+    }),
+  })
+
+  const resendBody = await resendResponse.json()
+
+  if (!resendResponse.ok) {
+    throw new Error(resendBody?.message || JSON.stringify(resendBody))
+  }
+
+  return {
+    provider: 'resend' as const,
+    providerMessageId: resendBody?.id || null,
+  }
+}
+
+async function sendWithGmailSmtp(payload: EmailPayload, fromEmail: string) {
+  const smtpHost = Deno.env.get('GMAIL_SMTP_HOST') || 'smtp.gmail.com'
+  const smtpPort = Number(Deno.env.get('GMAIL_SMTP_PORT') || '465')
+  const smtpUser = Deno.env.get('GMAIL_SMTP_USER')
+  const smtpPass = Deno.env.get('GMAIL_SMTP_PASS')
+
+  if (!smtpUser || !smtpPass) {
+    throw new Error('GMAIL_SMTP_USER or GMAIL_SMTP_PASS is not configured')
+  }
+
+  const transporter = nodemailer.createTransport({
+    host: smtpHost,
+    port: smtpPort,
+    secure: smtpPort === 465,
+    auth: {
+      user: smtpUser,
+      pass: smtpPass,
+    },
+  })
+
+  const result = await transporter.sendMail({
+    from: fromEmail,
+    to: payload.to,
+    subject: payload.subject,
+    html: payload.html,
+    text: payload.text,
+  })
+
+  return {
+    provider: 'gmail_smtp' as const,
+    providerMessageId: result.messageId || null,
+  }
 }
 
 Deno.serve(async (req) => {
@@ -54,16 +140,31 @@ Deno.serve(async (req) => {
     if (outboxError) throw outboxError
 
     const resendApiKey = Deno.env.get('RESEND_API_KEY')
-    const fromEmail = Deno.env.get('FROM_EMAIL') || 'Ihsan <no-reply@ihsan.app>'
+    const fromEmail = Deno.env.get('FROM_EMAIL') || Deno.env.get('GMAIL_FROM_EMAIL') || 'Ihsan <no-reply@ihsan.app>'
+    const providerPreference = (Deno.env.get('EMAIL_PROVIDER_PREFERENCE') || 'resend_first').toLowerCase()
+    const gmailConfigured = Boolean(Deno.env.get('GMAIL_SMTP_USER') && Deno.env.get('GMAIL_SMTP_PASS'))
+    const resendConfigured = Boolean(resendApiKey)
 
-    if (!resendApiKey) {
-      await supabase
-        .from('outgoing_emails')
-        .update({
-          status: 'failed',
-          error_message: 'RESEND_API_KEY is not configured',
-        })
-        .eq('id', outboxRow.id)
+    const providerOrder: EmailProvider[] =
+      providerPreference === 'gmail_first'
+        ? ['gmail_smtp', 'resend']
+        : providerPreference === 'gmail_only'
+          ? ['gmail_smtp']
+          : providerPreference === 'resend_only'
+            ? ['resend']
+            : ['resend', 'gmail_smtp']
+
+    const availableProviders = providerOrder.filter((provider) => {
+      if (provider === 'resend') return resendConfigured
+      if (provider === 'gmail_smtp') return gmailConfigured
+      return false
+    })
+
+    if (availableProviders.length === 0) {
+      await updateOutboxStatus(supabase, outboxRow.id, {
+        status: 'failed',
+        errorMessage: 'No configured email providers. Set RESEND_API_KEY and/or Gmail SMTP secrets.',
+      })
 
       return new Response(
         JSON.stringify({ queued: false, sent: false, reason: 'Missing email provider configuration' }),
@@ -71,51 +172,49 @@ Deno.serve(async (req) => {
       )
     }
 
-    const resendResponse = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${resendApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: fromEmail,
-        to: [payload.to],
-        subject: payload.subject,
-        html: payload.html,
-        text: payload.text || undefined,
-      }),
-    })
+    const providerErrors: Array<{ provider: EmailProvider; error: string }> = []
 
-    const resendBody = await resendResponse.json()
+    for (const provider of availableProviders) {
+      try {
+        const result = provider === 'resend'
+          ? await sendWithResend(payload, fromEmail, resendApiKey!)
+          : await sendWithGmailSmtp(payload, fromEmail)
 
-    if (!resendResponse.ok) {
-      await supabase
-        .from('outgoing_emails')
-        .update({
-          status: 'failed',
-          error_message: resendBody?.message || JSON.stringify(resendBody),
+        await updateOutboxStatus(supabase, outboxRow.id, {
+          status: 'sent',
+          providerMessageId: result.providerMessageId,
+          sentAt: new Date().toISOString(),
         })
-        .eq('id', outboxRow.id)
 
-      return new Response(
-        JSON.stringify({ queued: true, sent: false, provider: 'resend', error: resendBody }),
-        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      )
+        return new Response(
+          JSON.stringify({
+            queued: true,
+            sent: true,
+            provider: result.provider,
+            id: result.providerMessageId,
+            attemptedProviders: availableProviders,
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        )
+      } catch (providerError) {
+        const message = providerError instanceof Error ? providerError.message : 'Unknown provider error'
+        providerErrors.push({ provider, error: message })
+      }
     }
 
-    await supabase
-      .from('outgoing_emails')
-      .update({
-        status: 'sent',
-        provider_message_id: resendBody?.id || null,
-        sent_at: new Date().toISOString(),
-        error_message: null,
-      })
-      .eq('id', outboxRow.id)
+    await updateOutboxStatus(supabase, outboxRow.id, {
+      status: 'failed',
+      errorMessage: providerErrors.map((item) => `${item.provider}: ${item.error}`).join(' | '),
+    })
 
     return new Response(
-      JSON.stringify({ queued: true, sent: true, provider: 'resend', id: resendBody?.id || null }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      JSON.stringify({
+        queued: true,
+        sent: false,
+        attemptedProviders: availableProviders,
+        errors: providerErrors,
+      }),
+      { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
   } catch (error) {
     console.error('send-transactional-email error', error)
