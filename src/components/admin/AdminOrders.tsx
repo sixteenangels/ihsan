@@ -22,7 +22,7 @@ import { SwipeableOrderCard } from './SwipeableOrderCard';
 import { SwipeHintOverlay } from './SwipeHintOverlay';
 import { useAuth } from '@/contexts/AuthContext';
 import { logAdminAction } from '@/lib/audit-log';
-import { uploadProofOfDelivery } from '@/lib/proof-of-delivery';
+import { generateProofVerificationCode, uploadProofOfDelivery } from '@/lib/proof-of-delivery';
 import {
   buildDeliveryWindowEmailHtml,
   buildDeliveryWindowEmailSubject,
@@ -138,6 +138,12 @@ export function AdminOrders() {
     deliveryFee: '',
     proofNote: '',
     proofImageUrl: '',
+    recipientName: '',
+    recipientPhone: '',
+    recipientRelationship: '',
+    signatureName: '',
+    verificationCode: '',
+    courierConfirmed: false,
   });
   const [isUploadingProof, setIsUploadingProof] = useState(false);
 
@@ -604,7 +610,28 @@ export function AdminOrders() {
           delivery_fee: fulfillmentDraft.deliveryFee ? Number.parseFloat(fulfillmentDraft.deliveryFee) : null,
           proof_of_delivery_note: fulfillmentDraft.proofNote || null,
           proof_of_delivery_image_url: fulfillmentDraft.proofImageUrl || null,
-          proof_of_delivery_at: fulfillmentDraft.proofNote || fulfillmentDraft.proofImageUrl
+          proof_of_delivery_recipient_name: fulfillmentDraft.recipientName || null,
+          proof_of_delivery_recipient_phone: fulfillmentDraft.recipientPhone || null,
+          proof_of_delivery_relationship: fulfillmentDraft.recipientRelationship || null,
+          proof_of_delivery_signature_name: fulfillmentDraft.signatureName || null,
+          proof_of_delivery_verification_code: fulfillmentDraft.verificationCode
+            ? fulfillmentDraft.verificationCode
+            : (
+                fulfillmentDraft.courierConfirmed ||
+                fulfillmentDraft.proofNote ||
+                fulfillmentDraft.proofImageUrl ||
+                fulfillmentDraft.signatureName ||
+                fulfillmentDraft.recipientName
+              )
+                ? generateProofVerificationCode()
+                : null,
+          courier_confirmed_at: fulfillmentDraft.courierConfirmed ? new Date().toISOString() : null,
+          proof_of_delivery_at:
+            fulfillmentDraft.courierConfirmed ||
+            fulfillmentDraft.proofNote ||
+            fulfillmentDraft.proofImageUrl ||
+            fulfillmentDraft.signatureName ||
+            fulfillmentDraft.recipientName
             ? new Date().toISOString()
             : null,
           updated_at: new Date().toISOString(),
@@ -623,6 +650,8 @@ export function AdminOrders() {
           stage: fulfillmentDraft.stage,
           courierName: fulfillmentDraft.courierName || null,
           hasProofImage: Boolean(fulfillmentDraft.proofImageUrl),
+          recipientName: fulfillmentDraft.recipientName || null,
+          courierConfirmed: fulfillmentDraft.courierConfirmed,
         },
       });
     },
@@ -654,6 +683,12 @@ export function AdminOrders() {
       deliveryFee: order.delivery_fee != null ? String(order.delivery_fee) : '',
       proofNote: order.proof_of_delivery_note || '',
       proofImageUrl: order.proof_of_delivery_image_url || '',
+      recipientName: order.proof_of_delivery_recipient_name || '',
+      recipientPhone: order.proof_of_delivery_recipient_phone || '',
+      recipientRelationship: order.proof_of_delivery_relationship || '',
+      signatureName: order.proof_of_delivery_signature_name || '',
+      verificationCode: order.proof_of_delivery_verification_code || '',
+      courierConfirmed: Boolean(order.courier_confirmed_at),
     });
   };
 
@@ -1598,6 +1633,63 @@ export function AdminOrders() {
                 onChange={(e) => setFulfillmentDraft((prev) => ({ ...prev, proofNote: e.target.value }))}
                 placeholder="Who received it, condition, signature note, etc."
                 rows={3}
+              />
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Recipient Name</Label>
+                <Input
+                  value={fulfillmentDraft.recipientName}
+                  onChange={(e) => setFulfillmentDraft((prev) => ({ ...prev, recipientName: e.target.value }))}
+                  placeholder="Name of person who received the order"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Recipient Phone</Label>
+                <Input
+                  value={fulfillmentDraft.recipientPhone}
+                  onChange={(e) => setFulfillmentDraft((prev) => ({ ...prev, recipientPhone: e.target.value }))}
+                  placeholder="Phone used at handoff"
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Recipient Relationship</Label>
+                <Input
+                  value={fulfillmentDraft.recipientRelationship}
+                  onChange={(e) => setFulfillmentDraft((prev) => ({ ...prev, recipientRelationship: e.target.value }))}
+                  placeholder="Customer, spouse, receptionist, security, etc."
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Typed Signature</Label>
+                <Input
+                  value={fulfillmentDraft.signatureName}
+                  onChange={(e) => setFulfillmentDraft((prev) => ({ ...prev, signatureName: e.target.value }))}
+                  placeholder="Type receiver's signature name"
+                />
+              </div>
+            </div>
+
+            <label className="flex items-center gap-2 rounded-lg border border-border p-3 text-sm">
+              <Checkbox
+                checked={fulfillmentDraft.courierConfirmed}
+                onCheckedChange={(checked) =>
+                  setFulfillmentDraft((prev) => ({ ...prev, courierConfirmed: !!checked }))
+                }
+              />
+              Courier handoff confirmed
+            </label>
+
+            <div className="space-y-2">
+              <Label>Proof Verification Code</Label>
+              <Input
+                value={fulfillmentDraft.verificationCode}
+                onChange={(e) => setFulfillmentDraft((prev) => ({ ...prev, verificationCode: e.target.value.toUpperCase() }))}
+                placeholder="Auto-generated on save if left blank"
               />
             </div>
 

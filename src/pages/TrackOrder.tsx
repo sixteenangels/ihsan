@@ -302,6 +302,49 @@ export default function TrackOrder() {
                     <span className="font-medium text-foreground">{formatPrice(Number(order.delivery_fee))}</span>
                   </p>
                 )}
+                {order.courier_confirmed_at && (
+                  <p>
+                    <span className="text-muted-foreground">Courier confirmed at:</span>{' '}
+                    <span className="font-medium text-foreground">
+                      {format(new Date(order.courier_confirmed_at), 'MMM d, yyyy h:mm a')}
+                    </span>
+                  </p>
+                )}
+                {order.customer_confirmed_at && (
+                  <p>
+                    <span className="text-muted-foreground">Customer confirmed at:</span>{' '}
+                    <span className="font-medium text-foreground">
+                      {format(new Date(order.customer_confirmed_at), 'MMM d, yyyy h:mm a')}
+                    </span>
+                  </p>
+                )}
+                {order.proof_of_delivery_verification_code && (
+                  <p>
+                    <span className="text-muted-foreground">Verification code:</span>{' '}
+                    <span className="font-medium text-foreground">{order.proof_of_delivery_verification_code}</span>
+                  </p>
+                )}
+                {order.proof_of_delivery_recipient_name && (
+                  <p>
+                    <span className="text-muted-foreground">Received by:</span>{' '}
+                    <span className="font-medium text-foreground">
+                      {order.proof_of_delivery_recipient_name}
+                      {order.proof_of_delivery_relationship ? ` (${order.proof_of_delivery_relationship})` : ''}
+                    </span>
+                  </p>
+                )}
+                {order.proof_of_delivery_recipient_phone && (
+                  <p>
+                    <span className="text-muted-foreground">Recipient phone:</span>{' '}
+                    <span className="font-medium text-foreground">{order.proof_of_delivery_recipient_phone}</span>
+                  </p>
+                )}
+                {order.proof_of_delivery_signature_name && (
+                  <p>
+                    <span className="text-muted-foreground">Typed signature:</span>{' '}
+                    <span className="font-medium text-foreground">{order.proof_of_delivery_signature_name}</span>
+                  </p>
+                )}
                 {order.proof_of_delivery_note && (
                   <div className="rounded-lg bg-muted p-3 text-muted-foreground">
                     {order.proof_of_delivery_note}

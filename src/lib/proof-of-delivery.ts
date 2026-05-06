@@ -1,5 +1,11 @@
 import { supabase } from '@/integrations/supabase/client';
 
+export function generateProofVerificationCode() {
+  return `POD-${Math.random().toString(36).slice(2, 6).toUpperCase()}${Date.now()
+    .toString()
+    .slice(-4)}`;
+}
+
 export async function uploadProofOfDelivery(orderId: string, file: File) {
   const fileExt = file.name.split('.').pop() || 'jpg';
   const fileName = `${orderId}/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${fileExt}`;

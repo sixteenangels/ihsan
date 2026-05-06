@@ -78,6 +78,13 @@ interface Order {
   proof_of_delivery_note?: string | null;
   proof_of_delivery_image_url?: string | null;
   proof_of_delivery_at?: string | null;
+  proof_of_delivery_recipient_name?: string | null;
+  proof_of_delivery_recipient_phone?: string | null;
+  proof_of_delivery_relationship?: string | null;
+  proof_of_delivery_signature_name?: string | null;
+  proof_of_delivery_verification_code?: string | null;
+  courier_confirmed_at?: string | null;
+  customer_confirmed_at?: string | null;
   order_items: OrderItem[];
   order_tracking: TrackingPoint[];
   receipt?: ReceiptSummary | null;
@@ -432,7 +439,11 @@ export default function MyOrders() {
   const handleConfirmDelivery = async (order: Order) => {
     const { error } = await supabase
       .from('orders')
-      .update({ status: 'delivered', updated_at: new Date().toISOString() })
+      .update({
+        status: 'delivered',
+        customer_confirmed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', order.id)
       .eq('user_id', user!.id);
     if (error) {
@@ -848,6 +859,37 @@ export default function MyOrders() {
                                   {order.proof_of_delivery_at && (
                                     <p className="text-sm text-muted-foreground">
                                       Proof recorded {format(new Date(order.proof_of_delivery_at), 'MMM d, yyyy h:mm a')}
+                                    </p>
+                                  )}
+                                  {order.courier_confirmed_at && (
+                                    <p className="text-sm text-muted-foreground">
+                                      Courier handoff confirmed {format(new Date(order.courier_confirmed_at), 'MMM d, yyyy h:mm a')}
+                                    </p>
+                                  )}
+                                  {order.customer_confirmed_at && (
+                                    <p className="text-sm text-muted-foreground">
+                                      Customer confirmed delivery {format(new Date(order.customer_confirmed_at), 'MMM d, yyyy h:mm a')}
+                                    </p>
+                                  )}
+                                  {order.proof_of_delivery_verification_code && (
+                                    <p className="text-sm text-muted-foreground">
+                                      Verification Code: <span className="font-medium text-foreground">{order.proof_of_delivery_verification_code}</span>
+                                    </p>
+                                  )}
+                                  {order.proof_of_delivery_recipient_name && (
+                                    <p className="text-sm text-muted-foreground">
+                                      Received by: <span className="font-medium text-foreground">{order.proof_of_delivery_recipient_name}</span>
+                                      {order.proof_of_delivery_relationship ? ` (${order.proof_of_delivery_relationship})` : ''}
+                                    </p>
+                                  )}
+                                  {order.proof_of_delivery_recipient_phone && (
+                                    <p className="text-sm text-muted-foreground">
+                                      Recipient Phone: <span className="font-medium text-foreground">{order.proof_of_delivery_recipient_phone}</span>
+                                    </p>
+                                  )}
+                                  {order.proof_of_delivery_signature_name && (
+                                    <p className="text-sm text-muted-foreground">
+                                      Signature: <span className="font-medium text-foreground">{order.proof_of_delivery_signature_name}</span>
                                     </p>
                                   )}
                                   {order.proof_of_delivery_note && (

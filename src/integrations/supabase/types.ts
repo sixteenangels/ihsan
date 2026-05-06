@@ -713,8 +713,15 @@ export type Database = {
         Row: {
           admin_notes: string | null
           created_at: string
+          courier_confirmed_at: string | null
+          courier_name: string | null
+          courier_tracking_number: string | null
+          customer_confirmed_at: string | null
+          delivery_fee: number | null
           estimated_delivery_end: string | null
           estimated_delivery_start: string | null
+          fulfillment_checks: Json | null
+          fulfillment_stage: string | null
           group_buy_id: string | null
           id: string
           is_group_buy_master: boolean | null
@@ -724,6 +731,14 @@ export type Database = {
           packaging_type: string | null
           parent_order_id: string | null
           payment_reference: string | null
+          proof_of_delivery_at: string | null
+          proof_of_delivery_image_url: string | null
+          proof_of_delivery_note: string | null
+          proof_of_delivery_recipient_name: string | null
+          proof_of_delivery_recipient_phone: string | null
+          proof_of_delivery_relationship: string | null
+          proof_of_delivery_signature_name: string | null
+          proof_of_delivery_verification_code: string | null
           shipping_address: Json | null
           shipping_class_id: string | null
           shipping_price: number | null
@@ -737,8 +752,15 @@ export type Database = {
         Insert: {
           admin_notes?: string | null
           created_at?: string
+          courier_confirmed_at?: string | null
+          courier_name?: string | null
+          courier_tracking_number?: string | null
+          customer_confirmed_at?: string | null
+          delivery_fee?: number | null
           estimated_delivery_end?: string | null
           estimated_delivery_start?: string | null
+          fulfillment_checks?: Json | null
+          fulfillment_stage?: string | null
           group_buy_id?: string | null
           id?: string
           is_group_buy_master?: boolean | null
@@ -748,6 +770,14 @@ export type Database = {
           packaging_type?: string | null
           parent_order_id?: string | null
           payment_reference?: string | null
+          proof_of_delivery_at?: string | null
+          proof_of_delivery_image_url?: string | null
+          proof_of_delivery_note?: string | null
+          proof_of_delivery_recipient_name?: string | null
+          proof_of_delivery_recipient_phone?: string | null
+          proof_of_delivery_relationship?: string | null
+          proof_of_delivery_signature_name?: string | null
+          proof_of_delivery_verification_code?: string | null
           shipping_address?: Json | null
           shipping_class_id?: string | null
           shipping_price?: number | null
@@ -761,8 +791,15 @@ export type Database = {
         Update: {
           admin_notes?: string | null
           created_at?: string
+          courier_confirmed_at?: string | null
+          courier_name?: string | null
+          courier_tracking_number?: string | null
+          customer_confirmed_at?: string | null
+          delivery_fee?: number | null
           estimated_delivery_end?: string | null
           estimated_delivery_start?: string | null
+          fulfillment_checks?: Json | null
+          fulfillment_stage?: string | null
           group_buy_id?: string | null
           id?: string
           is_group_buy_master?: boolean | null
@@ -772,6 +809,14 @@ export type Database = {
           packaging_type?: string | null
           parent_order_id?: string | null
           payment_reference?: string | null
+          proof_of_delivery_at?: string | null
+          proof_of_delivery_image_url?: string | null
+          proof_of_delivery_note?: string | null
+          proof_of_delivery_recipient_name?: string | null
+          proof_of_delivery_recipient_phone?: string | null
+          proof_of_delivery_relationship?: string | null
+          proof_of_delivery_signature_name?: string | null
+          proof_of_delivery_verification_code?: string | null
           shipping_address?: Json | null
           shipping_class_id?: string | null
           shipping_price?: number | null
