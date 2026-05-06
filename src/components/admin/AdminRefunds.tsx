@@ -3,6 +3,12 @@ import { useAdminRefundRequests, type AdminRefundRequest } from '@/hooks/useRefu
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { creditWalletByAdmin } from '@/lib/wallet';
+import { logAdminAction } from '@/lib/audit-log';
+import {
+  buildRefundEmailHtml,
+  buildRefundEmailSubject,
+  buildRefundEmailText,
+} from '@/lib/email-templates';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -89,6 +95,50 @@ export function AdminRefunds() {
     }
   };
 
+  const sendRefundEmail = async (request: AdminRefundRequest, status: 'approved' | 'rejected' | 'processed', statusMessage: string) => {
+    const customerEmail = request.profiles?.email;
+    if (!customerEmail) {
+      return { sent: false, skipped: true };
+    }
+
+    const { data, error } = await supabase.functions.invoke('send-transactional-email', {
+      body: {
+        to: customerEmail,
+        subject: buildRefundEmailSubject({
+          orderNumber: request.orders?.order_number || request.order_id,
+          statusLabel: status,
+        }),
+        html: buildRefundEmailHtml({
+          customerName: request.profiles?.name || 'there',
+          orderNumber: request.orders?.order_number || request.order_id,
+          statusLabel: status,
+          message: statusMessage,
+          adminNotes,
+        }),
+        text: buildRefundEmailText({
+          customerName: request.profiles?.name || 'there',
+          orderNumber: request.orders?.order_number || request.order_id,
+          statusLabel: status,
+          message: statusMessage,
+          adminNotes,
+        }),
+        type: 'refund_status',
+        relatedEntityType: 'refund_request',
+        relatedEntityId: request.id,
+        requestedBy: user?.id,
+        metadata: {
+          orderId: request.order_id,
+          orderNumber: request.orders?.order_number,
+          refundChannel,
+          walletCreditAmount: Number.parseFloat(walletCreditAmount || '0') || 0,
+        },
+      },
+    });
+
+    if (error) throw error;
+    return data;
+  };
+
   const handleAction = async (
     request: AdminRefundRequest,
     status: 'approved' | 'rejected' | 'processed',
@@ -145,15 +195,15 @@ export function AdminRefunds() {
         });
       }
 
-      if (request.user_id) {
-        const statusMessages: Record<string, string> = {
-          approved: 'Your refund request has been approved! We will process your refund shortly.',
-          rejected: 'Your refund request has been reviewed. Please check the details in your account.',
-          processed: walletCredit > 0
-            ? `Your refund has been processed. ${formatPrice(walletCredit)} was credited to your wallet for future checkout use.`
-            : 'Your refund has been processed! Please check your original payment channel.',
-        };
+      const statusMessages: Record<string, string> = {
+        approved: 'Your refund request has been approved! We will process your refund shortly.',
+        rejected: 'Your refund request has been reviewed. Please check the details in your account.',
+        processed: walletCredit > 0
+          ? `Your refund has been processed. ${formatPrice(walletCredit)} was credited to your wallet for future checkout use.`
+          : 'Your refund has been processed! Please check your original payment channel.',
+      };
 
+      if (request.user_id) {
         try {
           await supabase.functions.invoke('send-push-notification', {
             body: {
@@ -174,6 +224,23 @@ export function AdminRefunds() {
           console.log('Push notification failed:', error);
         }
       }
+
+      const emailResult = await sendRefundEmail(request, status, statusMessages[status]);
+
+      await logAdminAction({
+        actorUserId: user?.id,
+        action: `refund_request.${status}`,
+        entityType: 'refund_request',
+        entityId: request.id,
+        summary: `Marked refund request ${request.id} as ${status}.`,
+        metadata: {
+          orderId: request.order_id,
+          orderNumber: request.orders?.order_number,
+          refundChannel,
+          walletCredit,
+          emailSent: emailResult?.sent || false,
+        },
+      });
 
       toast.success(`Refund request ${status}`);
       resetDialog();

@@ -56,6 +56,138 @@ export function buildSupportReplyEmailText(input: {
   ].filter(Boolean).join('\n');
 }
 
+export function buildOrderStatusEmailSubject(input: {
+  orderNumber: string;
+  statusLabel: string;
+}) {
+  return `Order ${input.orderNumber} update: ${input.statusLabel}`;
+}
+
+export function buildOrderStatusEmailHtml(input: {
+  customerName: string;
+  orderNumber: string;
+  statusLabel: string;
+  message: string;
+  note?: string | null;
+}) {
+  return `
+    <div style="font-family:Segoe UI,sans-serif;max-width:680px;margin:0 auto;padding:24px;color:#111827;">
+      <h1 style="font-size:24px;margin:0 0 16px;">Your Ihsan order is now ${escapeHtml(input.statusLabel)}</h1>
+      <p>Hello ${escapeHtml(input.customerName || 'there')},</p>
+      <p>Order <strong>${escapeHtml(input.orderNumber)}</strong> has a new status.</p>
+      <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;background:#f9fafb;margin:16px 0;">
+        <p style="margin:0 0 8px;"><strong>Status:</strong> ${escapeHtml(input.statusLabel)}</p>
+        <p style="margin:0;white-space:pre-wrap;">${escapeHtml(input.message)}</p>
+      </div>
+      ${input.note ? `<p><strong>Admin note:</strong> ${escapeHtml(input.note)}</p>` : ''}
+      <p>Thank you for shopping with Ihsan.</p>
+    </div>
+  `;
+}
+
+export function buildOrderStatusEmailText(input: {
+  customerName: string;
+  orderNumber: string;
+  statusLabel: string;
+  message: string;
+  note?: string | null;
+}) {
+  return [
+    `Hello ${input.customerName || 'there'},`,
+    '',
+    `Order ${input.orderNumber} is now ${input.statusLabel}.`,
+    input.message,
+    input.note ? `Admin note: ${input.note}` : '',
+    '',
+    'Thank you for shopping with Ihsan.',
+  ].filter(Boolean).join('\n');
+}
+
+export function buildDeliveryWindowEmailSubject(input: {
+  orderNumber: string;
+}) {
+  return `Updated delivery estimate for order ${input.orderNumber}`;
+}
+
+export function buildDeliveryWindowEmailHtml(input: {
+  customerName: string;
+  orderNumber: string;
+  startDateLabel: string;
+  endDateLabel: string;
+}) {
+  return `
+    <div style="font-family:Segoe UI,sans-serif;max-width:680px;margin:0 auto;padding:24px;color:#111827;">
+      <h1 style="font-size:24px;margin:0 0 16px;">Your delivery estimate has been updated</h1>
+      <p>Hello ${escapeHtml(input.customerName || 'there')},</p>
+      <p>Your order <strong>${escapeHtml(input.orderNumber)}</strong> is currently estimated to arrive between:</p>
+      <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;background:#f9fafb;margin:16px 0;">
+        <p style="margin:0;font-size:18px;font-weight:600;">${escapeHtml(input.startDateLabel)} to ${escapeHtml(input.endDateLabel)}</p>
+      </div>
+      <p>We will keep you updated if anything changes.</p>
+    </div>
+  `;
+}
+
+export function buildDeliveryWindowEmailText(input: {
+  customerName: string;
+  orderNumber: string;
+  startDateLabel: string;
+  endDateLabel: string;
+}) {
+  return [
+    `Hello ${input.customerName || 'there'},`,
+    '',
+    `Your order ${input.orderNumber} is now estimated to arrive between ${input.startDateLabel} and ${input.endDateLabel}.`,
+    '',
+    'We will keep you updated if anything changes.',
+  ].join('\n');
+}
+
+export function buildRefundEmailSubject(input: {
+  orderNumber: string;
+  statusLabel: string;
+}) {
+  return `Refund update for order ${input.orderNumber}: ${input.statusLabel}`;
+}
+
+export function buildRefundEmailHtml(input: {
+  customerName: string;
+  orderNumber: string;
+  statusLabel: string;
+  message: string;
+  adminNotes?: string | null;
+}) {
+  return `
+    <div style="font-family:Segoe UI,sans-serif;max-width:680px;margin:0 auto;padding:24px;color:#111827;">
+      <h1 style="font-size:24px;margin:0 0 16px;">Refund request ${escapeHtml(input.statusLabel)}</h1>
+      <p>Hello ${escapeHtml(input.customerName || 'there')},</p>
+      <p>There is an update for your refund request on order <strong>${escapeHtml(input.orderNumber)}</strong>.</p>
+      <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;background:#f9fafb;margin:16px 0;white-space:pre-wrap;">${escapeHtml(input.message)}</div>
+      ${input.adminNotes ? `<p><strong>Admin note:</strong> ${escapeHtml(input.adminNotes)}</p>` : ''}
+      <p>If you have further questions, please reply through the Help Center.</p>
+    </div>
+  `;
+}
+
+export function buildRefundEmailText(input: {
+  customerName: string;
+  orderNumber: string;
+  statusLabel: string;
+  message: string;
+  adminNotes?: string | null;
+}) {
+  return [
+    `Hello ${input.customerName || 'there'},`,
+    '',
+    `Your refund request for order ${input.orderNumber} is now ${input.statusLabel}.`,
+    '',
+    input.message,
+    input.adminNotes ? `Admin note: ${input.adminNotes}` : '',
+    '',
+    'If you have further questions, please reply through the Help Center.',
+  ].filter(Boolean).join('\n');
+}
+
 function escapeHtml(value: string) {
   return value
     .replaceAll('&', '&amp;')

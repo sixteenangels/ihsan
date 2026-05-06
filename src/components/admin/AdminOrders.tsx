@@ -23,6 +23,14 @@ import { SwipeHintOverlay } from './SwipeHintOverlay';
 import { useAuth } from '@/contexts/AuthContext';
 import { logAdminAction } from '@/lib/audit-log';
 import { uploadProofOfDelivery } from '@/lib/proof-of-delivery';
+import {
+  buildDeliveryWindowEmailHtml,
+  buildDeliveryWindowEmailSubject,
+  buildDeliveryWindowEmailText,
+  buildOrderStatusEmailHtml,
+  buildOrderStatusEmailSubject,
+  buildOrderStatusEmailText,
+} from '@/lib/email-templates';
 
 const ORDER_STATUSES = [
   'pending',
@@ -232,8 +240,55 @@ export function AdminOrders() {
     return orders?.filter(o => tabConfig?.statuses.includes(o.status as OrderStatus)).length || 0;
   };
 
+  const sendTransactionalEmail = useCallback(async (payload: {
+    to?: string | null;
+    subject: string;
+    html: string;
+    text: string;
+    type: string;
+    relatedEntityId: string;
+    metadata?: Record<string, unknown>;
+  }) => {
+    if (!payload.to) {
+      return { sent: false, skipped: true };
+    }
+
+    const { data, error } = await supabase.functions.invoke('send-transactional-email', {
+      body: {
+        to: payload.to,
+        subject: payload.subject,
+        html: payload.html,
+        text: payload.text,
+        type: payload.type,
+        relatedEntityType: 'order',
+        relatedEntityId: payload.relatedEntityId,
+        requestedBy: user?.id,
+        metadata: payload.metadata,
+      },
+    });
+
+    if (error) throw error;
+    return data;
+  }, [user?.id]);
+
   const updateStatusMutation = useMutation({
-    mutationFn: async ({ orderId, status, userId, orderNumber, customNote }: { orderId: string; status: OrderStatus; userId?: string; orderNumber?: string; customNote?: string }) => {
+    mutationFn: async ({
+      orderId,
+      status,
+      userId,
+      orderNumber,
+      customNote,
+      customerEmail,
+      customerName,
+    }: {
+      orderId: string;
+      status: OrderStatus;
+      userId?: string;
+      orderNumber?: string;
+      customNote?: string;
+      customerEmail?: string | null;
+      customerName?: string | null;
+    }) => {
       const { error } = await supabase
         .from('orders')
         .update({ status, updated_at: new Date().toISOString() })
@@ -263,7 +318,7 @@ export function AdminOrders() {
         refunded: 'Your order has been refunded.',
       };
 
-      const trackingNote = customNote 
+      const trackingNote = customNote
         ? (autoNotes[status] ? `${autoNotes[status]} — ${customNote}` : customNote)
         : (autoNotes[status] || '');
 
@@ -319,6 +374,45 @@ export function AdminOrders() {
           console.log('Push notification not sent:', pushError);
         }
       }
+
+      const emailResult = await sendTransactionalEmail({
+        to: customerEmail,
+        subject: buildOrderStatusEmailSubject({
+          orderNumber: orderNumber || 'your order',
+          statusLabel: STATUS_LABELS[status],
+        }),
+        html: buildOrderStatusEmailHtml({
+          customerName: customerName || 'there',
+          orderNumber: orderNumber || 'your order',
+          statusLabel: STATUS_LABELS[status],
+          message: statusMessages[status],
+          note: customNote,
+        }),
+        text: buildOrderStatusEmailText({
+          customerName: customerName || 'there',
+          orderNumber: orderNumber || 'your order',
+          statusLabel: STATUS_LABELS[status],
+          message: statusMessages[status],
+          note: customNote,
+        }),
+        type: 'order_status',
+        relatedEntityId: orderId,
+        metadata: { orderNumber, status, customerEmail },
+      });
+
+      await logAdminAction({
+        actorUserId: user?.id,
+        action: 'order.status_updated',
+        entityType: 'order',
+        entityId: orderId,
+        summary: `Updated order ${orderNumber || orderId} to ${STATUS_LABELS[status]}.`,
+        metadata: {
+          status,
+          orderNumber,
+          customNote: customNote || null,
+          emailSent: emailResult?.sent || false,
+        },
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
@@ -332,7 +426,23 @@ export function AdminOrders() {
   });
 
   const updateDeliveryDatesMutation = useMutation({
-    mutationFn: async ({ orderId, startDate, endDate, userId, orderNumber }: { orderId: string; startDate: string; endDate: string; userId?: string; orderNumber?: string }) => {
+    mutationFn: async ({
+      orderId,
+      startDate,
+      endDate,
+      userId,
+      orderNumber,
+      customerEmail,
+      customerName,
+    }: {
+      orderId: string;
+      startDate: string;
+      endDate: string;
+      userId?: string;
+      orderNumber?: string;
+      customerEmail?: string | null;
+      customerName?: string | null;
+    }) => {
       const { error } = await supabase
         .from('orders')
         .update({ 
@@ -369,6 +479,44 @@ export function AdminOrders() {
           console.log('Push notification not sent:', pushError);
         }
       }
+
+      const startDateLabel = format(new Date(startDate), 'PP');
+      const endDateLabel = format(new Date(endDate), 'PP');
+
+      const emailResult = await sendTransactionalEmail({
+        to: customerEmail,
+        subject: buildDeliveryWindowEmailSubject({
+          orderNumber: orderNumber || 'your order',
+        }),
+        html: buildDeliveryWindowEmailHtml({
+          customerName: customerName || 'there',
+          orderNumber: orderNumber || 'your order',
+          startDateLabel,
+          endDateLabel,
+        }),
+        text: buildDeliveryWindowEmailText({
+          customerName: customerName || 'there',
+          orderNumber: orderNumber || 'your order',
+          startDateLabel,
+          endDateLabel,
+        }),
+        type: 'delivery_update',
+        relatedEntityId: orderId,
+        metadata: { orderNumber, startDate, endDate, customerEmail },
+      });
+
+      await logAdminAction({
+        actorUserId: user?.id,
+        action: 'order.delivery_window_updated',
+        entityType: 'order',
+        entityId: orderId,
+        summary: `Updated delivery window for ${orderNumber || orderId}.`,
+        metadata: {
+          startDate,
+          endDate,
+          emailSent: emailResult?.sent || false,
+        },
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
@@ -561,11 +709,17 @@ export function AdminOrders() {
       orderStatus,
       note,
       userId,
+      customerEmail,
+      customerName,
+      orderNumber,
     }: {
       orderId: string;
       orderStatus: OrderStatus;
       note: string;
       userId?: string;
+      customerEmail?: string | null;
+      customerName?: string | null;
+      orderNumber?: string;
     }) => {
       const trimmed = note.trim();
       if (!trimmed) {
@@ -597,6 +751,44 @@ export function AdminOrders() {
           data: { orderId, status: orderStatus, note: trimmed },
         });
       }
+
+      const emailResult = await sendTransactionalEmail({
+        to: customerEmail,
+        subject: buildOrderStatusEmailSubject({
+          orderNumber: orderNumber || 'your order',
+          statusLabel: STATUS_LABELS[orderStatus],
+        }),
+        html: buildOrderStatusEmailHtml({
+          customerName: customerName || 'there',
+          orderNumber: orderNumber || 'your order',
+          statusLabel: STATUS_LABELS[orderStatus],
+          message: 'There is a new note on your order.',
+          note: trimmed,
+        }),
+        text: buildOrderStatusEmailText({
+          customerName: customerName || 'there',
+          orderNumber: orderNumber || 'your order',
+          statusLabel: STATUS_LABELS[orderStatus],
+          message: 'There is a new note on your order.',
+          note: trimmed,
+        }),
+        type: 'order_note',
+        relatedEntityId: orderId,
+        metadata: { orderNumber, orderStatus, customerEmail },
+      });
+
+      await logAdminAction({
+        actorUserId: user?.id,
+        action: 'order.customer_note_added',
+        entityType: 'order',
+        entityId: orderId,
+        summary: 'Added a customer-visible order note.',
+        metadata: {
+          orderStatus,
+          noteLength: trimmed.length,
+          emailSent: emailResult?.sent || false,
+        },
+      });
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
@@ -700,6 +892,8 @@ export function AdminOrders() {
                       status: status as OrderStatus,
                       userId: order.user_id,
                       orderNumber: order.order_number,
+                      customerEmail: order.profiles?.email,
+                      customerName: order.profiles?.name,
                     });
                   }
                 });
@@ -776,6 +970,8 @@ export function AdminOrders() {
                             status: nextStatus,
                             userId: order.user_id,
                             orderNumber: order.order_number,
+                            customerEmail: order.profiles?.email,
+                            customerName: order.profiles?.name,
                           })
                       : undefined
                   }
@@ -787,6 +983,8 @@ export function AdminOrders() {
                             status: prevStatus,
                             userId: order.user_id,
                             orderNumber: order.order_number,
+                            customerEmail: order.profiles?.email,
+                            customerName: order.profiles?.name,
                           })
                       : undefined
                   }
@@ -962,6 +1160,8 @@ export function AdminOrders() {
                               userId: order.user_id,
                               orderNumber: order.order_number,
                               customNote: statusNotes[order.id] || undefined,
+                              customerEmail: order.profiles?.email,
+                              customerName: order.profiles?.name,
                             })}
                             disabled={updateStatusMutation.isPending}
                           >
@@ -1028,6 +1228,9 @@ export function AdminOrders() {
                                 orderStatus: order.status as OrderStatus,
                                 note: statusNotes[order.id] || '',
                                 userId: order.user_id,
+                                customerEmail: order.profiles?.email,
+                                customerName: order.profiles?.name,
+                                orderNumber: order.order_number,
                               })
                             }
                             disabled={!statusNotes[order.id]?.trim() || addCustomerNoteMutation.isPending}
@@ -1107,7 +1310,9 @@ export function AdminOrders() {
                                 startDate: deliveryDates.start,
                                 endDate: deliveryDates.end,
                                 userId: order.user_id,
-                                orderNumber: order.order_number
+                                orderNumber: order.order_number,
+                                customerEmail: order.profiles?.email,
+                                customerName: order.profiles?.name,
                               })}
                               disabled={!deliveryDates.start || !deliveryDates.end || updateDeliveryDatesMutation.isPending}
                               className="w-full"
