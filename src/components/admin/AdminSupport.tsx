@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,9 +8,9 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Send, MessageCircle, User, Circle, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { Loader2, Send, MessageCircle, User, Circle, Clock, CheckCircle, XCircle, AlertTriangle, Inbox, TimerReset } from 'lucide-react';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
+import { differenceInHours, format } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { buildSupportReplyEmailHtml, buildSupportReplyEmailText } from '@/lib/email-templates';
@@ -61,6 +61,7 @@ interface SupportRequest {
 
 const SUPPORT_PRIORITIES: SupportRequest['priority'][] = ['low', 'normal', 'high', 'urgent'];
 const SUPPORT_CATEGORIES = ['General', 'Orders & Shipping', 'Payments', 'Returns & Refunds', 'Group Buys'];
+type SupportQueueFilter = 'all' | 'open' | 'overdue' | 'urgent' | 'unassigned';
 
 export function AdminSupport() {
   const { user } = useAuth();
@@ -70,6 +71,7 @@ export function AdminSupport() {
   const [requestNotes, setRequestNotes] = useState<Record<string, string>>({});
   const [requestReplies, setRequestReplies] = useState<Record<string, string>>({});
   const [requestSummaries, setRequestSummaries] = useState<Record<string, string>>({});
+  const [queueFilter, setQueueFilter] = useState<SupportQueueFilter>('all');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -429,6 +431,73 @@ export function AdminSupport() {
 
   const selectedConversation = conversations?.find(c => c.id === selectedConversationId);
 
+  const getSlaThresholdHours = (request: SupportRequest) => {
+    switch (request.priority) {
+      case 'urgent':
+        return 2;
+      case 'high':
+        return 8;
+      case 'normal':
+        return 24;
+      case 'low':
+      default:
+        return 48;
+    }
+  };
+
+  const getSlaState = (request: SupportRequest) => {
+    if (request.status === 'resolved' || request.status === 'closed') {
+      return { state: 'resolved' as const, ageHours: 0 };
+    }
+
+    const ageHours = differenceInHours(new Date(), new Date(request.created_at));
+    const threshold = getSlaThresholdHours(request);
+    if (ageHours >= threshold) {
+      return { state: 'overdue' as const, ageHours };
+    }
+    if (ageHours >= Math.max(1, Math.floor(threshold * 0.6))) {
+      return { state: 'at_risk' as const, ageHours };
+    }
+    return { state: 'healthy' as const, ageHours };
+  };
+
+  const supportRequestMetrics = useMemo(() => {
+    const requests = supportRequests || [];
+    const activeRequests = requests.filter((request) => request.status !== 'resolved' && request.status !== 'closed');
+    const overdue = activeRequests.filter((request) => getSlaState(request).state === 'overdue');
+    const urgent = activeRequests.filter((request) => request.priority === 'urgent');
+    const unassigned = activeRequests.filter((request) => !request.assigned_admin_id);
+
+    return {
+      total: requests.length,
+      active: activeRequests.length,
+      overdue: overdue.length,
+      urgent: urgent.length,
+      unassigned: unassigned.length,
+    };
+  }, [supportRequests]);
+
+  const filteredSupportRequests = useMemo(() => {
+    const requests = supportRequests || [];
+    switch (queueFilter) {
+      case 'open':
+        return requests.filter((request) => request.status === 'new' || request.status === 'in_progress');
+      case 'overdue':
+        return requests.filter((request) => getSlaState(request).state === 'overdue');
+      case 'urgent':
+        return requests.filter(
+          (request) => request.priority === 'urgent' && request.status !== 'resolved' && request.status !== 'closed',
+        );
+      case 'unassigned':
+        return requests.filter(
+          (request) => !request.assigned_admin_id && request.status !== 'resolved' && request.status !== 'closed',
+        );
+      case 'all':
+      default:
+        return requests;
+    }
+  }, [queueFilter, supportRequests]);
+
   if (loadingConversations) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -642,19 +711,88 @@ export function AdminSupport() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-lg">Guest Help Center Requests</CardTitle>
-          <Badge variant="outline">{supportRequests?.length || 0} requests</Badge>
+          <Badge variant="outline">{supportRequestMetrics.total} requests</Badge>
         </CardHeader>
         <CardContent>
+          <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <Card className="border-border/60">
+              <CardContent className="flex items-center gap-3 p-4">
+                <MessageCircle className="h-5 w-5 text-primary" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Active</p>
+                  <p className="text-xl font-semibold">{supportRequestMetrics.active}</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-border/60">
+              <CardContent className="flex items-center gap-3 p-4">
+                <AlertTriangle className="h-5 w-5 text-destructive" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Overdue</p>
+                  <p className="text-xl font-semibold">{supportRequestMetrics.overdue}</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-border/60">
+              <CardContent className="flex items-center gap-3 p-4">
+                <Clock className="h-5 w-5 text-orange-500" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Urgent</p>
+                  <p className="text-xl font-semibold">{supportRequestMetrics.urgent}</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-border/60">
+              <CardContent className="flex items-center gap-3 p-4">
+                <Inbox className="h-5 w-5 text-cyan-600" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Unassigned</p>
+                  <p className="text-xl font-semibold">{supportRequestMetrics.unassigned}</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-border/60">
+              <CardContent className="flex items-center gap-3 p-4">
+                <TimerReset className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <p className="text-xs text-muted-foreground">All Requests</p>
+                  <p className="text-xl font-semibold">{supportRequestMetrics.total}</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="mb-4 flex flex-wrap gap-2">
+            {([
+              ['all', 'All'],
+              ['open', 'Open'],
+              ['overdue', 'Overdue'],
+              ['urgent', 'Urgent'],
+              ['unassigned', 'Unassigned'],
+            ] as Array<[SupportQueueFilter, string]>).map(([value, label]) => (
+              <Button
+                key={value}
+                type="button"
+                size="sm"
+                variant={queueFilter === value ? 'default' : 'outline'}
+                onClick={() => setQueueFilter(value)}
+              >
+                {label}
+              </Button>
+            ))}
+          </div>
+
           {loadingSupportRequests ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
             </div>
-          ) : supportRequests && supportRequests.length > 0 ? (
+          ) : filteredSupportRequests.length > 0 ? (
             <div className="space-y-4">
-              {supportRequests.map((request) => {
+              {filteredSupportRequests.map((request) => {
                 const draftNotes = requestNotes[request.id] ?? request.internal_notes ?? '';
                 const draftReply = requestReplies[request.id] ?? request.public_reply ?? '';
                 const draftSummary = requestSummaries[request.id] ?? request.resolution_summary ?? '';
+                const sla = getSlaState(request);
                 return (
                   <div key={request.id} className="rounded-xl border border-border p-4 space-y-3">
                     <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -680,6 +818,23 @@ export function AdminSupport() {
                         <Badge variant={request.priority === 'urgent' ? 'destructive' : 'outline'}>
                           {request.priority} priority
                         </Badge>
+                        {request.status !== 'resolved' && request.status !== 'closed' ? (
+                          <Badge
+                            variant={
+                              sla.state === 'overdue'
+                                ? 'destructive'
+                                : sla.state === 'at_risk'
+                                  ? 'outline'
+                                  : 'secondary'
+                            }
+                          >
+                            {sla.state === 'overdue'
+                              ? `Overdue by ${sla.ageHours}h`
+                              : sla.state === 'at_risk'
+                                ? `Due soon ${sla.ageHours}h`
+                                : 'Within SLA'}
+                          </Badge>
+                        ) : null}
                       </div>
                     </div>
 
@@ -898,7 +1053,7 @@ export function AdminSupport() {
             </div>
           ) : (
             <p className="py-8 text-center text-sm text-muted-foreground">
-              No guest Help Center requests yet.
+              No guest Help Center requests in this queue.
             </p>
           )}
         </CardContent>
