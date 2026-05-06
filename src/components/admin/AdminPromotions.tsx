@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -14,10 +15,13 @@ import { Loader2, Plus, Trash2, Tag, Zap, Percent, DollarSign, Gift, Save } from
 import { format } from 'date-fns';
 import { couponSchema, validateForm } from '@/lib/validations/admin';
 import { useCurrency } from '@/hooks/useCurrency';
+import { useAuth } from '@/contexts/AuthContext';
+import { logAdminAction } from '@/lib/audit-log';
 
 export function AdminPromotions() {
   const queryClient = useQueryClient();
   const { formatPrice } = useCurrency();
+  const { user } = useAuth();
   const [isAddingCoupon, setIsAddingCoupon] = useState(false);
   const [newCoupon, setNewCoupon] = useState({
     code: '',
@@ -26,6 +30,9 @@ export function AdminPromotions() {
     min_order_amount: '',
     max_uses: '',
     expires_at: '',
+    marketing_label: '',
+    auto_apply: false,
+    first_order_only: false,
   });
 
   // Flash deal end times tracked locally
@@ -105,21 +112,48 @@ export function AdminPromotions() {
 
   const addCouponMutation = useMutation({
     mutationFn: async (couponData: any) => {
-      const { error } = await supabase.from('coupons').insert({
+      const payload = {
         code: couponData.code.toUpperCase(),
         type: couponData.type,
         value: parseFloat(couponData.value),
         min_order_amount: couponData.min_order_amount ? parseFloat(couponData.min_order_amount) : null,
         max_uses: couponData.max_uses ? parseInt(couponData.max_uses) : null,
         expires_at: couponData.expires_at || null,
-      });
+        marketing_label: couponData.marketing_label || null,
+        auto_apply: !!couponData.auto_apply,
+        first_order_only: !!couponData.first_order_only,
+      };
+      const { data: createdCoupon, error } = await supabase
+        .from('coupons')
+        .insert(payload)
+        .select('id')
+        .single();
       if (error) throw error;
+
+      await logAdminAction({
+        actorUserId: user?.id,
+        action: 'coupon.created',
+        entityType: 'coupon',
+        entityId: createdCoupon.id,
+        summary: `Created coupon ${payload.code}.`,
+        metadata: payload,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-coupons'] });
       toast.success('Coupon created');
       setIsAddingCoupon(false);
-      setNewCoupon({ code: '', type: 'percentage', value: '', min_order_amount: '', max_uses: '', expires_at: '' });
+      setNewCoupon({
+        code: '',
+        type: 'percentage',
+        value: '',
+        min_order_amount: '',
+        max_uses: '',
+        expires_at: '',
+        marketing_label: '',
+        auto_apply: false,
+        first_order_only: false,
+      });
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -128,6 +162,16 @@ export function AdminPromotions() {
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
       const { error } = await supabase.from('coupons').update({ is_active }).eq('id', id);
       if (error) throw error;
+
+      const coupon = coupons?.find((entry) => entry.id === id);
+      await logAdminAction({
+        actorUserId: user?.id,
+        action: is_active ? 'coupon.activated' : 'coupon.deactivated',
+        entityType: 'coupon',
+        entityId: id,
+        summary: `${is_active ? 'Activated' : 'Deactivated'} coupon ${coupon?.code || id}.`,
+        metadata: { is_active },
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-coupons'] });
@@ -138,8 +182,18 @@ export function AdminPromotions() {
 
   const deleteCouponMutation = useMutation({
     mutationFn: async (id: string) => {
+      const coupon = coupons?.find((entry) => entry.id === id);
       const { error } = await supabase.from('coupons').delete().eq('id', id);
       if (error) throw error;
+
+      await logAdminAction({
+        actorUserId: user?.id,
+        action: 'coupon.deleted',
+        entityType: 'coupon',
+        entityId: id,
+        summary: `Deleted coupon ${coupon?.code || id}.`,
+        metadata: coupon ? { code: coupon.code } : undefined,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-coupons'] });
@@ -154,6 +208,16 @@ export function AdminPromotions() {
       if (!is_flash_deal) update.flash_deal_ends_at = null;
       const { error } = await supabase.from('products').update(update).eq('id', id);
       if (error) throw error;
+
+      const product = flashDealProducts?.find((entry) => entry.id === id);
+      await logAdminAction({
+        actorUserId: user?.id,
+        action: is_flash_deal ? 'flash_deal.enabled' : 'flash_deal.disabled',
+        entityType: 'product',
+        entityId: id,
+        summary: `${is_flash_deal ? 'Enabled' : 'Disabled'} flash deal for ${product?.name || id}.`,
+        metadata: update,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-flash-deals-products'] });
@@ -167,6 +231,16 @@ export function AdminPromotions() {
     mutationFn: async ({ id, flash_deal_ends_at }: { id: string; flash_deal_ends_at: string }) => {
       const { error } = await supabase.from('products').update({ flash_deal_ends_at }).eq('id', id);
       if (error) throw error;
+
+      const product = flashDealProducts?.find((entry) => entry.id === id);
+      await logAdminAction({
+        actorUserId: user?.id,
+        action: 'flash_deal.schedule_updated',
+        entityType: 'product',
+        entityId: id,
+        summary: `Updated flash deal end time for ${product?.name || id}.`,
+        metadata: { flash_deal_ends_at },
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-flash-deals-products'] });
@@ -190,6 +264,18 @@ export function AdminPromotions() {
           await supabase.from('store_settings').insert({ key, value: JSON.parse(JSON.stringify(value)) });
         }
       }
+
+      await logAdminAction({
+        actorUserId: user?.id,
+        action: 'referral_settings.updated',
+        entityType: 'store_settings',
+        summary: 'Updated referral reward settings.',
+        metadata: {
+          referral_discount_percent: parseFloat(refDiscount),
+          referral_max_uses: parseInt(refMaxUses),
+          referral_expiry_days: parseInt(refExpiryDays),
+        },
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-store-settings-promotions'] });
@@ -287,6 +373,34 @@ export function AdminPromotions() {
                     onChange={(e) => setNewCoupon(prev => ({ ...prev, expires_at: e.target.value }))}
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label>Marketing Label (optional)</Label>
+                  <Input
+                    value={newCoupon.marketing_label}
+                    onChange={(e) => setNewCoupon(prev => ({ ...prev, marketing_label: e.target.value }))}
+                    placeholder="e.g., Welcome Offer"
+                  />
+                </div>
+                <label className="flex items-center gap-3 rounded-lg border border-border p-3">
+                  <Checkbox
+                    checked={newCoupon.auto_apply}
+                    onCheckedChange={(checked) => setNewCoupon(prev => ({ ...prev, auto_apply: !!checked }))}
+                  />
+                  <div>
+                    <p className="font-medium text-foreground">Auto-apply if best</p>
+                    <p className="text-sm text-muted-foreground">Checkout can automatically pick this when it is the strongest valid offer.</p>
+                  </div>
+                </label>
+                <label className="flex items-center gap-3 rounded-lg border border-border p-3">
+                  <Checkbox
+                    checked={newCoupon.first_order_only}
+                    onCheckedChange={(checked) => setNewCoupon(prev => ({ ...prev, first_order_only: !!checked }))}
+                  />
+                  <div>
+                    <p className="font-medium text-foreground">First order only</p>
+                    <p className="text-sm text-muted-foreground">Restrict this coupon to customers placing their first order.</p>
+                  </div>
+                </label>
                 <Button onClick={handleAddCoupon} disabled={!newCoupon.code || !newCoupon.value}>
                   Create Coupon
                 </Button>
@@ -308,6 +422,19 @@ export function AdminPromotions() {
                       {coupon.type === 'percentage' ? `${coupon.value}% off` : `${formatPrice(Number(coupon.value))} off`}
                       {coupon.min_order_amount ? ` (min ${formatPrice(Number(coupon.min_order_amount))})` : ''}
                     </p>
+                    {coupon.marketing_label && (
+                      <p className="text-xs text-primary">{coupon.marketing_label}</p>
+                    )}
+                    {(coupon.auto_apply || coupon.first_order_only) && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {coupon.auto_apply && (
+                          <Badge variant="outline">Auto Apply</Badge>
+                        )}
+                        {coupon.first_order_only && (
+                          <Badge variant="outline">First Order</Badge>
+                        )}
+                      </div>
+                    )}
                     <p className="text-xs text-muted-foreground">
                       Uses: {coupon.current_uses || 0}{coupon.max_uses ? `/${coupon.max_uses}` : ''}
                       {coupon.expires_at && ` • Expires: ${format(new Date(coupon.expires_at), 'PP')}`}

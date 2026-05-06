@@ -336,12 +336,15 @@ export type Database = {
       }
       coupons: {
         Row: {
+          auto_apply: boolean
           code: string
           created_at: string
           current_uses: number | null
           expires_at: string | null
+          first_order_only: boolean
           id: string
           is_active: boolean | null
+          marketing_label: string | null
           max_uses: number | null
           min_order_amount: number | null
           starts_at: string | null
@@ -350,12 +353,15 @@ export type Database = {
           value: number
         }
         Insert: {
+          auto_apply?: boolean
           code: string
           created_at?: string
           current_uses?: number | null
           expires_at?: string | null
+          first_order_only?: boolean
           id?: string
           is_active?: boolean | null
+          marketing_label?: string | null
           max_uses?: number | null
           min_order_amount?: number | null
           starts_at?: string | null
@@ -364,12 +370,15 @@ export type Database = {
           value: number
         }
         Update: {
+          auto_apply?: boolean
           code?: string
           created_at?: string
           current_uses?: number | null
           expires_at?: string | null
+          first_order_only?: boolean
           id?: string
           is_active?: boolean | null
+          marketing_label?: string | null
           max_uses?: number | null
           min_order_amount?: number | null
           starts_at?: string | null

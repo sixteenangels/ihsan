@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, MapPin, Plus, Ship, Plane, Package, CreditCard, Check, Tag, X, AlertTriangle, Wallet, Shield } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
@@ -59,10 +59,15 @@ interface VariantOption {
 interface Coupon {
   id: string;
   code: string;
-  type: 'percentage' | 'fixed';
+  type: 'percentage' | 'fixed_amount';
   value: number;
   min_order_amount: number | null;
-  current_uses: number;
+  current_uses: number | null;
+  max_uses?: number | null;
+  expires_at?: string | null;
+  auto_apply?: boolean | null;
+  first_order_only?: boolean | null;
+  marketing_label?: string | null;
 }
 
 declare global {
@@ -93,6 +98,7 @@ export default function Checkout() {
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
+  const [userOrderCount, setUserOrderCount] = useState(0);
   const [pendingPaymentRef, setPendingPaymentRef] = useState<string | null>(null);
   const [showPaymentRecovery, setShowPaymentRecovery] = useState(false);
   const [courierAcknowledged, setCourierAcknowledged] = useState(false);
@@ -163,8 +169,9 @@ export default function Checkout() {
   useEffect(() => {
     if (user) {
       fetchAddresses();
+      fetchUserOrderCount();
     }
-  }, [user]);
+  }, [user, fetchUserOrderCount]);
 
   useEffect(() => {
     fetchShippingClasses();
@@ -187,6 +194,16 @@ export default function Checkout() {
       }
     }
   };
+
+  const fetchUserOrderCount = useCallback(async () => {
+    const { count } = await supabase
+      .from('orders')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user!.id)
+      .not('status', 'eq', 'cancelled');
+
+    setUserOrderCount(count || 0);
+  }, [user]);
 
   // Get product IDs from cart
   const cartProductIds = useMemo(() => {
@@ -438,12 +455,37 @@ export default function Checkout() {
   const shippingCost = allFreeShipping ? 0 : rawShippingCost;
 
   // Calculate discount
-  const calculateDiscount = () => {
-    if (!appliedCoupon) return 0;
-    if (appliedCoupon.type === 'percentage') {
-      return (selectedSubtotal * appliedCoupon.value) / 100;
+  const isCouponEligible = useCallback((coupon: Coupon) => {
+    if (coupon.expires_at && new Date(coupon.expires_at) < new Date()) {
+      return false;
     }
-    return appliedCoupon.value;
+
+    if (coupon.min_order_amount && selectedSubtotal < coupon.min_order_amount) {
+      return false;
+    }
+
+    if (coupon.max_uses && (coupon.current_uses || 0) >= coupon.max_uses) {
+      return false;
+    }
+
+    if (coupon.first_order_only && userOrderCount > 0) {
+      return false;
+    }
+
+    return true;
+  }, [selectedSubtotal, userOrderCount]);
+
+  const getCouponDiscount = useCallback((coupon: Coupon) => {
+    if (coupon.type === 'percentage') {
+      return (selectedSubtotal * coupon.value) / 100;
+    }
+
+    return coupon.value;
+  }, [selectedSubtotal]);
+
+  const calculateDiscount = () => {
+    if (!appliedCoupon || !isCouponEligible(appliedCoupon)) return 0;
+    return getCouponDiscount(appliedCoupon);
   };
 
   const discount = calculateDiscount();
@@ -486,28 +528,25 @@ export default function Checkout() {
       return;
     }
     
-    // Check if coupon is expired
-    if (data.expires_at && new Date(data.expires_at) < new Date()) {
-      toast.error('This coupon has expired');
+    const typedCoupon = data as Coupon;
+
+    if (!isCouponEligible(typedCoupon)) {
+      if (typedCoupon.first_order_only && userOrderCount > 0) {
+        toast.error('This coupon is only available for first orders');
+      } else if (typedCoupon.expires_at && new Date(typedCoupon.expires_at) < new Date()) {
+        toast.error('This coupon has expired');
+      } else if (typedCoupon.min_order_amount && selectedSubtotal < typedCoupon.min_order_amount) {
+        toast.error(`Minimum order amount of ${formatPrice(typedCoupon.min_order_amount)} required`);
+      } else if (typedCoupon.max_uses && (typedCoupon.current_uses || 0) >= typedCoupon.max_uses) {
+        toast.error('This coupon has reached its usage limit');
+      } else {
+        toast.error('This coupon is not eligible for this order');
+      }
       setIsApplyingCoupon(false);
       return;
     }
     
-    // Check minimum order amount
-    if (data.min_order_amount && selectedSubtotal < data.min_order_amount) {
-      toast.error(`Minimum order amount of ${formatPrice(data.min_order_amount)} required`);
-      setIsApplyingCoupon(false);
-      return;
-    }
-    
-    // Check max uses
-    if (data.max_uses && data.current_uses >= data.max_uses) {
-      toast.error('This coupon has reached its usage limit');
-      setIsApplyingCoupon(false);
-      return;
-    }
-    
-    setAppliedCoupon(data as Coupon);
+    setAppliedCoupon(typedCoupon);
     toast.success('Coupon applied successfully!');
     setIsApplyingCoupon(false);
   };
@@ -516,6 +555,41 @@ export default function Checkout() {
     setAppliedCoupon(null);
     setCouponCode('');
   };
+
+  useEffect(() => {
+    if (!user || appliedCoupon || selectedSubtotal <= 0) return;
+
+    let cancelled = false;
+
+    (async () => {
+      const { data, error } = await supabase
+        .from('coupons')
+        .select('*')
+        .eq('is_active', true)
+        .eq('auto_apply', true);
+
+      if (error || cancelled) return;
+
+      const eligibleCoupons = ((data || []) as Coupon[])
+        .filter(isCouponEligible)
+        .sort((a, b) => getCouponDiscount(b) - getCouponDiscount(a));
+
+      const bestCoupon = eligibleCoupons[0];
+      if (!bestCoupon) return;
+
+      setAppliedCoupon(bestCoupon);
+      setCouponCode(bestCoupon.code);
+      toast.success(
+        bestCoupon.marketing_label
+          ? `${bestCoupon.marketing_label} applied automatically`
+          : `${bestCoupon.code} applied automatically`,
+      );
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, appliedCoupon, selectedSubtotal, userOrderCount, getCouponDiscount, isCouponEligible]);
 
   const getShippingIcon = (typeName: string) => {
     const lower = typeName.toLowerCase();
