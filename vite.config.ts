@@ -34,6 +34,10 @@ export default defineConfig(({ mode }) => ({
             return "motion";
           }
 
+          if (id.includes("jspdf") || id.includes("html2canvas")) {
+            return "pdf-tools";
+          }
+
           if (id.includes("@radix-ui/")) {
             return "radix";
           }

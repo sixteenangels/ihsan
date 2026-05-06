@@ -107,7 +107,7 @@ export default function ReceiptVerify() {
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" onClick={() => downloadReceipt(printableReceipt)}>
                 <Download className="mr-2 h-4 w-4" />
-                Download
+                Download PDF
               </Button>
               <Button onClick={() => printReceipt(printableReceipt)}>
                 <Printer className="mr-2 h-4 w-4" />

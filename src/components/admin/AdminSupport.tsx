@@ -63,6 +63,36 @@ const SUPPORT_PRIORITIES: SupportRequest['priority'][] = ['low', 'normal', 'high
 const SUPPORT_CATEGORIES = ['General', 'Orders & Shipping', 'Payments', 'Returns & Refunds', 'Group Buys'];
 type SupportQueueFilter = 'all' | 'open' | 'overdue' | 'urgent' | 'unassigned';
 
+function getSlaThresholdHours(request: SupportRequest) {
+  switch (request.priority) {
+    case 'urgent':
+      return 2;
+    case 'high':
+      return 8;
+    case 'normal':
+      return 24;
+    case 'low':
+    default:
+      return 48;
+  }
+}
+
+function getSlaState(request: SupportRequest) {
+  if (request.status === 'resolved' || request.status === 'closed') {
+    return { state: 'resolved' as const, ageHours: 0 };
+  }
+
+  const ageHours = differenceInHours(new Date(), new Date(request.created_at));
+  const threshold = getSlaThresholdHours(request);
+  if (ageHours >= threshold) {
+    return { state: 'overdue' as const, ageHours };
+  }
+  if (ageHours >= Math.max(1, Math.floor(threshold * 0.6))) {
+    return { state: 'at_risk' as const, ageHours };
+  }
+  return { state: 'healthy' as const, ageHours };
+}
+
 export function AdminSupport() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -430,36 +460,6 @@ export function AdminSupport() {
   };
 
   const selectedConversation = conversations?.find(c => c.id === selectedConversationId);
-
-  const getSlaThresholdHours = (request: SupportRequest) => {
-    switch (request.priority) {
-      case 'urgent':
-        return 2;
-      case 'high':
-        return 8;
-      case 'normal':
-        return 24;
-      case 'low':
-      default:
-        return 48;
-    }
-  };
-
-  const getSlaState = (request: SupportRequest) => {
-    if (request.status === 'resolved' || request.status === 'closed') {
-      return { state: 'resolved' as const, ageHours: 0 };
-    }
-
-    const ageHours = differenceInHours(new Date(), new Date(request.created_at));
-    const threshold = getSlaThresholdHours(request);
-    if (ageHours >= threshold) {
-      return { state: 'overdue' as const, ageHours };
-    }
-    if (ageHours >= Math.max(1, Math.floor(threshold * 0.6))) {
-      return { state: 'at_risk' as const, ageHours };
-    }
-    return { state: 'healthy' as const, ageHours };
-  };
 
   const supportRequestMetrics = useMemo(() => {
     const requests = supportRequests || [];

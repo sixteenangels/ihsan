@@ -37,6 +37,9 @@ export interface PrintableReceipt {
   items: ReceiptItem[];
 }
 
+type PdfModule = typeof import('jspdf');
+type Html2CanvasModule = typeof import('html2canvas');
+
 function escapeHtml(value: string) {
   return value
     .replaceAll('&', '&amp;')
@@ -214,7 +217,7 @@ export function printReceipt(receipt: PrintableReceipt) {
   printWindow.print();
 }
 
-export function downloadReceipt(receipt: PrintableReceipt) {
+function downloadReceiptHtml(receipt: PrintableReceipt) {
   const blob = new Blob([buildReceiptHtml(receipt)], { type: 'text/html;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
@@ -222,4 +225,112 @@ export function downloadReceipt(receipt: PrintableReceipt) {
   anchor.download = `${receipt.receiptNumber}.html`;
   anchor.click();
   URL.revokeObjectURL(url);
+}
+
+async function waitForImages(container: HTMLElement) {
+  const images = Array.from(container.querySelectorAll('img'));
+  await Promise.all(
+    images.map(
+      (image) =>
+        new Promise<void>((resolve) => {
+          if (image.complete) {
+            resolve();
+            return;
+          }
+
+          image.addEventListener('load', () => resolve(), { once: true });
+          image.addEventListener('error', () => resolve(), { once: true });
+        }),
+    ),
+  );
+}
+
+export async function downloadReceipt(receipt: PrintableReceipt) {
+  const wrapper = document.createElement('div');
+  wrapper.style.position = 'fixed';
+  wrapper.style.left = '-200vw';
+  wrapper.style.top = '0';
+  wrapper.style.width = '840px';
+  wrapper.style.background = '#ffffff';
+  wrapper.style.zIndex = '-1';
+  wrapper.innerHTML = buildReceiptHtml(receipt);
+
+  document.body.appendChild(wrapper);
+
+  try {
+    const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+      import('html2canvas') as Promise<Html2CanvasModule>,
+      import('jspdf') as Promise<PdfModule>,
+    ]);
+
+    await waitForImages(wrapper);
+
+    const canvas = await html2canvas(wrapper, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#ffffff',
+      logging: false,
+      windowWidth: 840,
+    });
+
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const margin = 10;
+    const contentWidth = pageWidth - margin * 2;
+    const contentHeight = (canvas.height * contentWidth) / canvas.width;
+    const imgData = canvas.toDataURL('image/png');
+
+    if (contentHeight <= pageHeight - margin * 2) {
+      pdf.addImage(imgData, 'PNG', margin, margin, contentWidth, contentHeight);
+    } else {
+      const pageCanvas = document.createElement('canvas');
+      const pageContext = pageCanvas.getContext('2d');
+      if (!pageContext) {
+        throw new Error('Unable to prepare PDF pages.');
+      }
+
+      const pagePixelHeight = Math.floor((canvas.width * (pageHeight - margin * 2)) / contentWidth);
+      pageCanvas.width = canvas.width;
+      pageCanvas.height = pagePixelHeight;
+
+      let offsetY = 0;
+      let pageIndex = 0;
+
+      while (offsetY < canvas.height) {
+        pageContext.fillStyle = '#ffffff';
+        pageContext.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+        pageContext.drawImage(
+          canvas,
+          0,
+          offsetY,
+          canvas.width,
+          Math.min(pagePixelHeight, canvas.height - offsetY),
+          0,
+          0,
+          canvas.width,
+          Math.min(pagePixelHeight, canvas.height - offsetY),
+        );
+
+        const pageImg = pageCanvas.toDataURL('image/png');
+        if (pageIndex > 0) {
+          pdf.addPage();
+        }
+
+        const renderedHeight =
+          (Math.min(pagePixelHeight, canvas.height - offsetY) * contentWidth) / canvas.width;
+        pdf.addImage(pageImg, 'PNG', margin, margin, contentWidth, renderedHeight);
+
+        offsetY += pagePixelHeight;
+        pageIndex += 1;
+      }
+    }
+
+    pdf.save(`${receipt.receiptNumber}.pdf`);
+  } catch (error) {
+    console.error('PDF export failed, falling back to HTML receipt:', error);
+    downloadReceiptHtml(receipt);
+  } finally {
+    wrapper.remove();
+  }
 }

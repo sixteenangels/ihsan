@@ -449,7 +449,7 @@ export function AdminReceipts() {
                             onClick={() => downloadReceipt(printableReceipt)}
                           >
                             <Download className="h-4 w-4 mr-1" />
-                            Download
+                            Download PDF
                           </Button>
                         </div>
                       </TableCell>
@@ -480,7 +480,7 @@ export function AdminReceipts() {
                   onClick={() => downloadReceipt(mapReceiptForPrinting(selectedReceipt))}
                 >
                   <Download className="h-4 w-4 mr-2" />
-                  Download
+                  Download PDF
                 </Button>
                 <Button onClick={() => printReceipt(mapReceiptForPrinting(selectedReceipt))}>
                   <Printer className="h-4 w-4 mr-2" />
