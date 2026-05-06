@@ -37,13 +37,6 @@ export function LiveChatWidget() {
     scrollToBottom();
   }, [messages]);
 
-  // Find or create conversation when widget opens
-  useEffect(() => {
-    if (isOpen && user) {
-      findOrCreateConversation();
-    }
-  }, [findOrCreateConversation, isOpen, user]);
-
   // Subscribe to realtime messages
   useEffect(() => {
     if (!conversationId) return;
@@ -124,6 +117,13 @@ export function LiveChatWidget() {
       setIsLoading(false);
     }
   }, [loadMessages, user]);
+
+  // Find or create conversation when widget opens
+  useEffect(() => {
+    if (isOpen && user) {
+      findOrCreateConversation();
+    }
+  }, [findOrCreateConversation, isOpen, user]);
 
   const sendMessage = async () => {
     if (!newMessage.trim() || !conversationId || !user) return;
