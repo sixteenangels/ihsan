@@ -190,20 +190,20 @@ export function AdminShipping() {
 
   return (
     <div>
-      <h1 className="text-3xl font-bold font-serif text-foreground mb-8">Shipping Management</h1>
+      <h1 className="mb-6 text-2xl font-bold font-serif text-foreground md:mb-8 md:text-3xl">Shipping Management</h1>
 
       {/* Shipping Types */}
       <Card className="mb-8">
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle>Shipping Types</CardTitle>
           <Dialog open={isAddingType} onOpenChange={setIsAddingType}>
             <DialogTrigger asChild>
-              <Button size="sm">
+              <Button size="sm" className="self-start sm:self-auto">
                 <Plus className="h-4 w-4 mr-1" />
                 Add Type
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-md bg-background">
               <DialogHeader>
                 <DialogTitle>Add Shipping Type</DialogTitle>
               </DialogHeader>
@@ -237,7 +237,7 @@ export function AdminShipping() {
         <CardContent>
           <div className="space-y-3">
             {shippingTypes?.map((type) => (
-              <div key={type.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+              <div key={type.id} className="flex flex-col gap-3 rounded-lg bg-muted p-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-3">
                   <div className="p-2 rounded-lg bg-primary/10 text-primary">
                     {getShippingIcon(type.name)}
@@ -259,16 +259,16 @@ export function AdminShipping() {
 
       {/* Shipping Classes */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle>Shipping Classes (Price & Duration)</CardTitle>
           <Dialog open={isAddingClass} onOpenChange={setIsAddingClass}>
             <DialogTrigger asChild>
-              <Button size="sm">
+              <Button size="sm" className="self-start sm:self-auto">
                 <Plus className="h-4 w-4 mr-1" />
                 Add Class
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-md bg-background">
               <DialogHeader>
                 <DialogTitle>Add Shipping Class</DialogTitle>
               </DialogHeader>
@@ -305,7 +305,7 @@ export function AdminShipping() {
                     onChange={(e) => setNewClass(prev => ({ ...prev, base_price: e.target.value }))}
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label>Min Days</Label>
                     <Input
@@ -336,7 +336,7 @@ export function AdminShipping() {
         <CardContent>
           <div className="space-y-3">
             {shippingClasses?.map((shippingClass) => (
-              <div key={shippingClass.id} className="flex items-center justify-between p-4 bg-muted rounded-lg">
+              <div key={shippingClass.id} className="flex flex-col gap-4 rounded-lg bg-muted p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-4">
                   <div className="p-2 rounded-lg bg-primary/10 text-primary">
                     {getShippingIcon((shippingClass.shipping_types as any)?.name || '')}
@@ -348,7 +348,7 @@ export function AdminShipping() {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex flex-wrap items-center gap-3 sm:justify-end">
                   <p className="font-bold text-primary">${Number(shippingClass.base_price).toFixed(2)}</p>
                   <Switch
                     checked={shippingClass.is_active ?? true}
@@ -360,7 +360,7 @@ export function AdminShipping() {
                         <Pencil className="h-4 w-4" />
                       </Button>
                     </DialogTrigger>
-                    <DialogContent>
+                    <DialogContent className="max-w-md bg-background">
                       <DialogHeader>
                         <DialogTitle>Edit Shipping Class</DialogTitle>
                       </DialogHeader>
@@ -381,7 +381,7 @@ export function AdminShipping() {
                               onChange={(e) => setEditingClass((prev: any) => ({ ...prev, base_price: e.target.value }))}
                             />
                           </div>
-                          <div className="grid grid-cols-2 gap-2">
+                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                             <div className="space-y-2">
                               <Label>Min Days</Label>
                               <Input

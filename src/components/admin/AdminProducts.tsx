@@ -428,23 +428,23 @@ export function AdminProducts() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-bold font-serif text-foreground">Products</h1>
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between md:mb-8">
+        <h1 className="text-2xl font-bold font-serif text-foreground md:text-3xl">Products</h1>
         <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
           <DialogTrigger asChild>
-            <Button onClick={handleOpenAdd}>
+            <Button onClick={handleOpenAdd} className="self-start sm:self-auto">
               <Plus className="h-4 w-4 mr-2" />
               Add Product
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-background">
+          <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto bg-background">
             <DialogHeader>
               <DialogTitle>
                 {editingId ? 'Edit Product' : 'Add New Product'}
               </DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="name">Name *</Label>
                   <Input
@@ -482,7 +482,7 @@ export function AdminProducts() {
                     Internal-only supplier and procurement notes for inventory planning.
                   </p>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="supplier_name">Supplier Name</Label>
                     <Input
@@ -500,7 +500,7 @@ export function AdminProducts() {
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="expected_restock_date">Expected Restock Date</Label>
                     <Input
@@ -522,7 +522,7 @@ export function AdminProducts() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="base_price">Base Price *</Label>
                   <Input
@@ -548,7 +548,7 @@ export function AdminProducts() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="category">Category</Label>
                   <Select
@@ -576,8 +576,8 @@ export function AdminProducts() {
                 <div />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex items-center justify-between rounded-lg border border-border p-3">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
                   <Label htmlFor="is_group_buy_eligible">Group Buy Eligible</Label>
                   <Switch
                     id="is_group_buy_eligible"
@@ -587,7 +587,7 @@ export function AdminProducts() {
                     }
                   />
                 </div>
-                <div className="flex items-center justify-between rounded-lg border border-border p-3">
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
                   <Label htmlFor="is_flash_deal">Flash Deal</Label>
                   <Switch
                     id="is_flash_deal"
@@ -612,8 +612,8 @@ export function AdminProducts() {
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex items-center justify-between rounded-lg border border-border p-3">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
                   <Label htmlFor="is_free_shipping">Free Shipping</Label>
                   <Switch
                     id="is_free_shipping"
@@ -623,7 +623,7 @@ export function AdminProducts() {
                     }
                   />
                 </div>
-                <div className="flex items-center justify-between rounded-lg border border-border p-3">
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
                   <Label htmlFor="is_active">Active</Label>
                   <Switch
                     id="is_active"
@@ -665,8 +665,8 @@ export function AdminProducts() {
                 </div>
                 {form.is_fragile && (
                   <div className="space-y-2">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="flex items-center justify-between rounded-lg border border-border p-3">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
                         <Label htmlFor="allow_standard_packaging">Standard Packaging</Label>
                         <Switch
                           id="allow_standard_packaging"
@@ -676,7 +676,7 @@ export function AdminProducts() {
                           }
                         />
                       </div>
-                      <div className="flex items-center justify-between rounded-lg border border-border p-3">
+                      <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
                         <Label htmlFor="allow_reinforced_packaging">Reinforced Protection</Label>
                         <Switch
                           id="allow_reinforced_packaging"
@@ -728,7 +728,7 @@ export function AdminProducts() {
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-4">
+              <div className="flex flex-col-reverse gap-2 pt-4 sm:flex-row sm:justify-end">
                 <Button type="button" variant="outline" onClick={handleClose}>
                   Cancel
                 </Button>
@@ -754,6 +754,7 @@ export function AdminProducts() {
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -855,6 +856,7 @@ export function AdminProducts() {
                 )}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>

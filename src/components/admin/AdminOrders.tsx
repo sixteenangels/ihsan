@@ -871,22 +871,22 @@ export function AdminOrders() {
       {newOrderAlert && (
         <Alert className="mb-4 border-green-500/50 bg-green-500/10">
           <BellRing className="h-4 w-4 text-green-600" />
-          <AlertDescription className="flex items-center justify-between">
+          <AlertDescription className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <span className="text-green-700 font-medium">New order received! The list has been updated.</span>
             <Button variant="ghost" size="sm" onClick={() => setNewOrderAlert(false)}>Dismiss</Button>
           </AlertDescription>
         </Alert>
       )}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-        <h1 className="text-3xl font-bold font-serif text-foreground">Orders Management</h1>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-2xl font-bold font-serif text-foreground md:text-3xl">Orders Management</h1>
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
+          <div className="relative w-full sm:w-auto">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search orders..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 w-64"
+              className="w-full pl-10 sm:w-64"
             />
           </div>
           <Button
@@ -952,7 +952,7 @@ export function AdminOrders() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <ScrollArea className="w-full whitespace-nowrap mb-6">
-          <TabsList className="inline-flex h-auto p-1 gap-1">
+          <TabsList className="inline-flex h-auto gap-1 p-1.5">
             {STATUS_TABS.map((tab) => {
               const Icon = tab.icon;
               const count = getOrderCountForTab(tab.value);
@@ -960,7 +960,7 @@ export function AdminOrders() {
                 <TabsTrigger
                   key={tab.value}
                   value={tab.value}
-                  className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                  className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-xs sm:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
                 >
                   <Icon className="h-4 w-4" />
                   <span className="hidden sm:inline">{tab.label}</span>
@@ -1049,7 +1049,7 @@ export function AdminOrders() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                    <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-4">
                       <div>
                         <p className="text-sm text-muted-foreground">Customer</p>
                         <p className="font-medium text-foreground">
@@ -1088,7 +1088,7 @@ export function AdminOrders() {
                       <p className="text-sm font-semibold text-foreground mb-3">Order Items:</p>
                       <div className="space-y-3">
                         {order.order_items?.map((item: any) => (
-                          <div key={item.id} className="flex justify-between items-start p-3 bg-background rounded-lg border border-border">
+                          <div key={item.id} className="flex flex-col gap-3 rounded-lg border border-border bg-background p-3 sm:flex-row sm:items-start sm:justify-between">
                             <div className="flex-1">
                               <p className="font-medium text-foreground">{item.product_name}</p>
                               {item.variant_details && (
@@ -1183,7 +1183,7 @@ export function AdminOrders() {
                     </div>
 
                     {/* Actions */}
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                       {/* Status Update with Custom Note */}
                       <div className="space-y-2">
                         <div className="flex flex-wrap gap-2">
@@ -1318,7 +1318,7 @@ export function AdminOrders() {
                             Set Delivery
                           </Button>
                         </DialogTrigger>
-                        <DialogContent className="bg-background">
+                        <DialogContent className="max-w-md bg-background">
                           <DialogHeader>
                             <DialogTitle>Set Estimated Delivery for #{order.order_number}</DialogTitle>
                           </DialogHeader>
@@ -1418,7 +1418,7 @@ export function AdminOrders() {
                             Add Tracking
                           </Button>
                         </DialogTrigger>
-                        <DialogContent className="bg-background">
+                        <DialogContent className="max-w-lg bg-background">
                           <DialogHeader>
                             <DialogTitle>Add Tracking Update</DialogTitle>
                           </DialogHeader>
@@ -1431,7 +1431,7 @@ export function AdminOrders() {
                                 placeholder="e.g., Arrived at warehouse"
                               />
                             </div>
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                               <div className="space-y-2">
                                 <Label>Courier Name (optional)</Label>
                                 <Input
@@ -1457,7 +1457,7 @@ export function AdminOrders() {
                                 placeholder="e.g., 50.00"
                               />
                             </div>
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                               <div className="space-y-2">
                                 <Label>Latitude (optional)</Label>
                                 <Input
