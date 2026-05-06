@@ -227,18 +227,18 @@ export default function ProductDetail() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="container py-8">
+      <main className="container px-4 py-6 pb-24 sm:px-6 md:py-8 md:pb-8">
         <Link to="/products" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary mb-6">
           <ArrowLeft className="h-4 w-4 mr-1" />
           Back to Products
         </Link>
 
-        <div className="grid lg:grid-cols-2 gap-8 lg:gap-12">
+        <div className="grid gap-6 lg:grid-cols-2 lg:gap-12">
           <ProductImageGallery images={product.images} productName={product.name} />
 
           <div className="space-y-6">
             {/* Badges + Share */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex flex-wrap gap-2">
                 {product.is_flash_deal && (
                   <Badge className="bg-destructive text-destructive-foreground">
@@ -261,7 +261,7 @@ export default function ProductDetail() {
               </div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="icon">
+                  <Button variant="outline" size="icon" className="self-start">
                     <Share2 className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -281,7 +281,7 @@ export default function ProductDetail() {
             {/* Start Group Buy Button */}
             {product.is_group_buy_eligible && (
               <div className="p-4 rounded-lg bg-accent/10 border border-accent/20">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="font-medium text-foreground">Start a Group Buy</p>
                     <p className="text-sm text-muted-foreground">Lock in the group price and invite others to fill the target.</p>
@@ -294,7 +294,7 @@ export default function ProductDetail() {
             {/* Title & Rating */}
             <div>
               <p className="text-sm text-muted-foreground mb-1">{product.category_name || 'Uncategorized'}</p>
-              <h1 className="text-3xl font-bold font-serif text-foreground mb-2">{product.name}</h1>
+              <h1 className="mb-2 text-2xl font-bold font-serif text-foreground sm:text-3xl">{product.name}</h1>
               <div className="flex items-center gap-2">
                 <div className="flex items-center">
                   <Star className="h-5 w-5 fill-accent-foreground text-accent-foreground" />
@@ -382,7 +382,7 @@ export default function ProductDetail() {
                       }`}
                       onClick={() => setSelectedShipping(option)}
                     >
-                      <CardContent className="p-4 flex items-center justify-between">
+                      <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex items-center gap-3">
                           <div className="p-2 rounded-lg bg-primary/10 text-primary">
                             {getShippingIcon(option.shipping_class?.shipping_type?.name)}
@@ -394,7 +394,7 @@ export default function ProductDetail() {
                             </p>
                           </div>
                         </div>
-                        <p className="font-semibold text-primary">{formatPrice(option.price)}</p>
+                        <p className="pl-11 text-sm font-semibold text-primary sm:pl-0">{formatPrice(option.price)}</p>
                       </CardContent>
                     </Card>
                   ))}
@@ -411,7 +411,7 @@ export default function ProductDetail() {
                   <p className="text-2xl font-bold text-primary">Total: {formatPrice(totalPrice)}</p>
                 </div>
               )}
-              <div className="flex gap-3">
+              <div className="flex flex-col gap-3 sm:flex-row">
                 <Button size="lg" className="flex-1" variant="outline" onClick={handleAddToCart}>
                   <ShoppingCart className="h-5 w-5 mr-2" />
                   Add to Cart

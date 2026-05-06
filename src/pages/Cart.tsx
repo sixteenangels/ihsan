@@ -64,7 +64,7 @@ export default function Cart() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="container py-8">
+      <main className="container px-4 py-6 pb-24 sm:px-6 md:py-8 md:pb-8">
         <Link
           to="/products"
           className="inline-flex items-center text-sm text-muted-foreground hover:text-primary mb-6"
@@ -73,16 +73,16 @@ export default function Cart() {
           Continue Shopping
         </Link>
 
-        <h1 className="text-3xl font-bold font-serif text-foreground mb-8">
+        <h1 className="mb-6 text-2xl font-bold font-serif text-foreground md:mb-8 md:text-3xl">
           Shopping Cart
         </h1>
 
-        <div className="grid lg:grid-cols-3 gap-8">
+        <div className="grid gap-6 lg:grid-cols-3 lg:gap-8">
           <div className="lg:col-span-2 space-y-4">
             {items.map((item) => (
               <Card key={item.id} className="overflow-hidden">
                 <CardContent className="p-4">
-                  <div className="flex gap-4">
+                  <div className="flex gap-3 sm:gap-4">
                     <div className="pt-1">
                       <Checkbox
                         checked={selectedItemIds.includes(item.id)}
@@ -90,7 +90,7 @@ export default function Cart() {
                         aria-label={`Select ${item.product.name}`}
                       />
                     </div>
-                    <div className="w-24 h-24 rounded-lg overflow-hidden flex-shrink-0">
+                    <div className="h-20 w-20 overflow-hidden rounded-lg flex-shrink-0 sm:h-24 sm:w-24">
                       <img
                         src={item.product.images[0]}
                         alt={item.product.name}
@@ -98,9 +98,9 @@ export default function Cart() {
                       />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-start gap-3">
+                      <div className="flex items-start justify-between gap-3">
                         <div>
-                          <h3 className="font-semibold text-foreground line-clamp-1">
+                          <h3 className="line-clamp-2 font-semibold text-foreground">
                             {item.product.name}
                           </h3>
                           <p className="text-sm text-muted-foreground">
@@ -118,7 +118,7 @@ export default function Cart() {
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
-                      <div className="flex items-center justify-between mt-4">
+                      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex items-center gap-2">
                           <Button
                             size="icon"
@@ -140,7 +140,7 @@ export default function Cart() {
                             <Plus className="h-3 w-3" />
                           </Button>
                         </div>
-                        <p className="font-semibold text-primary">
+                        <p className="text-base font-semibold text-primary sm:text-right">
                           {formatPrice(item.variant.price * item.quantity)}
                         </p>
                       </div>
@@ -150,9 +150,10 @@ export default function Cart() {
               </Card>
             ))}
 
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
               <Button
                 variant="outline"
+                className="w-full sm:w-auto"
                 onClick={() =>
                   setSelectedItemIds(allSelected ? [] : items.map((item) => item.id))
                 }
@@ -161,7 +162,7 @@ export default function Cart() {
               </Button>
               <Button
                 variant="outline"
-                className="text-muted-foreground"
+                className="w-full text-muted-foreground sm:w-auto"
                 onClick={clearCart}
               >
                 Clear Cart
@@ -170,7 +171,7 @@ export default function Cart() {
           </div>
 
           <div className="lg:col-span-1">
-            <Card className="sticky top-24">
+            <Card className="lg:sticky lg:top-24">
               <CardHeader>
                 <CardTitle>Order Summary</CardTitle>
               </CardHeader>

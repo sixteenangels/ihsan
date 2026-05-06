@@ -567,14 +567,14 @@ export default function MyOrders() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="container py-8 pb-24 md:pb-8">
+      <main className="container px-4 py-6 pb-24 sm:px-6 md:py-8 md:pb-8">
         <h1 className="text-2xl md:text-3xl font-bold font-serif text-foreground mb-6">
           My Orders
         </h1>
 
         <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
-          <ScrollArea className="w-full whitespace-nowrap mb-6">
-            <TabsList className="inline-flex h-auto p-1 gap-1">
+          <ScrollArea className="mb-6 w-full whitespace-nowrap">
+            <TabsList className="inline-flex h-auto gap-1 p-1.5">
               {CUSTOMER_STATUS_TABS.map((tab) => {
                 const Icon = tab.icon;
                 const count = getOrderCountForTab(tab.value);
@@ -582,7 +582,7 @@ export default function MyOrders() {
                   <TabsTrigger
                     key={tab.value}
                     value={tab.value}
-                    className="flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                    className="flex items-center gap-1.5 px-3.5 py-2.5 text-xs sm:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
                   >
                     <Icon className="h-4 w-4" />
                     {tab.label}
@@ -625,8 +625,8 @@ export default function MyOrders() {
                       <CardContent className="p-0">
                         {/* Order Header (not a button — actions live below) */}
                         <div className="p-4 bg-muted/50 border-b border-border">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="flex min-w-0 flex-1 items-center gap-3">
                               {order.order_items[0] && (
                                 <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 border border-border bg-muted">
                                   {productImages[order.order_items[0].product_variant_id] ? (
@@ -654,12 +654,12 @@ export default function MyOrders() {
                                 </p>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2 flex-shrink-0">
+                            <div className="flex items-center gap-2 self-start sm:flex-shrink-0">
                               {getStatusBadge(order.status)}
                             </div>
                           </div>
 
-                          <div className="flex items-center justify-between mt-2">
+                          <div className="mt-3 flex items-center justify-between">
                             <p className="font-bold text-primary text-sm">
                               {formatPrice(order.total_amount)}
                             </p>
@@ -672,12 +672,12 @@ export default function MyOrders() {
                           </div>
 
                           {/* Quick action row — always visible */}
-                          <div className="grid grid-cols-3 gap-2 mt-3">
+                          <div className="mt-3 grid grid-cols-3 gap-2">
                             <Button
                               size="sm"
                               variant="outline"
                               onClick={() => toggleOrderExpansion(order.id)}
-                              className="w-full"
+                              className="h-auto w-full px-2 py-2 text-[11px] leading-tight sm:text-sm"
                             >
                               <Eye className="h-3.5 w-3.5 mr-1" />
                               {isExpanded ? 'Hide' : 'Details'}
@@ -686,7 +686,7 @@ export default function MyOrders() {
                               size="sm"
                               variant="outline"
                               onClick={() => handleBuyAgain(order)}
-                              className="w-full"
+                              className="h-auto w-full px-2 py-2 text-[11px] leading-tight sm:text-sm"
                             >
                               <ShoppingBag className="h-3.5 w-3.5 mr-1" />
                               Buy Again
@@ -704,9 +704,9 @@ export default function MyOrders() {
                               <Button
                                 size="sm"
                                 onClick={() => handleConfirmDelivery(order)}
-                                disabled={order.status !== 'out_for_delivery'}
-                                className="w-full"
-                                title={
+                              disabled={order.status !== 'out_for_delivery'}
+                              className="h-auto w-full px-2 py-2 text-[11px] leading-tight sm:text-sm"
+                              title={
                                   order.status !== 'out_for_delivery'
                                     ? 'Available once order is out for delivery'
                                     : undefined

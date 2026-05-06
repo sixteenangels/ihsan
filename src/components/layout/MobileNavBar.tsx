@@ -35,7 +35,7 @@ export function MobileNavBar() {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-background/80 backdrop-blur-xl border-t border-border safe-area-bottom">
-      <div className="flex items-center justify-around h-16 px-2">
+      <div className="flex items-center justify-around px-3 py-2">
         {navItems.map((item) => {
           const isActive = location.pathname === item.href;
           const isPressed = pressedItem === item.href;
@@ -49,8 +49,8 @@ export function MobileNavBar() {
               onTouchEnd={handleTouchEnd}
               onTouchCancel={handleTouchEnd}
               className={cn(
-                "flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-all duration-150",
-                isActive ? "text-primary" : "text-muted-foreground",
+                "relative mx-1 flex h-14 flex-1 flex-col items-center justify-center gap-1 rounded-2xl transition-all duration-150",
+                isActive ? "bg-primary/8 text-primary" : "text-muted-foreground",
                 isPressed && "scale-90 opacity-70"
               )}
             >
@@ -74,7 +74,7 @@ export function MobileNavBar() {
                 )}
               </div>
               <span className={cn(
-                "text-[10px] font-medium transition-all duration-200",
+                "text-[11px] font-medium transition-all duration-200",
                 isActive && "font-semibold text-primary"
               )}>
                 {item.label}

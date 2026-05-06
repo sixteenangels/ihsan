@@ -1112,7 +1112,7 @@ export default function Checkout() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="container py-8">
+      <main className="container px-4 py-6 pb-24 sm:px-6 md:py-8 md:pb-8">
         <Link
           to="/cart"
           className="inline-flex items-center text-sm text-muted-foreground hover:text-primary mb-6"
@@ -1121,11 +1121,11 @@ export default function Checkout() {
           Back to Cart
         </Link>
 
-        <h1 className="text-3xl font-bold font-serif text-foreground mb-8">
+        <h1 className="mb-6 text-2xl font-bold font-serif text-foreground md:mb-8 md:text-3xl">
           Checkout
         </h1>
 
-        <div className="grid lg:grid-cols-3 gap-8">
+        <div className="grid gap-6 lg:grid-cols-3 lg:gap-8">
           <div className="lg:col-span-2 space-y-6">
             {/* Delivery Address */}
             <Card>
@@ -1182,12 +1182,12 @@ export default function Checkout() {
 
                 <Dialog open={isAddressDialogOpen} onOpenChange={setIsAddressDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button variant="outline" className="mt-4">
+                    <Button variant="outline" className="mt-4 w-full sm:w-auto">
                       <Plus className="h-4 w-4 mr-2" />
                       Add New Address
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-md">
+                  <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
                     <DialogHeader>
                       <DialogTitle>Add New Address</DialogTitle>
                     </DialogHeader>
@@ -1294,8 +1294,8 @@ export default function Checkout() {
                           }`}
                           onClick={() => handleShippingSelection(shipping.id)}
                         >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex items-start gap-3 sm:items-center">
                               <RadioGroupItem value={shipping.id} id={shipping.id} />
                               <div className="text-primary">
                                 {getShippingIcon(shipping.shipping_type?.name || shipping.name)}
@@ -1307,7 +1307,7 @@ export default function Checkout() {
                                 </p>
                               </div>
                             </div>
-                            <p className="font-semibold text-foreground">
+                            <p className="pl-8 text-sm font-semibold text-foreground sm:pl-0">
                               {formatPrice(shipping.base_price)}
                             </p>
                           </div>
@@ -1347,8 +1347,8 @@ export default function Checkout() {
                         }`}
                         onClick={() => setPackagingChoice('reinforced')}
                       >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="flex items-start gap-3 sm:items-center">
                             <RadioGroupItem value="reinforced" id="pack-reinforced" />
                             <div>
                               <p className="font-medium text-foreground">Reinforced Protection</p>
@@ -1357,7 +1357,7 @@ export default function Checkout() {
                               </p>
                             </div>
                           </div>
-                          <p className="font-semibold text-foreground">
+                          <p className="pl-8 text-sm font-semibold text-foreground sm:pl-0">
                             +{formatPrice(reinforcedPackagingCost || globalReinforcedCost)}
                           </p>
                         </div>
@@ -1370,8 +1370,8 @@ export default function Checkout() {
                         }`}
                         onClick={() => setShowStandardWarning(true)}
                       >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="flex items-start gap-3 sm:items-center">
                             <RadioGroupItem value="standard" id="pack-standard" />
                             <div>
                               <p className="font-medium text-foreground">Standard Packaging</p>
@@ -1380,7 +1380,7 @@ export default function Checkout() {
                               </p>
                             </div>
                           </div>
-                          <p className="font-semibold text-foreground">Free</p>
+                          <p className="pl-8 text-sm font-semibold text-foreground sm:pl-0">Free</p>
                         </div>
                       </div>
                       )}
@@ -1523,7 +1523,7 @@ export default function Checkout() {
                 <div className="space-y-3">
                   {selectedItems.map((item) => (
                     <div key={item.id} className="flex gap-3">
-                      <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
+                      <div className="h-16 w-16 rounded-lg overflow-hidden flex-shrink-0">
                         <img
                           src={item.product.images[0]}
                           alt={item.product.name}
@@ -1536,7 +1536,10 @@ export default function Checkout() {
                           {item.variant.color} {item.variant.size && `• ${item.variant.size}`} × {item.quantity}
                         </p>
                       </div>
-                      <p className="font-medium text-foreground">
+                      <p className="mt-1 self-end text-sm font-medium text-foreground sm:hidden">
+                        {formatPrice(item.variant.price * item.quantity)}
+                      </p>
+                      <p className="hidden font-medium text-foreground sm:block">
                         {formatPrice(item.variant.price * item.quantity)}
                       </p>
                     </div>
@@ -1548,7 +1551,7 @@ export default function Checkout() {
 
           {/* Order Summary */}
           <div className="lg:col-span-1">
-            <Card className="sticky top-24">
+            <Card className="lg:sticky lg:top-24">
               <CardHeader>
                 <CardTitle>Order Summary</CardTitle>
               </CardHeader>
@@ -1574,7 +1577,7 @@ export default function Checkout() {
                       </Button>
                     </div>
                   ) : (
-                    <div className="flex gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row">
                       <Input
                         placeholder="Enter code"
                         value={couponCode}
@@ -1585,6 +1588,7 @@ export default function Checkout() {
                         variant="outline" 
                         onClick={handleApplyCoupon}
                         disabled={isApplyingCoupon}
+                        className="w-full sm:w-auto"
                       >
                         {isApplyingCoupon ? 'Applying...' : 'Apply'}
                       </Button>

@@ -58,10 +58,10 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
-      <div className="container flex h-16 items-center justify-between">
+      <div className="container flex h-14 items-center justify-between gap-2 px-4 sm:h-16 sm:px-6">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2">
-          <span className="text-2xl font-bold font-serif text-primary">Ihsan</span>
+          <span className="text-xl font-bold font-serif text-primary sm:text-2xl">Ihsan</span>
         </Link>
 
         {/* Desktop Navigation */}
@@ -86,7 +86,7 @@ export function Header() {
         </nav>
 
         {/* Right Side Actions */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2">
           {/* Search */}
           <div className="hidden sm:flex items-center">
             {isSearchOpen ? (
@@ -170,7 +170,7 @@ export function Header() {
 
           {/* Cart */}
           <Link to="/cart">
-            <Button variant="ghost" size="icon" className="relative">
+            <Button variant="ghost" size="icon" className="relative h-9 w-9 sm:h-10 sm:w-10">
               <ShoppingCart className="h-4 w-4" />
               {totalItems > 0 && (
                 <Badge
@@ -189,13 +189,13 @@ export function Header() {
                 <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-72">
-              <nav className="flex flex-col gap-4 mt-8">
+            <SheetContent side="right" className="w-[88vw] max-w-sm px-5">
+              <nav className="mt-8 flex flex-col gap-3">
                 {navLinks.map((link) => (
                   <Link
                     key={link.name}
                     to={link.href}
-                    className="text-lg font-medium text-foreground hover:text-primary transition-colors"
+                    className="rounded-xl px-3 py-2 text-base font-medium text-foreground transition-colors hover:bg-muted hover:text-primary"
                   >
                     {link.name}
                   </Link>
@@ -203,14 +203,14 @@ export function Header() {
                 {isAdmin && (
                   <Link
                     to="/admin"
-                    className="text-lg font-medium text-primary hover:text-primary/80 transition-colors"
+                    className="rounded-xl px-3 py-2 text-base font-medium text-primary transition-colors hover:bg-primary/5 hover:text-primary/80"
                   >
                     Admin Dashboard
                   </Link>
                 )}
                 <div className="border-t border-border pt-4 mt-4">
                   <form onSubmit={handleMobileSearch}>
-                    <Input placeholder="Search products..." className="mb-4" />
+                    <Input placeholder="Search products..." className="mb-4 h-11" />
                   </form>
                   {user ? (
                     <div className="space-y-2">
