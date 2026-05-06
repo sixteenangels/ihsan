@@ -20,7 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Loader2, Download, Plus, Printer, QrCode } from 'lucide-react';
+import { Loader2, Download, Plus, Printer, QrCode, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import {
@@ -31,6 +31,9 @@ import {
   printReceipt,
   type PrintableReceipt,
 } from '@/lib/receipt-utils';
+import { buildReceiptEmailHtml, buildReceiptEmailSubject, buildReceiptEmailText } from '@/lib/email-templates';
+import { useAuth } from '@/contexts/AuthContext';
+import { logAdminAction } from '@/lib/audit-log';
 
 interface ReceiptProfile {
   name: string | null;
@@ -105,6 +108,7 @@ function mapReceiptForPrinting(receipt: ReceiptRecord): PrintableReceipt {
 
 export function AdminReceipts() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedReceipt, setSelectedReceipt] = useState<ReceiptRecord | null>(null);
 
@@ -177,6 +181,15 @@ export function AdminReceipts() {
         .eq('id', createdReceipt.id);
 
       if (updateError) throw updateError;
+
+      await logAdminAction({
+        actorUserId: user?.id,
+        action: 'receipt.generated',
+        entityType: 'receipt',
+        entityId: createdReceipt.id,
+        summary: `Generated receipt for order ${order.order_number}.`,
+        metadata: { orderId: order.id, receiptNumber: createdReceipt.receipt_number },
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-receipts'] });
@@ -186,6 +199,52 @@ export function AdminReceipts() {
     onError: (error) => {
       toast.error('Failed to generate receipt');
       console.error(error);
+    },
+  });
+
+  const sendReceiptEmailMutation = useMutation({
+    mutationFn: async (receipt: ReceiptRecord) => {
+      const printableReceipt = mapReceiptForPrinting(receipt);
+      const customerEmail = receipt.orders?.profiles?.email;
+      if (!customerEmail) {
+        throw new Error('This order does not have a customer email address.');
+      }
+
+      const { data, error } = await supabase.functions.invoke('send-transactional-email', {
+        body: {
+          to: customerEmail,
+          subject: buildReceiptEmailSubject(printableReceipt),
+          html: buildReceiptEmailHtml(printableReceipt),
+          text: buildReceiptEmailText(printableReceipt),
+          type: 'receipt',
+          relatedEntityType: 'receipt',
+          relatedEntityId: receipt.id,
+          requestedBy: user?.id,
+        },
+      });
+
+      if (error) throw error;
+
+      await logAdminAction({
+        actorUserId: user?.id,
+        action: 'receipt.email_sent',
+        entityType: 'receipt',
+        entityId: receipt.id,
+        summary: `Attempted receipt email for ${receipt.receipt_number} to ${customerEmail}.`,
+        metadata: data || {},
+      });
+
+      return data;
+    },
+    onSuccess: (data) => {
+      if (data?.sent) {
+        toast.success('Receipt email sent');
+      } else {
+        toast.info('Email was queued but provider is not configured yet');
+      }
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
     },
   });
 
@@ -317,6 +376,25 @@ export function AdminReceipts() {
                           >
                             <QrCode className="h-4 w-4 mr-1" />
                             Preview
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              navigator.clipboard.writeText(printableReceipt.qrPayload);
+                              toast.success('Verification link copied');
+                            }}
+                          >
+                            <Copy className="h-4 w-4 mr-1" />
+                            Copy Link
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => sendReceiptEmailMutation.mutate(receipt)}
+                            disabled={sendReceiptEmailMutation.isPending}
+                          >
+                            Email Receipt
                           </Button>
                           <Button
                             variant="outline"

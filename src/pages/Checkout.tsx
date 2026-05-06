@@ -18,6 +18,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useWalletBalance } from '@/hooks/useWallet';
+import { useLoyaltyPoints } from '@/hooks/useLoyaltyPoints';
+import { useStoreSettings } from '@/hooks/useStoreSettings';
 
 interface Address {
   id: string;
@@ -102,6 +104,10 @@ export default function Checkout() {
   // Wallet redemption
   const walletBalance = useWalletBalance();
   const [useWalletCredit, setUseWalletCredit] = useState(false);
+  const { totalPoints } = useLoyaltyPoints();
+  const { data: storeSettings } = useStoreSettings();
+  const [useLoyaltyCredit, setUseLoyaltyCredit] = useState(false);
+  const [loyaltyPointsToRedeem, setLoyaltyPointsToRedeem] = useState('');
 
   // Fragile / packaging — keyed by product_id
   const [productMeta, setProductMeta] = useState<Record<string, {
@@ -441,9 +447,23 @@ export default function Checkout() {
   };
 
   const discount = calculateDiscount();
-  const subtotalBeforeWallet = selectedSubtotal + shippingCost + reinforcedPackagingCost - discount;
-  const walletApplied = useWalletCredit ? Math.min(walletBalance, subtotalBeforeWallet) : 0;
-  const total = Math.max(0, subtotalBeforeWallet - walletApplied);
+  const subtotalBeforeCredits = Math.max(0, selectedSubtotal + shippingCost + reinforcedPackagingCost - discount);
+  const loyaltyRate = typeof storeSettings?.loyaltyPointsToCurrencyRate === 'number'
+    ? storeSettings.loyaltyPointsToCurrencyRate
+    : 0.01;
+  const loyaltyMinRedeemPoints = typeof storeSettings?.loyaltyMinRedeemPoints === 'number'
+    ? storeSettings.loyaltyMinRedeemPoints
+    : 100;
+  const maxPointsByOrderValue = loyaltyRate > 0 ? Math.floor(subtotalBeforeCredits / loyaltyRate) : 0;
+  const maxRedeemablePoints = Math.max(0, Math.min(totalPoints, maxPointsByOrderValue));
+  const requestedLoyaltyPoints = Math.max(0, Math.min(Number(loyaltyPointsToRedeem || 0), maxRedeemablePoints));
+  const loyaltyPointsApplied = useLoyaltyCredit && requestedLoyaltyPoints >= loyaltyMinRedeemPoints
+    ? requestedLoyaltyPoints
+    : 0;
+  const loyaltyDiscount = loyaltyPointsApplied * loyaltyRate;
+  const subtotalAfterLoyalty = Math.max(0, subtotalBeforeCredits - loyaltyDiscount);
+  const walletApplied = useWalletCredit ? Math.min(walletBalance, subtotalAfterLoyalty) : 0;
+  const total = Math.max(0, subtotalAfterLoyalty - walletApplied);
 
   const handleApplyCoupon = async () => {
     if (!couponCode.trim()) {
@@ -545,6 +565,21 @@ export default function Checkout() {
       toast.error('User email not found');
       return;
     }
+    if (useLoyaltyCredit && requestedLoyaltyPoints > 0 && requestedLoyaltyPoints < loyaltyMinRedeemPoints) {
+      toast.error(`Redeem at least ${loyaltyMinRedeemPoints} points.`);
+      return;
+    }
+    if (useLoyaltyCredit && requestedLoyaltyPoints > totalPoints) {
+      toast.error('You do not have enough loyalty points.');
+      return;
+    }
+    if (total <= 0) {
+      if (orderCreationInProgress) return;
+      setOrderCreationInProgress(true);
+      setIsProcessing(true);
+      await finalizeOrder(null);
+      return;
+    }
 
     if (!window.PaystackPop) {
       toast.error('Payment system is loading. Please try again in a moment.');
@@ -600,6 +635,160 @@ export default function Checkout() {
       console.error('Payment error:', error);
       toast.error(error?.message || 'Payment initialization failed. Please try again.');
       setIsProcessing(false);
+    }
+  };
+
+  const finalizeOrder = async (paymentReference: string | null) => {
+    const selectedAddress = addresses.find(a => a.id === selectedAddressId);
+
+    try {
+      const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .insert([{
+          order_number: `IHS-${Date.now()}`,
+          user_id: user?.id as string,
+          subtotal: selectedSubtotal,
+          shipping_price: shippingCost,
+          total_amount: total,
+          shipping_class_id: selectedShippingId,
+          shipping_address: JSON.parse(JSON.stringify(selectedAddress || {})),
+          status: 'payment_received' as const,
+          payment_reference: paymentReference,
+          notes: loyaltyPointsApplied > 0 ? `Loyalty redeemed: ${loyaltyPointsApplied} points` : null,
+          estimated_delivery_start: new Date(Date.now() + (selectedShipping?.estimated_days_min || 7) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          estimated_delivery_end: new Date(Date.now() + (selectedShipping?.estimated_days_max || 14) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          packaging_type: hasFragile ? packagingChoice : null,
+          packaging_cost: reinforcedPackagingCost,
+          wallet_credit_used: walletApplied,
+        } as any])
+        .select()
+        .single();
+
+      if (orderError) throw orderError;
+
+      if (walletApplied > 0 && user?.id) {
+        try {
+          await (supabase as any).from('wallet_transactions').insert({
+            user_id: user.id,
+            amount: walletApplied,
+            type: 'debit',
+            description: `Used for order ${order.order_number}`,
+            order_id: order.id,
+            created_by: user.id,
+          });
+        } catch (e) {
+          console.error('Wallet debit failed (non-blocking):', e);
+        }
+      }
+
+      if (loyaltyPointsApplied > 0 && user?.id) {
+        try {
+          await supabase.from('loyalty_points').insert({
+            user_id: user.id,
+            points: loyaltyPointsApplied,
+            type: 'redeem',
+            description: `Order #${order.order_number} - redeemed ${loyaltyPointsApplied} points`,
+            order_id: order.id,
+          });
+        } catch (e) {
+          console.error('Loyalty redemption failed (non-blocking):', e);
+        }
+      }
+
+      const orderItems = selectedItems.map(item => ({
+        order_id: order.id,
+        product_variant_id: item.variant.id,
+        product_name: item.product.name,
+        variant_details: `${item.variant.color || ''}${item.variant.size ? ` â€¢ ${item.variant.size}` : ''}`,
+        quantity: item.quantity,
+        unit_price: item.variant.price,
+        total_price: item.variant.price * item.quantity,
+      }));
+
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .insert(orderItems);
+
+      if (itemsError) throw itemsError;
+
+      await supabase
+        .from('order_tracking')
+        .insert({
+          order_id: order.id,
+          status: 'payment_received',
+          location_name: paymentReference ? 'Payment Gateway' : 'Checkout',
+          notes: paymentReference ? 'Payment verified successfully via Paystack.' : 'Order covered by wallet and loyalty credits.',
+        });
+
+      if (appliedCoupon) {
+        await supabase
+          .from('coupons')
+          .update({ current_uses: appliedCoupon.current_uses + 1 })
+          .eq('id', appliedCoupon.id);
+      }
+
+      try {
+        const { data: settingsData } = await supabase
+          .from('store_settings')
+          .select('key, value')
+          .in('key', ['loyaltyEnabled', 'loyaltyPointsPerOrder', 'loyaltyMinOrderAmount']);
+
+        const sMap: Record<string, any> = {};
+        settingsData?.forEach(r => { sMap[r.key] = r.value; });
+
+        const loyaltyEnabled = sMap.loyaltyEnabled !== false;
+        const pointsPerGhs = typeof sMap.loyaltyPointsPerOrder === 'number' ? sMap.loyaltyPointsPerOrder : 1;
+        const minAmount = typeof sMap.loyaltyMinOrderAmount === 'number' ? sMap.loyaltyMinOrderAmount : 0;
+
+        if (loyaltyEnabled && total >= minAmount && user?.id) {
+          const pointsToAward = Math.floor(total * pointsPerGhs);
+          if (pointsToAward > 0) {
+            await supabase.from('loyalty_points').insert({
+              user_id: user.id,
+              points: pointsToAward,
+              type: 'earn',
+              description: `Order #${order.order_number} â€” ${pointsToAward} points earned`,
+              order_id: order.id,
+            });
+          }
+        }
+      } catch (loyaltyErr) {
+        console.error('Loyalty points error (non-blocking):', loyaltyErr);
+      }
+
+      try {
+        const { data: adminRoles } = await supabase
+          .from('user_roles')
+          .select('user_id')
+          .in('role', ['admin', 'manager']);
+
+        if (adminRoles && adminRoles.length > 0) {
+          const adminNotifications = adminRoles.map(r => ({
+            user_id: r.user_id,
+            title: 'ðŸ›ï¸ New Order Received',
+            message: `Order ${order.order_number} â€” ${formatPrice(total)} placed.`,
+            type: 'new_order',
+            data: { orderId: order.id, orderNumber: order.order_number, total },
+          }));
+          await supabase.from('notifications').insert(adminNotifications);
+        }
+      } catch (notifErr) {
+        console.error('Admin notification error (non-blocking):', notifErr);
+      }
+
+      setPendingPaymentRef(null);
+      clearSelectedItems();
+      toast.success('Order placed successfully!');
+      navigate(`/order-confirmation/${order.id}`);
+      setIsProcessing(false);
+      setOrderCreationInProgress(false);
+    } catch (error) {
+      console.error('Order finalization error:', error);
+      toast.error(paymentReference
+        ? 'Failed to create order. Contact support with your payment reference.'
+        : 'Failed to place order. Please try again.');
+      setIsProcessing(false);
+      setOrderCreationInProgress(false);
     }
   };
 
@@ -663,6 +852,9 @@ export default function Checkout() {
         navigate(`/order-confirmation/${existingOrder.id}`);
         return;
       }
+
+      await finalizeOrder(paymentReference);
+      return;
 
       // Step 4: Create order with verified payment (Fix #4: payment_received)
       const { data: order, error: orderError } = await supabase
@@ -1124,6 +1316,58 @@ export default function Checkout() {
               </Card>
             )}
 
+            {totalPoints > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Tag className="h-5 w-5 text-primary" />
+                    Loyalty Points
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <Checkbox
+                      checked={useLoyaltyCredit}
+                      onCheckedChange={(checked) => {
+                        const enabled = !!checked;
+                        setUseLoyaltyCredit(enabled);
+                        if (enabled && !loyaltyPointsToRedeem) {
+                          setLoyaltyPointsToRedeem(String(maxRedeemablePoints));
+                        }
+                      }}
+                      className="mt-1"
+                    />
+                    <div>
+                      <p className="font-medium text-foreground">
+                        Redeem loyalty points ({totalPoints.toLocaleString()} available)
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {loyaltyMinRedeemPoints} point minimum. {formatPrice(loyaltyRate)} per point.
+                      </p>
+                    </div>
+                  </label>
+
+                  {useLoyaltyCredit && (
+                    <div className="space-y-2">
+                      <Label htmlFor="loyalty-points">Points to redeem</Label>
+                      <Input
+                        id="loyalty-points"
+                        type="number"
+                        min={loyaltyMinRedeemPoints}
+                        max={maxRedeemablePoints}
+                        step="1"
+                        value={loyaltyPointsToRedeem}
+                        onChange={(event) => setLoyaltyPointsToRedeem(event.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Up to {maxRedeemablePoints.toLocaleString()} points can be used on this order.
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
             {/* Wallet credit */}
             {walletBalance > 0 && (
               <Card>
@@ -1299,6 +1543,12 @@ export default function Checkout() {
                       <span>-{formatPrice(discount)}</span>
                     </div>
                   )}
+                  {loyaltyDiscount > 0 && (
+                    <div className="flex justify-between text-sm text-primary">
+                      <span>Loyalty Credit</span>
+                      <span>-{formatPrice(loyaltyDiscount)}</span>
+                    </div>
+                  )}
                   {walletApplied > 0 && (
                     <div className="flex justify-between text-sm text-primary">
                       <span>Wallet Credit</span>
@@ -1320,6 +1570,11 @@ export default function Checkout() {
                 >
                   {isProcessing ? (
                     'Processing...'
+                  ) : total <= 0 ? (
+                    <>
+                      <Check className="h-4 w-4 mr-2" />
+                      Place Order
+                    </>
                   ) : (
                     <>
                       <CreditCard className="h-4 w-4 mr-2" />
@@ -1330,7 +1585,7 @@ export default function Checkout() {
 
                 <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
                   <Check className="h-3 w-3" />
-                  Secure payment powered by Paystack
+                  {total <= 0 ? 'Covered fully by wallet and loyalty credits' : 'Secure payment powered by Paystack'}
                 </div>
               </CardContent>
             </Card>

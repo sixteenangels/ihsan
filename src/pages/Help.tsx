@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useStoreSettings } from '@/hooks/useStoreSettings';
 import { 
@@ -109,6 +110,7 @@ export default function Help() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
+  const [topic, setTopic] = useState('General');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
@@ -162,6 +164,8 @@ export default function Help() {
             name: trimmedName,
             email: trimmedEmail,
             message: trimmedMessage,
+            category: topic,
+            priority: 'normal',
             source: 'help_center',
           });
 
@@ -175,7 +179,7 @@ export default function Help() {
         return;
       }
 
-      const subject = 'Help Center Contact Form';
+      const subject = `Help Center: ${topic}`;
 
       const { data: existingConversation, error: lookupError } = await supabase
         .from('chat_support_conversations')
@@ -205,6 +209,7 @@ export default function Help() {
 
       const supportMessage = [
         'Help Center contact form submission',
+        `Topic: ${topic}`,
         `Name: ${trimmedName}`,
         `Email: ${trimmedEmail}`,
         '',
@@ -402,6 +407,24 @@ export default function Help() {
                     required
                   />
                 </div>
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="topic" className="text-sm font-medium">
+                  Topic
+                </label>
+                <Select value={topic} onValueChange={setTopic}>
+                  <SelectTrigger id="topic">
+                    <SelectValue placeholder="Select a topic" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="General">General</SelectItem>
+                    {faqs.map((category) => (
+                      <SelectItem key={category.category} value={category.category}>
+                        {category.category}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <label htmlFor="message" className="text-sm font-medium">

@@ -22,6 +22,7 @@ import { RecentlyViewedProducts } from '@/components/products/RecentlyViewedProd
 import { ProductQA } from '@/components/products/ProductQA';
 import { FrequentlyBoughtTogether } from '@/components/products/FrequentlyBoughtTogether';
 import { PriceDropAlert } from '@/components/products/PriceDropAlert';
+import { BackInStockAlert } from '@/components/products/BackInStockAlert';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -132,6 +133,27 @@ export default function ProductDetail() {
     }, 0);
   }, [selectedVariants]);
 
+  const availableShipping = useMemo(
+    () => product?.shipping_rules.filter((r) => r.is_allowed && r.shipping_class) || [],
+    [product],
+  );
+
+  const totalAvailableStock = useMemo(
+    () => product?.variants.reduce((sum, variant) => sum + Math.max(0, variant.stock || 0), 0) || 0,
+    [product],
+  );
+
+  const hasAnyStock = totalAvailableStock > 0;
+  const selectedVariantOutOfStock = selectedVariants.length === 1
+    ? (selectedVariants[0].stock || 0) <= 0
+    : false;
+  const alertVariantId = selectedVariants.length === 1 ? selectedVariants[0].id : null;
+  const showRestockAlert = selectedVariantOutOfStock || (!hasAnyStock && selectedVariants.length === 0);
+  const highlightedShipping = selectedShipping || availableShipping[0] || null;
+  const groupBuySavings = product.group_buy_price != null && product.base_price > 0
+    ? Math.max(0, Math.round(((product.base_price - product.group_buy_price) / product.base_price) * 100))
+    : 0;
+
   const handleAddToCart = () => {
     if (!product) return;
     const cartProduct = toCartProduct(product);
@@ -202,8 +224,6 @@ export default function ProductDetail() {
     );
   }
 
-  const availableShipping = product.shipping_rules.filter((r) => r.is_allowed && r.shipping_class);
-
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -264,7 +284,7 @@ export default function ProductDetail() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-medium text-foreground">Start a Group Buy</p>
-                    <p className="text-sm text-muted-foreground">Get discounts when others join!</p>
+                    <p className="text-sm text-muted-foreground">Lock in the group price and invite others to fill the target.</p>
                   </div>
                   <StartGroupBuyDialog product={{ id: product.id, name: product.name, base_price: product.base_price, group_buy_price: product.group_buy_price ?? null }} />
                 </div>
@@ -287,9 +307,48 @@ export default function ProductDetail() {
             <div>
               <p className="text-3xl font-bold text-primary">{formatPrice(product.base_price)}</p>
               <p className="text-sm text-muted-foreground mt-1">Starting from</p>
+              {product.group_buy_price != null && product.group_buy_price < product.base_price && (
+                <p className="text-sm text-primary mt-2">
+                  Group buy price {formatPrice(product.group_buy_price)} available, saving {groupBuySavings}% when the group fills.
+                </p>
+              )}
             </div>
 
             <p className="text-muted-foreground">{product.description}</p>
+
+            <Card className="border-primary/15 bg-primary/5">
+              <CardContent className="grid gap-4 p-4 md:grid-cols-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Availability</p>
+                  <p className="mt-1 font-semibold text-foreground">
+                    {hasAnyStock ? `${totalAvailableStock} unit(s) available across active variants` : 'Currently out of stock'}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Add to cart without locking the final shipping method. You can finish the choices at checkout.
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Delivery Window</p>
+                  <p className="mt-1 font-semibold text-foreground">
+                    {highlightedShipping?.shipping_class
+                      ? `${highlightedShipping.shipping_class.estimated_days_min}-${highlightedShipping.shipping_class.estimated_days_max} days`
+                      : 'Shipping estimate set at checkout'}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {highlightedShipping?.shipping_class?.name || 'Choose your preferred shipping class'}.
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Checkout Protection</p>
+                  <p className="mt-1 font-semibold text-foreground">
+                    Wallet credit, fragile packaging, and retry-safe checkout are available.
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Payment interruptions keep your selected items in place so you can retry.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
 
             <Separator />
 
@@ -380,7 +439,15 @@ export default function ProductDetail() {
                   Buy Now
                 </Button>
               </div>
-              <PriceDropAlert productId={product.id} />
+              <div className="flex flex-wrap gap-2">
+                <PriceDropAlert productId={product.id} />
+                <BackInStockAlert
+                  productId={product.id}
+                  productName={product.name}
+                  variantId={alertVariantId}
+                  isOutOfStock={showRestockAlert}
+                />
+              </div>
             </div>
           </div>
         </div>

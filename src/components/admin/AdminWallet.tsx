@@ -13,9 +13,12 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { useCreditWallet, useWalletTransactions } from '@/hooks/useWallet';
 import { useCurrency } from '@/hooks/useCurrency';
+import { useAuth } from '@/contexts/AuthContext';
+import { logAdminAction } from '@/lib/audit-log';
 
 export function AdminWallet() {
   const { formatPrice } = useCurrency();
+  const { user } = useAuth();
   const [search, setSearch] = useState('');
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [creditAmount, setCreditAmount] = useState('');
@@ -55,6 +58,18 @@ export function AdminWallet() {
         user_id: selectedUserId,
         amount: amt,
         description: creditDescription.trim(),
+      });
+      await logAdminAction({
+        actorUserId: user?.id,
+        action: 'wallet.credited',
+        entityType: 'wallet',
+        entityId: selectedUserId,
+        summary: `Credited wallet for ${formatPrice(amt)}.`,
+        metadata: {
+          userId: selectedUserId,
+          amount: amt,
+          description: creditDescription.trim(),
+        },
       });
       toast.success('Wallet credited');
       setCreditAmount('');

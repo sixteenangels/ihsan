@@ -37,6 +37,13 @@ import { useCurrency } from '@/hooks/useCurrency';
 
 type RefundChannel = 'original_payment' | 'wallet_credit' | 'mixed';
 
+function getSuggestedWalletCredit(request: AdminRefundRequest) {
+  const shipping = Number(request.orders?.shipping_price || 0);
+  const packaging = Number(request.orders?.packaging_cost || 0);
+  const requestedAmount = Number(request.refund_amount || request.orders?.total_amount || 0);
+  return Math.max(0, Math.min(requestedAmount, shipping + packaging));
+}
+
 export function AdminRefunds() {
   const { user } = useAuth();
   const { refundRequests, isLoading, updateRefund, isUpdating } = useAdminRefundRequests();
@@ -57,7 +64,14 @@ export function AdminRefunds() {
     setSelectedRequest(request);
     setAdminNotes(request.admin_notes || '');
     setRefundChannel((request.refund_channel as RefundChannel) || 'original_payment');
-    setWalletCreditAmount(request.wallet_credit_amount ? String(request.wallet_credit_amount) : '');
+    const suggested = getSuggestedWalletCredit(request);
+    setWalletCreditAmount(
+      request.wallet_credit_amount
+        ? String(request.wallet_credit_amount)
+        : suggested > 0 && /(shipping|buffer|delivery)/i.test(`${request.reason} ${request.details || ''}`)
+          ? String(suggested)
+          : '',
+    );
   };
 
   const getStatusBadge = (status: string) => {
@@ -310,6 +324,17 @@ export function AdminRefunds() {
                     <p className="text-xs text-muted-foreground">
                       Use this for shipping-buffer refunds or store-credit-only adjustments.
                     </p>
+                    {getSuggestedWalletCredit(selectedRequest) > 0 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="px-0 text-primary"
+                        onClick={() => setWalletCreditAmount(String(getSuggestedWalletCredit(selectedRequest)))}
+                      >
+                        Apply suggested wallet credit of {formatPrice(getSuggestedWalletCredit(selectedRequest))}
+                      </Button>
+                    )}
                   </div>
                 </div>
               )}

@@ -47,18 +47,23 @@ function escapeHtml(value: string) {
 }
 
 function formatMoney(amount: number) {
-  return `₵${amount.toLocaleString(undefined, {
+  return `GHS ${amount.toLocaleString(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
 }
 
 export function buildReceiptQrPayload(receiptNumber: string, orderNumber: string) {
-  return JSON.stringify({
-    type: 'ihsan_receipt',
-    receiptNumber,
-    orderNumber,
-  });
+  const fallbackOrigin = 'https://controlled-commerce-hub-main.vercel.app';
+  const origin = typeof window !== 'undefined' && window.location?.origin
+    ? window.location.origin
+    : fallbackOrigin;
+
+  return `${origin}/receipt/${encodeURIComponent(receiptNumber)}?order=${encodeURIComponent(orderNumber)}`;
+}
+
+export function buildReceiptVerificationUrl(receiptNumber: string) {
+  return buildReceiptQrPayload(receiptNumber, receiptNumber);
 }
 
 export function buildReceiptQrUrl(payload: string) {
@@ -72,6 +77,7 @@ export function buildReceiptHtml(receipt: PrintableReceipt) {
     : 'N/A';
   const receiptDate = format(new Date(receipt.generatedAt), 'MMMM d, yyyy');
   const qrUrl = buildReceiptQrUrl(receipt.qrPayload);
+  const verificationUrl = receipt.qrPayload;
 
   return `<!DOCTYPE html>
 <html>
@@ -96,6 +102,7 @@ export function buildReceiptHtml(receipt: PrintableReceipt) {
       .totals-row.total { border-top: 2px solid #111827; font-weight: 700; font-size: 18px; margin-top: 8px; padding-top: 12px; }
       .qr { text-align: center; }
       .qr img { width: 180px; height: 180px; }
+      .link { word-break: break-all; font-size: 12px; color: #2563eb; }
       .footer { margin-top: 32px; border-top: 1px solid #e5e7eb; padding-top: 20px; font-size: 12px; color: #6b7280; text-align: center; }
     </style>
   </head>
@@ -168,7 +175,7 @@ export function buildReceiptHtml(receipt: PrintableReceipt) {
       <div class="card qr">
         <div class="label">Verification QR</div>
         <img src="${qrUrl}" alt="Receipt QR code" />
-        <p style="word-break: break-all;">${escapeHtml(receipt.qrPayload)}</p>
+        <p class="link">${escapeHtml(verificationUrl)}</p>
       </div>
       <div class="card">
         <div class="label">Totals</div>

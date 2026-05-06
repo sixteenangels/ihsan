@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Star, User, Check, Loader2, Camera } from 'lucide-react';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { Button } from '@/components/ui/button';
@@ -54,9 +54,9 @@ export function ProductReviews({ productId, productName }: ProductReviewsProps) 
     if (user) {
       checkCanReview();
     }
-  }, [productId, user]);
+  }, [checkCanReview, fetchReviews, user]);
 
-  const fetchReviews = async () => {
+  const fetchReviews = useCallback(async () => {
     setLoading(true);
 
     const { data, error } = await supabase
@@ -107,9 +107,14 @@ export function ProductReviews({ productId, productName }: ProductReviewsProps) 
       })) as Review[]
     );
     setLoading(false);
-  };
+  }, [productId]);
 
-  const checkCanReview = async () => {
+  const checkCanReview = useCallback(async () => {
+    if (!user) {
+      setCanReview(false);
+      return;
+    }
+
     const { data: orders } = await supabase
       .from('orders')
       .select(`
@@ -135,7 +140,7 @@ export function ProductReviews({ productId, productName }: ProductReviewsProps) 
         .from('reviews')
         .select('id')
         .eq('product_id', productId)
-        .eq('user_id', user?.id)
+        .eq('user_id', user.id)
         .maybeSingle();
 
       if (reviewLookupError) {
@@ -144,7 +149,7 @@ export function ProductReviews({ productId, productName }: ProductReviewsProps) 
 
       setCanReview(hasPurchased && !existingReview);
     }
-  };
+  }, [productId, user]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

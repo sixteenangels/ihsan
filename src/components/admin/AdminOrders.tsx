@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { Loader2, Eye, MapPin, Package, Calendar, Clock, CreditCard, ShoppingBag, PackageCheck, Truck, Plane, MapPinned, Home, CheckCircle, XCircle, RotateCcw, Search, Download, StickyNote, CheckSquare, BellRing, MessageSquare, Plus } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
@@ -19,6 +20,9 @@ import { useCurrency } from '@/hooks/useCurrency';
 import { useMessageTemplates, useSaveTemplate } from '@/hooks/useMessageTemplates';
 import { SwipeableOrderCard } from './SwipeableOrderCard';
 import { SwipeHintOverlay } from './SwipeHintOverlay';
+import { useAuth } from '@/contexts/AuthContext';
+import { logAdminAction } from '@/lib/audit-log';
+import { uploadProofOfDelivery } from '@/lib/proof-of-delivery';
 
 const ORDER_STATUSES = [
   'pending',
@@ -101,8 +105,10 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
 export function AdminOrders() {
   const queryClient = useQueryClient();
   const { formatPrice } = useCurrency();
+  const { user } = useAuth();
   const { data: templates = [] } = useMessageTemplates();
   const saveTemplateMutation = useSaveTemplate();
+  const proofUploadInputRef = useRef<HTMLInputElement | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -112,6 +118,20 @@ export function AdminOrders() {
   const [newOrderAlert, setNewOrderAlert] = useState(false);
   const [statusNotes, setStatusNotes] = useState<Record<string, string>>({});
   const [adminNotes, setAdminNotes] = useState<Record<string, string>>({});
+  const [selectedFulfillmentOrder, setSelectedFulfillmentOrder] = useState<any>(null);
+  const [fulfillmentDraft, setFulfillmentDraft] = useState({
+    stage: 'new',
+    picked: false,
+    quality_checked: false,
+    packed: false,
+    awaiting_dispatch: false,
+    courierName: '',
+    courierTrackingNumber: '',
+    deliveryFee: '',
+    proofNote: '',
+    proofImageUrl: '',
+  });
+  const [isUploadingProof, setIsUploadingProof] = useState(false);
 
   // Real-time subscription for new/updated orders
   useEffect(() => {
@@ -361,7 +381,23 @@ export function AdminOrders() {
   });
 
   const addTrackingMutation = useMutation({
-    mutationFn: async ({ orderId, ...tracking }: { orderId: string; status: string; location_name: string; latitude?: number; longitude?: number; notes?: string }) => {
+    mutationFn: async ({
+      orderId,
+      courierName,
+      courierTrackingNumber,
+      deliveryFee,
+      ...tracking
+    }: {
+      orderId: string;
+      status: string;
+      location_name: string;
+      latitude?: number;
+      longitude?: number;
+      notes?: string;
+      courierName?: string;
+      courierTrackingNumber?: string;
+      deliveryFee?: number;
+    }) => {
       const { error } = await supabase
         .from('order_tracking')
         .insert({
@@ -373,6 +409,23 @@ export function AdminOrders() {
           notes: tracking.notes,
         });
       if (error) throw error;
+
+      const metadataPatch: Record<string, unknown> = {};
+      if (courierName) metadataPatch.courier_name = courierName;
+      if (courierTrackingNumber) metadataPatch.courier_tracking_number = courierTrackingNumber;
+      if (deliveryFee != null && !Number.isNaN(deliveryFee)) metadataPatch.delivery_fee = deliveryFee;
+
+      if (Object.keys(metadataPatch).length > 0) {
+        const { error: orderUpdateError } = await (supabase as any)
+          .from('orders')
+          .update({
+            ...metadataPatch,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', orderId);
+
+        if (orderUpdateError) throw orderUpdateError;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
@@ -383,6 +436,107 @@ export function AdminOrders() {
       toast.error(error.message);
     },
   });
+
+  const saveFulfillmentMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedFulfillmentOrder) return;
+
+      const { error } = await (supabase as any)
+        .from('orders')
+        .update({
+          fulfillment_stage: fulfillmentDraft.stage,
+          fulfillment_checks: {
+            picked: fulfillmentDraft.picked,
+            quality_checked: fulfillmentDraft.quality_checked,
+            packed: fulfillmentDraft.packed,
+            awaiting_dispatch: fulfillmentDraft.awaiting_dispatch,
+          },
+          courier_name: fulfillmentDraft.courierName || null,
+          courier_tracking_number: fulfillmentDraft.courierTrackingNumber || null,
+          delivery_fee: fulfillmentDraft.deliveryFee ? Number.parseFloat(fulfillmentDraft.deliveryFee) : null,
+          proof_of_delivery_note: fulfillmentDraft.proofNote || null,
+          proof_of_delivery_image_url: fulfillmentDraft.proofImageUrl || null,
+          proof_of_delivery_at: fulfillmentDraft.proofNote || fulfillmentDraft.proofImageUrl
+            ? new Date().toISOString()
+            : null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', selectedFulfillmentOrder.id);
+
+      if (error) throw error;
+
+      await logAdminAction({
+        actorUserId: user?.id,
+        action: 'order.fulfillment_saved',
+        entityType: 'order',
+        entityId: selectedFulfillmentOrder.id,
+        summary: `Saved fulfillment details for ${selectedFulfillmentOrder.order_number}.`,
+        metadata: {
+          stage: fulfillmentDraft.stage,
+          courierName: fulfillmentDraft.courierName || null,
+          hasProofImage: Boolean(fulfillmentDraft.proofImageUrl),
+        },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
+      toast.success('Fulfillment details saved');
+      setSelectedFulfillmentOrder(null);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to save fulfillment details');
+    },
+  });
+
+  const openFulfillmentDialog = (order: any) => {
+    const checks =
+      order.fulfillment_checks && typeof order.fulfillment_checks === 'object'
+        ? order.fulfillment_checks
+        : {};
+
+    setSelectedFulfillmentOrder(order);
+    setFulfillmentDraft({
+      stage: order.fulfillment_stage || 'new',
+      picked: !!checks.picked,
+      quality_checked: !!checks.quality_checked,
+      packed: !!checks.packed,
+      awaiting_dispatch: !!checks.awaiting_dispatch,
+      courierName: order.courier_name || '',
+      courierTrackingNumber: order.courier_tracking_number || '',
+      deliveryFee: order.delivery_fee != null ? String(order.delivery_fee) : '',
+      proofNote: order.proof_of_delivery_note || '',
+      proofImageUrl: order.proof_of_delivery_image_url || '',
+    });
+  };
+
+  const handleProofFileSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !selectedFulfillmentOrder) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please choose an image file.');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Proof image is too large. Max 5MB.');
+      return;
+    }
+
+    try {
+      setIsUploadingProof(true);
+      const publicUrl = await uploadProofOfDelivery(selectedFulfillmentOrder.id, file);
+      setFulfillmentDraft((prev) => ({ ...prev, proofImageUrl: publicUrl }));
+      toast.success('Proof image uploaded');
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to upload proof image');
+    } finally {
+      setIsUploadingProof(false);
+      if (proofUploadInputRef.current) {
+        proofUploadInputRef.current.value = '';
+      }
+    }
+  };
 
   const saveAdminNotesMutation = useMutation({
     mutationFn: async ({ orderId, notes }: { orderId: string; notes: string }) => {
@@ -774,6 +928,27 @@ export function AdminOrders() {
                       </div>
                     </div>
 
+                    <div className="mb-4 rounded-lg border border-border bg-background p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-medium text-foreground">Fulfillment</p>
+                          <p className="text-xs text-muted-foreground">
+                            Stage: {(order.fulfillment_stage || 'new').replaceAll('_', ' ')}
+                            {order.courier_name ? ` • ${order.courier_name}` : ''}
+                            {order.courier_tracking_number ? ` • ${order.courier_tracking_number}` : ''}
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openFulfillmentDialog(order)}
+                        >
+                          <PackageCheck className="h-4 w-4 mr-1" />
+                          Fulfillment
+                        </Button>
+                      </div>
+                    </div>
+
                     {/* Actions */}
                     <div className="flex flex-wrap gap-2">
                       {/* Status Update with Custom Note */}
@@ -1089,6 +1264,9 @@ export function AdminOrders() {
                                   latitude: trackingLocation.lat ? parseFloat(trackingLocation.lat) : undefined,
                                   longitude: trackingLocation.lng ? parseFloat(trackingLocation.lng) : undefined,
                                   notes: fullNotes.trim() || undefined,
+                                  courierName: trackingLocation.courierName || undefined,
+                                  courierTrackingNumber: trackingLocation.courierTrackingNumber || undefined,
+                                  deliveryFee: trackingLocation.deliveryFee ? parseFloat(trackingLocation.deliveryFee) : undefined,
                                 });
                               }}
                               disabled={!trackingLocation.location}
@@ -1108,6 +1286,172 @@ export function AdminOrders() {
           </div>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={!!selectedFulfillmentOrder} onOpenChange={(open) => !open && setSelectedFulfillmentOrder(null)}>
+        <DialogContent className="bg-background sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>
+              Fulfillment Details {selectedFulfillmentOrder ? `for #${selectedFulfillmentOrder.order_number}` : ''}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Fulfillment Stage</Label>
+              <Select
+                value={fulfillmentDraft.stage}
+                onValueChange={(value) => setFulfillmentDraft((prev) => ({ ...prev, stage: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select stage" />
+                </SelectTrigger>
+                <SelectContent className="bg-popover z-50">
+                  <SelectItem value="new">Queued</SelectItem>
+                  <SelectItem value="picked">Picked</SelectItem>
+                  <SelectItem value="quality_checked">Quality Checked</SelectItem>
+                  <SelectItem value="packed">Packed</SelectItem>
+                  <SelectItem value="awaiting_dispatch">Awaiting Dispatch</SelectItem>
+                  <SelectItem value="dispatched">Dispatched</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="flex items-center gap-2 rounded-lg border border-border p-3 text-sm">
+                <Checkbox
+                  checked={fulfillmentDraft.picked}
+                  onCheckedChange={(checked) =>
+                    setFulfillmentDraft((prev) => ({ ...prev, picked: !!checked }))
+                  }
+                />
+                Picked from inventory
+              </label>
+              <label className="flex items-center gap-2 rounded-lg border border-border p-3 text-sm">
+                <Checkbox
+                  checked={fulfillmentDraft.quality_checked}
+                  onCheckedChange={(checked) =>
+                    setFulfillmentDraft((prev) => ({ ...prev, quality_checked: !!checked }))
+                  }
+                />
+                Quality checked
+              </label>
+              <label className="flex items-center gap-2 rounded-lg border border-border p-3 text-sm">
+                <Checkbox
+                  checked={fulfillmentDraft.packed}
+                  onCheckedChange={(checked) =>
+                    setFulfillmentDraft((prev) => ({ ...prev, packed: !!checked }))
+                  }
+                />
+                Packed
+              </label>
+              <label className="flex items-center gap-2 rounded-lg border border-border p-3 text-sm">
+                <Checkbox
+                  checked={fulfillmentDraft.awaiting_dispatch}
+                  onCheckedChange={(checked) =>
+                    setFulfillmentDraft((prev) => ({ ...prev, awaiting_dispatch: !!checked }))
+                  }
+                />
+                Awaiting dispatch
+              </label>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Courier Name</Label>
+                <Input
+                  value={fulfillmentDraft.courierName}
+                  onChange={(e) => setFulfillmentDraft((prev) => ({ ...prev, courierName: e.target.value }))}
+                  placeholder="DHL, local rider, etc."
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Courier Tracking Number</Label>
+                <Input
+                  value={fulfillmentDraft.courierTrackingNumber}
+                  onChange={(e) => setFulfillmentDraft((prev) => ({ ...prev, courierTrackingNumber: e.target.value }))}
+                  placeholder="Tracking reference"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Delivery Fee on Receipt</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={fulfillmentDraft.deliveryFee}
+                onChange={(e) => setFulfillmentDraft((prev) => ({ ...prev, deliveryFee: e.target.value }))}
+                placeholder="0.00"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Proof of Delivery Note</Label>
+              <Textarea
+                value={fulfillmentDraft.proofNote}
+                onChange={(e) => setFulfillmentDraft((prev) => ({ ...prev, proofNote: e.target.value }))}
+                placeholder="Who received it, condition, signature note, etc."
+                rows={3}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Proof of Delivery Image URL</Label>
+              <Input
+                value={fulfillmentDraft.proofImageUrl}
+                onChange={(e) => setFulfillmentDraft((prev) => ({ ...prev, proofImageUrl: e.target.value }))}
+                placeholder="Paste an uploaded photo URL if available"
+              />
+              <input
+                ref={proofUploadInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleProofFileSelected}
+              />
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => proofUploadInputRef.current?.click()}
+                  disabled={isUploadingProof}
+                >
+                  {isUploadingProof ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Plus className="h-4 w-4 mr-2" />
+                  )}
+                  Upload Proof Image
+                </Button>
+                {fulfillmentDraft.proofImageUrl && (
+                  <a
+                    href={fulfillmentDraft.proofImageUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center text-sm text-primary underline"
+                  >
+                    Preview upload
+                  </a>
+                )}
+              </div>
+            </div>
+
+            <Button
+              onClick={() => saveFulfillmentMutation.mutate()}
+              disabled={saveFulfillmentMutation.isPending}
+              className="w-full"
+            >
+              {saveFulfillmentMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <PackageCheck className="h-4 w-4 mr-2" />
+              )}
+              Save Fulfillment Details
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

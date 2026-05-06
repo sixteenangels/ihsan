@@ -1,5 +1,13 @@
 project_id = "jcwagkwjdhtuugcfbhui"
 
+[auth]
+site_url = "https://controlled-commerce-hub-main.vercel.app"
+additional_redirect_urls = [
+  "https://controlled-commerce-hub-main.vercel.app/auth",
+  "http://localhost:8080/auth",
+  "http://127.0.0.1:8080/auth",
+]
+
 [functions.send-push-notification]
 verify_jwt = false
 

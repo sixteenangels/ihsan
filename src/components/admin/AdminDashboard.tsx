@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Package, FolderTree, Users, ShoppingCart, AlertTriangle, Zap, TrendingUp, DollarSign, Target } from 'lucide-react';
+import { Package, FolderTree, Users, ShoppingCart, AlertTriangle, Zap, TrendingUp, DollarSign, Target, BellRing, ScrollText } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useCurrency } from '@/hooks/useCurrency';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
@@ -76,6 +76,45 @@ export function AdminDashboard() {
     },
   });
 
+  const { data: stockAlerts = [] } = useQuery({
+    queryKey: ['admin-stock-alerts-demand'],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('stock_alerts')
+        .select(`
+          id,
+          created_at,
+          product_id,
+          variant_id,
+          product_variants (
+            id,
+            color,
+            size
+          ),
+          products (
+            name
+          )
+        `);
+
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const { data: auditLogs = [] } = useQuery({
+    queryKey: ['admin-dashboard-audit-logs'],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('audit_logs')
+        .select('id, action, summary, created_at')
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   const orderStats = useMemo(() => {
     if (!orders) return { total: 0, pending: 0, delivered: 0, totalRevenue: 0 };
     return {
@@ -119,6 +158,31 @@ export function AdminDashboard() {
   }, [orders]);
 
   const COLORS = ['hsl(var(--primary))', 'hsl(var(--accent))', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'];
+
+  const alertDemand = useMemo(() => {
+    const grouped = new Map<string, { key: string; name: string; variant: string; count: number }>();
+
+    stockAlerts.forEach((alert: any) => {
+      const variantLabel = [alert.product_variants?.color, alert.product_variants?.size]
+        .filter(Boolean)
+        .join(' / ');
+      const key = `${alert.product_id}:${alert.variant_id || 'base'}`;
+      const existing = grouped.get(key);
+
+      if (existing) {
+        existing.count += 1;
+      } else {
+        grouped.set(key, {
+          key,
+          name: alert.products?.name || 'Unknown product',
+          variant: variantLabel,
+          count: 1,
+        });
+      }
+    });
+
+    return [...grouped.values()].sort((a, b) => b.count - a.count);
+  }, [stockAlerts]);
 
   const stats = [
     { name: 'Total Products', value: productCount ?? 0, icon: Package, color: 'text-primary' },
@@ -270,6 +334,63 @@ export function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold text-foreground">{lowStockProducts?.length ?? 0}</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BellRing className="h-5 w-5 text-primary" />
+              Restock Demand
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center justify-between rounded-lg bg-muted/40 p-3">
+              <div>
+                <p className="text-sm font-medium">Subscribers Waiting</p>
+                <p className="text-xs text-muted-foreground">Customers asking for stock alerts</p>
+              </div>
+              <p className="text-2xl font-bold">{stockAlerts.length}</p>
+            </div>
+            {alertDemand.slice(0, 5).map((item) => (
+              <div key={item.key} className="flex items-center justify-between rounded-lg border border-border p-3">
+                <div>
+                  <p className="font-medium text-foreground">{item.name}</p>
+                  <p className="text-xs text-muted-foreground">{item.variant || 'Any variant'}</p>
+                </div>
+                <Badge>{item.count} waiting</Badge>
+              </div>
+            ))}
+            {alertDemand.length === 0 && (
+              <p className="text-sm text-muted-foreground">No restock demand yet.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ScrollText className="h-5 w-5 text-primary" />
+              Latest Admin Activity
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {auditLogs.map((log: any) => (
+              <div key={log.id} className="rounded-lg border border-border p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <Badge variant="outline">{log.action}</Badge>
+                  <span className="text-xs text-muted-foreground">
+                    {format(new Date(log.created_at), 'MMM d, p')}
+                  </span>
+                </div>
+                <p className="mt-2 text-sm text-foreground">{log.summary}</p>
+              </div>
+            ))}
+            {auditLogs.length === 0 && (
+              <p className="text-sm text-muted-foreground">No audit entries yet.</p>
+            )}
           </CardContent>
         </Card>
       </div>

@@ -1,5 +1,4 @@
 // Service Worker for Push Notifications
-/* eslint-disable no-restricted-globals */
 
 self.addEventListener('push', function(event) {
   console.log('[SW] Push received:', event);

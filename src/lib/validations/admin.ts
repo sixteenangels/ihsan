@@ -14,6 +14,10 @@ export const productSchema = z.object({
   is_flash_deal: z.boolean(),
   is_free_shipping: z.boolean(),
   is_active: z.boolean(),
+  supplier_name: z.string().max(200, 'Supplier name must be less than 200 characters').optional(),
+  supplier_sku: z.string().max(100, 'Supplier SKU must be less than 100 characters').optional(),
+  procurement_notes: z.string().max(2000, 'Procurement notes must be less than 2000 characters').optional(),
+  expected_restock_date: z.string().optional(),
 });
 
 export type ProductFormData = z.infer<typeof productSchema>;

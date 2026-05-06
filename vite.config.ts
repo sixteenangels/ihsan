@@ -10,6 +10,47 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("node_modules")) {
+            return;
+          }
+
+          if (
+            id.includes("@supabase/") ||
+            id.includes("leaflet") ||
+            id.includes("react-leaflet")
+          ) {
+            return "supabase-maps";
+          }
+
+          if (id.includes("recharts")) {
+            return "charts";
+          }
+
+          if (id.includes("framer-motion")) {
+            return "motion";
+          }
+
+          if (id.includes("@radix-ui/")) {
+            return "radix";
+          }
+
+          if (id.includes("lucide-react")) {
+            return "icons";
+          }
+
+          if (id.includes("cmdk") || id.includes("vaul") || id.includes("sonner")) {
+            return "ui-extensions";
+          }
+
+          return "vendor";
+        },
+      },
+    },
+  },
   plugins: [
     react(),
     mode === "development" && componentTagger(),

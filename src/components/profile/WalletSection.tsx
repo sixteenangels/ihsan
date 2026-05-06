@@ -1,14 +1,46 @@
+import { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Wallet, ArrowDownCircle, ArrowUpCircle, Loader2 } from 'lucide-react';
+import { Wallet, ArrowDownCircle, ArrowUpCircle, Loader2, Gift } from 'lucide-react';
 import { format } from 'date-fns';
 import { useWalletTransactions, useWalletBalance } from '@/hooks/useWallet';
 import { useCurrency } from '@/hooks/useCurrency';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 export function WalletSection() {
+  const queryClient = useQueryClient();
   const { data: txs, isLoading } = useWalletTransactions();
   const balance = useWalletBalance();
   const { formatPrice } = useCurrency();
+  const [giftCardCode, setGiftCardCode] = useState('');
+
+  const redeemGiftCardMutation = useMutation({
+    mutationFn: async () => {
+      const trimmedCode = giftCardCode.trim().toUpperCase();
+      if (!trimmedCode) {
+        throw new Error('Enter a gift card code.');
+      }
+
+      const { data, error } = await (supabase as any).rpc('redeem_gift_card', {
+        input_code: trimmedCode,
+      });
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['wallet-transactions'] });
+      toast.success(`Gift card redeemed. ${formatPrice(Number(data?.amount || 0))} added to your wallet.`);
+      setGiftCardCode('');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
 
   return (
     <Card>
@@ -24,6 +56,26 @@ export function WalletSection() {
           <p className="text-3xl font-bold text-primary">{formatPrice(balance)}</p>
           <p className="text-xs text-muted-foreground mt-1">
             Store credit. Use at checkout. Cannot be withdrawn.
+          </p>
+        </div>
+
+        <div className="space-y-2 rounded-lg border border-dashed border-border p-4">
+          <div className="flex items-center gap-2">
+            <Gift className="h-4 w-4 text-primary" />
+            <h4 className="text-sm font-semibold">Redeem Gift Card</h4>
+          </div>
+          <div className="flex gap-2">
+            <Input
+              placeholder="Enter gift card code"
+              value={giftCardCode}
+              onChange={(event) => setGiftCardCode(event.target.value.toUpperCase())}
+            />
+            <Button onClick={() => redeemGiftCardMutation.mutate()} disabled={redeemGiftCardMutation.isPending}>
+              {redeemGiftCardMutation.isPending ? 'Redeeming...' : 'Redeem'}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Redeemed gift cards are converted into wallet credit you can use at checkout.
           </p>
         </div>
 

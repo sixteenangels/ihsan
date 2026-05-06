@@ -7,11 +7,14 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Send, MessageCircle, User, Circle, Clock, CheckCircle, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
+import { buildSupportReplyEmailHtml, buildSupportReplyEmailText } from '@/lib/email-templates';
+import { logAdminAction } from '@/lib/audit-log';
 
 interface Conversation {
   id: string;
@@ -43,13 +46,21 @@ interface SupportRequest {
   name: string;
   email: string;
   message: string;
+  category: string | null;
+  priority: 'low' | 'normal' | 'high' | 'urgent';
   status: 'new' | 'in_progress' | 'resolved' | 'closed';
   source: string;
+  assigned_admin_id: string | null;
   internal_notes: string | null;
+  public_reply: string | null;
+  resolution_summary: string | null;
   responded_at: string | null;
   created_at: string;
   updated_at: string;
 }
+
+const SUPPORT_PRIORITIES: SupportRequest['priority'][] = ['low', 'normal', 'high', 'urgent'];
+const SUPPORT_CATEGORIES = ['General', 'Orders & Shipping', 'Payments', 'Returns & Refunds', 'Group Buys'];
 
 export function AdminSupport() {
   const { user } = useAuth();
@@ -57,6 +68,8 @@ export function AdminSupport() {
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [replyMessage, setReplyMessage] = useState('');
   const [requestNotes, setRequestNotes] = useState<Record<string, string>>({});
+  const [requestReplies, setRequestReplies] = useState<Record<string, string>>({});
+  const [requestSummaries, setRequestSummaries] = useState<Record<string, string>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -259,16 +272,31 @@ export function AdminSupport() {
       requestId,
       status,
       internalNotes,
+      publicReply,
+      resolutionSummary,
+      priority,
+      category,
+      assignedAdminId,
     }: {
       requestId: string;
       status: SupportRequest['status'];
       internalNotes: string;
+      publicReply?: string;
+      resolutionSummary?: string;
+      priority?: SupportRequest['priority'];
+      category?: string;
+      assignedAdminId?: string | null;
     }) => {
       const { error } = await supabase
         .from('support_requests')
         .update({
           status,
           internal_notes: internalNotes || null,
+          public_reply: publicReply || null,
+          resolution_summary: resolutionSummary || null,
+          priority: priority || 'normal',
+          category: category || 'General',
+          assigned_admin_id: assignedAdminId ?? null,
           responded_at: status === 'resolved' || status === 'closed'
             ? new Date().toISOString()
             : null,
@@ -276,6 +304,20 @@ export function AdminSupport() {
         .eq('id', requestId);
 
       if (error) throw error;
+
+      await logAdminAction({
+        actorUserId: user?.id,
+        action: `support_request.${status}`,
+        entityType: 'support_request',
+        entityId: requestId,
+        summary: `Updated support request ${requestId} to ${status}.`,
+        metadata: {
+          priority,
+          category,
+          assignedAdminId,
+          hasReply: Boolean(publicReply),
+        },
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-support-requests'] });
@@ -283,6 +325,64 @@ export function AdminSupport() {
     },
     onError: () => {
       toast.error('Failed to update support request');
+    },
+  });
+
+  const sendSupportEmailMutation = useMutation({
+    mutationFn: async ({
+      requestId,
+      customerName,
+      customerEmail,
+      subject,
+      reply,
+      summary,
+    }: {
+      requestId: string;
+      customerName: string;
+      customerEmail: string;
+      subject: string;
+      reply: string;
+      summary?: string | null;
+    }) => {
+      if (!reply.trim()) {
+        throw new Error('Add a public reply before sending an email.');
+      }
+
+      const { data, error } = await supabase.functions.invoke('send-transactional-email', {
+        body: {
+          to: customerEmail,
+          subject: `Re: ${subject}`,
+          html: buildSupportReplyEmailHtml({ customerName, subject, reply, summary }),
+          text: buildSupportReplyEmailText({ customerName, subject, reply, summary }),
+          type: 'support_reply',
+          relatedEntityType: 'support_request',
+          relatedEntityId: requestId,
+          requestedBy: user?.id,
+        },
+      });
+
+      if (error) throw error;
+
+      await logAdminAction({
+        actorUserId: user?.id,
+        action: 'support_request.email_sent',
+        entityType: 'support_request',
+        entityId: requestId,
+        summary: `Attempted support reply email to ${customerEmail}.`,
+        metadata: data || {},
+      });
+
+      return data;
+    },
+    onSuccess: (data) => {
+      if (data?.sent) {
+        toast.success('Support reply email sent');
+      } else {
+        toast.info('Email queued, but provider is not configured yet');
+      }
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
     },
   });
 
@@ -525,6 +625,8 @@ export function AdminSupport() {
             <div className="space-y-4">
               {supportRequests.map((request) => {
                 const draftNotes = requestNotes[request.id] ?? request.internal_notes ?? '';
+                const draftReply = requestReplies[request.id] ?? request.public_reply ?? '';
+                const draftSummary = requestSummaries[request.id] ?? request.resolution_summary ?? '';
                 return (
                   <div key={request.id} className="rounded-xl border border-border p-4 space-y-3">
                     <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -543,13 +645,94 @@ export function AdminSupport() {
                           {format(new Date(request.created_at), 'MMM d, yyyy h:mm a')} via {request.source.replaceAll('_', ' ')}
                         </p>
                       </div>
-                      <Badge variant={request.status === 'resolved' || request.status === 'closed' ? 'secondary' : 'default'}>
-                        {request.status.replaceAll('_', ' ')}
-                      </Badge>
+                      <div className="flex flex-wrap gap-2">
+                        <Badge variant={request.status === 'resolved' || request.status === 'closed' ? 'secondary' : 'default'}>
+                          {request.status.replaceAll('_', ' ')}
+                        </Badge>
+                        <Badge variant={request.priority === 'urgent' ? 'destructive' : 'outline'}>
+                          {request.priority} priority
+                        </Badge>
+                      </div>
                     </div>
 
                     <div className="rounded-lg bg-muted/40 p-3 text-sm whitespace-pre-wrap">
                       {request.message}
+                    </div>
+
+                    <div className="grid gap-3 md:grid-cols-3">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Category</label>
+                        <Select
+                          value={request.category || 'General'}
+                          onValueChange={(value) => updateSupportRequestMutation.mutate({
+                            requestId: request.id,
+                            status: request.status,
+                            internalNotes: draftNotes,
+                            publicReply: draftReply,
+                            resolutionSummary: draftSummary,
+                            priority: request.priority,
+                            category: value,
+                            assignedAdminId: request.assigned_admin_id,
+                          })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select category" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {SUPPORT_CATEGORIES.map((category) => (
+                              <SelectItem key={category} value={category}>
+                                {category}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Priority</label>
+                        <Select
+                          value={request.priority || 'normal'}
+                          onValueChange={(value) => updateSupportRequestMutation.mutate({
+                            requestId: request.id,
+                            status: request.status,
+                            internalNotes: draftNotes,
+                            publicReply: draftReply,
+                            resolutionSummary: draftSummary,
+                            priority: value as SupportRequest['priority'],
+                            category: request.category || 'General',
+                            assignedAdminId: request.assigned_admin_id,
+                          })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select priority" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {SUPPORT_PRIORITIES.map((priority) => (
+                              <SelectItem key={priority} value={priority}>
+                                {priority}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Assignment</label>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start"
+                          onClick={() => updateSupportRequestMutation.mutate({
+                            requestId: request.id,
+                            status: request.status,
+                            internalNotes: draftNotes,
+                            publicReply: draftReply,
+                            resolutionSummary: draftSummary,
+                            priority: request.priority,
+                            category: request.category || 'General',
+                            assignedAdminId: request.assigned_admin_id === user?.id ? null : user?.id,
+                          })}
+                        >
+                          {request.assigned_admin_id === user?.id ? 'Unassign myself' : request.assigned_admin_id ? 'Reassign to me' : 'Assign to me'}
+                        </Button>
+                      </div>
                     </div>
 
                     <div className="space-y-2">
@@ -567,7 +750,54 @@ export function AdminSupport() {
                       />
                     </div>
 
+                    <div className="space-y-2">
+                      <label htmlFor={`request-reply-${request.id}`} className="text-sm font-medium">
+                        Public reply draft
+                      </label>
+                      <Textarea
+                        id={`request-reply-${request.id}`}
+                        value={draftReply}
+                        onChange={(e) => {
+                          setRequestReplies((prev) => ({ ...prev, [request.id]: e.target.value }));
+                        }}
+                        placeholder="Draft the message you want to send back to the customer..."
+                        rows={3}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label htmlFor={`request-summary-${request.id}`} className="text-sm font-medium">
+                        Resolution summary
+                      </label>
+                      <Textarea
+                        id={`request-summary-${request.id}`}
+                        value={draftSummary}
+                        onChange={(e) => {
+                          setRequestSummaries((prev) => ({ ...prev, [request.id]: e.target.value }));
+                        }}
+                        placeholder="Capture what was decided so the ticket history stays useful..."
+                        rows={2}
+                      />
+                    </div>
+
                     <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => updateSupportRequestMutation.mutate({
+                          requestId: request.id,
+                          status: request.status,
+                          internalNotes: draftNotes,
+                          publicReply: draftReply,
+                          resolutionSummary: draftSummary,
+                          priority: request.priority,
+                          category: request.category || 'General',
+                          assignedAdminId: request.assigned_admin_id,
+                        })}
+                        disabled={updateSupportRequestMutation.isPending}
+                      >
+                        Save Draft
+                      </Button>
                       <Button
                         variant="outline"
                         size="sm"
@@ -575,6 +805,11 @@ export function AdminSupport() {
                           requestId: request.id,
                           status: 'in_progress',
                           internalNotes: draftNotes,
+                          publicReply: draftReply,
+                          resolutionSummary: draftSummary,
+                          priority: request.priority,
+                          category: request.category || 'General',
+                          assignedAdminId: request.assigned_admin_id || user?.id || null,
                         })}
                         disabled={updateSupportRequestMutation.isPending}
                       >
@@ -586,19 +821,47 @@ export function AdminSupport() {
                           requestId: request.id,
                           status: 'resolved',
                           internalNotes: draftNotes,
+                          publicReply: draftReply,
+                          resolutionSummary: draftSummary,
+                          priority: request.priority,
+                          category: request.category || 'General',
+                          assignedAdminId: request.assigned_admin_id || user?.id || null,
                         })}
                         disabled={updateSupportRequestMutation.isPending}
                       >
                         Resolve
                       </Button>
                       <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => updateSupportRequestMutation.mutate({
+                          requestId: request.id,
+                          status: 'closed',
+                          internalNotes: draftNotes,
+                          publicReply: draftReply,
+                          resolutionSummary: draftSummary,
+                          priority: request.priority,
+                          category: request.category || 'General',
+                          assignedAdminId: request.assigned_admin_id || user?.id || null,
+                        })}
+                        disabled={updateSupportRequestMutation.isPending}
+                      >
+                        Close
+                      </Button>
+                      <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => {
-                          window.location.href = `mailto:${request.email}?subject=${encodeURIComponent('Re: your Ihsan support request')}`;
-                        }}
+                        onClick={() => sendSupportEmailMutation.mutate({
+                          requestId: request.id,
+                          customerName: request.name,
+                          customerEmail: request.email,
+                          subject: request.category || 'your Ihsan support request',
+                          reply: draftReply || draftSummary || draftNotes,
+                          summary: draftSummary,
+                        })}
+                        disabled={sendSupportEmailMutation.isPending}
                       >
-                        Reply by Email
+                        Send Email Reply
                       </Button>
                     </div>
                   </div>

@@ -40,6 +40,7 @@ const Help = lazy(() => import("./pages/Help"));
 const FlashDeals = lazy(() => import("./pages/FlashDeals"));
 const DeliveryZones = lazy(() => import("./pages/DeliveryZones"));
 const CustomsDutyEstimator = lazy(() => import("./pages/CustomsDutyEstimator"));
+const ReceiptVerify = lazy(() => import("./pages/ReceiptVerify"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -128,6 +129,7 @@ const App = () => {
                           <Route path="/wishlist" element={<Wishlist />} />
                           <Route path="/compare" element={<Compare />} />
                           <Route path="/help" element={<Help />} />
+                          <Route path="/receipt/:receiptNumber" element={<ReceiptVerify />} />
                           <Route path="/flash-deals" element={<FlashDeals />} />
                           <Route path="/delivery-zones" element={<DeliveryZones />} />
                           <Route path="/customs-estimator" element={<CustomsDutyEstimator />} />

@@ -37,6 +37,8 @@ import { ProductVariantsManager, VariantData } from './ProductVariantsManager';
 import { ProductShippingRules, ShippingRuleData } from './ProductShippingRules';
 import { productSchema, validateForm } from '@/lib/validations/admin';
 import { useCurrency } from '@/hooks/useCurrency';
+import { useAuth } from '@/contexts/AuthContext';
+import { logAdminAction } from '@/lib/audit-log';
 
 interface ProductForm {
   name: string;
@@ -55,6 +57,10 @@ interface ProductForm {
   allow_standard_packaging: boolean;
   allow_reinforced_packaging: boolean;
   reinforced_packaging_cost: string;
+  supplier_name: string;
+  supplier_sku: string;
+  procurement_notes: string;
+  expected_restock_date: string;
 }
 
 const defaultForm: ProductForm = {
@@ -74,11 +80,16 @@ const defaultForm: ProductForm = {
   allow_standard_packaging: true,
   allow_reinforced_packaging: true,
   reinforced_packaging_cost: '',
+  supplier_name: '',
+  supplier_sku: '',
+  procurement_notes: '',
+  expected_restock_date: '',
 };
 
 export function AdminProducts() {
   const queryClient = useQueryClient();
   const { formatPrice } = useCurrency();
+  const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ProductForm>(defaultForm);
@@ -120,6 +131,10 @@ export function AdminProducts() {
         allow_standard_packaging: data.allow_standard_packaging,
         allow_reinforced_packaging: data.allow_reinforced_packaging,
         reinforced_packaging_cost: data.reinforced_packaging_cost ? parseFloat(data.reinforced_packaging_cost) : null,
+        supplier_name: data.supplier_name || null,
+        supplier_sku: data.supplier_sku || null,
+        procurement_notes: data.procurement_notes || null,
+        expected_restock_date: data.expected_restock_date || null,
       } as any).select().single();
       if (error) throw error;
 
@@ -157,6 +172,19 @@ export function AdminProducts() {
         }));
         await supabase.from('product_shipping_rules').insert(ruleRecords);
       }
+
+      await logAdminAction({
+        actorUserId: user?.id,
+        action: 'product.created',
+        entityType: 'product',
+        entityId: product.id,
+        summary: `Created product ${data.name}.`,
+        metadata: {
+          itemCode: data.item_code,
+          categoryId: data.category_id || null,
+          basePrice: parseFloat(data.base_price),
+        },
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-products'] });
@@ -190,6 +218,10 @@ export function AdminProducts() {
           allow_standard_packaging: data.allow_standard_packaging,
           allow_reinforced_packaging: data.allow_reinforced_packaging,
           reinforced_packaging_cost: data.reinforced_packaging_cost ? parseFloat(data.reinforced_packaging_cost) : null,
+          supplier_name: data.supplier_name || null,
+          supplier_sku: data.supplier_sku || null,
+          procurement_notes: data.procurement_notes || null,
+          expected_restock_date: data.expected_restock_date || null,
         } as any)
         .eq('id', id);
       if (error) throw error;
@@ -233,6 +265,19 @@ export function AdminProducts() {
         }));
         await supabase.from('product_shipping_rules').insert(ruleRecords);
       }
+
+      await logAdminAction({
+        actorUserId: user?.id,
+        action: 'product.updated',
+        entityType: 'product',
+        entityId: id,
+        summary: `Updated product ${data.name}.`,
+        metadata: {
+          itemCode: data.item_code,
+          categoryId: data.category_id || null,
+          supplierName: data.supplier_name || null,
+        },
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-products'] });
@@ -255,6 +300,14 @@ export function AdminProducts() {
         })
         .eq('id', id);
       if (error) throw error;
+
+      await logAdminAction({
+        actorUserId: user?.id,
+        action: nextActive ? 'product.restored' : 'product.archived',
+        entityType: 'product',
+        entityId: id,
+        summary: `${nextActive ? 'Restored' : 'Archived'} product ${id}.`,
+      });
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['admin-products'] });
@@ -286,6 +339,10 @@ export function AdminProducts() {
         allow_standard_packaging: (product as any).allow_standard_packaging !== false,
         allow_reinforced_packaging: (product as any).allow_reinforced_packaging !== false,
         reinforced_packaging_cost: (product as any).reinforced_packaging_cost != null ? String((product as any).reinforced_packaging_cost) : '',
+        supplier_name: (product as any).supplier_name || '',
+        supplier_sku: (product as any).supplier_sku || '',
+        procurement_notes: (product as any).procurement_notes || '',
+        expected_restock_date: (product as any).expected_restock_date || '',
       });
       setExistingImages(product.product_images || []);
       setPendingImages([]);
@@ -416,6 +473,53 @@ export function AdminProducts() {
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
                   rows={3}
                 />
+              </div>
+
+              <div className="rounded-lg border border-border p-4 space-y-4">
+                <div>
+                  <h3 className="font-medium text-foreground">Internal Sourcing</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Internal-only supplier and procurement notes for inventory planning.
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="supplier_name">Supplier Name</Label>
+                    <Input
+                      id="supplier_name"
+                      value={form.supplier_name}
+                      onChange={(e) => setForm({ ...form, supplier_name: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="supplier_sku">Supplier SKU</Label>
+                    <Input
+                      id="supplier_sku"
+                      value={form.supplier_sku}
+                      onChange={(e) => setForm({ ...form, supplier_sku: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="expected_restock_date">Expected Restock Date</Label>
+                    <Input
+                      id="expected_restock_date"
+                      type="date"
+                      value={form.expected_restock_date}
+                      onChange={(e) => setForm({ ...form, expected_restock_date: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="procurement_notes">Procurement Notes</Label>
+                    <Textarea
+                      id="procurement_notes"
+                      value={form.procurement_notes}
+                      onChange={(e) => setForm({ ...form, procurement_notes: e.target.value })}
+                      rows={3}
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -687,6 +791,12 @@ export function AdminProducts() {
                           <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
                             Ready
                           </span>
+                        )}
+                        {((product as any).supplier_name || (product as any).expected_restock_date) && (
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            {(product as any).supplier_name || 'No supplier'}
+                            {(product as any).expected_restock_date ? ` • Restock ${String((product as any).expected_restock_date)}` : ''}
+                          </div>
                         )}
                       </TableCell>
                       <TableCell>

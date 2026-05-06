@@ -61,7 +61,7 @@ export async function creditWalletByAdmin(input: CreditWalletInput) {
     title: input.notificationTitle || 'Wallet Credited',
     message:
       input.notificationMessage ||
-      `₵${input.amount.toFixed(2)} has been added to your wallet. ${input.description}`,
+      `GHS ${input.amount.toFixed(2)} has been added to your wallet. ${input.description}`,
     type: 'wallet',
   };
 

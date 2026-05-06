@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Upload, Download, FileSpreadsheet, Check, X, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { updateVariantStockAndNotify } from '@/lib/stock-alerts';
 
 interface CSVRow {
   sku: string;
@@ -84,13 +85,14 @@ export function BulkStockUpdate() {
       try {
         const { data, error } = await supabase
           .from('product_variants')
-          .update({ stock: row.stock })
+          .select('id')
           .eq('sku', row.sku)
-          .select('id');
+          .maybeSingle();
 
         if (error) throw error;
-        
-        if (data && data.length > 0) {
+
+        if (data?.id) {
+          await updateVariantStockAndNotify({ variantId: data.id, nextStock: row.stock });
           updatedData[i] = { ...row, status: 'success', message: 'Updated' };
           successCount++;
         } else {

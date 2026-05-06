@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { AlertTriangle, Package, Bell, BellOff, Save, X } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { updateVariantStockAndNotify } from '@/lib/stock-alerts';
 
 interface LowStockVariant {
   id: string;
@@ -56,14 +57,14 @@ export function LowStockAlerts() {
 
   const updateStockMutation = useMutation({
     mutationFn: async ({ id, stock }: { id: string; stock: number }) => {
-      const { error } = await supabase
-        .from('product_variants')
-        .update({ stock })
-        .eq('id', id);
-      if (error) throw error;
+      return updateVariantStockAndNotify({ variantId: id, nextStock: stock });
     },
-    onSuccess: () => {
-      toast.success('Stock updated successfully');
+    onSuccess: (result) => {
+      toast.success(
+        result.notifiedCount > 0
+          ? `Stock updated and ${result.notifiedCount} customer alert(s) were notified`
+          : 'Stock updated successfully',
+      );
       setEditingId(null);
       queryClient.invalidateQueries({ queryKey: ['admin-low-stock-detailed'] });
     },

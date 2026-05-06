@@ -64,7 +64,18 @@ export default function TrackOrder() {
 
       const { data, error } = await query.maybeSingle();
       if (error) throw error;
-      return data;
+      if (!data) return null;
+
+      const { data: receipt } = await supabase
+        .from('receipts')
+        .select('id, receipt_number, generated_at')
+        .eq('order_id', data.id)
+        .maybeSingle();
+
+      return {
+        ...data,
+        receipt: receipt || null,
+      };
     },
     enabled: !!searchedOrderId,
   });
@@ -155,9 +166,16 @@ export default function TrackOrder() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle>Order {order.order_number}</CardTitle>
-                  <Badge className={`${getStatusColor(order.status || '')} text-white`}>
-                    {order.status?.replace('_', ' ').toUpperCase()}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    {order.receipt?.receipt_number ? (
+                      <Link to={`/receipt/${order.receipt.receipt_number}`}>
+                        <Button variant="outline" size="sm">Receipt</Button>
+                      </Link>
+                    ) : null}
+                    <Badge className={`${getStatusColor(order.status || '')} text-white`}>
+                      {order.status?.replace('_', ' ').toUpperCase()}
+                    </Badge>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -254,6 +272,50 @@ export default function TrackOrder() {
                 </CardContent>
               </Card>
             )}
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Logistics Details</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                <p>
+                  <span className="text-muted-foreground">Fulfillment stage:</span>{' '}
+                  <span className="font-medium text-foreground">
+                    {(order.fulfillment_stage || 'new').replaceAll('_', ' ')}
+                  </span>
+                </p>
+                {order.courier_name && (
+                  <p>
+                    <span className="text-muted-foreground">Courier:</span>{' '}
+                    <span className="font-medium text-foreground">{order.courier_name}</span>
+                  </p>
+                )}
+                {order.courier_tracking_number && (
+                  <p>
+                    <span className="text-muted-foreground">Courier tracking #:</span>{' '}
+                    <span className="font-medium text-foreground">{order.courier_tracking_number}</span>
+                  </p>
+                )}
+                {order.delivery_fee != null && (
+                  <p>
+                    <span className="text-muted-foreground">Delivery fee on receipt:</span>{' '}
+                    <span className="font-medium text-foreground">{formatPrice(Number(order.delivery_fee))}</span>
+                  </p>
+                )}
+                {order.proof_of_delivery_note && (
+                  <div className="rounded-lg bg-muted p-3 text-muted-foreground">
+                    {order.proof_of_delivery_note}
+                  </div>
+                )}
+                {order.proof_of_delivery_image_url && (
+                  <img
+                    src={order.proof_of_delivery_image_url}
+                    alt={`Proof of delivery for ${order.order_number}`}
+                    className="h-28 w-28 rounded-lg border border-border object-cover"
+                  />
+                )}
+              </CardContent>
+            </Card>
           </div>
         )}
 

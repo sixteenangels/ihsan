@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Package, Truck, MapPin, Clock, CheckCircle, XCircle, Loader, ChevronDown, ChevronUp, Phone, CreditCard, ShoppingBag, PackageCheck, Plane, MapPinned, Ban, Users, Star, MessageSquare, Eye } from 'lucide-react';
+import { Package, Truck, MapPin, Clock, CheckCircle, XCircle, Loader, ChevronDown, ChevronUp, Phone, CreditCard, ShoppingBag, PackageCheck, Plane, MapPinned, Ban, Users, Star, MessageSquare, Eye, FileText } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { useAuth } from '@/contexts/AuthContext';
@@ -51,6 +51,12 @@ interface TrackingPoint {
   created_at: string;
 }
 
+interface ReceiptSummary {
+  id: string;
+  receipt_number: string;
+  generated_at: string;
+}
+
 interface Order {
   id: string;
   order_number: string;
@@ -64,8 +70,17 @@ interface Order {
   estimated_delivery_end: string;
   shipping_address: ShippingAddress | null;
   shipping_class_id: string | null;
+  fulfillment_stage?: string | null;
+  fulfillment_checks?: Record<string, boolean> | null;
+  courier_name?: string | null;
+  courier_tracking_number?: string | null;
+  delivery_fee?: number | null;
+  proof_of_delivery_note?: string | null;
+  proof_of_delivery_image_url?: string | null;
+  proof_of_delivery_at?: string | null;
   order_items: OrderItem[];
   order_tracking: TrackingPoint[];
+  receipt?: ReceiptSummary | null;
 }
 
 const CUSTOMER_STATUS_TABS = [
@@ -187,6 +202,15 @@ function getAutoNote(status: string, orderItems: OrderItem[]): string {
   }
 }
 
+const FULFILLMENT_STAGE_LABELS: Record<string, string> = {
+  new: 'Queued',
+  picked: 'Picked from inventory',
+  quality_checked: 'Quality checked',
+  packed: 'Packed',
+  awaiting_dispatch: 'Awaiting dispatch',
+  dispatched: 'Dispatched to courier',
+};
+
 export default function MyOrders() {
   const navigate = useNavigate();
   const { user, isLoading: authLoading } = useAuth();
@@ -240,12 +264,36 @@ export default function MyOrders() {
     if (error) {
       toast.error('Failed to load orders');
     } else if (data) {
+      const orderIds = data.map((order) => order.id);
+      const { data: receiptRows } = orderIds.length > 0
+        ? await supabase
+            .from('receipts')
+            .select('id, order_id, receipt_number, generated_at')
+            .in('order_id', orderIds)
+        : { data: [] as any[] };
+
+      const receiptMap = new Map(
+        (receiptRows || []).map((receipt) => [
+          receipt.order_id,
+          {
+            id: receipt.id,
+            receipt_number: receipt.receipt_number,
+            generated_at: receipt.generated_at,
+          } satisfies ReceiptSummary,
+        ]),
+      );
+
       const mappedOrders = data.map(order => ({
         ...order,
         shipping_address: order.shipping_address as unknown as ShippingAddress | null,
+        fulfillment_checks:
+          order.fulfillment_checks && typeof order.fulfillment_checks === 'object'
+            ? (order.fulfillment_checks as Record<string, boolean>)
+            : null,
         order_tracking: (order.order_tracking || []).sort((a: any, b: any) => 
           new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
         ),
+        receipt: receiptMap.get(order.id) || null,
       }));
       setOrders(mappedOrders);
 
@@ -745,10 +793,78 @@ export default function MyOrders() {
                                 </div>
                                 <div className="flex flex-wrap gap-2 mt-3">
                                   <OrderInvoice order={order} />
+                                  {order.receipt && (
+                                    <Link to={`/receipt/${order.receipt.receipt_number}`}>
+                                      <Button variant="outline" size="sm">
+                                        <FileText className="h-4 w-4 mr-1" />
+                                        Receipt
+                                      </Button>
+                                    </Link>
+                                  )}
                                   <RefundRequestDialog order={order} />
                                 </div>
                               </div>
                             )}
+
+                            <div className="grid gap-3 md:grid-cols-2">
+                              <Card className="border-border/60">
+                                <CardContent className="p-4 space-y-2">
+                                  <p className="text-sm font-semibold text-foreground">Fulfillment Progress</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    {FULFILLMENT_STAGE_LABELS[order.fulfillment_stage || 'new'] || 'Queued'}
+                                  </p>
+                                  <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                                    <div className={`rounded-md border px-2 py-1 ${order.fulfillment_checks?.picked ? 'border-primary/40 bg-primary/5 text-primary' : 'border-border'}`}>
+                                      Picked
+                                    </div>
+                                    <div className={`rounded-md border px-2 py-1 ${order.fulfillment_checks?.quality_checked ? 'border-primary/40 bg-primary/5 text-primary' : 'border-border'}`}>
+                                      Quality Check
+                                    </div>
+                                    <div className={`rounded-md border px-2 py-1 ${order.fulfillment_checks?.packed ? 'border-primary/40 bg-primary/5 text-primary' : 'border-border'}`}>
+                                      Packed
+                                    </div>
+                                    <div className={`rounded-md border px-2 py-1 ${order.fulfillment_checks?.awaiting_dispatch ? 'border-primary/40 bg-primary/5 text-primary' : 'border-border'}`}>
+                                      Awaiting Dispatch
+                                    </div>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                              <Card className="border-border/60">
+                                <CardContent className="p-4 space-y-2">
+                                  <p className="text-sm font-semibold text-foreground">Logistics Info</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    Courier: {order.courier_name || 'Assigned in tracking updates'}
+                                  </p>
+                                  {order.courier_tracking_number && (
+                                    <p className="text-sm text-muted-foreground">
+                                      Tracking #: <span className="font-medium text-foreground">{order.courier_tracking_number}</span>
+                                    </p>
+                                  )}
+                                  {order.delivery_fee != null && (
+                                    <p className="text-sm text-muted-foreground">
+                                      Delivery Fee on receipt: <span className="font-medium text-foreground">{formatPrice(Number(order.delivery_fee))}</span>
+                                    </p>
+                                  )}
+                                  {order.proof_of_delivery_at && (
+                                    <p className="text-sm text-muted-foreground">
+                                      Proof recorded {format(new Date(order.proof_of_delivery_at), 'MMM d, yyyy h:mm a')}
+                                    </p>
+                                  )}
+                                  {order.proof_of_delivery_note && (
+                                    <p className="rounded-md bg-muted p-2 text-sm text-muted-foreground">
+                                      {order.proof_of_delivery_note}
+                                    </p>
+                                  )}
+                                  {order.proof_of_delivery_image_url && (
+                                    <img
+                                      src={order.proof_of_delivery_image_url}
+                                      alt={`Proof of delivery for ${order.order_number}`}
+                                      className="mt-1 h-24 w-24 rounded-lg object-cover border border-border"
+                                    />
+                                  )}
+                                </CardContent>
+                              </Card>
+                            </div>
 
                             <Separator />
 

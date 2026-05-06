@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { useNavigate, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Loader2, Package, FolderTree, Users, LayoutDashboard, ShoppingCart, Truck, Tag, Star, MessageCircle, FileText, Bell, Settings, AlertTriangle, RefreshCcw, HelpCircle, Award, Link2, Wallet, MessageSquare } from 'lucide-react';
+import { Loader2, Package, FolderTree, Users, LayoutDashboard, ShoppingCart, Truck, Tag, Star, MessageCircle, FileText, Bell, Settings, AlertTriangle, RefreshCcw, HelpCircle, Award, Link2, Wallet, MessageSquare, Gift, ScrollText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AdminProducts } from '@/components/admin/AdminProducts';
 import { AdminCategories } from '@/components/admin/AdminCategories';
@@ -24,6 +24,8 @@ import { AdminBundles } from '@/components/admin/AdminBundles';
 import { AdminLoyalty } from '@/components/admin/AdminLoyalty';
 import { AdminWallet } from '@/components/admin/AdminWallet';
 import { AdminMessageTemplates } from '@/components/admin/AdminMessageTemplates';
+import { AdminGiftCards } from '@/components/admin/AdminGiftCards';
+import { AdminAuditLogs } from '@/components/admin/AdminAuditLogs';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -41,6 +43,7 @@ const ALL_NAV_ITEMS = [
   { name: 'Bundles', href: '/admin/bundles', icon: Link2, permission: 'bundles' },
   { name: 'Loyalty', href: '/admin/loyalty', icon: Award, permission: 'loyalty' },
   { name: 'Wallets', href: '/admin/wallets', icon: Wallet, permission: 'wallets' },
+  { name: 'Gift Cards', href: '/admin/gift-cards', icon: Gift, permission: 'wallets' },
   { name: 'Templates', href: '/admin/templates', icon: MessageSquare, permission: 'templates' },
   { name: 'Reviews', href: '/admin/reviews', icon: Star, permission: 'reviews' },
   { name: 'Q&A', href: '/admin/qa', icon: HelpCircle, permission: 'qa' },
@@ -49,6 +52,7 @@ const ALL_NAV_ITEMS = [
   { name: 'Receipts', href: '/admin/receipts', icon: FileText, permission: 'receipts' },
   { name: 'Users & Roles', href: '/admin/users', icon: Users, permission: '_admin_only' },
   { name: 'Notifications', href: '/admin/notifications', icon: Bell, permission: 'notifications' },
+  { name: 'Audit Logs', href: '/admin/audit-logs', icon: ScrollText, permission: '_admin_only' },
   { name: 'Settings', href: '/admin/settings', icon: Settings, permission: '_admin_only' },
 ];
 
@@ -188,6 +192,7 @@ export default function Admin() {
           <Route path="/bundles" element={<AdminBundles />} />
           <Route path="/loyalty" element={<AdminLoyalty />} />
           <Route path="/wallets" element={<AdminWallet />} />
+          <Route path="/gift-cards" element={<AdminGiftCards />} />
           <Route path="/templates" element={<AdminMessageTemplates />} />
           <Route path="/reviews" element={<AdminReviews />} />
           <Route path="/qa" element={<AdminQA />} />
@@ -196,6 +201,7 @@ export default function Admin() {
           <Route path="/receipts" element={<AdminReceipts />} />
           <Route path="/users" element={<AdminUsers />} />
           <Route path="/notifications" element={<AdminNotifications />} />
+          <Route path="/audit-logs" element={<AdminAuditLogs />} />
           <Route path="/settings" element={<AdminSettings />} />
         </Routes>
       </main>

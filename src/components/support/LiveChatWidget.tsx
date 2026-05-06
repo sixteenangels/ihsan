@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
@@ -42,7 +42,7 @@ export function LiveChatWidget() {
     if (isOpen && user) {
       findOrCreateConversation();
     }
-  }, [isOpen, user]);
+  }, [findOrCreateConversation, isOpen, user]);
 
   // Subscribe to realtime messages
   useEffect(() => {
@@ -73,7 +73,21 @@ export function LiveChatWidget() {
     };
   }, [conversationId]);
 
-  const findOrCreateConversation = async () => {
+  const loadMessages = useCallback(async (convId: string) => {
+    const { data, error } = await supabase
+      .from('chat_support_messages')
+      .select('*')
+      .eq('conversation_id', convId)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error('Error loading messages:', error);
+      return;
+    }
+    setMessages(data || []);
+  }, []);
+
+  const findOrCreateConversation = useCallback(async () => {
     if (!user) return;
     setIsLoading(true);
 
@@ -109,21 +123,7 @@ export function LiveChatWidget() {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const loadMessages = async (convId: string) => {
-    const { data, error } = await supabase
-      .from('chat_support_messages')
-      .select('*')
-      .eq('conversation_id', convId)
-      .order('created_at', { ascending: true });
-
-    if (error) {
-      console.error('Error loading messages:', error);
-      return;
-    }
-    setMessages(data || []);
-  };
+  }, [loadMessages, user]);
 
   const sendMessage = async () => {
     if (!newMessage.trim() || !conversationId || !user) return;
