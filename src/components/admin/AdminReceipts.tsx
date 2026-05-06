@@ -112,6 +112,40 @@ export function AdminReceipts() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedReceipt, setSelectedReceipt] = useState<ReceiptRecord | null>(null);
 
+  const sendReceiptEmail = async (receipt: ReceiptRecord) => {
+    const printableReceipt = mapReceiptForPrinting(receipt);
+    const customerEmail = receipt.orders?.profiles?.email;
+    if (!customerEmail) {
+      throw new Error('This order does not have a customer email address.');
+    }
+
+    const { data, error } = await supabase.functions.invoke('send-transactional-email', {
+      body: {
+        to: customerEmail,
+        subject: buildReceiptEmailSubject(printableReceipt),
+        html: buildReceiptEmailHtml(printableReceipt),
+        text: buildReceiptEmailText(printableReceipt),
+        type: 'receipt',
+        relatedEntityType: 'receipt',
+        relatedEntityId: receipt.id,
+        requestedBy: user?.id,
+      },
+    });
+
+    if (error) throw error;
+
+    await logAdminAction({
+      actorUserId: user?.id,
+      action: 'receipt.email_sent',
+      entityType: 'receipt',
+      entityId: receipt.id,
+      summary: `Attempted receipt email for ${receipt.receipt_number} to ${customerEmail}.`,
+      metadata: data || {},
+    });
+
+    return data;
+  };
+
   const { data: receipts, isLoading } = useQuery({
     queryKey: ['admin-receipts'],
     queryFn: async () => {
@@ -182,6 +216,29 @@ export function AdminReceipts() {
 
       if (updateError) throw updateError;
 
+      const { data: receiptDetails, error: detailError } = await supabase
+        .from('receipts')
+        .select(`
+          *,
+          orders(
+            order_number,
+            total_amount,
+            subtotal,
+            shipping_price,
+            packaging_cost,
+            wallet_credit_used,
+            status,
+            created_at,
+            shipping_address,
+            profiles:user_id(name, email),
+            order_items(product_name, variant_details, quantity, unit_price, total_price)
+          )
+        `)
+        .eq('id', createdReceipt.id)
+        .single();
+
+      if (detailError) throw detailError;
+
       await logAdminAction({
         actorUserId: user?.id,
         action: 'receipt.generated',
@@ -190,11 +247,25 @@ export function AdminReceipts() {
         summary: `Generated receipt for order ${order.order_number}.`,
         metadata: { orderId: order.id, receiptNumber: createdReceipt.receipt_number },
       });
+
+      let emailResult: { sent?: boolean; skipped?: boolean } | null = null;
+      const typedReceipt = receiptDetails as ReceiptRecord;
+      if (typedReceipt.orders?.profiles?.email) {
+        emailResult = await sendReceiptEmail(typedReceipt);
+      }
+
+      return { receipt: typedReceipt, emailResult };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['admin-receipts'] });
       queryClient.invalidateQueries({ queryKey: ['orders-without-receipts'] });
-      toast.success('Receipt generated');
+      if (result?.emailResult?.sent) {
+        toast.success('Receipt generated and emailed');
+      } else if (result?.receipt?.orders?.profiles?.email) {
+        toast.info('Receipt generated. Email provider is not configured yet.');
+      } else {
+        toast.success('Receipt generated');
+      }
     },
     onError: (error) => {
       toast.error('Failed to generate receipt');
@@ -203,39 +274,7 @@ export function AdminReceipts() {
   });
 
   const sendReceiptEmailMutation = useMutation({
-    mutationFn: async (receipt: ReceiptRecord) => {
-      const printableReceipt = mapReceiptForPrinting(receipt);
-      const customerEmail = receipt.orders?.profiles?.email;
-      if (!customerEmail) {
-        throw new Error('This order does not have a customer email address.');
-      }
-
-      const { data, error } = await supabase.functions.invoke('send-transactional-email', {
-        body: {
-          to: customerEmail,
-          subject: buildReceiptEmailSubject(printableReceipt),
-          html: buildReceiptEmailHtml(printableReceipt),
-          text: buildReceiptEmailText(printableReceipt),
-          type: 'receipt',
-          relatedEntityType: 'receipt',
-          relatedEntityId: receipt.id,
-          requestedBy: user?.id,
-        },
-      });
-
-      if (error) throw error;
-
-      await logAdminAction({
-        actorUserId: user?.id,
-        action: 'receipt.email_sent',
-        entityType: 'receipt',
-        entityId: receipt.id,
-        summary: `Attempted receipt email for ${receipt.receipt_number} to ${customerEmail}.`,
-        metadata: data || {},
-      });
-
-      return data;
-    },
+    mutationFn: sendReceiptEmail,
     onSuccess: (data) => {
       if (data?.sent) {
         toast.success('Receipt email sent');

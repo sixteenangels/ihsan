@@ -218,6 +218,52 @@ export function AdminSupport() {
     scrollToBottom();
   }, [messages]);
 
+  const sendSupportRequestEmail = async ({
+    requestId,
+    customerName,
+    customerEmail,
+    subject,
+    reply,
+    summary,
+  }: {
+    requestId: string;
+    customerName: string;
+    customerEmail: string;
+    subject: string;
+    reply: string;
+    summary?: string | null;
+  }) => {
+    if (!reply.trim()) {
+      throw new Error('Add a public reply before sending an email.');
+    }
+
+    const { data, error } = await supabase.functions.invoke('send-transactional-email', {
+      body: {
+        to: customerEmail,
+        subject: `Re: ${subject}`,
+        html: buildSupportReplyEmailHtml({ customerName, subject, reply, summary }),
+        text: buildSupportReplyEmailText({ customerName, subject, reply, summary }),
+        type: 'support_reply',
+        relatedEntityType: 'support_request',
+        relatedEntityId: requestId,
+        requestedBy: user?.id,
+      },
+    });
+
+    if (error) throw error;
+
+    await logAdminAction({
+      actorUserId: user?.id,
+      action: 'support_request.email_sent',
+      entityType: 'support_request',
+      entityId: requestId,
+      summary: `Attempted support reply email to ${customerEmail}.`,
+      metadata: data || {},
+    });
+
+    return data;
+  };
+
   const sendReplyMutation = useMutation({
     mutationFn: async () => {
       if (!selectedConversationId || !replyMessage.trim() || !user) return;
@@ -305,6 +351,25 @@ export function AdminSupport() {
 
       if (error) throw error;
 
+      let emailResult: { sent?: boolean; skipped?: boolean } | null = null;
+      const shouldAutoEmail =
+        (status === 'resolved' || status === 'closed') &&
+        Boolean((publicReply || resolutionSummary || '').trim());
+
+      if (shouldAutoEmail) {
+        const request = supportRequests?.find((item) => item.id === requestId);
+        if (request?.email) {
+          emailResult = await sendSupportRequestEmail({
+            requestId,
+            customerName: request.name,
+            customerEmail: request.email,
+            subject: category || request.category || 'your Ihsan support request',
+            reply: publicReply || resolutionSummary || internalNotes,
+            summary: resolutionSummary,
+          });
+        }
+      }
+
       await logAdminAction({
         actorUserId: user?.id,
         action: `support_request.${status}`,
@@ -316,12 +381,19 @@ export function AdminSupport() {
           category,
           assignedAdminId,
           hasReply: Boolean(publicReply),
+          emailSent: emailResult?.sent || false,
         },
       });
+
+      return emailResult;
     },
-    onSuccess: () => {
+    onSuccess: (emailResult) => {
       queryClient.invalidateQueries({ queryKey: ['admin-support-requests'] });
-      toast.success('Support request updated');
+      if (emailResult?.sent) {
+        toast.success('Support request updated and email sent');
+      } else {
+        toast.success('Support request updated');
+      }
     },
     onError: () => {
       toast.error('Failed to update support request');
@@ -329,51 +401,7 @@ export function AdminSupport() {
   });
 
   const sendSupportEmailMutation = useMutation({
-    mutationFn: async ({
-      requestId,
-      customerName,
-      customerEmail,
-      subject,
-      reply,
-      summary,
-    }: {
-      requestId: string;
-      customerName: string;
-      customerEmail: string;
-      subject: string;
-      reply: string;
-      summary?: string | null;
-    }) => {
-      if (!reply.trim()) {
-        throw new Error('Add a public reply before sending an email.');
-      }
-
-      const { data, error } = await supabase.functions.invoke('send-transactional-email', {
-        body: {
-          to: customerEmail,
-          subject: `Re: ${subject}`,
-          html: buildSupportReplyEmailHtml({ customerName, subject, reply, summary }),
-          text: buildSupportReplyEmailText({ customerName, subject, reply, summary }),
-          type: 'support_reply',
-          relatedEntityType: 'support_request',
-          relatedEntityId: requestId,
-          requestedBy: user?.id,
-        },
-      });
-
-      if (error) throw error;
-
-      await logAdminAction({
-        actorUserId: user?.id,
-        action: 'support_request.email_sent',
-        entityType: 'support_request',
-        entityId: requestId,
-        summary: `Attempted support reply email to ${customerEmail}.`,
-        metadata: data || {},
-      });
-
-      return data;
-    },
+    mutationFn: sendSupportRequestEmail,
     onSuccess: (data) => {
       if (data?.sent) {
         toast.success('Support reply email sent');
