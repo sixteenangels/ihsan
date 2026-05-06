@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Package, FolderTree, Users, ShoppingCart, AlertTriangle, Zap, TrendingUp, DollarSign, Target, BellRing, ScrollText } from 'lucide-react';
+import { Package, FolderTree, Users, ShoppingCart, AlertTriangle, Zap, TrendingUp, DollarSign, Target, BellRing, ScrollText, ClipboardList, Factory } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useCurrency } from '@/hooks/useCurrency';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
@@ -101,6 +101,32 @@ export function AdminDashboard() {
     },
   });
 
+  const { data: procurementProducts = [] } = useQuery({
+    queryKey: ['admin-procurement-products'],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('products')
+        .select(`
+          id,
+          name,
+          supplier_name,
+          supplier_sku,
+          procurement_notes,
+          expected_restock_date,
+          is_active,
+          product_variants (
+            id,
+            stock,
+            is_active
+          )
+        `)
+        .eq('is_active', true);
+
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   const { data: auditLogs = [] } = useQuery({
     queryKey: ['admin-dashboard-audit-logs'],
     queryFn: async () => {
@@ -183,6 +209,56 @@ export function AdminDashboard() {
 
     return [...grouped.values()].sort((a, b) => b.count - a.count);
   }, [stockAlerts]);
+
+  const purchasePlanningQueue = useMemo(() => {
+    return procurementProducts
+      .map((product: any) => {
+        const activeVariants = (product.product_variants || []).filter((variant: any) => variant.is_active !== false);
+        const totalStock = activeVariants.reduce((sum: number, variant: any) => sum + Number(variant.stock || 0), 0);
+        const lowStockVariants = activeVariants.filter((variant: any) => Number(variant.stock || 0) < 10).length;
+        const demandCount = stockAlerts.filter((alert: any) => alert.product_id === product.id).length;
+        const urgencyScore = demandCount * 3 + (lowStockVariants > 0 ? 8 : 0) + (totalStock === 0 ? 12 : 0);
+        const suggestedReorderQty = Math.max(10, demandCount * 2 + lowStockVariants * 5 + (totalStock === 0 ? 10 : 0));
+
+        return {
+          id: product.id,
+          name: product.name,
+          supplierName: product.supplier_name || 'Supplier not set',
+          supplierSku: product.supplier_sku || 'No supplier SKU',
+          procurementNotes: product.procurement_notes || '',
+          expectedRestockDate: product.expected_restock_date || null,
+          totalStock,
+          lowStockVariants,
+          demandCount,
+          urgencyScore,
+          suggestedReorderQty,
+        };
+      })
+      .filter((product) => product.lowStockVariants > 0 || product.demandCount > 0)
+      .sort((a, b) => b.urgencyScore - a.urgencyScore);
+  }, [procurementProducts, stockAlerts]);
+
+  const supplierCoverage = useMemo(() => {
+    const mapped = new Map<string, { supplierName: string; productCount: number; urgentCount: number }>();
+
+    purchasePlanningQueue.forEach((item) => {
+      const current = mapped.get(item.supplierName);
+      if (current) {
+        current.productCount += 1;
+        if (item.urgencyScore >= 12) {
+          current.urgentCount += 1;
+        }
+      } else {
+        mapped.set(item.supplierName, {
+          supplierName: item.supplierName,
+          productCount: 1,
+          urgentCount: item.urgencyScore >= 12 ? 1 : 0,
+        });
+      }
+    });
+
+    return [...mapped.values()].sort((a, b) => b.urgentCount - a.urgentCount || b.productCount - a.productCount);
+  }, [purchasePlanningQueue]);
 
   const stats = [
     { name: 'Total Products', value: productCount ?? 0, icon: Package, color: 'text-primary' },
@@ -390,6 +466,93 @@ export function AdminDashboard() {
             ))}
             {auditLogs.length === 0 && (
               <p className="text-sm text-muted-foreground">No audit entries yet.</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ClipboardList className="h-5 w-5 text-primary" />
+              Purchase Planning Queue
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center justify-between rounded-lg bg-muted/40 p-3">
+              <div>
+                <p className="text-sm font-medium">Reorder Candidates</p>
+                <p className="text-xs text-muted-foreground">Products with demand or low stock pressure</p>
+              </div>
+              <p className="text-2xl font-bold">{purchasePlanningQueue.length}</p>
+            </div>
+            {purchasePlanningQueue.slice(0, 6).map((item) => (
+              <div key={item.id} className="rounded-lg border border-border p-3 space-y-2">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-medium text-foreground">{item.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {item.supplierName} • {item.supplierSku}
+                    </p>
+                  </div>
+                  <Badge variant={item.totalStock === 0 ? 'destructive' : 'secondary'}>
+                    {item.totalStock === 0 ? 'Out of stock' : `${item.totalStock} left`}
+                  </Badge>
+                </div>
+                <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                  <span>{item.lowStockVariants} low-stock variants</span>
+                  <span>{item.demandCount} waiting alerts</span>
+                  <span>Suggested reorder: {item.suggestedReorderQty}</span>
+                </div>
+                {item.expectedRestockDate && (
+                  <p className="text-xs text-muted-foreground">
+                    Expected restock: {format(new Date(item.expectedRestockDate), 'MMM d, yyyy')}
+                  </p>
+                )}
+                {item.procurementNotes && (
+                  <p className="rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">
+                    {item.procurementNotes}
+                  </p>
+                )}
+              </div>
+            ))}
+            {purchasePlanningQueue.length === 0 && (
+              <p className="text-sm text-muted-foreground">No procurement actions needed right now.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Factory className="h-5 w-5 text-primary" />
+              Supplier Coverage
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center justify-between rounded-lg bg-muted/40 p-3">
+              <div>
+                <p className="text-sm font-medium">Active Suppliers in Queue</p>
+                <p className="text-xs text-muted-foreground">Who needs a reorder follow-up next</p>
+              </div>
+              <p className="text-2xl font-bold">{supplierCoverage.length}</p>
+            </div>
+            {supplierCoverage.slice(0, 6).map((supplier) => (
+              <div key={supplier.supplierName} className="flex items-center justify-between rounded-lg border border-border p-3">
+                <div>
+                  <p className="font-medium text-foreground">{supplier.supplierName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {supplier.productCount} products in queue
+                  </p>
+                </div>
+                <Badge variant={supplier.urgentCount > 0 ? 'destructive' : 'secondary'}>
+                  {supplier.urgentCount > 0 ? `${supplier.urgentCount} urgent` : 'Stable'}
+                </Badge>
+              </div>
+            ))}
+            {supplierCoverage.length === 0 && (
+              <p className="text-sm text-muted-foreground">No supplier planning data yet.</p>
             )}
           </CardContent>
         </Card>
