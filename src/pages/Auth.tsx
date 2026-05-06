@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Header } from '@/components/layout/Header';
@@ -222,7 +222,7 @@ export default function Auth() {
         }
         if (/access.?blocked|disallowed_useragent|redirect_uri_mismatch|invalid_client/i.test(msg)) {
           toast.error(
-            'Google blocked this sign-in. The OAuth client is misconfigured — verify the callback URL and authorized origins, or switch to Lovable-managed Google credentials.'
+            'Google blocked this sign-in. The OAuth client is misconfigured â€” verify the callback URL and authorized origins, or switch to Lovable-managed Google credentials.'
           );
         } else if (/popup|window.?closed|cancel/i.test(msg)) {
           toast.error('Sign-in was cancelled.');
@@ -296,7 +296,7 @@ export default function Auth() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
@@ -310,13 +310,13 @@ export default function Auth() {
         <main className="container px-4 py-8 pb-24 sm:px-6 md:py-16 md:pb-8">
           <div className="mx-auto max-w-md">
             <Card className="border-border">
-              <CardHeader className="text-center">
+              <CardHeader className="px-5 text-center sm:px-6">
                 <CardTitle className="text-2xl font-serif">Set New Password</CardTitle>
                 <CardDescription>
                   Enter your new password below
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="px-5 sm:px-6">
                 <form onSubmit={handleUpdatePassword} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="new-password">New Password</Label>
@@ -325,7 +325,7 @@ export default function Auth() {
                       <Input
                         id="new-password"
                         type="password"
-                        placeholder="••••••••"
+                        placeholder="Password"
                         className="pl-10"
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
@@ -340,7 +340,7 @@ export default function Auth() {
                       <Input
                         id="confirm-password"
                         type="password"
-                        placeholder="••••••••"
+                        placeholder="Confirm password"
                         className="pl-10"
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
@@ -376,8 +376,8 @@ export default function Auth() {
         <main className="container px-4 py-8 pb-24 sm:px-6 md:py-16 md:pb-8">
           <div className="mx-auto max-w-md">
             <Card className="border-border">
-              <CardHeader className="text-center">
-                <div className="mx-auto mb-4 h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+              <CardHeader className="px-5 text-center sm:px-6">
+                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
                   <Mail className="h-6 w-6 text-primary" />
                 </div>
                 <CardTitle className="text-2xl font-serif">Check Your Email</CardTitle>
@@ -385,8 +385,8 @@ export default function Auth() {
                   We've sent a verification link to <strong>{pendingVerificationEmail}</strong>
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground text-center">
+              <CardContent className="space-y-4 px-5 sm:px-6">
+                <p className="text-center text-sm text-muted-foreground">
                   Click the link in your email to verify your account. If you don't see it, check your spam folder.
                 </p>
                 
@@ -439,13 +439,13 @@ export default function Auth() {
         <main className="container px-4 py-8 pb-24 sm:px-6 md:py-16 md:pb-8">
           <div className="mx-auto max-w-md">
             <Card className="border-border">
-              <CardHeader className="text-center">
+              <CardHeader className="px-5 text-center sm:px-6">
                 <CardTitle className="text-2xl font-serif">Reset Password</CardTitle>
                 <CardDescription>
                   Enter your email and we'll send you a reset link
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="px-5 sm:px-6">
                 <form onSubmit={handleForgotPassword} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="reset-email">Email</Label>
@@ -504,7 +504,7 @@ export default function Auth() {
                 Sign in to your account or create a new one
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-5 sm:px-6">
               <Tabs defaultValue="login" className="w-full">
                 <TabsList className="grid h-auto w-full grid-cols-2 rounded-2xl p-1.5">
                   <TabsTrigger value="login" className="min-h-11 rounded-xl">Sign In</TabsTrigger>
@@ -512,7 +512,7 @@ export default function Auth() {
                 </TabsList>
                 
                 <TabsContent value="login">
-                  <form onSubmit={handleLogin} className="space-y-4 mt-4">
+                  <form onSubmit={handleLogin} className="mt-4 space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="login-email">Email</Label>
                       <div className="relative">
@@ -538,7 +538,7 @@ export default function Auth() {
                         <Input
                           id="login-password"
                           type="password"
-                          placeholder="••••••••"
+                          placeholder="Password"
                           className="pl-10"
                           value={loginPassword}
                           onChange={(e) => setLoginPassword(e.target.value)}
@@ -593,7 +593,7 @@ export default function Auth() {
                     <Button 
                       type="button" 
                       variant="outline" 
-                      className="w-full" 
+                      className="min-h-11 w-full" 
                       onClick={handleGoogleSignIn}
                       disabled={isGoogleLoading}
                     >
@@ -625,7 +625,7 @@ export default function Auth() {
                 </TabsContent>
                 
                 <TabsContent value="signup">
-                  <form onSubmit={handleSignup} className="space-y-4 mt-4">
+                  <form onSubmit={handleSignup} className="mt-4 space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="signup-name">Full Name</Label>
                       <div className="relative">
@@ -669,7 +669,7 @@ export default function Auth() {
                         <Input
                           id="signup-password"
                           type="password"
-                          placeholder="••••••••"
+                          placeholder="Create a password"
                           className="pl-10"
                           value={signupPassword}
                           onChange={(e) => setSignupPassword(e.target.value)}
@@ -701,3 +701,4 @@ export default function Auth() {
     </div>
   );
 }
+

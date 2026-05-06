@@ -75,29 +75,29 @@ export function GroupBuySection() {
   const { data: groupBuys, isLoading } = useGroupBuys();
 
   return (
-    <section className="py-16 bg-background">
-      <div className="container">
-        <div className="flex items-center justify-between mb-10">
-          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-primary/10">
-              <Users className="h-8 w-8 text-primary" />
+    <section className="bg-background py-12 sm:py-16">
+      <div className="container px-4 sm:px-6">
+        <div className="mb-8 flex flex-col gap-4 sm:mb-10 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3 sm:items-center sm:gap-4">
+            <div className="rounded-xl bg-primary/10 p-3">
+              <Users className="h-7 w-7 text-primary sm:h-8 sm:w-8" />
             </div>
             <div>
-              <h2 className="text-3xl font-bold font-serif text-foreground mb-1">
+              <h2 className="mb-1 text-2xl font-bold font-serif text-foreground sm:text-3xl">
                 Active Group Buys
               </h2>
-              <p className="text-muted-foreground">Join together, save more</p>
+              <p className="text-sm text-muted-foreground sm:text-base">Join together, save more</p>
             </div>
           </div>
           <Link to="/group-buys">
-            <Button variant="ghost" className="group">
+            <Button variant="ghost" className="group w-full justify-between sm:w-auto">
               View All
               <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
             </Button>
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
           {isLoading
             ? Array.from({ length: 3 }).map((_, i) => (
                 <Card key={i} className="overflow-hidden bg-card">
@@ -121,13 +121,13 @@ export function GroupBuySection() {
         )}
 
         {/* How it works */}
-        <div className="mt-12 p-8 rounded-2xl bg-card border border-border">
-          <h3 className="text-xl font-bold text-foreground mb-6 text-center">
+        <div className="mt-10 rounded-2xl border border-border bg-card p-5 sm:mt-12 sm:p-8">
+          <h3 className="mb-6 text-center text-lg font-bold text-foreground sm:text-xl">
             How Group Buys Work
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-4">
             <div className="text-center">
-              <div className="w-12 h-12 rounded-full bg-primary text-primary-foreground font-bold text-xl flex items-center justify-center mx-auto mb-3">
+              <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-primary text-lg font-bold text-primary-foreground sm:h-12 sm:w-12 sm:text-xl">
                 1
               </div>
               <h4 className="font-semibold text-foreground mb-1">Join a Group</h4>
@@ -136,7 +136,7 @@ export function GroupBuySection() {
               </p>
             </div>
             <div className="text-center">
-              <div className="w-12 h-12 rounded-full bg-primary text-primary-foreground font-bold text-xl flex items-center justify-center mx-auto mb-3">
+              <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-primary text-lg font-bold text-primary-foreground sm:h-12 sm:w-12 sm:text-xl">
                 2
               </div>
               <h4 className="font-semibold text-foreground mb-1">Share & Invite</h4>
@@ -145,7 +145,7 @@ export function GroupBuySection() {
               </p>
             </div>
             <div className="text-center">
-              <div className="w-12 h-12 rounded-full bg-primary text-primary-foreground font-bold text-xl flex items-center justify-center mx-auto mb-3">
+              <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-primary text-lg font-bold text-primary-foreground sm:h-12 sm:w-12 sm:text-xl">
                 3
               </div>
               <h4 className="font-semibold text-foreground mb-1">Goal Reached</h4>
@@ -154,7 +154,7 @@ export function GroupBuySection() {
               </p>
             </div>
             <div className="text-center">
-              <div className="w-12 h-12 rounded-full bg-primary text-primary-foreground font-bold text-xl flex items-center justify-center mx-auto mb-3">
+              <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-primary text-lg font-bold text-primary-foreground sm:h-12 sm:w-12 sm:text-xl">
                 4
               </div>
               <h4 className="font-semibold text-foreground mb-1">Save Together</h4>

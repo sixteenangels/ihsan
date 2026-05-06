@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Calculator, AlertTriangle, Info } from 'lucide-react';
+import { Calculator, AlertTriangle } from 'lucide-react';
 import { useCurrency } from '@/hooks/useCurrency';
 
 const categories = [
@@ -40,7 +40,7 @@ export default function CustomsDutyEstimator() {
   const [result, setResult] = useState<any>(null);
 
   const handleCalculate = () => {
-    const cat = categories.find(c => c.value === category);
+    const cat = categories.find((c) => c.value === category);
     if (!cat || !productValue) return;
 
     const cifValue = Number(productValue) + Number(shippingCost || 0);
@@ -49,8 +49,8 @@ export default function CustomsDutyEstimator() {
     const vat = dutyPlusValue * (cat.vatRate / 100);
     const nhil = dutyPlusValue * (cat.nhilRate / 100);
     const getfund = dutyPlusValue * (cat.getfundRate / 100);
-    const ecowasLevy = cifValue * 0.005; // 0.5%
-    const examLevy = cifValue * 0.01; // 1%
+    const ecowasLevy = cifValue * 0.005;
+    const examLevy = cifValue * 0.01;
     const totalDuty = importDuty + vat + nhil + getfund + ecowasLevy + examLevy;
 
     setResult({
@@ -69,24 +69,24 @@ export default function CustomsDutyEstimator() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="container py-8 max-w-2xl">
-        <div className="flex items-center gap-3 mb-8">
+      <main className="container max-w-2xl px-4 py-6 pb-24 sm:px-6 md:py-8 md:pb-8">
+        <div className="mb-8 flex items-start gap-3 sm:items-center">
           <Calculator className="h-6 w-6 text-primary" />
           <div>
-            <h1 className="text-3xl font-bold font-serif text-foreground">Customs Duty Estimator</h1>
-            <p className="text-muted-foreground">Estimate import duties for items shipped to Ghana</p>
+            <h1 className="text-2xl font-bold font-serif text-foreground sm:text-3xl">Customs Duty Estimator</h1>
+            <p className="text-sm text-muted-foreground sm:text-base">Estimate import duties for items shipped to Ghana</p>
           </div>
         </div>
 
         <Card className="mb-6">
           <CardHeader>
             <CardTitle>Enter Product Details</CardTitle>
-            <CardDescription>All values should be in Ghana Cedis (₵)</CardDescription>
+            <CardDescription>All values should be in Ghana Cedis (GHS)</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label>Product Value (₵)</Label>
+                <Label>Product Value (GHS)</Label>
                 <Input
                   type="number"
                   placeholder="e.g. 500"
@@ -95,7 +95,7 @@ export default function CustomsDutyEstimator() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Shipping Cost (₵)</Label>
+                <Label>Shipping Cost (GHS)</Label>
                 <Input
                   type="number"
                   placeholder="e.g. 100"
@@ -104,13 +104,13 @@ export default function CustomsDutyEstimator() {
                 />
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label>Product Category</Label>
                 <Select value={category} onValueChange={setCategory}>
                   <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
                   <SelectContent>
-                    {categories.map(c => (
+                    {categories.map((c) => (
                       <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
                     ))}
                   </SelectContent>
@@ -121,7 +121,7 @@ export default function CustomsDutyEstimator() {
                 <Select value={origin} onValueChange={setOrigin}>
                   <SelectTrigger><SelectValue placeholder="Select country" /></SelectTrigger>
                   <SelectContent>
-                    {origins.map(o => (
+                    {origins.map((o) => (
                       <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
                     ))}
                   </SelectContent>
@@ -129,7 +129,7 @@ export default function CustomsDutyEstimator() {
               </div>
             </div>
             <Button onClick={handleCalculate} disabled={!productValue || !category} className="w-full">
-              <Calculator className="h-4 w-4 mr-2" />
+              <Calculator className="mr-2 h-4 w-4" />
               Calculate Estimated Duty
             </Button>
           </CardContent>
@@ -138,59 +138,59 @@ export default function CustomsDutyEstimator() {
         {result && (
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex flex-wrap items-center gap-2">
                 Estimated Breakdown
                 <Badge variant="secondary">Estimate Only</Badge>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex justify-between py-2 border-b border-border">
+              <div className="flex justify-between gap-4 border-b border-border py-2">
                 <span className="text-muted-foreground">CIF Value (Product + Shipping)</span>
-                <span className="font-medium text-foreground">{formatPrice(result.cifValue)}</span>
+                <span className="text-right font-medium text-foreground">{formatPrice(result.cifValue)}</span>
               </div>
-              <div className="flex justify-between py-2 border-b border-border">
+              <div className="flex justify-between gap-4 border-b border-border py-2">
                 <span className="text-muted-foreground">Import Duty (20%)</span>
-                <span className="font-medium text-foreground">{formatPrice(result.importDuty)}</span>
+                <span className="text-right font-medium text-foreground">{formatPrice(result.importDuty)}</span>
               </div>
-              <div className="flex justify-between py-2 border-b border-border">
+              <div className="flex justify-between gap-4 border-b border-border py-2">
                 <span className="text-muted-foreground">VAT (15%)</span>
-                <span className="font-medium text-foreground">{formatPrice(result.vat)}</span>
+                <span className="text-right font-medium text-foreground">{formatPrice(result.vat)}</span>
               </div>
-              <div className="flex justify-between py-2 border-b border-border">
+              <div className="flex justify-between gap-4 border-b border-border py-2">
                 <span className="text-muted-foreground">NHIL (2.5%)</span>
-                <span className="font-medium text-foreground">{formatPrice(result.nhil)}</span>
+                <span className="text-right font-medium text-foreground">{formatPrice(result.nhil)}</span>
               </div>
-              <div className="flex justify-between py-2 border-b border-border">
+              <div className="flex justify-between gap-4 border-b border-border py-2">
                 <span className="text-muted-foreground">GETFund Levy (2.5%)</span>
-                <span className="font-medium text-foreground">{formatPrice(result.getfund)}</span>
+                <span className="text-right font-medium text-foreground">{formatPrice(result.getfund)}</span>
               </div>
-              <div className="flex justify-between py-2 border-b border-border">
+              <div className="flex justify-between gap-4 border-b border-border py-2">
                 <span className="text-muted-foreground">ECOWAS Levy (0.5%)</span>
-                <span className="font-medium text-foreground">{formatPrice(result.ecowasLevy)}</span>
+                <span className="text-right font-medium text-foreground">{formatPrice(result.ecowasLevy)}</span>
               </div>
-              <div className="flex justify-between py-2 border-b border-border">
+              <div className="flex justify-between gap-4 border-b border-border py-2">
                 <span className="text-muted-foreground">Examination Levy (1%)</span>
-                <span className="font-medium text-foreground">{formatPrice(result.examLevy)}</span>
+                <span className="text-right font-medium text-foreground">{formatPrice(result.examLevy)}</span>
               </div>
-              <div className="flex justify-between py-3 bg-destructive/5 -mx-6 px-6 rounded-lg">
+              <div className="-mx-6 flex justify-between gap-4 rounded-lg bg-destructive/5 px-6 py-3">
                 <span className="font-semibold text-destructive">Total Estimated Duty</span>
-                <span className="font-bold text-destructive text-lg">{formatPrice(result.totalDuty)}</span>
+                <span className="text-right text-lg font-bold text-destructive">{formatPrice(result.totalDuty)}</span>
               </div>
-              <div className="flex justify-between py-3 bg-primary/5 -mx-6 px-6 rounded-lg">
+              <div className="-mx-6 flex justify-between gap-4 rounded-lg bg-primary/5 px-6 py-3">
                 <span className="font-semibold text-primary">Total Estimated Cost</span>
-                <span className="font-bold text-primary text-lg">{formatPrice(result.totalCost)}</span>
+                <span className="text-right text-lg font-bold text-primary">{formatPrice(result.totalCost)}</span>
               </div>
             </CardContent>
           </Card>
         )}
 
         <Card className="mt-6">
-          <CardContent className="pt-6 flex gap-3">
-            <AlertTriangle className="h-5 w-5 text-yellow-500 shrink-0 mt-0.5" />
+          <CardContent className="flex gap-3 pt-6">
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-yellow-500" />
             <div>
-              <p className="text-sm text-foreground font-medium mb-1">Disclaimer</p>
+              <p className="mb-1 text-sm font-medium text-foreground">Disclaimer</p>
               <p className="text-xs text-muted-foreground">
-                This is an estimate only. Actual customs duties may vary based on Ghana Customs Service (GCS) classification,
+                This is an estimate only. Actual customs duties may vary based on Ghana Customs Service classification,
                 exchange rates, and additional fees. For high-value shipments, we recommend consulting a customs broker.
                 Ihsan handles all customs clearance for orders placed through our platform.
               </p>

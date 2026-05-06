@@ -411,7 +411,7 @@ export default function Profile() {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
@@ -467,7 +467,7 @@ export default function Profile() {
                   <CardDescription>Manage your personal details</CardDescription>
                 </div>
                 {!editingProfile ? (
-                  <Button variant="outline" size="sm" onClick={() => setEditingProfile(true)}>
+                  <Button variant="outline" size="sm" onClick={() => setEditingProfile(true)} className="self-start sm:self-auto">
                     <Edit2 className="h-4 w-4 mr-2" />
                     Edit
                   </Button>
@@ -483,7 +483,7 @@ export default function Profile() {
                 )}
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label className="flex items-center gap-2">
                       <User className="h-4 w-4" /> Name
@@ -676,13 +676,13 @@ export default function Profile() {
               </CardHeader>
               <CardContent>
                 {addresses.length === 0 ? (
-                  <p className="text-muted-foreground text-center py-8">No addresses saved yet</p>
+                  <p className="py-8 text-center text-muted-foreground">No addresses saved yet</p>
                 ) : (
                   <div className="space-y-4">
                     {addresses.map((address) => (
                       <div
                         key={address.id}
-                        className="flex items-start justify-between p-4 border border-border rounded-lg"
+                        className="flex flex-col gap-4 rounded-lg border border-border p-4 sm:flex-row sm:items-start sm:justify-between"
                       >
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
@@ -704,14 +704,14 @@ export default function Profile() {
                           </p>
                           <p className="text-sm text-muted-foreground">{address.country}</p>
                         </div>
-                        <div className="flex gap-2">
-                          <Button variant="ghost" size="icon" onClick={() => openEditAddress(address)}>
+                        <div className="flex gap-2 self-start sm:self-auto">
+                          <Button variant="ghost" size="icon" className="h-10 w-10" onClick={() => openEditAddress(address)}>
                             <Edit2 className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="text-destructive"
+                            className="h-10 w-10 text-destructive"
                             onClick={() => handleDeleteAddress(address.id)}
                           >
                             <Trash2 className="h-4 w-4" />
@@ -744,7 +744,7 @@ export default function Profile() {
                     <h3 className="text-lg font-medium text-foreground mb-2">No orders yet</h3>
                     <p className="text-muted-foreground mb-6">Start shopping to see your orders here</p>
                     <Link to="/products">
-                      <Button>Browse Products</Button>
+                      <Button className="w-full sm:w-auto">Browse Products</Button>
                     </Link>
                   </div>
                 ) : (
@@ -758,7 +758,7 @@ export default function Profile() {
                                 <p className="text-sm text-muted-foreground">Order</p>
                                 <p className="font-semibold text-foreground">{order.order_number}</p>
                               </div>
-                              <div className="hidden sm:block text-muted-foreground">•</div>
+                              <div className="hidden sm:block text-muted-foreground">-</div>
                               <div>
                                 <p className="text-sm text-muted-foreground">Placed</p>
                                 <p className="font-medium text-foreground">
@@ -776,9 +776,9 @@ export default function Profile() {
                         <div className="p-4">
                           <div className="space-y-2 mb-4">
                             {order.order_items.slice(0, 2).map((item) => (
-                              <div key={item.id} className="flex items-center justify-between text-sm">
+                              <div key={item.id} className="flex items-center justify-between gap-3 text-sm">
                                 <span className="text-foreground">
-                                  {item.product_name} × {item.quantity}
+                                  {item.product_name} x {item.quantity}
                                 </span>
                                 <span className="text-muted-foreground">{formatPrice(item.total_price)}</span>
                               </div>
@@ -789,7 +789,7 @@ export default function Profile() {
                               </p>
                             )}
                           </div>
-                          <div className="flex items-center justify-between pt-4 border-t border-border">
+                          <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
                               <Truck className="h-4 w-4" />
                               <span>
@@ -805,9 +805,9 @@ export default function Profile() {
                                 )}
                               </span>
                             </div>
-                            <div className="flex items-center gap-3">
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
                               <Link to={`/track-order/${order.id}`}>
-                                <Button variant="outline" size="sm">Track Order</Button>
+                                <Button variant="outline" size="sm" className="w-full sm:w-auto">Track Order</Button>
                               </Link>
                               {order.status === 'delivered' && (
                                 <RefundRequestDialog

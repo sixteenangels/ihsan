@@ -16,22 +16,22 @@ export function CategorySection() {
   const { data: categories, isLoading } = useCategories();
 
   return (
-    <section className="py-16 bg-background">
-      <div className="container">
-        <div className="text-center mb-10">
-          <h2 className="text-3xl font-bold font-serif text-foreground mb-3">
+    <section className="bg-background py-12 sm:py-16">
+      <div className="container px-4 sm:px-6">
+        <div className="mb-8 text-center sm:mb-10">
+          <h2 className="mb-3 text-2xl font-bold font-serif text-foreground sm:text-3xl">
             Shop by Category
           </h2>
-          <p className="text-muted-foreground max-w-xl mx-auto">
+          <p className="mx-auto max-w-xl text-sm text-muted-foreground sm:text-base">
             Discover products from around the world, organized for easy browsing
           </p>
         </div>
 
-        <div className="grid grid-cols-3 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6">
           {isLoading
             ? Array.from({ length: 6 }).map((_, i) => (
                 <Card key={i} className="bg-card">
-                  <CardContent className="p-4 sm:p-6 text-center">
+                  <CardContent className="p-4 text-center sm:p-6">
                     <Skeleton className="h-10 w-10 rounded-full mx-auto mb-3" />
                     <Skeleton className="h-5 w-20 mx-auto mb-2" />
                     <Skeleton className="h-4 w-12 mx-auto" />
@@ -41,14 +41,14 @@ export function CategorySection() {
             : categories?.map((category) => (
                 <Link key={category.id} to={`/products?category=${category.name}`}>
                   <Card className="group hover:shadow-md transition-all duration-300 hover:border-primary cursor-pointer bg-card">
-                    <CardContent className="p-3 sm:p-6 text-center">
-                      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-2 sm:mb-3 group-hover:bg-primary/20 transition-colors">
+                    <CardContent className="p-4 text-center sm:p-6">
+                      <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 transition-colors group-hover:bg-primary/20 sm:h-12 sm:w-12">
                         <CategoryIcon name={category.name} className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
                       </div>
-                      <h3 className="font-semibold text-foreground text-xs sm:text-sm group-hover:text-primary transition-colors leading-tight">
+                      <h3 className="line-clamp-2 min-h-[2.5rem] text-sm font-semibold leading-tight text-foreground transition-colors group-hover:text-primary sm:text-sm">
                         {category.name}
                       </h3>
-                      <p className="text-[10px] sm:text-sm text-muted-foreground mt-0.5">
+                      <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
                         ({category.product_count || 0})
                       </p>
                     </CardContent>

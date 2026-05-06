@@ -773,7 +773,7 @@ export default function Checkout() {
         order_id: order.id,
         product_variant_id: item.variant.id,
         product_name: item.product.name,
-        variant_details: `${item.variant.color || ''}${item.variant.size ? ` â€¢ ${item.variant.size}` : ''}`,
+        variant_details: [item.variant.color, item.variant.size].filter(Boolean).join(' - '),
         quantity: item.quantity,
         unit_price: item.variant.price,
         total_price: item.variant.price * item.quantity,
@@ -821,7 +821,7 @@ export default function Checkout() {
               user_id: user.id,
               points: pointsToAward,
               type: 'earn',
-              description: `Order #${order.order_number} â€” ${pointsToAward} points earned`,
+              description: `Order #${order.order_number} - ${pointsToAward} points earned`,
               order_id: order.id,
             });
           }
@@ -839,8 +839,8 @@ export default function Checkout() {
         if (adminRoles && adminRoles.length > 0) {
           const adminNotifications = adminRoles.map(r => ({
             user_id: r.user_id,
-            title: 'ðŸ›ï¸ New Order Received',
-            message: `Order ${order.order_number} â€” ${formatPrice(total)} placed.`,
+            title: 'New Order Received',
+            message: `Order ${order.order_number} - ${formatPrice(total)} placed.`,
             type: 'new_order',
             data: { orderId: order.id, orderNumber: order.order_number, total },
           }));
@@ -976,7 +976,7 @@ export default function Checkout() {
         order_id: order.id,
         product_variant_id: item.variant.id,
         product_name: item.product.name,
-        variant_details: `${item.variant.color || ''}${item.variant.size ? ` • ${item.variant.size}` : ''}`,
+        variant_details: [item.variant.color, item.variant.size].filter(Boolean).join(' - '),
         quantity: item.quantity,
         unit_price: item.variant.price,
         total_price: item.variant.price * item.quantity,
@@ -1027,7 +1027,7 @@ export default function Checkout() {
               user_id: user.id,
               points: pointsToAward,
               type: 'earn',
-              description: `Order #${order.order_number} — ${pointsToAward} points earned`,
+              description: `Order #${order.order_number} - ${pointsToAward} points earned`,
               order_id: order.id,
             });
           }
@@ -1046,8 +1046,8 @@ export default function Checkout() {
         if (adminRoles && adminRoles.length > 0) {
           const adminNotifications = adminRoles.map(r => ({
             user_id: r.user_id,
-            title: '🛍️ New Order Received',
-            message: `Order ${order.order_number} — ${formatPrice(total)} placed.`,
+            title: 'New Order Received',
+            message: `Order ${order.order_number} - ${formatPrice(total)} placed.`,
             type: 'new_order',
             data: { orderId: order.id, orderNumber: order.order_number, total },
           }));
@@ -1101,7 +1101,7 @@ export default function Checkout() {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <main className="container py-16">
+        <main className="container px-4 py-16 pb-24 sm:px-6 md:pb-8">
           <div className="text-center">Loading...</div>
         </main>
         <Footer />
@@ -1191,8 +1191,8 @@ export default function Checkout() {
                     <DialogHeader>
                       <DialogTitle>Add New Address</DialogTitle>
                     </DialogHeader>
-                    <div className="space-y-4 mt-4">
-                      <div className="grid grid-cols-2 gap-4">
+                    <div className="mt-4 space-y-4">
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div className="col-span-2">
                           <Label>Full Name *</Label>
                           <Input
@@ -1376,7 +1376,7 @@ export default function Checkout() {
                             <div>
                               <p className="font-medium text-foreground">Standard Packaging</p>
                               <p className="text-sm text-muted-foreground">
-                                Factory packaging only — no extra protection.
+                                Factory packaging only - no extra protection.
                               </p>
                             </div>
                           </div>
@@ -1522,7 +1522,7 @@ export default function Checkout() {
               <CardContent>
                 <div className="space-y-3">
                   {selectedItems.map((item) => (
-                    <div key={item.id} className="flex gap-3">
+                    <div key={item.id} className="flex items-start gap-3 rounded-lg bg-muted/30 p-3">
                       <div className="h-16 w-16 rounded-lg overflow-hidden flex-shrink-0">
                         <img
                           src={item.product.images[0]}
@@ -1530,10 +1530,10 @@ export default function Checkout() {
                           className="w-full h-full object-cover"
                         />
                       </div>
-                      <div className="flex-1 min-w-0">
+                      <div className="min-w-0 flex-1">
                         <h4 className="font-medium text-foreground line-clamp-1">{item.product.name}</h4>
                         <p className="text-sm text-muted-foreground">
-                          {item.variant.color} {item.variant.size && `• ${item.variant.size}`} × {item.quantity}
+                          {[item.variant.color, item.variant.size].filter(Boolean).join(' - ') || 'Standard option'} x {item.quantity}
                         </p>
                       </div>
                       <p className="mt-1 self-end text-sm font-medium text-foreground sm:hidden">
@@ -1687,7 +1687,7 @@ export default function Checkout() {
                 Ref: {pendingPaymentRef}
               </p>
             )}
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <Button
                 variant="outline"
                 className="flex-1"
@@ -1727,7 +1727,7 @@ export default function Checkout() {
             <p className="text-sm text-foreground">
               Standard Courier means your package will be delivered first, and you will pay the courier fee on receipt.
             </p>
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <Button
                 variant="outline"
                 className="flex-1"
@@ -1770,7 +1770,7 @@ export default function Checkout() {
               responsibility for any physical damage during transit. No refunds or replacements
               will be issued with this option.
             </p>
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <Button
                 variant="outline"
                 className="flex-1"

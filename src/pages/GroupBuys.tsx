@@ -25,7 +25,7 @@ export default function GroupBuys() {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <main className="container py-16 text-center">
+        <main className="container px-4 py-16 text-center sm:px-6">
           <Ban className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
           <h1 className="text-2xl font-bold text-foreground mb-2">Feature Disabled</h1>
           <p className="text-muted-foreground">Group Buys is currently disabled.</p>
@@ -54,7 +54,7 @@ export default function GroupBuys() {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <main className="container py-8 flex items-center justify-center min-h-[60vh]">
+        <main className="container flex min-h-[60vh] items-center justify-center px-4 py-8 sm:px-6">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </main>
         <Footer />
@@ -65,34 +65,34 @@ export default function GroupBuys() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="container py-8 pb-24 md:pb-8">
-        <div className="text-center mb-12">
-          <div className="inline-flex p-4 rounded-2xl bg-primary/10 mb-4">
-            <Users className="h-12 w-12 text-primary" />
+      <main className="container px-4 py-6 pb-24 sm:px-6 md:py-8 md:pb-8">
+        <div className="mb-10 text-center sm:mb-12">
+          <div className="mb-4 inline-flex rounded-2xl bg-primary/10 p-3 sm:p-4">
+            <Users className="h-10 w-10 text-primary sm:h-12 sm:w-12" />
           </div>
-          <h1 className="text-4xl font-bold font-serif text-foreground mb-3">Group Buys</h1>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+          <h1 className="mb-3 text-3xl font-bold font-serif text-foreground sm:text-4xl">Group Buys</h1>
+          <p className="mx-auto max-w-2xl text-base text-muted-foreground sm:text-lg">
             Join other shoppers to unlock fixed group pricing on products you already want.
           </p>
         </div>
 
-        <div className="grid grid-cols-3 gap-4 max-w-2xl mx-auto mb-8">
-          <div className="text-center p-4 rounded-xl bg-card border border-border">
-            <p className="text-3xl font-bold text-primary">{activeGroupBuys.length}</p>
+        <div className="mx-auto mb-8 grid max-w-2xl grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
+          <div className="rounded-xl border border-border bg-card p-4 text-center">
+            <p className="text-2xl font-bold text-primary sm:text-3xl">{activeGroupBuys.length}</p>
             <p className="text-sm text-muted-foreground">Active Groups</p>
           </div>
-          <div className="text-center p-4 rounded-xl bg-card border border-border">
-            <p className="text-3xl font-bold text-primary">{totalParticipants}</p>
+          <div className="rounded-xl border border-border bg-card p-4 text-center">
+            <p className="text-2xl font-bold text-primary sm:text-3xl">{totalParticipants}</p>
             <p className="text-sm text-muted-foreground">Participants</p>
           </div>
-          <div className="text-center p-4 rounded-xl bg-card border border-border">
-            <p className="text-3xl font-bold text-primary">Up to {maxSavings}%</p>
+          <div className="rounded-xl border border-border bg-card p-4 text-center">
+            <p className="text-2xl font-bold text-primary sm:text-3xl">Up to {maxSavings}%</p>
             <p className="text-sm text-muted-foreground">Potential Savings</p>
           </div>
         </div>
 
         <Tabs defaultValue="active" className="mb-8">
-          <TabsList className="mb-6">
+          <TabsList className="mb-6 grid h-auto w-full grid-cols-1 gap-2 p-1 sm:inline-flex sm:w-auto sm:grid-cols-none">
             <TabsTrigger value="active">Active Group Buys</TabsTrigger>
             {user ? (
               <TabsTrigger value="mine">
@@ -106,7 +106,7 @@ export default function GroupBuys() {
 
           <TabsContent value="active">
             {activeGroupBuys.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {activeGroupBuys.map((groupBuy) => (
                   <GroupBuyCard key={groupBuy.id} groupBuy={groupBuy} />
                 ))}
@@ -151,8 +151,8 @@ export default function GroupBuys() {
                       <Link key={participation.id} to={`/group-buy/${groupBuy.id}`}>
                         <Card className="hover:shadow-md transition-shadow">
                           <CardContent className="p-4">
-                            <div className="flex gap-4">
-                              <div className="w-20 h-20 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                            <div className="flex flex-col gap-4 sm:flex-row">
+                              <div className="h-20 w-full overflow-hidden rounded-lg bg-muted sm:w-20 sm:flex-shrink-0">
                                 <img
                                   src={groupBuy.product.images[0] || '/placeholder.svg'}
                                   alt={groupBuy.product.name}
@@ -160,15 +160,15 @@ export default function GroupBuys() {
                                 />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <h3 className="font-medium text-foreground truncate">
+                                <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+                                  <h3 className="font-medium text-foreground sm:truncate">
                                     {groupBuy.title || groupBuy.product.name}
                                   </h3>
                                   <Badge className={`${statusColor} gap-1 flex-shrink-0`}>
                                     {statusIcon} {groupBuy.status}
                                   </Badge>
                                 </div>
-                                <div className="flex items-center gap-4 text-sm mb-2">
+                                <div className="mb-2 flex flex-wrap items-center gap-3 text-sm">
                                   <span className="text-primary font-bold">{formatPrice(groupPrice)}</span>
                                   <span className="text-muted-foreground">Qty: {participation.quantity || 1}</span>
                                   {participation.payment_status === 'paid' ? (
@@ -200,8 +200,8 @@ export default function GroupBuys() {
           ) : null}
         </Tabs>
 
-        <div className="mt-16 grid md:grid-cols-2 gap-8">
-          <div className="p-8 rounded-2xl bg-card border border-border">
+        <div className="mt-12 grid gap-6 md:mt-16 md:grid-cols-2 md:gap-8">
+          <div className="rounded-2xl border border-border bg-card p-6 sm:p-8">
             <h3 className="text-xl font-bold text-foreground mb-4">Why Group Buy?</h3>
             <ul className="space-y-3 text-muted-foreground">
               <li className="flex items-start gap-2"><span className="text-primary">+</span> Lock in a fixed group price before checkout</li>
@@ -210,7 +210,7 @@ export default function GroupBuys() {
               <li className="flex items-start gap-2"><span className="text-primary">+</span> Get refunded if the group does not fill</li>
             </ul>
           </div>
-          <div className="p-8 rounded-2xl bg-card border border-border">
+          <div className="rounded-2xl border border-border bg-card p-6 sm:p-8">
             <h3 className="text-xl font-bold text-foreground mb-4">Group Buy Rules</h3>
             <ul className="space-y-3 text-muted-foreground">
               <li className="flex items-start gap-2"><span className="text-primary">1.</span> Pay when you join to secure your spot</li>

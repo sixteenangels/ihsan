@@ -556,7 +556,7 @@ export default function MyOrders() {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <main className="container py-16">
+        <main className="container px-4 py-16 pb-24 sm:px-6 md:pb-8">
           <div className="text-center">Loading orders...</div>
         </main>
         <Footer />
@@ -650,7 +650,7 @@ export default function MyOrders() {
                                   {new Date(order.created_at).toLocaleDateString('en-US', {
                                     month: 'short', day: 'numeric', year: 'numeric',
                                   })}
-                                  {' · '}{order.order_items.length} item{order.order_items.length > 1 ? 's' : ''}
+                                  {' - '}{order.order_items.length} item{order.order_items.length > 1 ? 's' : ''}
                                 </p>
                               </div>
                             </div>
@@ -671,13 +671,13 @@ export default function MyOrders() {
                             )}
                           </div>
 
-                          {/* Quick action row — always visible */}
-                          <div className="mt-3 grid grid-cols-3 gap-2">
+                          {/* Quick action row, always visible */}
+                          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
                             <Button
                               size="sm"
                               variant="outline"
                               onClick={() => toggleOrderExpansion(order.id)}
-                              className="h-auto w-full px-2 py-2 text-[11px] leading-tight sm:text-sm"
+                              className="h-auto w-full justify-center px-3 py-2 text-xs leading-tight sm:text-sm"
                             >
                               <Eye className="h-3.5 w-3.5 mr-1" />
                               {isExpanded ? 'Hide' : 'Details'}
@@ -686,7 +686,7 @@ export default function MyOrders() {
                               size="sm"
                               variant="outline"
                               onClick={() => handleBuyAgain(order)}
-                              className="h-auto w-full px-2 py-2 text-[11px] leading-tight sm:text-sm"
+                              className="h-auto w-full justify-center px-3 py-2 text-xs leading-tight sm:text-sm"
                             >
                               <ShoppingBag className="h-3.5 w-3.5 mr-1" />
                               Buy Again
@@ -704,9 +704,9 @@ export default function MyOrders() {
                               <Button
                                 size="sm"
                                 onClick={() => handleConfirmDelivery(order)}
-                              disabled={order.status !== 'out_for_delivery'}
-                              className="h-auto w-full px-2 py-2 text-[11px] leading-tight sm:text-sm"
-                              title={
+                                disabled={order.status !== 'out_for_delivery'}
+                                className="h-auto w-full justify-center px-3 py-2 text-xs leading-tight sm:text-sm"
+                                title={
                                   order.status !== 'out_for_delivery'
                                     ? 'Available once order is out for delivery'
                                     : undefined
@@ -913,7 +913,7 @@ export default function MyOrders() {
                             {/* Order Items with images */}
                             <div className="space-y-2">
                               {order.order_items.map((item) => (
-                                <div key={item.id} className="flex items-center gap-3 p-2 bg-muted/30 rounded-lg">
+                                <div key={item.id} className="flex items-start gap-3 rounded-lg bg-muted/30 p-3">
                                   <div className="w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 border border-border bg-muted">
                                     {productImages[item.product_variant_id] ? (
                                       <img
@@ -927,14 +927,14 @@ export default function MyOrders() {
                                       </div>
                                     )}
                                   </div>
-                                  <div className="flex-1 min-w-0">
+                                  <div className="min-w-0 flex-1">
                                     <p className="text-sm font-medium text-foreground truncate">{item.product_name}</p>
                                     {item.variant_details && (
                                       <p className="text-xs text-primary">{item.variant_details}</p>
                                     )}
                                     <p className="text-xs text-muted-foreground">Qty: {item.quantity}</p>
                                   </div>
-                                  <p className="font-semibold text-primary text-sm">{formatPrice(item.total_price)}</p>
+                                  <p className="mt-1 text-sm font-semibold text-primary sm:self-center">{formatPrice(item.total_price)}</p>
                                 </div>
                               ))}
                             </div>
@@ -955,10 +955,11 @@ export default function MyOrders() {
                             <Separator />
 
                             {/* Actions - Always visible, not hidden in dropdown */}
-                            <div className="flex flex-wrap gap-2">
+                            <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
                               {order.status === 'pending' && (
                                 <Button
                                   size="sm"
+                                  className="w-full sm:w-auto"
                                   onClick={async () => {
                                     const { error } = await supabase
                                       .from('orders')
@@ -976,6 +977,7 @@ export default function MyOrders() {
                               {order.status === 'out_for_delivery' && (
                                 <Button
                                   size="sm"
+                                  className="w-full sm:w-auto"
                                   onClick={() => handleConfirmDelivery(order)}
                                 >
                                   <CheckCircle className="h-3.5 w-3.5 mr-1" />
@@ -986,7 +988,7 @@ export default function MyOrders() {
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  className="text-destructive border-destructive/50 hover:bg-destructive/10"
+                                  className="w-full border-destructive/50 text-destructive hover:bg-destructive/10 sm:w-auto"
                                   onClick={async () => {
                                     if (!confirm('Are you sure you want to cancel this order?')) return;
                                     const { error } = await supabase
@@ -1003,7 +1005,7 @@ export default function MyOrders() {
                                 </Button>
                               )}
                               <Link to={`/track-order/${order.id}`}>
-                                <Button variant="outline" size="sm">
+                                <Button variant="outline" size="sm" className="w-full sm:w-auto">
                                   <MapPin className="h-3.5 w-3.5 mr-1" />
                                   Track
                                 </Button>
@@ -1015,6 +1017,7 @@ export default function MyOrders() {
                                   <Button
                                     size="sm"
                                     variant="default"
+                                    className="w-full sm:w-auto"
                                     onClick={() => handleBuyAgain(order)}
                                   >
                                     <ShoppingBag className="h-3.5 w-3.5 mr-1" />
@@ -1023,6 +1026,7 @@ export default function MyOrders() {
                                   <Button
                                     size="sm"
                                     variant="outline"
+                                    className="w-full sm:w-auto"
                                     onClick={() => setReviewDialogOrder(order)}
                                   >
                                     <Star className="h-3.5 w-3.5 mr-1" />
@@ -1121,11 +1125,11 @@ export default function MyOrders() {
                 rows={3}
               />
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <Button onClick={handleSubmitReview} disabled={reviewSubmitting} className="flex-1">
                 {reviewSubmitting ? 'Submitting...' : 'Submit Review'}
               </Button>
-              <Button variant="outline" onClick={() => setReviewDialogOrder(null)}>
+              <Button variant="outline" className="w-full sm:w-auto" onClick={() => setReviewDialogOrder(null)}>
                 Later
               </Button>
             </div>

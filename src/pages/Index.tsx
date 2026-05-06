@@ -14,7 +14,7 @@ const Index = () => {
         <HeroSection />
         <CategorySection />
         <FeaturedProducts />
-        <div className="container">
+        <div className="container px-4 sm:px-6">
           <RecentlyViewedProducts />
         </div>
         <GroupBuySection />

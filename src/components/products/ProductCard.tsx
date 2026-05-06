@@ -64,9 +64,9 @@ export function ProductCard({ product, onQuickView, viewMode = 'grid' }: Product
     return (
       <Link to={`/product/${product.id}`}>
         <Card className="group overflow-hidden hover:shadow-lg transition-all duration-300 border-border bg-card">
-          <div className="flex">
+          <div className="flex flex-col sm:flex-row">
             {/* Image - horizontal layout */}
-            <div className="relative w-28 sm:w-48 flex-shrink-0 overflow-hidden">
+            <div className="relative aspect-[4/3] w-full overflow-hidden sm:aspect-auto sm:w-48 sm:flex-shrink-0">
               <img
                 src={product.images[0]}
                 alt={product.name}
@@ -88,26 +88,28 @@ export function ProductCard({ product, onQuickView, viewMode = 'grid' }: Product
               </div>
             </div>
             {/* Content */}
-            <CardContent className="flex-1 p-3 sm:p-4 flex flex-col justify-between min-w-0">
+            <CardContent className="flex min-w-0 flex-1 flex-col justify-between p-4 sm:p-4">
               <div>
-                <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5">{product.category}</p>
-                <h3 className="font-semibold text-foreground text-sm sm:text-lg mb-1 line-clamp-2 group-hover:text-primary transition-colors">
+                <p className="mb-1 text-xs text-muted-foreground">{product.category}</p>
+                <h3 className="mb-2 line-clamp-2 text-base font-semibold text-foreground transition-colors group-hover:text-primary sm:text-lg">
                   {product.name}
                 </h3>
-                <p className="text-xs text-muted-foreground line-clamp-2 mb-2 hidden sm:block">
+                <p className="mb-3 line-clamp-2 text-sm text-muted-foreground">
                   {product.description}
                 </p>
               </div>
-              <div className="flex items-center justify-between">
-                <p className="text-base sm:text-xl font-bold text-primary">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-lg font-bold text-primary sm:text-xl">
                   {formatPrice(product.basePrice)}
                 </p>
-                <div className="flex items-center gap-1">
-                  <Star className="h-3.5 w-3.5 fill-accent-foreground text-accent-foreground" />
-                  <span className="text-xs text-muted-foreground">
-                    {product.rating}
-                  </span>
-                  <div className="flex gap-0.5 ml-1">
+                <div className="flex items-center justify-between gap-3 sm:justify-end">
+                  <div className="flex items-center gap-1">
+                    <Star className="h-3.5 w-3.5 fill-accent-foreground text-accent-foreground" />
+                    <span className="text-xs text-muted-foreground">
+                      {product.rating}
+                    </span>
+                  </div>
+                  <div className="ml-auto flex gap-0.5 sm:ml-1">
                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleWishlistClick}>
                       <Heart className={`h-3.5 w-3.5 ${inWishlist ? 'fill-destructive text-destructive' : 'text-muted-foreground'}`} />
                     </Button>
@@ -129,7 +131,7 @@ export function ProductCard({ product, onQuickView, viewMode = 'grid' }: Product
   // Grid view - 2 columns on mobile with compact cards
   return (
     <Link to={`/product/${product.id}`}>
-      <Card className="group overflow-hidden hover:shadow-lg transition-all duration-300 border-border bg-card">
+      <Card className="group overflow-hidden border-border bg-card transition-all duration-300 hover:shadow-lg">
         <div className="relative aspect-square overflow-hidden">
           <img
             src={product.images[0]}
@@ -193,13 +195,13 @@ export function ProductCard({ product, onQuickView, viewMode = 'grid' }: Product
             )}
           </div>
         </div>
-        <CardContent className="p-2.5 sm:p-4">
-          <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5">{product.category}</p>
-          <h3 className="font-semibold text-foreground line-clamp-1 text-xs sm:text-sm mb-1 group-hover:text-primary transition-colors">
+        <CardContent className="p-3 sm:p-4">
+          <p className="mb-1 text-[11px] text-muted-foreground sm:text-xs">{product.category}</p>
+          <h3 className="mb-2 line-clamp-2 min-h-[2.5rem] text-sm font-semibold text-foreground transition-colors group-hover:text-primary sm:text-sm">
             {product.name}
           </h3>
           <div className="flex items-center justify-between">
-            <p className="text-sm sm:text-lg font-bold text-primary">
+            <p className="text-base font-bold text-primary sm:text-lg">
               {formatPrice(product.basePrice)}
             </p>
             <div className="flex items-center gap-0.5">

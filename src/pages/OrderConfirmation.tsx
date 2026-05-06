@@ -40,7 +40,7 @@ export default function OrderConfirmation() {
   }, [orderId]);
 
   const fetchOrder = async () => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('orders')
       .select('*')
       .eq('id', orderId)
@@ -57,7 +57,7 @@ export default function OrderConfirmation() {
 
   const handleShareWhatsApp = () => {
     if (!order) return;
-    const text = `I just placed an order on Ihsan! Order #${order.order_number} - ${formatPrice(order.total_amount)} 🛍️`;
+    const text = `I just placed an order on Ihsan! Order #${order.order_number} - ${formatPrice(order.total_amount)}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
   };
 
@@ -70,7 +70,7 @@ export default function OrderConfirmation() {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <main className="container py-16"><div className="text-center">Loading...</div></main>
+        <main className="container px-4 py-16 sm:px-6"><div className="text-center">Loading...</div></main>
         <Footer />
       </div>
     );
@@ -80,7 +80,7 @@ export default function OrderConfirmation() {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <main className="container py-16"><div className="text-center">Order not found</div></main>
+        <main className="container px-4 py-16 sm:px-6"><div className="text-center">Order not found</div></main>
         <Footer />
       </div>
     );
@@ -89,35 +89,35 @@ export default function OrderConfirmation() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="container py-16">
-        <div className="max-w-2xl mx-auto text-center">
-          <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-6">
+      <main className="container px-4 py-10 pb-24 sm:px-6 sm:py-16 md:pb-8">
+        <div className="mx-auto max-w-2xl text-center">
+          <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-green-100">
             <Check className="h-10 w-10 text-green-600" />
           </div>
 
-          <h1 className="text-3xl font-bold font-serif text-foreground mb-2">Order Confirmed!</h1>
-          <p className="text-muted-foreground mb-8">
-            Thank you for your order. We've received your payment and will process your order shortly.
+          <h1 className="mb-2 text-2xl font-bold font-serif text-foreground sm:text-3xl">Order Confirmed!</h1>
+          <p className="mb-8 text-sm text-muted-foreground sm:text-base">
+            Thank you for your order. We&apos;ve received your payment and will process your order shortly.
           </p>
 
-          <Card className="text-left mb-8">
-            <CardContent className="p-6 space-y-6">
-              <div className="flex items-center justify-between">
+          <Card className="mb-8 text-left">
+            <CardContent className="space-y-6 p-5 sm:p-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Order Number</p>
                   <p className="font-semibold text-foreground">{order.order_number}</p>
                 </div>
-                <div className="text-right">
+                <div className="text-left sm:text-right">
                   <p className="text-sm text-muted-foreground">Total Amount</p>
-                  <p className="font-semibold text-primary text-lg">{formatPrice(order.total_amount)}</p>
+                  <p className="text-lg font-semibold text-primary">{formatPrice(order.total_amount)}</p>
                 </div>
               </div>
 
               <div className="border-t border-border pt-4">
                 <div className="flex items-start gap-3">
-                  <MapPin className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <MapPin className="mt-0.5 h-5 w-5 text-muted-foreground" />
                   <div>
-                    <p className="text-sm text-muted-foreground mb-1">Delivery Address</p>
+                    <p className="mb-1 text-sm text-muted-foreground">Delivery Address</p>
                     <p className="font-medium text-foreground">{order.shipping_address?.full_name}</p>
                     <p className="text-sm text-muted-foreground">
                       {order.shipping_address?.address_line1}, {order.shipping_address?.city}
@@ -130,9 +130,9 @@ export default function OrderConfirmation() {
 
               <div className="border-t border-border pt-4">
                 <div className="flex items-start gap-3">
-                  <Truck className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <Truck className="mt-0.5 h-5 w-5 text-muted-foreground" />
                   <div>
-                    <p className="text-sm text-muted-foreground mb-1">Estimated Delivery</p>
+                    <p className="mb-1 text-sm text-muted-foreground">Estimated Delivery</p>
                     <p className="font-medium text-foreground">
                       {order.estimated_delivery_start && order.estimated_delivery_end ? (
                         <>
@@ -150,37 +150,36 @@ export default function OrderConfirmation() {
             </CardContent>
           </Card>
 
-          {/* Share your order */}
           <Card className="mb-8">
             <CardContent className="p-6">
-              <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2 justify-center">
+              <h3 className="mb-3 flex items-center justify-center gap-2 font-semibold text-foreground">
                 <Share2 className="h-5 w-5" />
                 Share your order
               </h3>
-              <div className="flex gap-3 justify-center">
-                <Button variant="outline" onClick={handleShareWhatsApp}>
+              <div className="flex flex-col justify-center gap-3 sm:flex-row">
+                <Button variant="outline" onClick={handleShareWhatsApp} className="w-full sm:w-auto">
                   WhatsApp
                 </Button>
-                <Button variant="outline" onClick={handleCopyLink}>
-                  <Copy className="h-4 w-4 mr-2" />
+                <Button variant="outline" onClick={handleCopyLink} className="w-full sm:w-auto">
+                  <Copy className="mr-2 h-4 w-4" />
                   Copy Link
                 </Button>
               </div>
             </CardContent>
           </Card>
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="flex flex-col justify-center gap-3 sm:flex-row sm:gap-4">
             <Link to={`/track-order/${order.id}`}>
-              <Button size="lg">
-                <Package className="h-4 w-4 mr-2" />
+              <Button size="lg" className="w-full sm:w-auto">
+                <Package className="mr-2 h-4 w-4" />
                 Track Order
               </Button>
             </Link>
             <Link to="/my-orders">
-              <Button variant="outline" size="lg">View All Orders</Button>
+              <Button variant="outline" size="lg" className="w-full sm:w-auto">View All Orders</Button>
             </Link>
             <Link to="/products">
-              <Button variant="ghost" size="lg">Continue Shopping</Button>
+              <Button variant="ghost" size="lg" className="w-full sm:w-auto">Continue Shopping</Button>
             </Link>
           </div>
         </div>

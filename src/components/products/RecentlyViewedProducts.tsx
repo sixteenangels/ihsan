@@ -25,9 +25,12 @@ export function RecentlyViewedProducts({ currentProductId }: RecentlyViewedProdu
   if (recentProducts.length === 0 || !isEnabled('recently_viewed')) return null;
 
   return (
-    <div className="mt-12">
-      <h2 className="text-2xl font-bold font-serif text-foreground mb-6">Recently Viewed</h2>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+    <div className="mt-10 sm:mt-12">
+      <div className="mb-5 flex items-center justify-between gap-3 sm:mb-6">
+        <h2 className="text-xl font-bold font-serif text-foreground sm:text-2xl">Recently Viewed</h2>
+        <span className="text-xs text-muted-foreground sm:text-sm">{recentProducts.length} items</span>
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6">
         {recentProducts.map((product: any) => (
           <ProductCard
             key={product.id}

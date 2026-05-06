@@ -33,17 +33,17 @@ export default function DeliveryZones() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="container py-8 max-w-5xl">
-        <div className="flex items-center gap-3 mb-8">
+      <main className="container max-w-5xl px-4 py-6 pb-24 sm:px-6 md:py-8 md:pb-8">
+        <div className="mb-8 flex items-start gap-3 sm:items-center">
           <MapPin className="h-6 w-6 text-primary" />
           <div>
-            <h1 className="text-3xl font-bold font-serif text-foreground">Delivery Zones</h1>
-            <p className="text-muted-foreground">Where we deliver across Ghana and estimated times</p>
+            <h1 className="text-2xl font-bold font-serif text-foreground sm:text-3xl">Delivery Zones</h1>
+            <p className="text-sm text-muted-foreground sm:text-base">Where we deliver across Ghana and estimated times</p>
           </div>
         </div>
 
         {/* Shipping Methods */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-3">
           {shippingMethods.map((method) => (
             <Card key={method.name}>
               <CardContent className="pt-6">
@@ -63,12 +63,12 @@ export default function DeliveryZones() {
           <CardContent>
             <div className="space-y-3">
               {deliveryZones.map((zone) => (
-                <div key={zone.region} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+                <div key={zone.region} className="flex flex-col gap-3 rounded-lg bg-muted/50 p-3 transition-colors hover:bg-muted sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex-1">
                     <p className="font-medium text-foreground">{zone.region}</p>
                     <p className="text-sm text-muted-foreground">{zone.city}</p>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
                     <div className="flex items-center gap-1 text-sm text-muted-foreground">
                       <Clock className="h-3.5 w-3.5" />
                       {zone.days}

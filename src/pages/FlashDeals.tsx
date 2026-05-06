@@ -146,7 +146,7 @@ export default function FlashDeals() {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <main className="container py-16 text-center">
+        <main className="container px-4 py-16 text-center sm:px-6">
           <Ban className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
           <h1 className="text-2xl font-bold text-foreground mb-2">Feature Disabled</h1>
           <p className="text-muted-foreground">Flash Deals is currently disabled.</p>
@@ -159,14 +159,14 @@ export default function FlashDeals() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="container py-8">
-        <div className="flex items-center gap-3 mb-8">
-          <div className="p-2 rounded-full bg-destructive/10">
+      <main className="container px-4 py-6 pb-24 sm:px-6 md:py-8 md:pb-8">
+        <div className="mb-8 flex items-start gap-3 sm:items-center">
+          <div className="rounded-full bg-destructive/10 p-2">
             <Zap className="h-6 w-6 text-destructive" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold font-serif text-foreground">Flash Deals</h1>
-            <p className="text-muted-foreground">Limited time offers - grab them before they are gone.</p>
+            <h1 className="text-2xl font-bold font-serif text-foreground sm:text-3xl">Flash Deals</h1>
+            <p className="text-sm text-muted-foreground sm:text-base">Limited time offers - grab them before they are gone.</p>
           </div>
         </div>
 
@@ -180,7 +180,7 @@ export default function FlashDeals() {
             <p className="text-muted-foreground text-lg">No flash deals right now. Check back soon!</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
             {flashProducts.map((product) => (
               <div key={product.id} className="relative">
                 {product.flash_deal_ends_at ? (

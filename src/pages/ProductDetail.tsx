@@ -203,8 +203,10 @@ export default function ProductDetail() {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <main className="container py-16 flex items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <main className="container flex items-center justify-center px-4 py-16 pb-24 sm:px-6 md:pb-8">
+          <div className="flex min-h-[40vh] items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
         </main>
         <Footer />
       </div>
@@ -215,9 +217,14 @@ export default function ProductDetail() {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <main className="container py-16 text-center">
-          <h1 className="text-2xl font-bold text-foreground mb-4">Product Not Found</h1>
-          <Link to="/products"><Button>Back to Products</Button></Link>
+        <main className="container px-4 py-12 pb-24 sm:px-6 md:py-16 md:pb-8">
+          <div className="mx-auto max-w-md text-center">
+            <h1 className="mb-4 text-2xl font-bold text-foreground">Product Not Found</h1>
+            <p className="mb-6 text-muted-foreground">
+              This item may have been removed or is no longer available.
+            </p>
+            <Link to="/products"><Button className="w-full sm:w-auto">Back to Products</Button></Link>
+          </div>
         </main>
         <Footer />
       </div>

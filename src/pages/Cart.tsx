@@ -40,19 +40,19 @@ export default function Cart() {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <main className="container py-16">
-          <div className="max-w-md mx-auto text-center">
-            <div className="p-6 rounded-full bg-card border border-border w-24 h-24 flex items-center justify-center mx-auto mb-6">
+        <main className="container px-4 py-12 pb-24 sm:px-6 md:py-16 md:pb-8">
+          <div className="mx-auto max-w-md text-center">
+            <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full border border-border bg-card p-6">
               <ShoppingBag className="h-12 w-12 text-muted-foreground" />
             </div>
-            <h1 className="text-2xl font-bold text-foreground mb-2">
+            <h1 className="mb-2 text-2xl font-bold text-foreground">
               Your cart is empty
             </h1>
-            <p className="text-muted-foreground mb-6">
+            <p className="mb-6 text-muted-foreground">
               Discover amazing products from around the world
             </p>
             <Link to="/products">
-              <Button size="lg">Start Shopping</Button>
+              <Button size="lg" className="w-full sm:w-auto">Start Shopping</Button>
             </Link>
           </div>
         </main>
@@ -106,7 +106,7 @@ export default function Cart() {
                           <p className="text-sm text-muted-foreground">
                             {isVariantPlaceholder(item.variant.id)
                               ? 'Variant will be selected at checkout'
-                              : `${item.variant.color || ''}${item.variant.size ? ` • ${item.variant.size}` : ''}`.trim() || 'Standard option'}
+                              : [item.variant.color, item.variant.size].filter(Boolean).join(' - ') || 'Standard option'}
                           </p>
                         </div>
                         <Button

@@ -259,19 +259,19 @@ export default function Help() {
       <main className="container px-4 py-6 pb-24 sm:px-6 md:py-8 md:pb-8">
         {/* Hero Section */}
         <div className="mb-10 text-center md:mb-12">
-          <h1 className="text-3xl md:text-4xl font-bold font-serif mb-4">
+          <h1 className="mb-4 text-3xl font-bold font-serif md:text-4xl">
             How Can We Help?
           </h1>
-          <p className="text-muted-foreground max-w-2xl mx-auto">
+          <p className="mx-auto max-w-2xl text-sm text-muted-foreground sm:text-base">
             Find answers to common questions or get in touch with our support team
           </p>
         </div>
 
         {/* Quick Contact Cards */}
         <div className="mb-10 grid grid-cols-1 gap-4 md:mb-12 md:grid-cols-3">
-          <Card className="text-center hover:shadow-lg transition-shadow">
+          <Card className="text-center transition-shadow hover:shadow-lg">
             <CardHeader className="pb-2">
-              <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+              <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
                 <MessageCircle className="h-6 w-6 text-primary" />
               </div>
               <CardTitle className="text-lg">Live Chat</CardTitle>
@@ -287,9 +287,9 @@ export default function Help() {
             </CardContent>
           </Card>
 
-          <Card className="text-center hover:shadow-lg transition-shadow">
+          <Card className="text-center transition-shadow hover:shadow-lg">
             <CardHeader className="pb-2">
-              <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+              <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
                 <Mail className="h-6 w-6 text-primary" />
               </div>
               <CardTitle className="text-lg">Email Us</CardTitle>
@@ -305,9 +305,9 @@ export default function Help() {
             </CardContent>
           </Card>
 
-          <Card className="text-center hover:shadow-lg transition-shadow">
+          <Card className="text-center transition-shadow hover:shadow-lg">
             <CardHeader className="pb-2">
-              <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+              <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
                 <Phone className="h-6 w-6 text-primary" />
               </div>
               <CardTitle className="text-lg">{supportPhone ? 'Call Us' : 'Support Base'}</CardTitle>
@@ -330,12 +330,12 @@ export default function Help() {
             Frequently Asked Questions
           </h2>
           
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-6">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6">
             {faqs.map((category) => (
               <Card key={category.category}>
                 <CardHeader className="pb-2">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
                       <category.icon className="h-5 w-5 text-primary" />
                     </div>
                     <CardTitle className="text-lg">{category.category}</CardTitle>
@@ -366,7 +366,7 @@ export default function Help() {
 
         {/* Contact Form */}
         <Card className="mx-auto max-w-2xl">
-          <CardHeader>
+          <CardHeader className="px-5 sm:px-6">
             <CardTitle>Still Need Help?</CardTitle>
             <CardDescription>
               {user
@@ -374,14 +374,14 @@ export default function Help() {
                 : 'Send us a guest support request and we\'ll reply by email'}
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-5 sm:px-6">
             <form onSubmit={handleSubmit} className="space-y-4">
               {!user && (
                 <div className="rounded-lg border border-dashed border-border bg-muted/40 p-3 text-sm text-muted-foreground">
                   You can send a guest request here. Sign in if you want the full tracked support chat experience.
                 </div>
               )}
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <label htmlFor="name" className="text-sm font-medium">
                     Name

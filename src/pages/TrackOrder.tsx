@@ -115,25 +115,25 @@ export default function TrackOrder() {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="flex-1 container mx-auto px-4 py-8 max-w-4xl">
-        <Link to="/" className="inline-flex items-center text-muted-foreground hover:text-foreground mb-6">
+      <main className="container mx-auto flex-1 max-w-4xl px-4 py-6 pb-24 sm:px-6 md:py-8 md:pb-8">
+        <Link to="/" className="mb-6 inline-flex items-center text-sm text-muted-foreground hover:text-foreground sm:text-base">
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Home
         </Link>
 
-        <h1 className="text-3xl font-bold font-serif mb-6">Track Your Order</h1>
+        <h1 className="mb-6 text-2xl font-bold font-serif sm:text-3xl">Track Your Order</h1>
 
         {/* Search Form */}
         <Card className="mb-6">
           <CardContent className="pt-6">
-            <form onSubmit={handleSearch} className="flex gap-2">
+            <form onSubmit={handleSearch} className="flex flex-col gap-2 sm:flex-row">
               <Input
                 placeholder="Enter order number (e.g., IHS-20251226-XXXXXXXX)"
                 value={searchOrderNumber}
                 onChange={(e) => setSearchOrderNumber(e.target.value)}
                 className="flex-1"
               />
-              <Button type="submit">
+              <Button type="submit" className="w-full sm:w-auto">
                 <Search className="h-4 w-4 mr-2" />
                 Track
               </Button>
@@ -164,9 +164,9 @@ export default function TrackOrder() {
             {/* Order Summary */}
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>Order {order.order_number}</CardTitle>
-                  <div className="flex items-center gap-2">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <CardTitle className="break-all text-lg sm:text-xl">Order {order.order_number}</CardTitle>
+                  <div className="flex flex-wrap items-center gap-2">
                     {order.receipt?.receipt_number ? (
                       <Link to={`/receipt/${order.receipt.receipt_number}`}>
                         <Button variant="outline" size="sm">Receipt</Button>
@@ -179,7 +179,7 @@ export default function TrackOrder() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2 md:grid-cols-4">
                   <div>
                     <p className="text-muted-foreground">Order Date</p>
                     <p className="font-medium">
@@ -221,15 +221,17 @@ export default function TrackOrder() {
               <CardContent>
                 <div className="space-y-4">
                   {(order.order_items as any[])?.map((item) => (
-                    <div key={item.id} className="flex justify-between items-center">
-                      <div>
+                    <div key={item.id} className="rounded-lg bg-muted/30 p-3">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <p className="font-medium">{item.product_name}</p>
-                        {item.variant_details && (
-                          <p className="text-sm text-primary font-medium">{item.variant_details}</p>
-                        )}
-                        <p className="text-sm text-muted-foreground">Qty: {item.quantity}</p>
+                        <div className="sm:text-right">
+                          <p className="font-medium">{formatPrice(Number(item.total_price))}</p>
+                        </div>
                       </div>
-                      <p className="font-medium">{formatPrice(Number(item.total_price))}</p>
+                      {item.variant_details && (
+                        <p className="mt-1 text-sm font-medium text-primary">{item.variant_details}</p>
+                      )}
+                      <p className="mt-1 text-sm text-muted-foreground">Qty: {item.quantity}</p>
                     </div>
                   ))}
                   <Separator />
@@ -277,7 +279,7 @@ export default function TrackOrder() {
               <CardHeader>
                 <CardTitle>Logistics Details</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2 text-sm">
+              <CardContent className="space-y-3 text-sm">
                 <p>
                   <span className="text-muted-foreground">Fulfillment stage:</span>{' '}
                   <span className="font-medium text-foreground">
@@ -354,7 +356,7 @@ export default function TrackOrder() {
                   <img
                     src={order.proof_of_delivery_image_url}
                     alt={`Proof of delivery for ${order.order_number}`}
-                    className="h-28 w-28 rounded-lg border border-border object-cover"
+                    className="h-28 w-full max-w-[8rem] rounded-lg border border-border object-cover"
                   />
                 )}
               </CardContent>

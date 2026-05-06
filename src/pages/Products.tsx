@@ -180,10 +180,10 @@ export default function Products() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="container overflow-x-hidden px-4 py-6 pb-24 sm:px-6 md:py-8 md:pb-8">
+      <main className="container overflow-x-hidden px-4 py-5 pb-24 sm:px-6 md:py-8 md:pb-8">
         {/* Page Header with Search */}
         <div className="mb-6 md:mb-8">
-          <h1 className="mb-2 text-3xl font-bold font-serif text-foreground">
+          <h1 className="mb-2 text-2xl font-bold font-serif text-foreground sm:text-3xl">
             All Products
           </h1>
           <p className="mb-4 text-sm text-muted-foreground sm:text-base">
@@ -212,10 +212,11 @@ export default function Products() {
         </div>
 
         {/* Categories */}
-        <div className="mb-6 flex flex-wrap gap-2">
+        <div className="mb-6 overflow-x-auto pb-1">
+          <div className="flex min-w-max gap-2 pr-4">
           <Badge
             variant={selectedCategory === '' ? 'default' : 'outline'}
-            className="max-w-full cursor-pointer px-3 py-1.5 text-xs whitespace-normal text-center sm:px-4 sm:py-2 sm:text-sm"
+            className="cursor-pointer px-3 py-1.5 text-xs text-center sm:px-4 sm:py-2 sm:text-sm"
             onClick={() => handleCategoryChange('')}
           >
             All
@@ -227,7 +228,7 @@ export default function Products() {
               <Badge
                 key={cat.id}
                 variant={selectedCategory === cat.name ? 'default' : 'outline'}
-                className="flex max-w-full cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs whitespace-normal text-center sm:py-2 sm:text-sm"
+                className="flex cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs text-center sm:py-2 sm:text-sm"
                 onClick={() => handleCategoryChange(cat.name)}
               >
                 <CatIcon className="h-3.5 w-3.5 shrink-0" />
@@ -235,6 +236,7 @@ export default function Products() {
               </Badge>
             );
           })}
+          </div>
         </div>
 
         {/* Filters and Sort */}
@@ -369,7 +371,7 @@ export default function Products() {
         {/* Product Grid/List */}
         {!isLoading && (
           <div className={viewMode === 'grid' 
-            ? "grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6"
+            ? "grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4"
             : "flex flex-col gap-3 sm:gap-4"
           }>
             {filteredProducts.map((product) => {

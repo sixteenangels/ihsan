@@ -53,26 +53,26 @@ export function FeaturedProducts() {
   const [quickViewProduct, setQuickViewProduct] = useState<any>(null);
 
   return (
-    <section className="py-16 bg-card">
-      <div className="container">
-        <div className="flex items-center justify-between mb-10">
+    <section className="bg-card py-12 sm:py-16">
+      <div className="container px-4 sm:px-6">
+        <div className="mb-8 flex flex-col gap-4 sm:mb-10 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-3xl font-bold font-serif text-foreground mb-2">
+            <h2 className="mb-2 text-2xl font-bold font-serif text-foreground sm:text-3xl">
               Featured Products
             </h2>
-            <p className="text-muted-foreground">
+            <p className="text-sm text-muted-foreground sm:text-base">
               Handpicked items from our best sellers
             </p>
           </div>
           <Link to="/products">
-            <Button variant="ghost" className="group">
+            <Button variant="ghost" className="group w-full justify-between sm:w-auto">
               View All
               <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
             </Button>
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4">
           {isLoading
             ? Array.from({ length: 4 }).map((_, i) => (
                 <div key={i} className="rounded-lg border border-border bg-background p-4">
