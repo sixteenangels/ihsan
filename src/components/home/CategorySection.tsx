@@ -1,14 +1,11 @@
 import { Link } from 'react-router-dom';
-import { lazy, Suspense } from 'react';
 import { useCategories } from '@/hooks/useCategories';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { icons } from 'lucide-react';
-import { getCategoryIconName } from '@/lib/categoryIcons';
+import { getCategoryIconComponent } from '@/lib/categoryIcons';
 
 function CategoryIcon({ name, className }: { name: string; className?: string }) {
-  const iconName = getCategoryIconName(name);
-  const LucideIcon = (icons as any)[iconName] || icons.Package;
+  const LucideIcon = getCategoryIconComponent(name);
   return <LucideIcon className={className} />;
 }
 

@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Filter, SlidersHorizontal, Loader2, Search, X, LayoutGrid, List, icons as lucideIcons } from 'lucide-react';
+import { Filter, SlidersHorizontal, Loader2, Search, X, LayoutGrid, List, Package } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { ProductCard } from '@/components/products/ProductCard';
@@ -27,7 +27,7 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { Checkbox } from '@/components/ui/checkbox';
-import { getCategoryIconName } from '@/lib/categoryIcons';
+import { getCategoryIconComponent } from '@/lib/categoryIcons';
 
 // Adapter to convert DB product to the format expected by ProductCard
 function toProductCardFormat(product: ProductWithDetails) {
@@ -222,8 +222,7 @@ export default function Products() {
             All
           </Badge>
           {categories?.map((cat) => {
-            const iconName = getCategoryIconName(cat.name);
-            const CatIcon = (lucideIcons as any)[iconName] || lucideIcons.Package;
+            const CatIcon = getCategoryIconComponent(cat.name) || Package;
             return (
               <Badge
                 key={cat.id}

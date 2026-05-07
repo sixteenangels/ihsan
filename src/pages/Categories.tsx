@@ -6,9 +6,9 @@ import { useCategories } from '@/hooks/useCategories';
 import { useProducts, ProductWithDetails } from '@/hooks/useProducts';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Loader2, Eye, icons } from 'lucide-react';
+import { ArrowRight, Loader2, Eye } from 'lucide-react';
 import { ProductQuickView } from '@/components/products/ProductQuickView';
-import { getCategoryIconName } from '@/lib/categoryIcons';
+import { getCategoryIconComponent } from '@/lib/categoryIcons';
 
 function toQuickViewFormat(product: ProductWithDetails) {
   return {
@@ -88,8 +88,7 @@ export default function Categories() {
         <div className="space-y-10 sm:space-y-12">
           {categories?.filter((c) => c.is_active).map((category) => {
             const categoryProducts = getCategoryProducts(category.id);
-            const iconName = getCategoryIconName(category.name);
-            const Icon = (icons as any)[iconName] || icons.Package;
+            const Icon = getCategoryIconComponent(category.name);
 
             return (
               <div key={category.id} className="space-y-4">
