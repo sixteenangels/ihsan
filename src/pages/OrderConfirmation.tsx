@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Check, Package, MapPin, Truck, Share2, Copy } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
@@ -33,13 +33,9 @@ export default function OrderConfirmation() {
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (orderId) {
-      fetchOrder();
-    }
-  }, [orderId]);
+  const fetchOrder = useCallback(async () => {
+    if (!orderId) return;
 
-  const fetchOrder = async () => {
     const { data } = await supabase
       .from('orders')
       .select('*')
@@ -53,7 +49,13 @@ export default function OrderConfirmation() {
       });
     }
     setLoading(false);
-  };
+  }, [orderId]);
+
+  useEffect(() => {
+    if (orderId) {
+      fetchOrder();
+    }
+  }, [orderId, fetchOrder]);
 
   const handleShareWhatsApp = () => {
     if (!order) return;

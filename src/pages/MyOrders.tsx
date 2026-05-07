@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Package, Truck, MapPin, Clock, CheckCircle, XCircle, Loader, ChevronDown, ChevronUp, Phone, CreditCard, ShoppingBag, PackageCheck, Plane, MapPinned, Ban, Users, Star, MessageSquare, Eye, FileText } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
@@ -241,23 +241,18 @@ export default function MyOrders() {
     }
   }, [user, authLoading, navigate]);
 
-  useEffect(() => {
-    if (user) {
-      fetchOrders();
-      fetchShippingClasses();
-    }
-  }, [user]);
-
-  const fetchShippingClasses = async () => {
+  const fetchShippingClasses = useCallback(async () => {
     const { data } = await supabase.from('shipping_classes').select('id, name');
     if (data) {
       const map: Record<string, string> = {};
       data.forEach(sc => { map[sc.id] = sc.name; });
       setShippingClassNames(map);
     }
-  };
+  }, []);
 
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
+    if (!user) return;
+
     const { data, error } = await supabase
       .from('orders')
       .select(`
@@ -265,7 +260,7 @@ export default function MyOrders() {
         order_items (*),
         order_tracking (*)
       `)
-      .eq('user_id', user!.id)
+      .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -340,7 +335,14 @@ export default function MyOrders() {
       }
     }
     setLoading(false);
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      fetchOrders();
+      fetchShippingClasses();
+    }
+  }, [user, fetchOrders, fetchShippingClasses]);
 
   const filteredOrders = orders.filter(order => {
     if (activeTab === 'all') return true;

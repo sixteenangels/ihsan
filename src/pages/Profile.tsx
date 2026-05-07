@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { User, MapPin, Phone, Mail, Plus, Trash2, Loader2, Edit2, Check, X, Package, Clock, Truck, CheckCircle, XCircle, RefreshCcw, ShoppingBag, Gift, Award, Copy, Cake } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
@@ -240,19 +240,13 @@ export default function Profile() {
     }
   }, [user, authLoading, navigate]);
 
-  useEffect(() => {
-    if (user) {
-      fetchProfile();
-      fetchAddresses();
-      fetchOrders();
-    }
-  }, [user]);
+  const fetchProfile = useCallback(async () => {
+    if (!user) return;
 
-  const fetchProfile = async () => {
     const { data, error } = await supabase
       .from('profiles')
       .select('name, email, phone, birthday')
-      .eq('user_id', user!.id)
+      .eq('user_id', user.id)
       .maybeSingle();
 
     if (error) {
@@ -261,13 +255,15 @@ export default function Profile() {
       setProfile(data);
     }
     setLoading(false);
-  };
+  }, [user]);
 
-  const fetchAddresses = async () => {
+  const fetchAddresses = useCallback(async () => {
+    if (!user) return;
+
     const { data, error } = await supabase
       .from('addresses')
       .select('*')
-      .eq('user_id', user!.id)
+      .eq('user_id', user.id)
       .order('is_default', { ascending: false });
 
     if (error) {
@@ -275,9 +271,11 @@ export default function Profile() {
     } else {
       setAddresses(data || []);
     }
-  };
+  }, [user]);
 
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
+    if (!user) return;
+
     const { data, error } = await supabase
       .from('orders')
       .select(`
@@ -290,7 +288,7 @@ export default function Profile() {
         estimated_delivery_end,
         order_items (*)
       `)
-      .eq('user_id', user!.id)
+      .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -298,7 +296,15 @@ export default function Profile() {
     } else {
       setOrders(data || []);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      fetchProfile();
+      fetchAddresses();
+      fetchOrders();
+    }
+  }, [user, fetchProfile, fetchAddresses, fetchOrders]);
 
   const handleSaveProfile = async () => {
     setSaving(true);

@@ -24,7 +24,7 @@ export default function Compare() {
     if (user && compareItems.length >= 2) {
       saveComparison(compareItems);
     }
-  }, []);
+  }, [compareItems, saveComparison, user]);
 
   const loadFromHistory = (productIds: string[]) => {
     clearCompare();

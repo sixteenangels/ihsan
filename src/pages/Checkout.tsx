@@ -139,6 +139,138 @@ export default function Checkout() {
     label: '',
   });
 
+  // Get product IDs from cart
+  const cartProductIds = useMemo(() => {
+    return [...new Set(selectedItems.map(item => item.product.id))];
+  }, [selectedItems]);
+
+  const fetchAddresses = useCallback(async () => {
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from('addresses')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('is_default', { ascending: false });
+    
+    if (data) {
+      setAddresses(data);
+      const defaultAddress = data.find(a => a.is_default);
+      if (defaultAddress) {
+        setSelectedAddressId(defaultAddress.id);
+      } else if (data.length > 0) {
+        setSelectedAddressId(data[0].id);
+      }
+    }
+  }, [user]);
+
+  const fetchUserOrderCount = useCallback(async () => {
+    if (!user) return;
+
+    const { count } = await supabase
+      .from('orders')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .not('status', 'eq', 'cancelled');
+
+    setUserOrderCount(count || 0);
+  }, [user]);
+
+  const fetchShippingClasses = useCallback(async () => {
+    if (cartProductIds.length === 0) {
+      setShippingClasses([]);
+      setSelectedShippingId('');
+      return;
+    }
+
+    // Get all shipping rules for products in cart - only active shipping classes
+    const { data: shippingRules, error: rulesError } = await supabase
+      .from('product_shipping_rules')
+      .select(`
+        product_id,
+        shipping_class_id,
+        price,
+        is_allowed,
+        shipping_classes!inner(
+          id,
+          name,
+          base_price,
+          estimated_days_min,
+          estimated_days_max,
+          is_active,
+          shipping_types!inner(id, name, is_active)
+        )
+      `)
+      .in('product_id', cartProductIds)
+      .eq('is_allowed', true)
+      .eq('shipping_classes.is_active', true);
+
+    if (rulesError) {
+      console.error('Error fetching shipping rules:', rulesError);
+      return;
+    }
+
+    const shippingClassCounts = new Map<string, { count: number; data: ShippingClass; totalPrice: number }>();
+
+    shippingRules?.forEach((rule: any) => {
+      const sc = rule.shipping_classes;
+      if (!sc || !sc.is_active) return;
+
+      const productIsFreeShipping =
+        productMeta[rule.product_id]?.is_free_shipping ||
+        selectedItems.some((item) =>
+          item.product.id === rule.product_id && item.product.isFreeShippingEligible
+        );
+
+      const existing = shippingClassCounts.get(sc.id);
+      if (existing) {
+        existing.count++;
+        existing.totalPrice += productIsFreeShipping ? 0 : Number(rule.price || 0);
+        existing.data.product_prices[rule.product_id] = Number(rule.price || 0);
+      } else {
+        shippingClassCounts.set(sc.id, {
+          count: 1,
+          totalPrice: productIsFreeShipping ? 0 : Number(rule.price || 0),
+          data: {
+            id: sc.id,
+            name: sc.name,
+            base_price: sc.base_price,
+            estimated_days_min: sc.estimated_days_min,
+            estimated_days_max: sc.estimated_days_max,
+            product_prices: {
+              [rule.product_id]: Number(rule.price || 0),
+            },
+            shipping_type: sc.shipping_types ? {
+              id: sc.shipping_types.id,
+              name: sc.shipping_types.name
+            } : { id: '', name: '' }
+          }
+        });
+      }
+    });
+
+    const validClasses: ShippingClass[] = [];
+    shippingClassCounts.forEach((value) => {
+      if (value.count >= cartProductIds.length) {
+        validClasses.push({
+          ...value.data,
+          base_price: value.totalPrice
+        });
+      }
+    });
+
+    setShippingClasses(validClasses);
+    if (validClasses.length === 0) {
+      setSelectedShippingId('');
+      return;
+    }
+
+    const stillAvailable = validClasses.some((shippingClass) => shippingClass.id === selectedShippingId);
+    if (!stillAvailable) {
+      setSelectedShippingId(validClasses[0].id);
+    }
+  }, [cartProductIds, productMeta, selectedItems, selectedShippingId]);
+
   // Redirect if not logged in
   useEffect(() => {
     if (!authLoading && !user) {
@@ -165,50 +297,16 @@ export default function Checkout() {
     };
   }, []);
 
-  // Fetch addresses and shipping classes
   useEffect(() => {
     if (user) {
       fetchAddresses();
       fetchUserOrderCount();
     }
-  }, [user, fetchUserOrderCount]);
+  }, [user, fetchAddresses, fetchUserOrderCount]);
 
   useEffect(() => {
     fetchShippingClasses();
-  }, [cartProductIds.join(','), JSON.stringify(productMeta)]);
-
-  const fetchAddresses = async () => {
-    const { data, error } = await supabase
-      .from('addresses')
-      .select('*')
-      .eq('user_id', user!.id)
-      .order('is_default', { ascending: false });
-    
-    if (data) {
-      setAddresses(data);
-      const defaultAddress = data.find(a => a.is_default);
-      if (defaultAddress) {
-        setSelectedAddressId(defaultAddress.id);
-      } else if (data.length > 0) {
-        setSelectedAddressId(data[0].id);
-      }
-    }
-  };
-
-  const fetchUserOrderCount = useCallback(async () => {
-    const { count } = await supabase
-      .from('orders')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user!.id)
-      .not('status', 'eq', 'cancelled');
-
-    setUserOrderCount(count || 0);
-  }, [user]);
-
-  // Get product IDs from cart
-  const cartProductIds = useMemo(() => {
-    return [...new Set(selectedItems.map(item => item.product.id))];
-  }, [selectedItems]);
+  }, [fetchShippingClasses]);
 
   // Fetch product meta (fragile / reinforced cost / free shipping) + global default reinforced cost
   useEffect(() => {
@@ -271,7 +369,7 @@ export default function Checkout() {
       const globalDefault = Number((settings as any)?.value) || 0;
       setGlobalReinforcedCost(globalDefault);
     })();
-  }, [cartProductIds.join(',')]);
+  }, [cartProductIds]);
 
   // Cart-level fragile / free shipping detection for the selected checkout items
   const hasFragile = selectedItems.some((it) => productMeta[it.product.id]?.is_fragile);
@@ -310,105 +408,6 @@ export default function Checkout() {
     });
     return total;
   }, [selectedItems, productMeta, globalReinforcedCost, hasFragile, packagingChoice]);
-
-  // Fetch shipping classes that are allowed for ALL products in cart
-  const fetchShippingClasses = async () => {
-    if (cartProductIds.length === 0) {
-      setShippingClasses([]);
-      setSelectedShippingId('');
-      return;
-    }
-
-    // Get all shipping rules for products in cart - only active shipping classes
-    const { data: shippingRules, error: rulesError } = await supabase
-      .from('product_shipping_rules')
-      .select(`
-        product_id,
-        shipping_class_id,
-        price,
-        is_allowed,
-        shipping_classes!inner(
-          id,
-          name,
-          base_price,
-          estimated_days_min,
-          estimated_days_max,
-          is_active,
-          shipping_types!inner(id, name, is_active)
-        )
-      `)
-      .in('product_id', cartProductIds)
-      .eq('is_allowed', true)
-      .eq('shipping_classes.is_active', true);
-
-    if (rulesError) {
-      console.error('Error fetching shipping rules:', rulesError);
-      return;
-    }
-
-    // Find shipping classes that are allowed for ALL products
-    const shippingClassCounts = new Map<string, { count: number; data: ShippingClass; totalPrice: number }>();
-    
-    shippingRules?.forEach((rule: any) => {
-      const sc = rule.shipping_classes;
-      if (!sc || !sc.is_active) return;
-
-      const productIsFreeShipping =
-        productMeta[rule.product_id]?.is_free_shipping ||
-        selectedItems.some((item) =>
-          item.product.id === rule.product_id && item.product.isFreeShippingEligible
-        );
-      
-      const existing = shippingClassCounts.get(sc.id);
-      if (existing) {
-        existing.count++;
-        existing.totalPrice += productIsFreeShipping ? 0 : Number(rule.price || 0);
-        existing.data.product_prices[rule.product_id] = Number(rule.price || 0);
-      } else {
-        shippingClassCounts.set(sc.id, {
-          count: 1,
-          totalPrice: productIsFreeShipping ? 0 : Number(rule.price || 0),
-          data: {
-            id: sc.id,
-            name: sc.name,
-            base_price: sc.base_price,
-            estimated_days_min: sc.estimated_days_min,
-            estimated_days_max: sc.estimated_days_max,
-            product_prices: {
-              [rule.product_id]: Number(rule.price || 0),
-            },
-            shipping_type: sc.shipping_types ? {
-              id: sc.shipping_types.id,
-              name: sc.shipping_types.name
-            } : { id: '', name: '' }
-          }
-        });
-      }
-    });
-
-    // Only include shipping classes available for ALL cart products
-    const validClasses: ShippingClass[] = [];
-    shippingClassCounts.forEach((value, key) => {
-      if (value.count >= cartProductIds.length) {
-        // Use the sum of per-product prices
-        validClasses.push({
-          ...value.data,
-          base_price: value.totalPrice
-        });
-      }
-    });
-
-    setShippingClasses(validClasses);
-    if (validClasses.length === 0) {
-      setSelectedShippingId('');
-      return;
-    }
-
-    const stillAvailable = validClasses.some((shippingClass) => shippingClass.id === selectedShippingId);
-    if (!stillAvailable) {
-      setSelectedShippingId(validClasses[0].id);
-    }
-  };
 
   const handleAddAddress = async () => {
     if (!newAddress.full_name || !newAddress.phone || !newAddress.address_line1 || !newAddress.city || !newAddress.country) {
