@@ -1,7 +1,7 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Loader2, Package, FolderTree, Users, LayoutDashboard, ShoppingCart, Truck, Tag, Star, MessageCircle, FileText, Bell, Settings, AlertTriangle, RefreshCcw, HelpCircle, Award, Link2, Wallet, MessageSquare, Gift, ScrollText } from 'lucide-react';
+import { Loader2, Package, FolderTree, Users, LayoutDashboard, ShoppingCart, Truck, Tag, Star, MessageCircle, FileText, Bell, Settings, AlertTriangle, RefreshCcw, HelpCircle, Award, Link2, Wallet, MessageSquare, Gift, ScrollText, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AdminProducts } from '@/components/admin/AdminProducts';
 import { AdminCategories } from '@/components/admin/AdminCategories';
@@ -28,6 +28,7 @@ import { AdminGiftCards } from '@/components/admin/AdminGiftCards';
 import { AdminAuditLogs } from '@/components/admin/AdminAuditLogs';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 
 // Permission slug for each nav item
 const ALL_NAV_ITEMS = [
@@ -60,6 +61,7 @@ export default function Admin() {
   const { user, isAdmin, isLoading, userRole, managerPermissions } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     if (!isLoading && (!user || !isAdmin)) {
@@ -87,6 +89,11 @@ export default function Admin() {
     });
   }, [userRole, managerPermissions]);
 
+  const currentSection = useMemo(
+    () => navItems.find((item) => isActivePath(location.pathname, item.href))?.name || 'Dashboard',
+    [location.pathname, navItems],
+  );
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -100,21 +107,18 @@ export default function Admin() {
   }
 
   const isActive = (href: string) => {
-    if (href === '/admin') {
-      return location.pathname === '/admin';
-    }
-    return location.pathname.startsWith(href);
+    return isActivePath(location.pathname, href);
   };
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="flex min-h-screen overflow-x-hidden bg-background">
       {/* Sidebar */}
-      <aside className="w-64 border-r border-border bg-card hidden md:flex md:flex-col">
+      <aside className="hidden w-64 border-r border-border bg-card md:flex md:flex-col">
         <div className="p-6">
           <Link to="/" className="flex items-center gap-2">
             <span className="text-2xl font-bold font-serif text-primary">Ihsan</span>
           </Link>
-          <p className="text-sm text-muted-foreground mt-1">Admin Dashboard</p>
+          <p className="mt-1 text-sm text-muted-foreground">Admin Dashboard</p>
         </div>
         <ScrollArea className="flex-1 px-4">
           <nav className="space-y-1 pb-4">
@@ -123,7 +127,7 @@ export default function Admin() {
                 key={item.name}
                 to={item.href}
                 className={cn(
-                  'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                  'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                   isActive(item.href)
                     ? 'bg-primary text-primary-foreground'
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground'
@@ -135,7 +139,7 @@ export default function Admin() {
             ))}
           </nav>
         </ScrollArea>
-        <div className="p-4 border-t border-border">
+        <div className="border-t border-border p-4">
           <Link to="/">
             <Button variant="outline" className="w-full">
               Back to Store
@@ -145,66 +149,103 @@ export default function Admin() {
       </aside>
 
       {/* Mobile Header */}
-      <div className="fixed left-0 right-0 top-0 z-50 border-b border-border bg-card px-4 py-3 md:hidden">
-        <div className="flex items-center justify-between">
-          <Link to="/" className="text-lg font-bold font-serif text-primary">
-            Ihsan Admin
-          </Link>
-          <Link to="/">
+      <div className="fixed left-0 right-0 top-0 z-50 border-b border-border bg-card/95 px-4 py-3 backdrop-blur md:hidden">
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-9 w-9 shrink-0"
+            onClick={() => setMobileMenuOpen(true)}
+          >
+            <Menu className="h-4 w-4" />
+            <span className="sr-only">Open admin menu</span>
+          </Button>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-lg font-bold font-serif text-primary">Ihsan Admin</p>
+            <p className="truncate text-xs text-muted-foreground">{currentSection}</p>
+          </div>
+          <Link to="/" className="shrink-0">
             <Button variant="outline" size="sm">
-              Back to Store
+              Store
             </Button>
           </Link>
         </div>
-        <ScrollArea className="mt-3">
-          <nav className="flex gap-2 pb-1">
-            {navItems.map((item) => (
-              <Link
-                key={item.name}
-                to={item.href}
-                className={cn(
-                  'flex min-h-10 items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors',
-                  isActive(item.href)
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted text-muted-foreground'
-                )}
-              >
-                <item.icon className="h-4 w-4" />
-                {item.name}
-              </Link>
-            ))}
-          </nav>
-        </ScrollArea>
       </div>
 
+      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+        <SheetContent side="left" className="w-[88vw] max-w-sm p-0">
+          <div className="flex h-full min-h-0 flex-col bg-card">
+            <SheetHeader className="border-b border-border px-5 py-4 text-left">
+              <SheetTitle className="font-serif text-primary">Admin Menu</SheetTitle>
+            </SheetHeader>
+            <ScrollArea className="min-h-0 flex-1">
+              <nav className="space-y-1 p-4">
+                {navItems.map((item) => (
+                  <Link
+                    key={item.name}
+                    to={item.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={cn(
+                      'flex min-h-11 items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-colors',
+                      isActive(item.href)
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-foreground hover:bg-muted'
+                    )}
+                  >
+                    <item.icon className="h-4 w-4 shrink-0" />
+                    <span className="min-w-0 truncate">{item.name}</span>
+                  </Link>
+                ))}
+              </nav>
+            </ScrollArea>
+            <div className="border-t border-border p-4">
+              <Link to="/" onClick={() => setMobileMenuOpen(false)}>
+                <Button variant="outline" className="w-full">
+                  Back to Store
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
       {/* Main Content */}
-      <main className="mt-28 flex-1 overflow-auto px-4 py-5 sm:px-6 md:mt-0 md:p-8">
-        <Routes>
-          <Route path="/" element={<AdminDashboard />} />
-          <Route path="/products" element={<AdminProducts />} />
-          <Route path="/stock" element={<StockManagement />} />
-          <Route path="/orders" element={<AdminOrders />} />
-          <Route path="/refunds" element={<AdminRefunds />} />
-          <Route path="/shipping" element={<AdminShipping />} />
-          <Route path="/group-buys" element={<AdminGroupBuys />} />
-          <Route path="/categories" element={<AdminCategories />} />
-          <Route path="/promotions" element={<AdminPromotions />} />
-          <Route path="/bundles" element={<AdminBundles />} />
-          <Route path="/loyalty" element={<AdminLoyalty />} />
-          <Route path="/wallets" element={<AdminWallet />} />
-          <Route path="/gift-cards" element={<AdminGiftCards />} />
-          <Route path="/templates" element={<AdminMessageTemplates />} />
-          <Route path="/reviews" element={<AdminReviews />} />
-          <Route path="/qa" element={<AdminQA />} />
-          <Route path="/leaderboard" element={<CustomerLeaderboard />} />
-          <Route path="/support" element={<AdminSupport />} />
-          <Route path="/receipts" element={<AdminReceipts />} />
-          <Route path="/users" element={<AdminUsers />} />
-          <Route path="/notifications" element={<AdminNotifications />} />
-          <Route path="/audit-logs" element={<AdminAuditLogs />} />
-          <Route path="/settings" element={<AdminSettings />} />
-        </Routes>
+      <main className="mt-16 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-3 py-4 sm:px-4 sm:py-5 md:mt-0 md:p-8">
+        <div className="mx-auto w-full max-w-full">
+          <Routes>
+            <Route path="/" element={<AdminDashboard />} />
+            <Route path="/products" element={<AdminProducts />} />
+            <Route path="/stock" element={<StockManagement />} />
+            <Route path="/orders" element={<AdminOrders />} />
+            <Route path="/refunds" element={<AdminRefunds />} />
+            <Route path="/shipping" element={<AdminShipping />} />
+            <Route path="/group-buys" element={<AdminGroupBuys />} />
+            <Route path="/categories" element={<AdminCategories />} />
+            <Route path="/promotions" element={<AdminPromotions />} />
+            <Route path="/bundles" element={<AdminBundles />} />
+            <Route path="/loyalty" element={<AdminLoyalty />} />
+            <Route path="/wallets" element={<AdminWallet />} />
+            <Route path="/gift-cards" element={<AdminGiftCards />} />
+            <Route path="/templates" element={<AdminMessageTemplates />} />
+            <Route path="/reviews" element={<AdminReviews />} />
+            <Route path="/qa" element={<AdminQA />} />
+            <Route path="/leaderboard" element={<CustomerLeaderboard />} />
+            <Route path="/support" element={<AdminSupport />} />
+            <Route path="/receipts" element={<AdminReceipts />} />
+            <Route path="/users" element={<AdminUsers />} />
+            <Route path="/notifications" element={<AdminNotifications />} />
+            <Route path="/audit-logs" element={<AdminAuditLogs />} />
+            <Route path="/settings" element={<AdminSettings />} />
+          </Routes>
+        </div>
       </main>
     </div>
   );
+}
+
+function isActivePath(pathname: string, href: string) {
+  if (href === '/admin') {
+    return pathname === '/admin';
+  }
+  return pathname.startsWith(href);
 }

@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
 import { Plus, Trash2, Loader2, Eye, ShoppingCart, XCircle, Users } from 'lucide-react';
 import { useProducts } from '@/hooks/useProducts';
@@ -406,13 +407,16 @@ export function AdminGroupBuys() {
       </div>
 
       <Tabs value={statusFilter} onValueChange={(value) => setStatusFilter(value as 'all' | GroupBuyStatus)} className="mb-6">
-        <TabsList>
-          <TabsTrigger value="all">All ({groupBuys.length})</TabsTrigger>
-          <TabsTrigger value="open">Open ({groupBuys.filter((item) => item.status === 'open').length})</TabsTrigger>
-          <TabsTrigger value="filled">Filled ({groupBuys.filter((item) => item.status === 'filled').length})</TabsTrigger>
-          <TabsTrigger value="closed">Closed ({groupBuys.filter((item) => item.status === 'closed').length})</TabsTrigger>
-          <TabsTrigger value="cancelled">Cancelled ({groupBuys.filter((item) => item.status === 'cancelled').length})</TabsTrigger>
-        </TabsList>
+        <ScrollArea className="w-full whitespace-nowrap">
+          <TabsList className="inline-flex h-auto min-w-max gap-2 p-1">
+            <TabsTrigger value="all">All ({groupBuys.length})</TabsTrigger>
+            <TabsTrigger value="open">Open ({groupBuys.filter((item) => item.status === 'open').length})</TabsTrigger>
+            <TabsTrigger value="filled">Filled ({groupBuys.filter((item) => item.status === 'filled').length})</TabsTrigger>
+            <TabsTrigger value="closed">Closed ({groupBuys.filter((item) => item.status === 'closed').length})</TabsTrigger>
+            <TabsTrigger value="cancelled">Cancelled ({groupBuys.filter((item) => item.status === 'cancelled').length})</TabsTrigger>
+          </TabsList>
+          <ScrollBar orientation="horizontal" />
+        </ScrollArea>
       </Tabs>
 
       {selectedGroupBuy ? (

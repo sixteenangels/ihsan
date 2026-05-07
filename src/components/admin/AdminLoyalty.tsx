@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -287,10 +288,13 @@ export function AdminLoyalty() {
       </div>
 
       <Tabs defaultValue="customers">
-        <TabsList>
-          <TabsTrigger value="customers">Customer Points</TabsTrigger>
-          <TabsTrigger value="log">Transaction Log</TabsTrigger>
-        </TabsList>
+        <ScrollArea className="w-full whitespace-nowrap">
+          <TabsList className="inline-flex h-auto min-w-max gap-2 p-1">
+            <TabsTrigger value="customers">Customer Points</TabsTrigger>
+            <TabsTrigger value="log">Transaction Log</TabsTrigger>
+          </TabsList>
+          <ScrollBar orientation="horizontal" />
+        </ScrollArea>
 
         <TabsContent value="customers">
           <Card>
