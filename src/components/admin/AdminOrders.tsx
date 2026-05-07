@@ -13,7 +13,7 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
-import { Loader2, Eye, MapPin, Package, Calendar, Clock, CreditCard, ShoppingBag, PackageCheck, Truck, Plane, MapPinned, Home, CheckCircle, XCircle, RotateCcw, Search, Download, StickyNote, CheckSquare, BellRing, MessageSquare, Plus } from 'lucide-react';
+import { Loader2, Eye, MapPin, Package, Calendar, Clock, CreditCard, ShoppingBag, PackageCheck, Truck, Plane, MapPinned, Home, CheckCircle, XCircle, RotateCcw, Search, Download, StickyNote, CheckSquare, BellRing, MessageSquare, Plus, type LucideIcon } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { format } from 'date-fns';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -21,6 +21,7 @@ import { useMessageTemplates, useSaveTemplate } from '@/hooks/useMessageTemplate
 import { SwipeableOrderCard } from './SwipeableOrderCard';
 import { SwipeHintOverlay } from './SwipeHintOverlay';
 import { useAuth } from '@/contexts/AuthContext';
+import type { Database, Json } from '@/integrations/supabase/types';
 import { logAdminAction } from '@/lib/audit-log';
 import { generateProofVerificationCode, uploadProofOfDelivery } from '@/lib/proof-of-delivery';
 import {
@@ -52,6 +53,34 @@ const ORDER_STATUSES = [
 ] as const;
 
 type OrderStatus = typeof ORDER_STATUSES[number];
+type OrderRow = Database['public']['Tables']['orders']['Row'];
+type OrderItemRow = Database['public']['Tables']['order_items']['Row'];
+type OrderTrackingRow = Database['public']['Tables']['order_tracking']['Row'];
+type ProfileRow = Database['public']['Tables']['profiles']['Row'];
+
+interface ShippingAddress {
+  full_name?: string;
+  address_line1?: string;
+  address_line2?: string | null;
+  city?: string;
+  state?: string | null;
+  postal_code?: string | null;
+  country?: string;
+  phone?: string | null;
+}
+
+interface FulfillmentChecks {
+  picked?: boolean;
+  quality_checked?: boolean;
+  packed?: boolean;
+  awaiting_dispatch?: boolean;
+}
+
+type AdminOrder = OrderRow & {
+  order_items: OrderItemRow[];
+  order_tracking: OrderTrackingRow[];
+  profiles: Pick<ProfileRow, 'user_id' | 'name' | 'email'> | null;
+};
 
 const ORDER_STATUS_OPTIONS: OrderStatus[] = [
   'pending',
@@ -74,7 +103,7 @@ const ORDER_STATUS_OPTIONS: OrderStatus[] = [
 interface StatusTabConfig {
   value: string;
   label: string;
-  icon: any;
+  icon: LucideIcon;
   statuses: OrderStatus[];
 }
 
@@ -117,7 +146,7 @@ export function AdminOrders() {
   const { data: templates = [] } = useMessageTemplates();
   const saveTemplateMutation = useSaveTemplate();
   const proofUploadInputRef = useRef<HTMLInputElement | null>(null);
-  const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [selectedOrder, setSelectedOrder] = useState<AdminOrder | null>(null);
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
@@ -126,7 +155,7 @@ export function AdminOrders() {
   const [newOrderAlert, setNewOrderAlert] = useState(false);
   const [statusNotes, setStatusNotes] = useState<Record<string, string>>({});
   const [adminNotes, setAdminNotes] = useState<Record<string, string>>({});
-  const [selectedFulfillmentOrder, setSelectedFulfillmentOrder] = useState<any>(null);
+  const [selectedFulfillmentOrder, setSelectedFulfillmentOrder] = useState<AdminOrder | null>(null);
   const [fulfillmentDraft, setFulfillmentDraft] = useState({
     stage: 'new',
     picked: false,
@@ -146,6 +175,22 @@ export function AdminOrders() {
     courierConfirmed: false,
   });
   const [isUploadingProof, setIsUploadingProof] = useState(false);
+
+  const getShippingAddress = useCallback((address: Json | null): ShippingAddress | null => {
+    if (!address || typeof address !== 'object' || Array.isArray(address)) {
+      return null;
+    }
+
+    return address as ShippingAddress;
+  }, []);
+
+  const getFulfillmentChecks = useCallback((checks: Json | null): FulfillmentChecks => {
+    if (!checks || typeof checks !== 'object' || Array.isArray(checks)) {
+      return {};
+    }
+
+    return checks as FulfillmentChecks;
+  }, []);
 
   // Real-time subscription for new/updated orders
   useEffect(() => {
@@ -176,7 +221,7 @@ export function AdminOrders() {
 
   const { data: orders, isLoading } = useQuery({
     queryKey: ['admin-orders'],
-    queryFn: async (): Promise<any[]> => {
+    queryFn: async (): Promise<AdminOrder[]> => {
       const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
         .select(`
@@ -215,13 +260,20 @@ export function AdminOrders() {
           profilesData?.map(p => [p.user_id, p]) || []
         );
 
-        return ordersData?.map(order => ({
+        return (ordersData?.map(order => ({
           ...order,
-          profiles: profilesMap.get(order.user_id) || null
-        })) || [];
+          profiles: profilesMap.get(order.user_id) || null,
+          order_items: order.order_items ?? [],
+          order_tracking: order.order_tracking ?? [],
+        })) || []) as AdminOrder[];
       }
 
-      return ordersData || [];
+      return (ordersData?.map((order) => ({
+        ...order,
+        profiles: null,
+        order_items: order.order_items ?? [],
+        order_tracking: order.order_tracking ?? [],
+      })) || []) as AdminOrder[];
     },
   });
 
@@ -232,8 +284,8 @@ export function AdminOrders() {
     // Search filter
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      const name = (order.profiles as any)?.name?.toLowerCase() || '';
-      const email = (order.profiles as any)?.email?.toLowerCase() || '';
+      const name = order.profiles?.name?.toLowerCase() || '';
+      const email = order.profiles?.email?.toLowerCase() || '';
       const orderNum = order.order_number?.toLowerCase() || '';
       return name.includes(q) || email.includes(q) || orderNum.includes(q);
     }
@@ -570,7 +622,7 @@ export function AdminOrders() {
       if (deliveryFee != null && !Number.isNaN(deliveryFee)) metadataPatch.delivery_fee = deliveryFee;
 
       if (Object.keys(metadataPatch).length > 0) {
-        const { error: orderUpdateError } = await (supabase as any)
+        const { error: orderUpdateError } = await supabase
           .from('orders')
           .update({
             ...metadataPatch,
@@ -595,7 +647,7 @@ export function AdminOrders() {
     mutationFn: async () => {
       if (!selectedFulfillmentOrder) return;
 
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('orders')
         .update({
           fulfillment_stage: fulfillmentDraft.stage,
@@ -665,11 +717,8 @@ export function AdminOrders() {
     },
   });
 
-  const openFulfillmentDialog = (order: any) => {
-    const checks =
-      order.fulfillment_checks && typeof order.fulfillment_checks === 'object'
-        ? order.fulfillment_checks
-        : {};
+  const openFulfillmentDialog = (order: AdminOrder) => {
+    const checks = getFulfillmentChecks(order.fulfillment_checks);
 
     setSelectedFulfillmentOrder(order);
     setFulfillmentDraft({
@@ -711,8 +760,8 @@ export function AdminOrders() {
       const publicUrl = await uploadProofOfDelivery(selectedFulfillmentOrder.id, file);
       setFulfillmentDraft((prev) => ({ ...prev, proofImageUrl: publicUrl }));
       toast.success('Proof image uploaded');
-    } catch (error: any) {
-      toast.error(error?.message || 'Failed to upload proof image');
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Failed to upload proof image');
     } finally {
       setIsUploadingProof(false);
       if (proofUploadInputRef.current) {
@@ -895,8 +944,8 @@ export function AdminOrders() {
             onClick={() => {
               const data = filteredOrders.map(o => ({
                 'Order Number': o.order_number,
-                'Customer': (o.profiles as any)?.name || 'Unknown',
-                'Email': (o.profiles as any)?.email || '',
+                'Customer': o.profiles?.name || 'Unknown',
+                'Email': o.profiles?.email || '',
                 'Status': STATUS_LABELS[o.status as OrderStatus] || o.status,
                 'Total': Number(o.total_amount).toFixed(2),
                 'Date': format(new Date(o.created_at), 'yyyy-MM-dd HH:mm'),
@@ -1053,10 +1102,10 @@ export function AdminOrders() {
                       <div>
                         <p className="text-sm text-muted-foreground">Customer</p>
                         <p className="font-medium text-foreground">
-                          {(order.profiles as any)?.name || 'Unknown'}
+                          {order.profiles?.name || 'Unknown'}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          {(order.profiles as any)?.email}
+                          {order.profiles?.email}
                         </p>
                       </div>
                       <div>
@@ -1087,7 +1136,7 @@ export function AdminOrders() {
                     <div className="mb-4 p-4 bg-muted rounded-lg">
                       <p className="text-sm font-semibold text-foreground mb-3">Order Items:</p>
                       <div className="space-y-3">
-                        {order.order_items?.map((item: any) => (
+                        {order.order_items?.map((item) => (
                           <div key={item.id} className="flex flex-col gap-3 rounded-lg border border-border bg-background p-3 sm:flex-row sm:items-start sm:justify-between">
                             <div className="flex-1">
                               <p className="font-medium text-foreground">{item.product_name}</p>
@@ -1375,14 +1424,14 @@ export function AdminOrders() {
                           <div className="space-y-4">
                             <div>
                               <h4 className="font-semibold mb-2">Shipping Address</h4>
-                              {order.shipping_address ? (
+                              {getShippingAddress(order.shipping_address) ? (
                                 <div className="text-sm text-muted-foreground p-3 bg-muted rounded-lg">
-                                  <p className="font-medium text-foreground">{(order.shipping_address as any)?.full_name}</p>
-                                  <p>{(order.shipping_address as any)?.address_line1}</p>
-                                  {(order.shipping_address as any)?.address_line2 && <p>{(order.shipping_address as any)?.address_line2}</p>}
-                                  <p>{(order.shipping_address as any)?.city}, {(order.shipping_address as any)?.state} {(order.shipping_address as any)?.postal_code}</p>
-                                  <p>{(order.shipping_address as any)?.country}</p>
-                                  <p className="mt-2">Phone: {(order.shipping_address as any)?.phone}</p>
+                                  <p className="font-medium text-foreground">{getShippingAddress(order.shipping_address)?.full_name}</p>
+                                  <p>{getShippingAddress(order.shipping_address)?.address_line1}</p>
+                                  {getShippingAddress(order.shipping_address)?.address_line2 && <p>{getShippingAddress(order.shipping_address)?.address_line2}</p>}
+                                  <p>{getShippingAddress(order.shipping_address)?.city}, {getShippingAddress(order.shipping_address)?.state} {getShippingAddress(order.shipping_address)?.postal_code}</p>
+                                  <p>{getShippingAddress(order.shipping_address)?.country}</p>
+                                  <p className="mt-2">Phone: {getShippingAddress(order.shipping_address)?.phone}</p>
                                 </div>
                               ) : (
                                 <p className="text-sm text-muted-foreground">No address provided</p>
@@ -1392,7 +1441,7 @@ export function AdminOrders() {
                               <h4 className="font-semibold mb-2">Tracking History</h4>
                               <div className="space-y-2">
                                 {order.order_tracking?.length > 0 ? (
-                                  order.order_tracking?.map((track: any) => (
+                                  order.order_tracking?.map((track) => (
                                     <div key={track.id} className="p-2 bg-muted rounded text-sm">
                                       <p className="font-medium">{track.status}</p>
                                       <p className="text-muted-foreground">{track.location_name}</p>

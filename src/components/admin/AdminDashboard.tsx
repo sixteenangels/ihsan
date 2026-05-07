@@ -8,6 +8,48 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Progress } from '@/components/ui/progress';
 import { useMemo } from 'react';
 import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
+import type { Database } from '@/integrations/supabase/types';
+
+type OrderSummaryRow = Pick<Database['public']['Tables']['orders']['Row'], 'status' | 'total_amount' | 'created_at'>;
+type LowStockVariantRow = {
+  id: string;
+  stock: number | null;
+  products: { name: string | null } | null;
+};
+type StockAlertRow = {
+  id: string;
+  created_at: string | null;
+  product_id: string | null;
+  variant_id: string | null;
+  product_variants: {
+    id: string;
+    color: string | null;
+    size: string | null;
+  } | null;
+  products: {
+    name: string | null;
+  } | null;
+};
+type ProcurementProductRow = {
+  id: string;
+  name: string;
+  supplier_name: string | null;
+  supplier_sku: string | null;
+  procurement_notes: string | null;
+  expected_restock_date: string | null;
+  is_active: boolean | null;
+  product_variants: Array<{
+    id: string;
+    stock: number | null;
+    is_active: boolean | null;
+  }> | null;
+};
+type AuditLogSummaryRow = {
+  id: string;
+  action: string;
+  summary: string;
+  created_at: string;
+};
 
 export function AdminDashboard() {
   const { formatPrice } = useCurrency();
@@ -38,7 +80,7 @@ export function AdminDashboard() {
 
   const { data: orders } = useQuery({
     queryKey: ['admin-orders-dashboard'],
-    queryFn: async () => {
+    queryFn: async (): Promise<OrderSummaryRow[]> => {
       const { data } = await supabase.from('orders').select('status, total_amount, created_at');
       return data || [];
     },
@@ -46,13 +88,13 @@ export function AdminDashboard() {
 
   const { data: lowStockProducts } = useQuery({
     queryKey: ['admin-low-stock'],
-    queryFn: async () => {
+    queryFn: async (): Promise<LowStockVariantRow[]> => {
       const { data } = await supabase
         .from('product_variants')
         .select('id, stock, products(name)')
         .lt('stock', 10)
         .eq('is_active', true);
-      return data || [];
+      return (data || []) as LowStockVariantRow[];
     },
   });
 
@@ -78,9 +120,9 @@ export function AdminDashboard() {
 
   const { data: stockAlerts = [] } = useQuery({
     queryKey: ['admin-stock-alerts-demand'],
-    queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from('stock_alerts')
+    queryFn: async (): Promise<StockAlertRow[]> => {
+      const { data, error } = await supabase
+        .from('stock_alerts' as never)
         .select(`
           id,
           created_at,
@@ -97,14 +139,14 @@ export function AdminDashboard() {
         `);
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as unknown as StockAlertRow[];
     },
   });
 
   const { data: procurementProducts = [] } = useQuery({
     queryKey: ['admin-procurement-products'],
-    queryFn: async () => {
-      const { data, error } = await (supabase as any)
+    queryFn: async (): Promise<ProcurementProductRow[]> => {
+      const { data, error } = await supabase
         .from('products')
         .select(`
           id,
@@ -123,21 +165,21 @@ export function AdminDashboard() {
         .eq('is_active', true);
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as unknown as ProcurementProductRow[];
     },
   });
 
   const { data: auditLogs = [] } = useQuery({
     queryKey: ['admin-dashboard-audit-logs'],
-    queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from('audit_logs')
+    queryFn: async (): Promise<AuditLogSummaryRow[]> => {
+      const { data, error } = await supabase
+        .from('audit_logs' as never)
         .select('id, action, summary, created_at')
         .order('created_at', { ascending: false })
         .limit(5);
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as unknown as AuditLogSummaryRow[];
     },
   });
 
@@ -188,7 +230,7 @@ export function AdminDashboard() {
   const alertDemand = useMemo(() => {
     const grouped = new Map<string, { key: string; name: string; variant: string; count: number }>();
 
-    stockAlerts.forEach((alert: any) => {
+    stockAlerts.forEach((alert) => {
       const variantLabel = [alert.product_variants?.color, alert.product_variants?.size]
         .filter(Boolean)
         .join(' / ');
@@ -212,11 +254,11 @@ export function AdminDashboard() {
 
   const purchasePlanningQueue = useMemo(() => {
     return procurementProducts
-      .map((product: any) => {
-        const activeVariants = (product.product_variants || []).filter((variant: any) => variant.is_active !== false);
-        const totalStock = activeVariants.reduce((sum: number, variant: any) => sum + Number(variant.stock || 0), 0);
-        const lowStockVariants = activeVariants.filter((variant: any) => Number(variant.stock || 0) < 10).length;
-        const demandCount = stockAlerts.filter((alert: any) => alert.product_id === product.id).length;
+      .map((product) => {
+        const activeVariants = (product.product_variants || []).filter((variant) => variant.is_active !== false);
+        const totalStock = activeVariants.reduce((sum, variant) => sum + Number(variant.stock || 0), 0);
+        const lowStockVariants = activeVariants.filter((variant) => Number(variant.stock || 0) < 10).length;
+        const demandCount = stockAlerts.filter((alert) => alert.product_id === product.id).length;
         const urgencyScore = demandCount * 3 + (lowStockVariants > 0 ? 8 : 0) + (totalStock === 0 ? 12 : 0);
         const suggestedReorderQty = Math.max(10, demandCount * 2 + lowStockVariants * 5 + (totalStock === 0 ? 10 : 0));
 
@@ -453,7 +495,7 @@ export function AdminDashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {auditLogs.map((log: any) => (
+            {auditLogs.map((log) => (
               <div key={log.id} className="rounded-lg border border-border p-3">
                 <div className="flex items-center justify-between gap-3">
                   <Badge variant="outline">{log.action}</Badge>
@@ -569,7 +611,7 @@ export function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {lowStockProducts.slice(0, 5).map((variant: any) => (
+              {lowStockProducts.slice(0, 5).map((variant) => (
                 <div key={variant.id} className="flex items-center justify-between p-2 rounded-lg bg-muted">
                   <span className="text-sm text-foreground">{variant.products?.name || 'Unknown Product'}</span>
                   <Badge variant={variant.stock === 0 ? 'destructive' : 'secondary'}>
