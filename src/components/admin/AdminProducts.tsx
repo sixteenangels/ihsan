@@ -39,6 +39,24 @@ import { productSchema, validateForm } from '@/lib/validations/admin';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useAuth } from '@/contexts/AuthContext';
 import { logAdminAction } from '@/lib/audit-log';
+import type { Database } from '@/integrations/supabase/types';
+
+type ProductRow = Database['public']['Tables']['products']['Row'];
+type ProductInsert = Database['public']['Tables']['products']['Insert'];
+type ProductUpdate = Database['public']['Tables']['products']['Update'];
+type ProductImageRow = Database['public']['Tables']['product_images']['Row'];
+type ProductCategoryRelation = { name: string };
+type ProductOpsFields = {
+  supplier_name: string | null;
+  supplier_sku: string | null;
+  procurement_notes: string | null;
+  expected_restock_date: string | null;
+};
+type AdminProduct = ProductRow &
+  ProductOpsFields & {
+    categories: ProductCategoryRelation | null;
+    product_images: Pick<ProductImageRow, 'id' | 'image_url' | 'order_index'>[] | null;
+  };
 
 interface ProductForm {
   name: string;
@@ -94,7 +112,7 @@ export function AdminProducts() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ProductForm>(defaultForm);
   const [pendingImages, setPendingImages] = useState<File[]>([]);
-  const [existingImages, setExistingImages] = useState<{ id: string; image_url: string; order_index: number }[]>([]);
+  const [existingImages, setExistingImages] = useState<Pick<ProductImageRow, 'id' | 'image_url' | 'order_index'>[]>([]);
   const [variants, setVariants] = useState<VariantData[]>([]);
   const [shippingRules, setShippingRules] = useState<ShippingRuleData[]>([]);
 
@@ -108,13 +126,13 @@ export function AdminProducts() {
         .select('*, categories(name), product_images(id, image_url, order_index)')
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return data;
+      return (data ?? []) as AdminProduct[];
     },
   });
 
   const createMutation = useMutation({
     mutationFn: async (data: ProductForm) => {
-      const { data: product, error } = await supabase.from('products').insert({
+      const productPayload: ProductInsert & ProductOpsFields = {
         name: data.name,
         description: data.description,
         item_code: data.item_code,
@@ -135,13 +153,19 @@ export function AdminProducts() {
         supplier_sku: data.supplier_sku || null,
         procurement_notes: data.procurement_notes || null,
         expected_restock_date: data.expected_restock_date || null,
-      } as any).select().single();
+      };
+
+      const { data: product, error } = await supabase
+        .from('products')
+        .insert(productPayload as ProductInsert)
+        .select()
+        .single();
       if (error) throw error;
 
       // Upload images if any
       if (pendingImages.length > 0 && product) {
         const imageUrls = await uploadProductImages(product.id, pendingImages);
-        const imageRecords = imageUrls.map((url, index) => ({
+        const imageRecords: Database['public']['Tables']['product_images']['Insert'][] = imageUrls.map((url, index) => ({
           product_id: product.id,
           image_url: url,
           order_index: index,
@@ -151,7 +175,7 @@ export function AdminProducts() {
 
       // Create variants if any
       if (variants.length > 0 && product) {
-        const variantRecords = variants.map((v) => ({
+        const variantRecords: Database['public']['Tables']['product_variants']['Insert'][] = variants.map((v) => ({
           product_id: product.id,
           size: v.size || null,
           color: v.color || null,
@@ -164,7 +188,7 @@ export function AdminProducts() {
 
       // Create shipping rules if any
       if (shippingRules.length > 0 && product) {
-        const ruleRecords = shippingRules.map((r) => ({
+        const ruleRecords: Database['public']['Tables']['product_shipping_rules']['Insert'][] = shippingRules.map((r) => ({
           product_id: product.id,
           shipping_class_id: r.shipping_class_id,
           price: parseFloat(r.price) || 0,
@@ -199,30 +223,32 @@ export function AdminProducts() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: ProductForm }) => {
+      const productPayload: ProductUpdate & ProductOpsFields = {
+        name: data.name,
+        description: data.description,
+        item_code: data.item_code,
+        base_price: parseFloat(data.base_price),
+        group_buy_price: data.group_buy_price ? parseFloat(data.group_buy_price) : null,
+        category_id: data.category_id || null,
+        is_group_buy_eligible: data.is_group_buy_eligible,
+        is_flash_deal: data.is_flash_deal,
+        flash_deal_ends_at: data.is_flash_deal && data.flash_deal_ends_at ? new Date(data.flash_deal_ends_at).toISOString() : null,
+        is_free_shipping: data.is_free_shipping,
+        is_ready_now: data.is_ready_now,
+        is_active: data.is_active,
+        is_fragile: data.is_fragile,
+        allow_standard_packaging: data.allow_standard_packaging,
+        allow_reinforced_packaging: data.allow_reinforced_packaging,
+        reinforced_packaging_cost: data.reinforced_packaging_cost ? parseFloat(data.reinforced_packaging_cost) : null,
+        supplier_name: data.supplier_name || null,
+        supplier_sku: data.supplier_sku || null,
+        procurement_notes: data.procurement_notes || null,
+        expected_restock_date: data.expected_restock_date || null,
+      };
+
       const { error } = await supabase
         .from('products')
-        .update({
-          name: data.name,
-          description: data.description,
-          item_code: data.item_code,
-          base_price: parseFloat(data.base_price),
-          group_buy_price: data.group_buy_price ? parseFloat(data.group_buy_price) : null,
-          category_id: data.category_id || null,
-          is_group_buy_eligible: data.is_group_buy_eligible,
-          is_flash_deal: data.is_flash_deal,
-          flash_deal_ends_at: data.is_flash_deal && data.flash_deal_ends_at ? new Date(data.flash_deal_ends_at).toISOString() : null,
-          is_free_shipping: data.is_free_shipping,
-          is_ready_now: data.is_ready_now,
-          is_active: data.is_active,
-          is_fragile: data.is_fragile,
-          allow_standard_packaging: data.allow_standard_packaging,
-          allow_reinforced_packaging: data.allow_reinforced_packaging,
-          reinforced_packaging_cost: data.reinforced_packaging_cost ? parseFloat(data.reinforced_packaging_cost) : null,
-          supplier_name: data.supplier_name || null,
-          supplier_sku: data.supplier_sku || null,
-          procurement_notes: data.procurement_notes || null,
-          expected_restock_date: data.expected_restock_date || null,
-        } as any)
+        .update(productPayload as ProductUpdate)
         .eq('id', id);
       if (error) throw error;
 
@@ -232,7 +258,7 @@ export function AdminProducts() {
           ? Math.max(...existingImages.map(i => i.order_index)) + 1 
           : 0;
         const imageUrls = await uploadProductImages(id, pendingImages);
-        const imageRecords = imageUrls.map((url, index) => ({
+        const imageRecords: Database['public']['Tables']['product_images']['Insert'][] = imageUrls.map((url, index) => ({
           product_id: id,
           image_url: url,
           order_index: currentMaxIndex + index,
@@ -243,7 +269,7 @@ export function AdminProducts() {
       // Handle variants: delete existing and insert new
       await supabase.from('product_variants').delete().eq('product_id', id);
       if (variants.length > 0) {
-        const variantRecords = variants.map((v) => ({
+        const variantRecords: Database['public']['Tables']['product_variants']['Insert'][] = variants.map((v) => ({
           product_id: id,
           size: v.size || null,
           color: v.color || null,
@@ -257,7 +283,7 @@ export function AdminProducts() {
       // Handle shipping rules: delete existing and insert new
       await supabase.from('product_shipping_rules').delete().eq('product_id', id);
       if (shippingRules.length > 0) {
-        const ruleRecords = shippingRules.map((r) => ({
+        const ruleRecords: Database['public']['Tables']['product_shipping_rules']['Insert'][] = shippingRules.map((r) => ({
           product_id: id,
           shipping_class_id: r.shipping_class_id,
           price: parseFloat(r.price) || 0,
@@ -319,7 +345,7 @@ export function AdminProducts() {
     },
   });
 
-  const handleEdit = async (product: any) => {
+  const handleEdit = async (product: AdminProduct) => {
     try {
       setEditingId(product.id);
       setForm({
@@ -327,7 +353,7 @@ export function AdminProducts() {
         description: product.description || '',
         item_code: product.item_code || '',
         base_price: String(product.base_price || 0),
-        group_buy_price: (product as any).group_buy_price != null ? String((product as any).group_buy_price) : '',
+        group_buy_price: product.group_buy_price != null ? String(product.group_buy_price) : '',
         category_id: product.category_id || '',
         is_group_buy_eligible: product.is_group_buy_eligible || false,
         is_flash_deal: product.is_flash_deal || false,
@@ -335,14 +361,14 @@ export function AdminProducts() {
         is_free_shipping: product.is_free_shipping || false,
         is_ready_now: product.is_ready_now || false,
         is_active: product.is_active ?? true,
-        is_fragile: (product as any).is_fragile || false,
-        allow_standard_packaging: (product as any).allow_standard_packaging !== false,
-        allow_reinforced_packaging: (product as any).allow_reinforced_packaging !== false,
-        reinforced_packaging_cost: (product as any).reinforced_packaging_cost != null ? String((product as any).reinforced_packaging_cost) : '',
-        supplier_name: (product as any).supplier_name || '',
-        supplier_sku: (product as any).supplier_sku || '',
-        procurement_notes: (product as any).procurement_notes || '',
-        expected_restock_date: (product as any).expected_restock_date || '',
+        is_fragile: product.is_fragile || false,
+        allow_standard_packaging: product.allow_standard_packaging !== false,
+        allow_reinforced_packaging: product.allow_reinforced_packaging !== false,
+        reinforced_packaging_cost: product.reinforced_packaging_cost != null ? String(product.reinforced_packaging_cost) : '',
+        supplier_name: product.supplier_name || '',
+        supplier_sku: product.supplier_sku || '',
+        procurement_notes: product.procurement_notes || '',
+        expected_restock_date: product.expected_restock_date || '',
       });
       setExistingImages(product.product_images || []);
       setPendingImages([]);
@@ -753,110 +779,190 @@ export function AdminProducts() {
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
+          ) : products.length === 0 ? (
+            <div className="py-8 text-center text-muted-foreground">
+              No products yet. Add your first product to get started.
+            </div>
           ) : (
-            <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-16">Image</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Price</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {products?.map((product: any) => {
-                  const images = product.product_images as { image_url: string }[] | undefined;
-                  const firstImage = images?.[0]?.image_url;
-                  
+            <>
+              <div className="space-y-3 p-4 md:hidden">
+                {products.map((product) => {
+                  const firstImage = product.product_images?.[0]?.image_url;
+
                   return (
-                    <TableRow key={product.id}>
-                      <TableCell>
+                    <div key={product.id} className="rounded-lg border border-border bg-card p-4">
+                      <div className="flex items-start gap-3">
                         {firstImage ? (
                           <img
                             src={firstImage}
                             alt={product.name}
-                            className="w-12 h-12 object-cover rounded-md border border-border"
+                            className="h-14 w-14 shrink-0 rounded-md border border-border object-cover"
                           />
                         ) : (
-                          <div className="w-12 h-12 bg-muted rounded-md flex items-center justify-center">
+                          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-md bg-muted">
                             <Package className="h-5 w-5 text-muted-foreground" />
                           </div>
                         )}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {product.name}
-                        {product.is_ready_now && (
-                          <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
-                            Ready
-                          </span>
-                        )}
-                        {((product as any).supplier_name || (product as any).expected_restock_date) && (
-                          <div className="mt-1 text-xs text-muted-foreground">
-                            {(product as any).supplier_name || 'No supplier'}
-                            {(product as any).expected_restock_date ? ` • Restock ${String((product as any).expected_restock_date)}` : ''}
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {(product.categories as { name: string } | null)?.name || '-'}
-                      </TableCell>
-                      <TableCell>{formatPrice(Number(product.base_price))}</TableCell>
-                      <TableCell>
-                        <span
-                          className={`inline-flex px-2 py-1 text-xs rounded-full ${
-                            product.is_active
-                              ? 'bg-primary/10 text-primary'
-                              : 'bg-muted text-muted-foreground'
-                          }`}
-                        >
-                          {product.is_active ? 'Active' : 'Archived'}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleEdit(product)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() =>
-                              archiveMutation.mutate({
-                                id: product.id,
-                                nextActive: !product.is_active,
-                              })
-                            }
-                            title={product.is_active ? 'Archive product' : 'Restore product'}
-                            aria-label={product.is_active ? 'Archive product' : 'Restore product'}
-                          >
-                            {product.is_active ? (
-                              <Archive className="h-4 w-4 text-amber-600" />
-                            ) : (
-                              <ArchiveRestore className="h-4 w-4 text-primary" />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-sm font-medium text-foreground">{product.name}</p>
+                            {product.is_ready_now && (
+                              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary">
+                                Ready
+                              </span>
                             )}
-                          </Button>
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-[11px] ${
+                                product.is_active
+                                  ? 'bg-primary/10 text-primary'
+                                  : 'bg-muted text-muted-foreground'
+                              }`}
+                            >
+                              {product.is_active ? 'Active' : 'Archived'}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            {product.categories?.name || '-'}
+                          </p>
+                          <p className="mt-2 text-sm font-semibold text-foreground">
+                            {formatPrice(product.base_price)}
+                          </p>
+                          {(product.supplier_name || product.expected_restock_date) && (
+                            <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                              <p>{product.supplier_name || 'No supplier'}</p>
+                              {product.expected_restock_date && (
+                                <p>Restock {String(product.expected_restock_date)}</p>
+                              )}
+                            </div>
+                          )}
                         </div>
-                      </TableCell>
-                    </TableRow>
+                      </div>
+                      <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                        <Button
+                          variant="outline"
+                          className="flex-1"
+                          onClick={() => handleEdit(product)}
+                        >
+                          <Pencil className="mr-2 h-4 w-4" />
+                          Edit
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="flex-1"
+                          onClick={() =>
+                            archiveMutation.mutate({
+                              id: product.id,
+                              nextActive: !product.is_active,
+                            })
+                          }
+                        >
+                          {product.is_active ? (
+                            <Archive className="mr-2 h-4 w-4 text-amber-600" />
+                          ) : (
+                            <ArchiveRestore className="mr-2 h-4 w-4 text-primary" />
+                          )}
+                          {product.is_active ? 'Archive' : 'Restore'}
+                        </Button>
+                      </div>
+                    </div>
                   );
                 })}
-                {products?.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                      No products yet. Add your first product to get started.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-            </div>
+              </div>
+
+              <div className="hidden overflow-x-auto md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-16">Image</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Price</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {products.map((product) => {
+                      const firstImage = product.product_images?.[0]?.image_url;
+
+                      return (
+                        <TableRow key={product.id}>
+                          <TableCell>
+                            {firstImage ? (
+                              <img
+                                src={firstImage}
+                                alt={product.name}
+                                className="h-12 w-12 rounded-md border border-border object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-12 w-12 items-center justify-center rounded-md bg-muted">
+                                <Package className="h-5 w-5 text-muted-foreground" />
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            {product.name}
+                            {product.is_ready_now && (
+                              <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">
+                                Ready
+                              </span>
+                            )}
+                            {(product.supplier_name || product.expected_restock_date) && (
+                              <div className="mt-1 text-xs text-muted-foreground">
+                                {product.supplier_name || 'No supplier'}
+                                {product.expected_restock_date ? ` - Restock ${String(product.expected_restock_date)}` : ''}
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell>{product.categories?.name || '-'}</TableCell>
+                          <TableCell>{formatPrice(product.base_price)}</TableCell>
+                          <TableCell>
+                            <span
+                              className={`inline-flex rounded-full px-2 py-1 text-xs ${
+                                product.is_active
+                                  ? 'bg-primary/10 text-primary'
+                                  : 'bg-muted text-muted-foreground'
+                              }`}
+                            >
+                              {product.is_active ? 'Active' : 'Archived'}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleEdit(product)}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() =>
+                                  archiveMutation.mutate({
+                                    id: product.id,
+                                    nextActive: !product.is_active,
+                                  })
+                                }
+                                title={product.is_active ? 'Archive product' : 'Restore product'}
+                                aria-label={product.is_active ? 'Archive product' : 'Restore product'}
+                              >
+                                {product.is_active ? (
+                                  <Archive className="h-4 w-4 text-amber-600" />
+                                ) : (
+                                  <ArchiveRestore className="h-4 w-4 text-primary" />
+                                )}
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
