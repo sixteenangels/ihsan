@@ -21,6 +21,8 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { OrderInvoice } from '@/components/orders/OrderInvoice';
 import { RefundRequestDialog } from '@/components/orders/RefundRequestDialog';
+import type { Product, ProductVariant } from '@/types';
+import type { LucideIcon } from 'lucide-react';
 
 interface OrderItem {
   id: string;
@@ -53,6 +55,40 @@ interface TrackingPoint {
 
 interface ReceiptSummary {
   id: string;
+  receipt_number: string;
+  generated_at: string;
+}
+
+interface ProductVariantLookupRow {
+  id: string;
+  product_id: string;
+  color: string | null;
+  size: string | null;
+  price_override: number | null;
+  stock: number | null;
+}
+
+interface ProductImageRow {
+  image_url: string;
+  order_index: number | null;
+}
+
+interface ProductLookupRow {
+  id: string;
+  name: string;
+  description: string | null;
+  base_price: number;
+  is_group_buy_eligible: boolean | null;
+  is_flash_deal: boolean | null;
+  is_free_shipping: boolean | null;
+  rating: number | null;
+  review_count: number | null;
+  product_images: ProductImageRow[] | null;
+}
+
+interface ReceiptLookupRow {
+  id: string;
+  order_id: string;
   receipt_number: string;
   generated_at: string;
 }
@@ -98,7 +134,7 @@ const CUSTOMER_STATUS_TABS = [
   { value: 'cancelled', label: 'Cancelled', icon: XCircle, statuses: ['cancelled', 'refunded'] },
 ];
 
-const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
+const statusConfig: Record<string, { label: string; color: string; icon: LucideIcon }> = {
   pending: { label: 'Pending', color: 'bg-yellow-100 text-yellow-800', icon: Clock },
   payment_received: { label: 'Payment Received', color: 'bg-green-100 text-green-800', icon: CheckCircle },
   order_placed: { label: 'Order Placed', color: 'bg-blue-100 text-blue-800', icon: Package },
@@ -272,7 +308,7 @@ export default function MyOrders() {
             .from('receipts')
             .select('id, order_id, receipt_number, generated_at')
             .in('order_id', orderIds)
-        : { data: [] as any[] };
+        : { data: [] as ReceiptLookupRow[] };
 
       const receiptMap = new Map(
         (receiptRows || []).map((receipt) => [
@@ -292,7 +328,7 @@ export default function MyOrders() {
           order.fulfillment_checks && typeof order.fulfillment_checks === 'object'
             ? (order.fulfillment_checks as Record<string, boolean>)
             : null,
-        order_tracking: (order.order_tracking || []).sort((a: any, b: any) => 
+        order_tracking: (order.order_tracking || []).sort((a, b) => 
           new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
         ),
         receipt: receiptMap.get(order.id) || null,
@@ -300,7 +336,7 @@ export default function MyOrders() {
       setOrders(mappedOrders);
 
       // Fetch product images for order items
-      const variantIds = data.flatMap(o => o.order_items?.map((i: any) => i.product_variant_id) || []);
+      const variantIds = data.flatMap(o => o.order_items?.map((i) => i.product_variant_id) || []);
       if (variantIds.length > 0) {
         const uniqueIds = [...new Set(variantIds)];
         const { data: variants } = await supabase
@@ -398,12 +434,12 @@ export default function MyOrders() {
     for (const item of order.order_items) {
       const variant = variantRows.find((v) => v.id === item.product_variant_id);
       if (!variant) continue;
-      const productRow: any = productRows.find((p) => p.id === variant.product_id);
+      const productRow = (productRows as ProductLookupRow[]).find((p) => p.id === variant.product_id);
       if (!productRow) continue;
       const images = (productRow.product_images || [])
-        .sort((a: any, b: any) => (a.order_index ?? 0) - (b.order_index ?? 0))
-        .map((i: any) => i.image_url);
-      const cartProduct = {
+        .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
+        .map((i) => i.image_url);
+      const cartProduct: Product = {
         id: productRow.id,
         name: productRow.name,
         description: productRow.description || '',
@@ -418,14 +454,14 @@ export default function MyOrders() {
         rating: Number(productRow.rating) || 0,
         reviewCount: productRow.review_count || 0,
       };
-      const cartVariant = {
+      const cartVariant: ProductVariant = {
         id: variant.id,
         size: variant.size || undefined,
         color: variant.color || undefined,
         price: variant.price_override != null ? Number(variant.price_override) : Number(productRow.base_price),
         stock: variant.stock || 0,
       };
-      addToCart(cartProduct as any, cartVariant as any, item.quantity);
+      addToCart(cartProduct, cartVariant, item.quantity);
       added++;
     }
     if (added > 0) {
@@ -665,7 +701,7 @@ export default function MyOrders() {
                             <p className="font-bold text-primary text-sm">
                               {formatPrice(order.total_amount)}
                             </p>
-                            {(order as any).group_buy_id && (
+                            {order.group_buy_id && (
                               <Badge className="bg-accent/10 text-accent-foreground gap-1 text-xs">
                                 <Users className="h-3 w-3" />
                                 Group Buy

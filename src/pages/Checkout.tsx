@@ -16,6 +16,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
 import { toast } from 'sonner';
 import { useWalletBalance } from '@/hooks/useWallet';
 import { useLoyaltyPoints } from '@/hooks/useLoyaltyPoints';
@@ -70,9 +71,58 @@ interface Coupon {
   marketing_label?: string | null;
 }
 
+interface PaystackHandler {
+  openIframe: () => void;
+}
+
+interface PaystackPop {
+  setup: (options: Record<string, unknown>) => PaystackHandler;
+}
+
+interface ShippingRuleRow {
+  product_id: string;
+  shipping_class_id: string;
+  price: number | null;
+  is_allowed: boolean;
+  shipping_classes: {
+    id: string;
+    name: string;
+    base_price: number | null;
+    estimated_days_min: number;
+    estimated_days_max: number;
+    is_active: boolean | null;
+    shipping_types: {
+      id: string;
+      name: string;
+      is_active: boolean | null;
+    } | null;
+  } | null;
+}
+
+interface ProductMetaRow {
+  id: string;
+  is_fragile: boolean | null;
+  reinforced_packaging_cost: number | null;
+  is_free_shipping: boolean | null;
+  allow_standard_packaging: boolean | null;
+  allow_reinforced_packaging: boolean | null;
+}
+
+interface ProductVariantRow {
+  id: string;
+  product_id: string;
+  color: string | null;
+  size: string | null;
+  price_override: number | null;
+  stock: number | null;
+}
+
+type StoreSettingRow = Database['public']['Tables']['store_settings']['Row'];
+type WalletTransactionInsert = Database['public']['Tables']['wallet_transactions']['Insert'];
+
 declare global {
   interface Window {
-    PaystackPop: any;
+    PaystackPop?: PaystackPop;
   }
 }
 
@@ -212,7 +262,7 @@ export default function Checkout() {
 
     const shippingClassCounts = new Map<string, { count: number; data: ShippingClass; totalPrice: number }>();
 
-    shippingRules?.forEach((rule: any) => {
+    (shippingRules as ShippingRuleRow[] | null)?.forEach((rule) => {
       const sc = rule.shipping_classes;
       if (!sc || !sc.is_active) return;
 
@@ -340,7 +390,7 @@ export default function Checkout() {
         allow_standard_packaging: boolean;
         allow_reinforced_packaging: boolean;
       }> = {};
-      (products || []).forEach((p: any) => {
+      (products as ProductMetaRow[] | null || []).forEach((p) => {
         meta[p.id] = {
           is_fragile: !!p.is_fragile,
           reinforced_cost: Number(p.reinforced_packaging_cost) || 0,
@@ -352,7 +402,7 @@ export default function Checkout() {
       setProductMeta(meta);
 
       const variantsMap: Record<string, VariantOption[]> = {};
-      (variants || []).forEach((variant: any) => {
+      (variants as ProductVariantRow[] | null || []).forEach((variant) => {
         if (!variantsMap[variant.product_id]) {
           variantsMap[variant.product_id] = [];
         }
@@ -366,7 +416,7 @@ export default function Checkout() {
       });
       setProductVariantOptions(variantsMap);
 
-      const globalDefault = Number((settings as any)?.value) || 0;
+      const globalDefault = Number((settings as StoreSettingRow | null)?.value) || 0;
       setGlobalReinforcedCost(globalDefault);
     })();
   }, [cartProductIds]);
@@ -704,9 +754,9 @@ export default function Checkout() {
       });
 
       handler.openIframe();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Payment error:', error);
-      toast.error(error?.message || 'Payment initialization failed. Please try again.');
+      toast.error(error instanceof Error ? error.message : 'Payment initialization failed. Please try again.');
       setIsProcessing(false);
     }
   };
@@ -733,7 +783,7 @@ export default function Checkout() {
           packaging_type: hasFragile ? packagingChoice : null,
           packaging_cost: reinforcedPackagingCost,
           wallet_credit_used: walletApplied,
-        } as any])
+        }])
         .select()
         .single();
 
@@ -741,14 +791,15 @@ export default function Checkout() {
 
       if (walletApplied > 0 && user?.id) {
         try {
-          await (supabase as any).from('wallet_transactions').insert({
+          const walletTransaction: WalletTransactionInsert = {
             user_id: user.id,
             amount: walletApplied,
             type: 'debit',
             description: `Used for order ${order.order_number}`,
             order_id: order.id,
             created_by: user.id,
-          });
+          };
+          await supabase.from('wallet_transactions').insert(walletTransaction);
         } catch (e) {
           console.error('Wallet debit failed (non-blocking):', e);
         }
@@ -806,7 +857,7 @@ export default function Checkout() {
           .select('key, value')
           .in('key', ['loyaltyEnabled', 'loyaltyPointsPerOrder', 'loyaltyMinOrderAmount']);
 
-        const sMap: Record<string, any> = {};
+        const sMap: Record<string, Database['public']['Tables']['store_settings']['Row']['value']> = {};
         settingsData?.forEach(r => { sMap[r.key] = r.value; });
 
         const loyaltyEnabled = sMap.loyaltyEnabled !== false;
@@ -957,14 +1008,15 @@ export default function Checkout() {
       // Debit wallet if used
       if (walletApplied > 0 && user?.id) {
         try {
-          await (supabase as any).from('wallet_transactions').insert({
+          const walletTransaction: WalletTransactionInsert = {
             user_id: user.id,
             amount: walletApplied,
             type: 'debit',
             description: `Used for order ${order.order_number}`,
             order_id: order.id,
             created_by: user.id,
-          });
+          };
+          await supabase.from('wallet_transactions').insert(walletTransaction);
         } catch (e) {
           console.error('Wallet debit failed (non-blocking):', e);
         }
@@ -1012,7 +1064,7 @@ export default function Checkout() {
           .select('key, value')
           .in('key', ['loyaltyEnabled', 'loyaltyPointsPerOrder', 'loyaltyMinOrderAmount']);
         
-        const sMap: Record<string, any> = {};
+        const sMap: Record<string, Database['public']['Tables']['store_settings']['Row']['value']> = {};
         settingsData?.forEach(r => { sMap[r.key] = r.value; });
         
         const loyaltyEnabled = sMap.loyaltyEnabled !== false; // default true
