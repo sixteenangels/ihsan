@@ -42,8 +42,25 @@ export default defineConfig(({ mode }) => ({
             return "query";
           }
 
+          if (
+            id.includes("react-hook-form") ||
+            id.includes("@hookform/resolvers") ||
+            id.includes("zod") ||
+            id.includes("input-otp")
+          ) {
+            return "forms";
+          }
+
+          if (id.includes("next-themes")) {
+            return "theme";
+          }
+
           if (id.includes("date-fns")) {
             return "date-utils";
+          }
+
+          if (id.includes("react-day-picker")) {
+            return "calendar";
           }
 
           if (id.includes("jspdf") || id.includes("html2canvas")) {
@@ -56,6 +73,10 @@ export default defineConfig(({ mode }) => ({
 
           if (id.includes("lucide-react")) {
             return "icons";
+          }
+
+          if (id.includes("embla-carousel-react") || id.includes("react-resizable-panels")) {
+            return "layout-tools";
           }
 
           if (id.includes("cmdk") || id.includes("vaul") || id.includes("sonner")) {
