@@ -34,6 +34,18 @@ export default defineConfig(({ mode }) => ({
             return "motion";
           }
 
+          if (id.includes("react-router") || id.includes("@remix-run/router")) {
+            return "router";
+          }
+
+          if (id.includes("@tanstack/react-query")) {
+            return "query";
+          }
+
+          if (id.includes("date-fns")) {
+            return "date-utils";
+          }
+
           if (id.includes("jspdf") || id.includes("html2canvas")) {
             return "pdf-tools";
           }

@@ -218,12 +218,6 @@ export default function Auth() {
           toast.error(
             'Google blocked this sign-in. Verify the Supabase Google provider callback URL and authorized origins for this app.'
           );
-          return;
-        }
-        if (/access.?blocked|disallowed_useragent|redirect_uri_mismatch|invalid_client/i.test(msg)) {
-          toast.error(
-            'Google blocked this sign-in. The OAuth client is misconfigured â€” verify the callback URL and authorized origins, or switch to Lovable-managed Google credentials.'
-          );
         } else if (/popup|window.?closed|cancel/i.test(msg)) {
           toast.error('Sign-in was cancelled.');
         } else if (/network|fetch/i.test(msg)) {
