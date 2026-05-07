@@ -62,8 +62,8 @@ export function ProductCard({ product, onQuickView, viewMode = 'grid' }: Product
 
   if (viewMode === 'list') {
     return (
-      <Link to={`/product/${product.id}`}>
-        <Card className="group overflow-hidden hover:shadow-lg transition-all duration-300 border-border bg-card">
+      <Link to={`/product/${product.id}`} className="block h-full">
+        <Card className="group h-full overscroll-contain hover:shadow-lg transition-all duration-300 border-border bg-card">
           <div className="flex flex-col sm:flex-row">
             {/* Image - horizontal layout */}
             <div className="relative aspect-[4/3] w-full overflow-hidden sm:aspect-auto sm:w-48 sm:flex-shrink-0">
@@ -130,8 +130,8 @@ export function ProductCard({ product, onQuickView, viewMode = 'grid' }: Product
 
   // Grid view - 2 columns on mobile with compact cards
   return (
-    <Link to={`/product/${product.id}`}>
-      <Card className="group overflow-hidden border-border bg-card transition-all duration-300 hover:shadow-lg">
+    <Link to={`/product/${product.id}`} className="block h-full">
+      <Card className="group h-full overscroll-contain border-border bg-card transition-all duration-300 hover:shadow-lg">
         <div className="relative aspect-square overflow-hidden">
           <img
             src={product.images[0]}

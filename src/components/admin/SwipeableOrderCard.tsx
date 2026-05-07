@@ -66,7 +66,7 @@ export function SwipeableOrderCard({
   };
 
   return (
-    <div className="relative overflow-hidden rounded-lg">
+    <div className="relative isolate overflow-hidden rounded-lg bg-card overscroll-contain">
       {/* Right swipe background (advance) */}
       <motion.div
         style={{ opacity: rightBgOpacity }}
@@ -98,7 +98,7 @@ export function SwipeableOrderCard({
         animate={committed ? { x: committed === 'right' ? 300 : -300, opacity: 0 } : { x: 0, opacity: 1 }}
         transition={{ type: 'spring', stiffness: 300, damping: 30 }}
         onDragEnd={handleDragEnd}
-        className="relative bg-background touch-pan-y"
+        className="relative bg-card touch-pan-y will-change-transform"
       >
         {children}
       </motion.div>
