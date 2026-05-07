@@ -25,6 +25,11 @@ import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { logAdminAction } from '@/lib/audit-log';
+import type { Database } from '@/integrations/supabase/types';
+
+type CategoryRow = Database['public']['Tables']['categories']['Row'];
+type CategoryInsert = Database['public']['Tables']['categories']['Insert'];
+type CategoryUpdate = Database['public']['Tables']['categories']['Update'];
 
 interface CategoryForm {
   name: string;
@@ -57,13 +62,13 @@ export function AdminCategories() {
         .select('*')
         .order('name');
       if (error) throw error;
-      return data || [];
+      return (data || []) as CategoryRow[];
     },
   });
 
   const createMutation = useMutation({
     mutationFn: async (data: CategoryForm) => {
-      const payload = {
+      const payload: CategoryInsert = {
         name: data.name,
         slug: data.slug || data.name.toLowerCase().replace(/\s+/g, '-'),
         icon: data.icon,
@@ -72,7 +77,7 @@ export function AdminCategories() {
 
       const { data: created, error } = await supabase
         .from('categories')
-        .insert(payload as any)
+        .insert(payload)
         .select('id')
         .single();
       if (error) throw error;
@@ -100,7 +105,7 @@ export function AdminCategories() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: CategoryForm }) => {
-      const payload = {
+      const payload: CategoryUpdate = {
         name: data.name,
         slug: data.slug,
         icon: data.icon,
@@ -109,7 +114,7 @@ export function AdminCategories() {
 
       const { error } = await supabase
         .from('categories')
-        .update(payload as any)
+        .update(payload)
         .eq('id', id);
       if (error) throw error;
 
@@ -158,7 +163,7 @@ export function AdminCategories() {
     },
   });
 
-  const handleEdit = (category: any) => {
+  const handleEdit = (category: CategoryRow) => {
     setEditingId(category.id);
     setForm({
       name: category.name,
@@ -186,16 +191,16 @@ export function AdminCategories() {
 
   return (
     <div>
-      <div className="mb-8 flex items-center justify-between">
-        <h1 className="text-3xl font-bold font-serif text-foreground">Categories</h1>
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between md:mb-8">
+        <h1 className="text-2xl font-bold font-serif text-foreground md:text-3xl">Categories</h1>
         <Dialog open={isOpen} onOpenChange={(open) => !open ? handleClose() : setIsOpen(true)}>
           <DialogTrigger asChild>
-            <Button onClick={() => { setEditingId(null); setForm(defaultForm); }}>
+            <Button onClick={() => { setEditingId(null); setForm(defaultForm); }} className="self-start sm:self-auto">
               <Plus className="mr-2 h-4 w-4" />
               Add Category
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-h-[90vh] overflow-y-auto bg-background sm:max-w-lg">
             <DialogHeader>
               <DialogTitle>
                 {editingId ? 'Edit Category' : 'Add New Category'}
@@ -230,7 +235,7 @@ export function AdminCategories() {
                   onChange={(e) => setForm({ ...form, icon: e.target.value })}
                   placeholder="Pick an emoji"
                 />
-                <div className="grid grid-cols-8 gap-2 rounded-lg border border-border p-3">
+                <div className="grid grid-cols-4 gap-2 rounded-lg border border-border p-3 sm:grid-cols-8">
                   {EMOJI_PRESETS.map((emoji) => (
                     <button
                       key={emoji}
@@ -260,7 +265,7 @@ export function AdminCategories() {
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-4">
+              <div className="flex flex-col-reverse gap-2 pt-4 sm:flex-row sm:justify-end">
                 <Button type="button" variant="outline" onClick={handleClose}>
                   Cancel
                 </Button>
@@ -285,65 +290,114 @@ export function AdminCategories() {
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
+          ) : categories.length === 0 ? (
+            <div className="py-8 text-center text-muted-foreground">
+              No categories yet. Add your first category to get started.
+            </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Icon</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Slug</TableHead>
-                  <TableHead>Products</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {categories.map((category: any) => (
-                  <TableRow key={category.id}>
-                    <TableCell className="text-2xl">{category.icon || '📦'}</TableCell>
-                    <TableCell className="font-medium">{category.name}</TableCell>
-                    <TableCell className="text-muted-foreground">{category.slug}</TableCell>
-                    <TableCell>{category.product_count || 0}</TableCell>
-                    <TableCell>
-                      <span
-                        className={`inline-flex rounded-full px-2 py-1 text-xs ${
-                          category.is_active
-                            ? 'bg-primary/10 text-primary'
-                            : 'bg-muted text-muted-foreground'
-                        }`}
-                      >
-                        {category.is_active ? 'Active' : 'Inactive'}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEdit(category)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => deleteMutation.mutate({ id: category.id, name: category.name })}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+            <>
+              <div className="space-y-3 p-4 md:hidden">
+                {categories.map((category) => (
+                  <div key={category.id} className="rounded-lg border border-border bg-card p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-muted text-2xl">
+                        {category.icon || '📦'}
                       </div>
-                    </TableCell>
-                  </TableRow>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-medium text-foreground">{category.name}</p>
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-[11px] ${
+                              category.is_active
+                                ? 'bg-primary/10 text-primary'
+                                : 'bg-muted text-muted-foreground'
+                            }`}
+                          >
+                            {category.is_active ? 'Active' : 'Inactive'}
+                          </span>
+                        </div>
+                        <p className="mt-1 break-all text-xs text-muted-foreground">{category.slug}</p>
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          {category.product_count || 0} products
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                      <Button
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => handleEdit(category)}
+                      >
+                        <Pencil className="mr-2 h-4 w-4" />
+                        Edit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => deleteMutation.mutate({ id: category.id, name: category.name })}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4 text-destructive" />
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
                 ))}
-                {categories.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
-                      No categories yet. Add your first category to get started.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+              </div>
+
+              <div className="hidden overflow-x-auto md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Icon</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Slug</TableHead>
+                      <TableHead>Products</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {categories.map((category) => (
+                      <TableRow key={category.id}>
+                        <TableCell className="text-2xl">{category.icon || '📦'}</TableCell>
+                        <TableCell className="font-medium">{category.name}</TableCell>
+                        <TableCell className="text-muted-foreground">{category.slug}</TableCell>
+                        <TableCell>{category.product_count || 0}</TableCell>
+                        <TableCell>
+                          <span
+                            className={`inline-flex rounded-full px-2 py-1 text-xs ${
+                              category.is_active
+                                ? 'bg-primary/10 text-primary'
+                                : 'bg-muted text-muted-foreground'
+                            }`}
+                          >
+                            {category.is_active ? 'Active' : 'Inactive'}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleEdit(category)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => deleteMutation.mutate({ id: category.id, name: category.name })}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
