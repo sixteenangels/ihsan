@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { User, MapPin, Phone, Mail, Plus, Trash2, Loader2, Edit2, Check, X, Package, Clock, Truck, CheckCircle, XCircle, RefreshCcw, ShoppingBag, Gift, Award, Copy, Cake } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { useAuth } from '@/contexts/AuthContext';
@@ -71,7 +72,7 @@ interface Order {
   order_items: OrderItem[];
 }
 
-const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
+const statusConfig: Record<string, { label: string; color: string; icon: LucideIcon }> = {
   pending: { label: 'Pending', color: 'bg-yellow-100 text-yellow-800', icon: Clock },
   payment_received: { label: 'Payment Received', color: 'bg-green-100 text-green-800', icon: CheckCircle },
   order_placed: { label: 'Order Placed', color: 'bg-blue-100 text-blue-800', icon: ShoppingBag },
@@ -186,7 +187,7 @@ function LoyaltyTab() {
         ) : (
           <div className="space-y-3">
             <h4 className="font-medium text-foreground">Recent Activity</h4>
-            {pointsHistory.slice(0, 10).map((entry: any) => (
+            {pointsHistory.slice(0, 10).map((entry) => (
               <div key={entry.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                 <div>
                   <p className="text-sm font-medium text-foreground">{entry.description}</p>
