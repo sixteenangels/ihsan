@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,13 +13,30 @@ import { toast } from 'sonner';
 import { Loader2, Plus, Pencil, Trash2, Ship, Plane, Package } from 'lucide-react';
 import { shippingClassSchema, shippingTypeSchema, validateForm } from '@/lib/validations/admin';
 
+type ShippingTypeRow = Database['public']['Tables']['shipping_types']['Row'];
+type ShippingClassRow = Database['public']['Tables']['shipping_classes']['Row'];
+
+type ShippingClassWithType = ShippingClassRow & {
+  shipping_types: Pick<ShippingTypeRow, 'id' | 'name'> | null;
+};
+
+interface ShippingClassFormValues {
+  id?: string;
+  name: string;
+  shipping_type_id: string;
+  base_price: string;
+  estimated_days_min: string;
+  estimated_days_max: string;
+  is_active?: boolean | null;
+}
+
 export function AdminShipping() {
   const queryClient = useQueryClient();
   const [isAddingType, setIsAddingType] = useState(false);
   const [isAddingClass, setIsAddingClass] = useState(false);
-  const [editingClass, setEditingClass] = useState<any>(null);
+  const [editingClass, setEditingClass] = useState<ShippingClassFormValues | null>(null);
   const [newType, setNewType] = useState({ name: '', description: '' });
-  const [newClass, setNewClass] = useState({
+  const [newClass, setNewClass] = useState<ShippingClassFormValues>({
     name: '',
     shipping_type_id: '',
     base_price: '',
@@ -28,19 +46,19 @@ export function AdminShipping() {
 
   const { data: shippingTypes, isLoading: typesLoading } = useQuery({
     queryKey: ['admin-shipping-types'],
-    queryFn: async () => {
+    queryFn: async (): Promise<ShippingTypeRow[]> => {
       const { data, error } = await supabase
         .from('shipping_types')
         .select('*')
         .order('name');
       if (error) throw error;
-      return data;
+      return data || [];
     },
   });
 
   const { data: shippingClasses, isLoading: classesLoading } = useQuery({
     queryKey: ['admin-shipping-classes'],
-    queryFn: async () => {
+    queryFn: async (): Promise<ShippingClassWithType[]> => {
       const { data, error } = await supabase
         .from('shipping_classes')
         .select(`
@@ -49,7 +67,7 @@ export function AdminShipping() {
         `)
         .order('name');
       if (error) throw error;
-      return data;
+      return (data || []) as ShippingClassWithType[];
     },
   });
 
@@ -88,30 +106,32 @@ export function AdminShipping() {
   };
 
   const handleUpdateClass = () => {
-    if (!editingClass) return;
+    if (!editingClass?.id) return;
+
     const validation = validateForm(shippingClassSchema, {
       name: editingClass.name,
       shipping_type_id: editingClass.shipping_type_id,
-      base_price: String(editingClass.base_price),
-      estimated_days_min: String(editingClass.estimated_days_min),
-      estimated_days_max: String(editingClass.estimated_days_max),
+      base_price: editingClass.base_price,
+      estimated_days_min: editingClass.estimated_days_min,
+      estimated_days_max: editingClass.estimated_days_max,
     });
     if (!validation.success) {
       const firstError = Object.values(validation.errors || {})[0];
       toast.error(firstError || 'Please fix the form errors');
       return;
     }
-    updateClassMutation.mutate(editingClass);
+
+    updateClassMutation.mutate({ ...editingClass, id: editingClass.id });
   };
 
   const addClassMutation = useMutation({
-    mutationFn: async (classData: any) => {
+    mutationFn: async (classData: ShippingClassFormValues) => {
       const { error } = await supabase.from('shipping_classes').insert({
         name: classData.name,
         shipping_type_id: classData.shipping_type_id,
         base_price: parseFloat(classData.base_price),
-        estimated_days_min: parseInt(classData.estimated_days_min),
-        estimated_days_max: parseInt(classData.estimated_days_max),
+        estimated_days_min: parseInt(classData.estimated_days_min, 10),
+        estimated_days_max: parseInt(classData.estimated_days_max, 10),
       });
       if (error) throw error;
     },
@@ -119,20 +139,26 @@ export function AdminShipping() {
       queryClient.invalidateQueries({ queryKey: ['admin-shipping-classes'] });
       toast.success('Shipping class added');
       setIsAddingClass(false);
-      setNewClass({ name: '', shipping_type_id: '', base_price: '', estimated_days_min: '', estimated_days_max: '' });
+      setNewClass({
+        name: '',
+        shipping_type_id: '',
+        base_price: '',
+        estimated_days_min: '',
+        estimated_days_max: '',
+      });
     },
     onError: (error: Error) => toast.error(error.message),
   });
 
   const updateClassMutation = useMutation({
-    mutationFn: async ({ id, ...data }: any) => {
+    mutationFn: async ({ id, ...data }: ShippingClassFormValues & { id: string }) => {
       const { error } = await supabase
         .from('shipping_classes')
         .update({
           name: data.name,
           base_price: parseFloat(data.base_price),
-          estimated_days_min: parseInt(data.estimated_days_min),
-          estimated_days_max: parseInt(data.estimated_days_max),
+          estimated_days_min: parseInt(data.estimated_days_min, 10),
+          estimated_days_max: parseInt(data.estimated_days_max, 10),
           is_active: data.is_active,
         })
         .eq('id', id);
@@ -180,6 +206,16 @@ export function AdminShipping() {
     return <Plane className="h-5 w-5" />;
   };
 
+  const toEditableClass = (shippingClass: ShippingClassWithType): ShippingClassFormValues => ({
+    id: shippingClass.id,
+    name: shippingClass.name,
+    shipping_type_id: shippingClass.shipping_type_id,
+    base_price: String(shippingClass.base_price),
+    estimated_days_min: String(shippingClass.estimated_days_min),
+    estimated_days_max: String(shippingClass.estimated_days_max),
+    is_active: shippingClass.is_active,
+  });
+
   if (typesLoading || classesLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -192,14 +228,13 @@ export function AdminShipping() {
     <div>
       <h1 className="mb-6 text-2xl font-bold font-serif text-foreground md:mb-8 md:text-3xl">Shipping Management</h1>
 
-      {/* Shipping Types */}
       <Card className="mb-8">
         <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle>Shipping Types</CardTitle>
           <Dialog open={isAddingType} onOpenChange={setIsAddingType}>
             <DialogTrigger asChild>
               <Button size="sm" className="self-start sm:self-auto">
-                <Plus className="h-4 w-4 mr-1" />
+                <Plus className="mr-1 h-4 w-4" />
                 Add Type
               </Button>
             </DialogTrigger>
@@ -212,7 +247,7 @@ export function AdminShipping() {
                   <Label>Name</Label>
                   <Input
                     value={newType.name}
-                    onChange={(e) => setNewType(prev => ({ ...prev, name: e.target.value }))}
+                    onChange={(e) => setNewType((prev) => ({ ...prev, name: e.target.value }))}
                     placeholder="e.g., Sea Shipping"
                   />
                 </div>
@@ -220,14 +255,11 @@ export function AdminShipping() {
                   <Label>Description</Label>
                   <Input
                     value={newType.description}
-                    onChange={(e) => setNewType(prev => ({ ...prev, description: e.target.value }))}
+                    onChange={(e) => setNewType((prev) => ({ ...prev, description: e.target.value }))}
                     placeholder="e.g., Shipping by sea cargo"
                   />
                 </div>
-                <Button
-                  onClick={handleAddType}
-                  disabled={!newType.name}
-                >
+                <Button onClick={handleAddType} disabled={!newType.name}>
                   Add Type
                 </Button>
               </div>
@@ -239,7 +271,7 @@ export function AdminShipping() {
             {shippingTypes?.map((type) => (
               <div key={type.id} className="flex flex-col gap-3 rounded-lg bg-muted p-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                  <div className="rounded-lg bg-primary/10 p-2 text-primary">
                     {getShippingIcon(type.name)}
                   </div>
                   <div>
@@ -257,14 +289,13 @@ export function AdminShipping() {
         </CardContent>
       </Card>
 
-      {/* Shipping Classes */}
       <Card>
         <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle>Shipping Classes (Price & Duration)</CardTitle>
           <Dialog open={isAddingClass} onOpenChange={setIsAddingClass}>
             <DialogTrigger asChild>
               <Button size="sm" className="self-start sm:self-auto">
-                <Plus className="h-4 w-4 mr-1" />
+                <Plus className="mr-1 h-4 w-4" />
                 Add Class
               </Button>
             </DialogTrigger>
@@ -277,7 +308,7 @@ export function AdminShipping() {
                   <Label>Name</Label>
                   <Input
                     value={newClass.name}
-                    onChange={(e) => setNewClass(prev => ({ ...prev, name: e.target.value }))}
+                    onChange={(e) => setNewClass((prev) => ({ ...prev, name: e.target.value }))}
                     placeholder="e.g., Standard Sea"
                   />
                 </div>
@@ -285,14 +316,16 @@ export function AdminShipping() {
                   <Label>Shipping Type</Label>
                   <Select
                     value={newClass.shipping_type_id}
-                    onValueChange={(value) => setNewClass(prev => ({ ...prev, shipping_type_id: value }))}
+                    onValueChange={(value) => setNewClass((prev) => ({ ...prev, shipping_type_id: value }))}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
                     <SelectContent>
                       {shippingTypes?.map((type) => (
-                        <SelectItem key={type.id} value={type.id}>{type.name}</SelectItem>
+                        <SelectItem key={type.id} value={type.id}>
+                          {type.name}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -302,7 +335,7 @@ export function AdminShipping() {
                   <Input
                     type="number"
                     value={newClass.base_price}
-                    onChange={(e) => setNewClass(prev => ({ ...prev, base_price: e.target.value }))}
+                    onChange={(e) => setNewClass((prev) => ({ ...prev, base_price: e.target.value }))}
                   />
                 </div>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -311,7 +344,7 @@ export function AdminShipping() {
                     <Input
                       type="number"
                       value={newClass.estimated_days_min}
-                      onChange={(e) => setNewClass(prev => ({ ...prev, estimated_days_min: e.target.value }))}
+                      onChange={(e) => setNewClass((prev) => ({ ...prev, estimated_days_min: e.target.value }))}
                     />
                   </div>
                   <div className="space-y-2">
@@ -319,14 +352,11 @@ export function AdminShipping() {
                     <Input
                       type="number"
                       value={newClass.estimated_days_max}
-                      onChange={(e) => setNewClass(prev => ({ ...prev, estimated_days_max: e.target.value }))}
+                      onChange={(e) => setNewClass((prev) => ({ ...prev, estimated_days_max: e.target.value }))}
                     />
                   </div>
                 </div>
-                <Button
-                  onClick={handleAddClass}
-                  disabled={!newClass.name || !newClass.shipping_type_id || !newClass.base_price}
-                >
+                <Button onClick={handleAddClass} disabled={!newClass.name || !newClass.shipping_type_id || !newClass.base_price}>
                   Add Class
                 </Button>
               </div>
@@ -338,13 +368,13 @@ export function AdminShipping() {
             {shippingClasses?.map((shippingClass) => (
               <div key={shippingClass.id} className="flex flex-col gap-4 rounded-lg bg-muted p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-4">
-                  <div className="p-2 rounded-lg bg-primary/10 text-primary">
-                    {getShippingIcon((shippingClass.shipping_types as any)?.name || '')}
+                  <div className="rounded-lg bg-primary/10 p-2 text-primary">
+                    {getShippingIcon(shippingClass.shipping_types?.name || '')}
                   </div>
                   <div>
                     <p className="font-medium text-foreground">{shippingClass.name}</p>
                     <p className="text-sm text-muted-foreground">
-                      {(shippingClass.shipping_types as any)?.name} • {shippingClass.estimated_days_min}-{shippingClass.estimated_days_max} days
+                      {shippingClass.shipping_types?.name || 'Unknown type'} - {shippingClass.estimated_days_min}-{shippingClass.estimated_days_max} days
                     </p>
                   </div>
                 </div>
@@ -352,11 +382,17 @@ export function AdminShipping() {
                   <p className="font-bold text-primary">${Number(shippingClass.base_price).toFixed(2)}</p>
                   <Switch
                     checked={shippingClass.is_active ?? true}
-                    onCheckedChange={(checked) => updateClassMutation.mutate({ id: shippingClass.id, ...shippingClass, is_active: checked })}
+                    onCheckedChange={(checked) =>
+                      updateClassMutation.mutate({
+                        ...toEditableClass(shippingClass),
+                        id: shippingClass.id,
+                        is_active: checked,
+                      })
+                    }
                   />
                   <Dialog open={editingClass?.id === shippingClass.id} onOpenChange={(open) => !open && setEditingClass(null)}>
                     <DialogTrigger asChild>
-                      <Button variant="ghost" size="icon" onClick={() => setEditingClass(shippingClass)}>
+                      <Button variant="ghost" size="icon" onClick={() => setEditingClass(toEditableClass(shippingClass))}>
                         <Pencil className="h-4 w-4" />
                       </Button>
                     </DialogTrigger>
@@ -370,7 +406,7 @@ export function AdminShipping() {
                             <Label>Name</Label>
                             <Input
                               value={editingClass.name}
-                              onChange={(e) => setEditingClass((prev: any) => ({ ...prev, name: e.target.value }))}
+                              onChange={(e) => setEditingClass((prev) => (prev ? { ...prev, name: e.target.value } : prev))}
                             />
                           </div>
                           <div className="space-y-2">
@@ -378,7 +414,7 @@ export function AdminShipping() {
                             <Input
                               type="number"
                               value={editingClass.base_price}
-                              onChange={(e) => setEditingClass((prev: any) => ({ ...prev, base_price: e.target.value }))}
+                              onChange={(e) => setEditingClass((prev) => (prev ? { ...prev, base_price: e.target.value } : prev))}
                             />
                           </div>
                           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -387,7 +423,7 @@ export function AdminShipping() {
                               <Input
                                 type="number"
                                 value={editingClass.estimated_days_min}
-                                onChange={(e) => setEditingClass((prev: any) => ({ ...prev, estimated_days_min: e.target.value }))}
+                                onChange={(e) => setEditingClass((prev) => (prev ? { ...prev, estimated_days_min: e.target.value } : prev))}
                               />
                             </div>
                             <div className="space-y-2">
@@ -395,22 +431,16 @@ export function AdminShipping() {
                               <Input
                                 type="number"
                                 value={editingClass.estimated_days_max}
-                                onChange={(e) => setEditingClass((prev: any) => ({ ...prev, estimated_days_max: e.target.value }))}
+                                onChange={(e) => setEditingClass((prev) => (prev ? { ...prev, estimated_days_max: e.target.value } : prev))}
                               />
                             </div>
                           </div>
-                          <Button onClick={handleUpdateClass}>
-                            Save Changes
-                          </Button>
+                          <Button onClick={handleUpdateClass}>Save Changes</Button>
                         </div>
                       )}
                     </DialogContent>
                   </Dialog>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => deleteClassMutation.mutate(shippingClass.id)}
-                  >
+                  <Button variant="ghost" size="icon" onClick={() => deleteClassMutation.mutate(shippingClass.id)}>
                     <Trash2 className="h-4 w-4 text-destructive" />
                   </Button>
                 </div>

@@ -8,20 +8,30 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ScrollText, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
+interface AuditLogRow {
+  id: string;
+  actor_user_id: string | null;
+  action: string;
+  entity_type: string | null;
+  entity_id: string | null;
+  summary: string;
+  created_at: string;
+}
+
 export function AdminAuditLogs() {
   const [search, setSearch] = useState('');
 
   const { data: auditLogs = [], isLoading } = useQuery({
     queryKey: ['admin-audit-logs'],
-    queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from('audit_logs')
+    queryFn: async (): Promise<AuditLogRow[]> => {
+      const { data, error } = await supabase
+        .from('audit_logs' as never)
         .select('*')
         .order('created_at', { ascending: false })
         .limit(200);
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as unknown as AuditLogRow[];
     },
   });
 
@@ -43,7 +53,7 @@ export function AdminAuditLogs() {
     if (!search.trim()) return auditLogs;
     const normalized = search.trim().toLowerCase();
 
-    return auditLogs.filter((log: any) => {
+    return auditLogs.filter((log) => {
       const actor = profileMap.get(log.actor_user_id);
       return [
         log.action,
@@ -93,7 +103,7 @@ export function AdminAuditLogs() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredLogs.map((log: any) => {
+                {filteredLogs.map((log) => {
                   const actor = profileMap.get(log.actor_user_id);
 
                   return (
