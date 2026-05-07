@@ -38,6 +38,13 @@ interface VerifiedReceiptRow {
   }>;
 }
 
+type VerifyReceiptRpcClient = {
+  rpc: (
+    fn: 'verify_receipt',
+    args: { public_receipt_number: string }
+  ) => Promise<{ data: VerifiedReceiptRow[] | null; error: unknown }>;
+};
+
 function mapVerifiedReceipt(row: VerifiedReceiptRow): PrintableReceipt {
   return {
     receiptNumber: row.receipt_number,
@@ -66,13 +73,14 @@ function mapVerifiedReceipt(row: VerifiedReceiptRow): PrintableReceipt {
 
 export default function ReceiptVerify() {
   const { receiptNumber } = useParams<{ receiptNumber: string }>();
+  const rpcClient = supabase as unknown as VerifyReceiptRpcClient;
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['receipt-verify', receiptNumber],
     queryFn: async () => {
       if (!receiptNumber) return null;
 
-      const { data: result, error: verifyError } = await (supabase as any).rpc('verify_receipt', {
+      const { data: result, error: verifyError } = await rpcClient.rpc('verify_receipt', {
         public_receipt_number: receiptNumber,
       });
 

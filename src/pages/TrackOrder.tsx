@@ -15,6 +15,78 @@ import { Separator } from '@/components/ui/separator';
 import { Loader2, Package, ArrowLeft, Search } from 'lucide-react';
 import { format } from 'date-fns';
 
+interface OrderTrackingItem {
+  id: string;
+  product_name: string;
+  variant_details: string | null;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+}
+
+interface OrderTrackingPoint {
+  id: string;
+  location_name: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  status: string;
+  notes: string | null;
+  created_at: string;
+}
+
+interface ShippingClassSummary {
+  name: string;
+  estimated_days_min: number | null;
+  estimated_days_max: number | null;
+}
+
+interface ReceiptSummary {
+  id: string;
+  receipt_number: string;
+  generated_at: string;
+}
+
+interface TrackingShippingAddress {
+  full_name: string;
+  phone?: string | null;
+  address_line1: string;
+  address_line2?: string | null;
+  city: string;
+  state?: string | null;
+  postal_code?: string | null;
+  country: string;
+}
+
+interface TrackedOrder {
+  id: string;
+  order_number: string;
+  created_at: string;
+  total_amount: number;
+  subtotal: number;
+  shipping_price: number | null;
+  status: string | null;
+  estimated_delivery_start: string | null;
+  estimated_delivery_end: string | null;
+  shipping_address: TrackingShippingAddress | null;
+  fulfillment_stage: string | null;
+  courier_name: string | null;
+  courier_tracking_number: string | null;
+  delivery_fee: number | null;
+  courier_confirmed_at: string | null;
+  customer_confirmed_at: string | null;
+  proof_of_delivery_verification_code: string | null;
+  proof_of_delivery_recipient_name: string | null;
+  proof_of_delivery_relationship: string | null;
+  proof_of_delivery_recipient_phone: string | null;
+  proof_of_delivery_signature_name: string | null;
+  proof_of_delivery_note: string | null;
+  proof_of_delivery_image_url: string | null;
+  order_items: OrderTrackingItem[];
+  order_tracking: OrderTrackingPoint[];
+  shipping_classes: ShippingClassSummary | null;
+  receipt: ReceiptSummary | null;
+}
+
 export default function TrackOrder() {
   const { orderId } = useParams<{ orderId: string }>();
   const { user } = useAuth();
@@ -22,7 +94,7 @@ export default function TrackOrder() {
   const [searchOrderNumber, setSearchOrderNumber] = useState('');
   const [searchedOrderId, setSearchedOrderId] = useState<string | null>(orderId || null);
 
-  const { data: order, isLoading, error } = useQuery({
+  const { data: order, isLoading, error } = useQuery<TrackedOrder | null>({
     queryKey: ['order-tracking', searchedOrderId],
     queryFn: async () => {
       if (!searchedOrderId) return null;
@@ -74,6 +146,10 @@ export default function TrackOrder() {
 
       return {
         ...data,
+        shipping_address: (data.shipping_address as TrackingShippingAddress | null) ?? null,
+        order_items: (data.order_items || []) as OrderTrackingItem[],
+        order_tracking: (data.order_tracking || []) as OrderTrackingPoint[],
+        shipping_classes: (data.shipping_classes as ShippingClassSummary | null) ?? null,
         receipt: receipt || null,
       };
     },
@@ -192,15 +268,11 @@ export default function TrackOrder() {
                   </div>
                   <div>
                     <p className="text-muted-foreground">Shipping Method</p>
-                    <p className="font-medium">
-                      {(order.shipping_classes as any)?.name || 'Standard'}
-                    </p>
+                    <p className="font-medium">{order.shipping_classes?.name || 'Standard'}</p>
                   </div>
                   <div>
                     <p className="text-muted-foreground">Items</p>
-                    <p className="font-medium">
-                      {(order.order_items as any[])?.length || 0} items
-                    </p>
+                    <p className="font-medium">{order.order_items.length} items</p>
                   </div>
                 </div>
               </CardContent>
@@ -208,7 +280,7 @@ export default function TrackOrder() {
 
             {/* Tracking Map */}
             <OrderTrackingMap
-              trackingPoints={(order.order_tracking as any[]) || []}
+              trackingPoints={order.order_tracking}
               orderStatus={order.status || 'pending'}
               estimatedDelivery={getEstimatedDelivery()}
             />
@@ -220,7 +292,7 @@ export default function TrackOrder() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {(order.order_items as any[])?.map((item) => (
+                  {order.order_items.map((item) => (
                     <div key={item.id} className="rounded-lg bg-muted/30 p-3">
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <p className="font-medium">{item.product_name}</p>
@@ -260,16 +332,16 @@ export default function TrackOrder() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-sm">
-                    <p className="font-medium">{(order.shipping_address as any).full_name}</p>
-                    <p>{(order.shipping_address as any).address_line1}</p>
-                    {(order.shipping_address as any).address_line2 && (
-                      <p>{(order.shipping_address as any).address_line2}</p>
+                    <p className="font-medium">{order.shipping_address.full_name}</p>
+                    <p>{order.shipping_address.address_line1}</p>
+                    {order.shipping_address.address_line2 && (
+                      <p>{order.shipping_address.address_line2}</p>
                     )}
                     <p>
-                      {(order.shipping_address as any).city}, {(order.shipping_address as any).state} {(order.shipping_address as any).postal_code}
+                      {order.shipping_address.city}, {order.shipping_address.state} {order.shipping_address.postal_code}
                     </p>
-                    <p>{(order.shipping_address as any).country}</p>
-                    <p className="mt-2 text-muted-foreground">{(order.shipping_address as any).phone}</p>
+                    <p>{order.shipping_address.country}</p>
+                    <p className="mt-2 text-muted-foreground">{order.shipping_address.phone}</p>
                   </div>
                 </CardContent>
               </Card>
