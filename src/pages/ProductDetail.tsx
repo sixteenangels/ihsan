@@ -89,11 +89,13 @@ interface ShippingRule {
   shipping_class: {
     id: string;
     name: string;
+    description: string | null;
     estimated_days_min: number;
     estimated_days_max: number;
     shipping_type: {
       id: string;
       name: string;
+      description: string | null;
     } | null;
   } | null;
 }

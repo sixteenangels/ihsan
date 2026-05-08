@@ -146,7 +146,7 @@ export default function TrackOrder() {
 
       return {
         ...data,
-        shipping_address: (data.shipping_address as TrackingShippingAddress | null) ?? null,
+        shipping_address: (data.shipping_address as unknown as TrackingShippingAddress | null) ?? null,
         order_items: (data.order_items || []) as OrderTrackingItem[],
         order_tracking: (data.order_tracking || []) as OrderTrackingPoint[],
         shipping_classes: (data.shipping_classes as ShippingClassSummary | null) ?? null,

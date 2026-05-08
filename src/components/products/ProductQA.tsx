@@ -35,12 +35,31 @@ export function ProductQA({ productId }: ProductQAProps) {
     queryFn: async (): Promise<ProductQuestion[]> => {
       const { data, error } = await supabase
         .from('product_questions')
-        .select('*, profiles:user_id(name)')
+        .select('*')
         .eq('product_id', productId)
         .eq('is_published', true)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return data;
+
+      const rows = (data || []) as ProductQuestionRow[];
+      const userIds = [...new Set(rows.map((row) => row.user_id).filter(Boolean))];
+      const { data: profilesData, error: profilesError } = userIds.length > 0
+        ? await supabase
+            .from('profiles')
+            .select('user_id, name')
+            .in('user_id', userIds)
+        : { data: [], error: null };
+
+      if (profilesError) throw profilesError;
+
+      const profileMap = new Map(
+        (profilesData || []).map((profile) => [profile.user_id, { name: profile.name }]),
+      );
+
+      return rows.map((row) => ({
+        ...row,
+        profiles: profileMap.get(row.user_id) || null,
+      }));
     },
   });
 

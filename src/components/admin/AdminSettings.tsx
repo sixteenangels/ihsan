@@ -141,10 +141,11 @@ export function AdminSettings() {
   useEffect(() => {
     if (dbSettings) {
       setSettings(prev => {
-        const next = { ...DEFAULT_SETTINGS };
+        const next: SettingsState = { ...DEFAULT_SETTINGS };
+        const mutableSettings = next as Record<keyof SettingsState, SettingsState[keyof SettingsState]>;
         for (const key of Object.keys(next) as (keyof SettingsState)[]) {
           if (dbSettings[key] !== undefined && dbSettings[key] !== null) {
-            next[key] = coerceSettingValue(key, dbSettings[key]);
+            mutableSettings[key] = coerceSettingValue(key, dbSettings[key]) as SettingsState[keyof SettingsState];
           }
         }
         return next;

@@ -6,9 +6,10 @@ import { ProductCard } from '@/components/products/ProductCard';
 import { ProductQuickView } from '@/components/products/ProductQuickView';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import type { Product } from '@/types';
 
 // Adapter to convert DB product to the format expected by ProductCard
-function toProductCardFormat(product: ProductWithDetails) {
+function toProductCardFormat(product: ProductWithDetails): Product {
   return {
     id: product.id,
     name: product.name,
@@ -52,7 +53,7 @@ function toProductCardFormat(product: ProductWithDetails) {
 export function FeaturedProducts() {
   const { data: products, isLoading } = useProducts();
   const featuredProducts = products?.slice(0, 4) || [];
-  const [quickViewProduct, setQuickViewProduct] = useState<ReturnType<typeof toProductCardFormat> | null>(null);
+  const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
 
   return (
     <section className="bg-card py-12 sm:py-16">

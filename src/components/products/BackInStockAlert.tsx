@@ -69,7 +69,7 @@ export function BackInStockAlert({
           user_id: user.id,
           product_id: productId,
           product_variant_id: variantId || null,
-        });
+        } as never);
 
       if (error) throw error;
       return 'created';

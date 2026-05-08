@@ -24,7 +24,7 @@ interface BundleProduct {
 }
 
 interface ProductBundleResult {
-  products: BundleProduct | null;
+  bundled_product: BundleProduct | null;
 }
 
 export function FrequentlyBoughtTogether({ productId }: Props) {
@@ -37,8 +37,7 @@ export function FrequentlyBoughtTogether({ productId }: Props) {
       const { data, error } = await supabase
         .from('product_bundles')
         .select(`
-          bundled_product_id,
-          products:bundled_product_id (
+          bundled_product:products!product_bundles_bundled_product_id_fkey (
             id, name, base_price,
             product_images (image_url, order_index)
           )
@@ -48,7 +47,7 @@ export function FrequentlyBoughtTogether({ productId }: Props) {
       if (error) throw error;
       const rows = (data || []) as ProductBundleResult[];
       return rows
-        .map((bundle) => bundle.products)
+        .map((bundle) => bundle.bundled_product)
         .filter((product): product is BundleProduct => Boolean(product));
     },
   });

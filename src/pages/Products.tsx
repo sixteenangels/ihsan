@@ -21,6 +21,7 @@ import { ProductCard } from '@/components/products/ProductCard';
 import { ProductQuickView } from '@/components/products/ProductQuickView';
 import { useProducts, ProductWithDetails } from '@/hooks/useProducts';
 import { useCategories } from '@/hooks/useCategories';
+import type { Product } from '@/types';
 import {
   useDeleteSavedSearch,
   useSaveSavedSearch,
@@ -65,7 +66,7 @@ const DEFAULT_FILTERS = {
   freeShippingOnly: false,
 };
 
-type ProductCardData = ReturnType<typeof toProductCardFormat>;
+type ProductCardData = Product;
 
 function parseNumberParam(value: string | null, fallback: number) {
   if (value == null || value.trim() === '') {
@@ -132,7 +133,7 @@ function sameSavedSearchFilters(a: SavedSearchFilters, b: SavedSearchFilters) {
 }
 
 // Adapter to convert DB product to the format expected by ProductCard
-function toProductCardFormat(product: ProductWithDetails) {
+function toProductCardFormat(product: ProductWithDetails): Product {
   return {
     id: product.id,
     name: product.name,

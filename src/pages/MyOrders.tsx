@@ -101,6 +101,7 @@ interface Order {
   total_amount: number;
   subtotal: number;
   shipping_price: number;
+  group_buy_id?: string | null;
   created_at: string;
   updated_at?: string;
   estimated_delivery_start: string;
@@ -344,12 +345,12 @@ export default function MyOrders() {
         order.order_items?.map((item) => item.product_variant_id).filter((variantId): variantId is string => Boolean(variantId)) || [],
       );
       if (productIdsFromItems.length > 0 || variantIds.length > 0) {
-        const uniqueIds = [...new Set(variantIds)];
-        const { data: variants } = uniqueIds.length > 0
+        const uniqueVariantIds = [...new Set(variantIds)];
+        const { data: variants } = uniqueVariantIds.length > 0
           ? await supabase
               .from('product_variants')
               .select('id, product_id')
-              .in('id', uniqueIds)
+              .in('id', uniqueVariantIds)
           : { data: [] as Pick<ProductVariantLookupRow, 'id' | 'product_id'>[] };
 
         const linkedVariants = variants || [];
@@ -372,6 +373,11 @@ export default function MyOrders() {
             for (const productId of productIds) {
               if (productImageMap[productId]) {
                 imgMap[productId] = productImageMap[productId];
+              }
+            }
+            for (const variant of linkedVariants) {
+              if (productImageMap[variant.product_id]) {
+                imgMap[variant.id] = productImageMap[variant.product_id];
               }
             }
             setProductImages(imgMap);
@@ -418,11 +424,10 @@ export default function MyOrders() {
 
   const handleBuyAgain = async (order: Order) => {
     // Look up products + variants for each order item, then add to local cart
-    const productIds = [...new Set(order.order_items.map((item) => item.product_id).filter((productId): productId is string => Boolean(productId)))];
+    const directProductIds = [...new Set(order.order_items.map((item) => item.product_id).filter((productId): productId is string => Boolean(productId)))];
     const variantIds = order.order_items
       .map((item) => item.product_variant_id)
       .filter((variantId): variantId is string => Boolean(variantId));
-    if (productIds.length === 0) return;
 
     const { data: variantRows } = variantIds.length > 0
       ? await supabase
@@ -431,7 +436,8 @@ export default function MyOrders() {
           .in('id', variantIds)
       : { data: [] as ProductVariantLookupRow[] };
 
-    if (!variantRows && productIds.length === 0) {
+    const productIds = [...new Set([...directProductIds, ...(variantRows || []).map((variant) => variant.product_id)])];
+    if (productIds.length === 0) {
       toast.error('Some products are no longer available.');
       return;
     }
@@ -686,9 +692,9 @@ export default function MyOrders() {
                             <div className="flex min-w-0 flex-1 items-center gap-3">
                               {order.order_items[0] && (
                                 <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 border border-border bg-muted">
-                                  {productImages[order.order_items[0].product_id || ''] ? (
+                                  {productImages[order.order_items[0].product_id || order.order_items[0].product_variant_id || ''] ? (
                                     <img
-                                      src={productImages[order.order_items[0].product_id || '']}
+                                      src={productImages[order.order_items[0].product_id || order.order_items[0].product_variant_id || '']}
                                       alt={order.order_items[0].product_name}
                                       className="w-full h-full object-cover"
                                     />
@@ -972,9 +978,9 @@ export default function MyOrders() {
                               {order.order_items.map((item) => (
                                 <div key={item.id} className="flex items-start gap-3 rounded-lg bg-muted/30 p-3">
                                   <div className="w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 border border-border bg-muted">
-                                    {productImages[item.product_id || ''] ? (
+                                    {productImages[item.product_id || item.product_variant_id || ''] ? (
                                       <img
-                                        src={productImages[item.product_id || '']}
+                                        src={productImages[item.product_id || item.product_variant_id || '']}
                                         alt={item.product_name}
                                         className="w-full h-full object-cover"
                                       />

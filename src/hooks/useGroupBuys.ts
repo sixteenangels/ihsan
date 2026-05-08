@@ -27,12 +27,26 @@ export interface GroupBuyWithProduct {
   } | null;
 }
 
+interface GroupBuyQueryRow extends GroupBuyRecord {
+  product: {
+    id: string;
+    name: string;
+    description: string | null;
+    base_price: number;
+    rating: number | null;
+    review_count: number | null;
+    categories: {
+      name: string;
+    } | null;
+  } | null;
+}
+
 async function fetchGroupBuys(): Promise<GroupBuyWithProduct[]> {
   const { data: groupBuys, error: groupBuysError } = await supabase
     .from('group_buys')
     .select(`
       *,
-      products(
+      product:products!group_buys_product_id_fkey(
         id,
         name,
         description,
@@ -66,17 +80,8 @@ async function fetchGroupBuys(): Promise<GroupBuyWithProduct[]> {
     imagesMap.set(img.product_id, existing);
   });
 
-  return ((groupBuys || []) as GroupBuyRecord[]).map((gb) => {
-    const product = gb.products as {
-      id: string;
-      name: string;
-      description: string | null;
-      base_price: number;
-      rating: number | null;
-      review_count: number | null;
-      categories: { name: string } | null;
-    } | null;
-
+  return ((groupBuys || []) as GroupBuyQueryRow[]).map((gb) => {
+    const product = gb.product;
     return {
       id: gb.id,
       product_id: gb.product_id,

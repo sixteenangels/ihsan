@@ -29,6 +29,7 @@ import { useReferral } from '@/hooks/useReferral';
 import { useLoyaltyPoints } from '@/hooks/useLoyaltyPoints';
 import { WalletSection } from '@/components/profile/WalletSection';
 import { AlertsSection } from '@/components/profile/AlertsSection';
+import { PushNotificationSettings } from '@/components/profile/PushNotificationSettings';
 import { SupportCenterSection } from '@/components/profile/SupportCenterSection';
 
 interface Profile {
