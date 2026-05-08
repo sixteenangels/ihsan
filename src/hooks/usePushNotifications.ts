@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { TablesInsert } from '@/integrations/supabase/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
@@ -46,7 +47,7 @@ export function usePushNotifications() {
 
     const checkSubscription = async () => {
       try {
-      const registration = await navigator.serviceWorker.ready as any;
+        const registration = await navigator.serviceWorker.ready;
         const subscription = await registration.pushManager.getSubscription();
         setIsSubscribed(!!subscription);
       } catch (error) {
@@ -91,7 +92,7 @@ export function usePushNotifications() {
       }
 
       // Register or get service worker
-      const registration = await navigator.serviceWorker.ready as any;
+      const registration = await navigator.serviceWorker.ready;
 
       // Check for existing subscription
       let subscription = await registration.pushManager.getSubscription();
@@ -119,7 +120,6 @@ export function usePushNotifications() {
         });
       }
 
-      // Store subscription in database using any type to bypass generated types
       const subscriptionJSON = subscription.toJSON();
       const subscriptionData: PushSubscriptionData = {
         endpoint: subscriptionJSON.endpoint!,
@@ -129,16 +129,16 @@ export function usePushNotifications() {
         },
       };
 
-      // Use type assertion to bypass TypeScript strict checking for new table
-      const client = supabase as any;
-      const { error } = await client
+      const subscriptionRow: TablesInsert<'push_subscriptions'> = {
+        user_id: user.id,
+        endpoint: subscriptionData.endpoint,
+        p256dh: subscriptionData.keys.p256dh,
+        auth: subscriptionData.keys.auth,
+      };
+
+      const { error } = await supabase
         .from('push_subscriptions')
-        .upsert({
-          user_id: user.id,
-          endpoint: subscriptionData.endpoint,
-          p256dh: subscriptionData.keys.p256dh,
-          auth: subscriptionData.keys.auth,
-        }, { onConflict: 'user_id,endpoint' });
+        .upsert(subscriptionRow, { onConflict: 'user_id,endpoint' });
 
       if (error) throw error;
 
@@ -160,13 +160,12 @@ export function usePushNotifications() {
     setIsLoading(true);
 
     try {
-      const registration = await navigator.serviceWorker.ready as any;
+      const registration = await navigator.serviceWorker.ready;
       const subscription = await registration.pushManager.getSubscription();
 
       if (subscription) {
         // Remove from database
-        const client = supabase as any;
-        await client
+        await supabase
           .from('push_subscriptions')
           .delete()
           .eq('user_id', user.id)

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import type { Tables } from '@/integrations/supabase/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,6 +15,14 @@ interface ProductQAProps {
   productId: string;
 }
 
+type ProductQuestionRow = Tables<'product_questions'>;
+
+interface ProductQuestion extends ProductQuestionRow {
+  profiles: {
+    name: string | null;
+  } | null;
+}
+
 export function ProductQA({ productId }: ProductQAProps) {
   const { user } = useAuth();
   const { isEnabled } = useFeatureFlags();
@@ -23,7 +32,7 @@ export function ProductQA({ productId }: ProductQAProps) {
 
   const { data: questions = [], isLoading } = useQuery({
     queryKey: ['product-questions', productId],
-    queryFn: async () => {
+    queryFn: async (): Promise<ProductQuestion[]> => {
       const { data, error } = await supabase
         .from('product_questions')
         .select('*, profiles:user_id(name)')
@@ -104,7 +113,7 @@ export function ProductQA({ productId }: ProductQAProps) {
           </p>
         ) : (
           <div className="space-y-4">
-            {questions.map((q: any) => (
+            {questions.map((q) => (
               <div key={q.id} className="border border-border rounded-lg p-4 space-y-3">
                 <div className="flex items-start gap-3">
                   <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">

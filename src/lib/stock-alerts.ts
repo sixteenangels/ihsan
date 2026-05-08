@@ -1,9 +1,45 @@
 import { supabase } from '@/integrations/supabase/client';
+import type { Tables } from '@/integrations/supabase/types';
 
 interface UpdateVariantStockInput {
   variantId: string;
   nextStock: number;
 }
+
+type ProductVariantRow = Tables<'product_variants'>;
+
+interface VariantWithProduct extends Pick<ProductVariantRow, 'id' | 'stock' | 'color' | 'size' | 'sku' | 'product_id'> {
+  products: {
+    name: string | null;
+  } | null;
+}
+
+interface StockAlertRow {
+  id: string;
+  user_id: string;
+  product_variant_id: string | null;
+}
+
+type SupabaseQueryError = {
+  message: string;
+  code?: string;
+};
+
+type StockAlertsClient = {
+  from: (relation: 'stock_alerts') => {
+    select: (columns: string) => {
+      eq: (column: 'product_id', value: string) => Promise<{
+        data: StockAlertRow[] | null;
+        error: SupabaseQueryError | null;
+      }>;
+    };
+    update: (values: { last_notified_at: string }) => {
+      in: (column: 'id', values: string[]) => Promise<{
+        error: SupabaseQueryError | null;
+      }>;
+    };
+  };
+};
 
 function buildVariantLabel(variant: {
   color?: string | null;
@@ -22,7 +58,7 @@ export async function updateVariantStockAndNotify({
   variantId,
   nextStock,
 }: UpdateVariantStockInput) {
-  const { data: variant, error: variantError } = await (supabase as any)
+  const { data: variantData, error: variantError } = await supabase
     .from('product_variants')
     .select(`
       id,
@@ -40,6 +76,7 @@ export async function updateVariantStockAndNotify({
     throw variantError;
   }
 
+  const variant = variantData as VariantWithProduct | null;
   const previousStock = Number(variant?.stock || 0);
 
   const { error: updateError } = await supabase
@@ -55,7 +92,8 @@ export async function updateVariantStockAndNotify({
     return { previousStock, notifiedCount: 0 };
   }
 
-  const { data: alerts, error: alertsError } = await (supabase as any)
+  const stockAlertsClient = supabase as unknown as StockAlertsClient;
+  const { data: alerts, error: alertsError } = await stockAlertsClient
     .from('stock_alerts')
     .select('id, user_id, product_variant_id')
     .eq('product_id', variant.product_id);
@@ -64,7 +102,7 @@ export async function updateVariantStockAndNotify({
     throw alertsError;
   }
 
-  const matchingAlerts = (alerts || []).filter((alert: any) =>
+  const matchingAlerts = (alerts || []).filter((alert) =>
     !alert.product_variant_id || alert.product_variant_id === variantId
   );
 
@@ -73,7 +111,7 @@ export async function updateVariantStockAndNotify({
   }
 
   const variantLabel = buildVariantLabel(variant);
-  const notifications = matchingAlerts.map((alert: any) => ({
+  const notifications = matchingAlerts.map((alert) => ({
     user_id: alert.user_id,
     title: 'Back In Stock',
     message: `${variant.products?.name || 'An item'}${variantLabel ? ` (${variantLabel})` : ''} is back in stock.`,
@@ -93,10 +131,10 @@ export async function updateVariantStockAndNotify({
     throw notificationError;
   }
 
-  await (supabase as any)
+  await stockAlertsClient
     .from('stock_alerts')
     .update({ last_notified_at: new Date().toISOString() })
-    .in('id', matchingAlerts.map((alert: any) => alert.id));
+    .in('id', matchingAlerts.map((alert) => alert.id));
 
   return {
     previousStock,

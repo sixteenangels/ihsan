@@ -52,7 +52,7 @@ function toQuickViewFormat(product: ProductWithDetails) {
 export default function Categories() {
   const { data: categories, isLoading: categoriesLoading } = useCategories();
   const { data: products, isLoading: productsLoading } = useProducts();
-  const [quickViewProduct, setQuickViewProduct] = useState<any>(null);
+  const [quickViewProduct, setQuickViewProduct] = useState<ReturnType<typeof toQuickViewFormat> | null>(null);
 
   const getCategoryProducts = (categoryId: string) => {
     return products?.filter((p) => p.category_id === categoryId).slice(0, 3) || [];

@@ -50,7 +50,7 @@ function toProductCardFormat(product: ProductWithDetails) {
 export function FeaturedProducts() {
   const { data: products, isLoading } = useProducts();
   const featuredProducts = products?.slice(0, 4) || [];
-  const [quickViewProduct, setQuickViewProduct] = useState<any>(null);
+  const [quickViewProduct, setQuickViewProduct] = useState<ReturnType<typeof toProductCardFormat> | null>(null);
 
   return (
     <section className="bg-card py-12 sm:py-16">

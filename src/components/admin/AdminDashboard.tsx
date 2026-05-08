@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Package, FolderTree, Users, ShoppingCart, AlertTriangle, Zap, TrendingUp, DollarSign, Target, BellRing, ScrollText, ClipboardList, Factory } from 'lucide-react';
+import { Package, FolderTree, Users, ShoppingCart, AlertTriangle, Zap, TrendingUp, TrendingDown, DollarSign, Target, BellRing, ScrollText, ClipboardList, Factory } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useCurrency } from '@/hooks/useCurrency';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
@@ -20,7 +20,7 @@ type StockAlertRow = {
   id: string;
   created_at: string | null;
   product_id: string | null;
-  variant_id: string | null;
+  product_variant_id: string | null;
   product_variants: {
     id: string;
     color: string | null;
@@ -28,6 +28,16 @@ type StockAlertRow = {
   } | null;
   products: {
     name: string | null;
+  } | null;
+};
+type PriceAlertRow = {
+  id: string;
+  created_at: string | null;
+  product_id: string | null;
+  target_price: number | null;
+  products: {
+    name: string | null;
+    base_price: number | string | null;
   } | null;
 };
 type ProcurementProductRow = {
@@ -127,7 +137,7 @@ export function AdminDashboard() {
           id,
           created_at,
           product_id,
-          variant_id,
+          product_variant_id,
           product_variants (
             id,
             color,
@@ -140,6 +150,27 @@ export function AdminDashboard() {
 
       if (error) throw error;
       return (data || []) as unknown as StockAlertRow[];
+    },
+  });
+
+  const { data: priceAlerts = [] } = useQuery({
+    queryKey: ['admin-price-alerts-demand'],
+    queryFn: async (): Promise<PriceAlertRow[]> => {
+      const { data, error } = await supabase
+        .from('price_drop_alerts')
+        .select(`
+          id,
+          created_at,
+          product_id,
+          target_price,
+          products (
+            name,
+            base_price
+          )
+        `);
+
+      if (error) throw error;
+      return (data || []) as unknown as PriceAlertRow[];
     },
   });
 
@@ -234,7 +265,7 @@ export function AdminDashboard() {
       const variantLabel = [alert.product_variants?.color, alert.product_variants?.size]
         .filter(Boolean)
         .join(' / ');
-      const key = `${alert.product_id}:${alert.variant_id || 'base'}`;
+      const key = `${alert.product_id}:${alert.product_variant_id || 'base'}`;
       const existing = grouped.get(key);
 
       if (existing) {
@@ -252,6 +283,49 @@ export function AdminDashboard() {
     return [...grouped.values()].sort((a, b) => b.count - a.count);
   }, [stockAlerts]);
 
+  const priceAlertDemand = useMemo(() => {
+    const grouped = new Map<
+      string,
+      {
+        key: string;
+        name: string;
+        count: number;
+        currentPrice: number | null;
+        lowestTargetPrice: number | null;
+      }
+    >();
+
+    priceAlerts.forEach((alert) => {
+      if (!alert.product_id) {
+        return;
+      }
+
+      const currentPrice =
+        alert.products?.base_price != null ? Number(alert.products.base_price) : null;
+      const existing = grouped.get(alert.product_id);
+
+      if (existing) {
+        existing.count += 1;
+        if (
+          alert.target_price != null &&
+          (existing.lowestTargetPrice == null || alert.target_price < existing.lowestTargetPrice)
+        ) {
+          existing.lowestTargetPrice = alert.target_price;
+        }
+      } else {
+        grouped.set(alert.product_id, {
+          key: alert.product_id,
+          name: alert.products?.name || 'Unknown product',
+          count: 1,
+          currentPrice,
+          lowestTargetPrice: alert.target_price,
+        });
+      }
+    });
+
+    return [...grouped.values()].sort((a, b) => b.count - a.count);
+  }, [priceAlerts]);
+
   const purchasePlanningQueue = useMemo(() => {
     return procurementProducts
       .map((product) => {
@@ -259,8 +333,16 @@ export function AdminDashboard() {
         const totalStock = activeVariants.reduce((sum, variant) => sum + Number(variant.stock || 0), 0);
         const lowStockVariants = activeVariants.filter((variant) => Number(variant.stock || 0) < 10).length;
         const demandCount = stockAlerts.filter((alert) => alert.product_id === product.id).length;
-        const urgencyScore = demandCount * 3 + (lowStockVariants > 0 ? 8 : 0) + (totalStock === 0 ? 12 : 0);
-        const suggestedReorderQty = Math.max(10, demandCount * 2 + lowStockVariants * 5 + (totalStock === 0 ? 10 : 0));
+        const priceWatchCount = priceAlerts.filter((alert) => alert.product_id === product.id).length;
+        const urgencyScore =
+          demandCount * 3 +
+          priceWatchCount * 2 +
+          (lowStockVariants > 0 ? 8 : 0) +
+          (totalStock === 0 ? 12 : 0);
+        const suggestedReorderQty = Math.max(
+          10,
+          demandCount * 2 + priceWatchCount + lowStockVariants * 5 + (totalStock === 0 ? 10 : 0),
+        );
 
         return {
           id: product.id,
@@ -272,13 +354,14 @@ export function AdminDashboard() {
           totalStock,
           lowStockVariants,
           demandCount,
+          priceWatchCount,
           urgencyScore,
           suggestedReorderQty,
         };
       })
       .filter((product) => product.lowStockVariants > 0 || product.demandCount > 0)
       .sort((a, b) => b.urgencyScore - a.urgencyScore);
-  }, [procurementProducts, stockAlerts]);
+  }, [procurementProducts, stockAlerts, priceAlerts]);
 
   const supplierCoverage = useMemo(() => {
     const mapped = new Map<string, { supplierName: string; productCount: number; urgentCount: number }>();
@@ -422,7 +505,7 @@ export function AdminDashboard() {
       )}
 
       {/* Revenue Goal + Flash Deals & Alerts */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Revenue Goal</CardTitle>
@@ -454,9 +537,18 @@ export function AdminDashboard() {
             <p className="text-3xl font-bold text-foreground">{lowStockProducts?.length ?? 0}</p>
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Price Watchers</CardTitle>
+            <TrendingDown className="h-5 w-5 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold text-foreground">{priceAlerts.length}</p>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-8">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -483,6 +575,46 @@ export function AdminDashboard() {
             ))}
             {alertDemand.length === 0 && (
               <p className="text-sm text-muted-foreground">No restock demand yet.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingDown className="h-5 w-5 text-primary" />
+              Price Watch Signals
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center justify-between rounded-lg bg-muted/40 p-3">
+              <div>
+                <p className="text-sm font-medium">Price Alert Subscribers</p>
+                <p className="text-xs text-muted-foreground">Customers waiting for lower prices</p>
+              </div>
+              <p className="text-2xl font-bold">{priceAlerts.length}</p>
+            </div>
+            {priceAlertDemand.slice(0, 5).map((item) => (
+              <div key={item.key} className="rounded-lg border border-border p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="font-medium text-foreground">{item.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Current price:{' '}
+                      {item.currentPrice != null ? formatPrice(item.currentPrice) : 'Unavailable'}
+                    </p>
+                  </div>
+                  <Badge>{item.count} watching</Badge>
+                </div>
+                {item.lowestTargetPrice != null && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Lowest target price: {formatPrice(item.lowestTargetPrice)}
+                  </p>
+                )}
+              </div>
+            ))}
+            {priceAlertDemand.length === 0 && (
+              <p className="text-sm text-muted-foreground">No price-watch demand yet.</p>
             )}
           </CardContent>
         </Card>
@@ -545,6 +677,7 @@ export function AdminDashboard() {
                 <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
                   <span>{item.lowStockVariants} low-stock variants</span>
                   <span>{item.demandCount} waiting alerts</span>
+                  <span>{item.priceWatchCount} price watchers</span>
                   <span>Suggested reorder: {item.suggestedReorderQty}</span>
                 </div>
                 {item.expectedRestockDate && (

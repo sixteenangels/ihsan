@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -19,10 +20,21 @@ interface ProductShippingRulesProps {
   onRulesChange: (rules: ShippingRuleData[]) => void;
 }
 
+type ShippingTypeRow = Database['public']['Tables']['shipping_types']['Row'];
+type ShippingClassWithType = {
+  id: string;
+  name: string;
+  base_price: number | null;
+  estimated_days_min: number;
+  estimated_days_max: number;
+  is_active: boolean | null;
+  shipping_types: Pick<ShippingTypeRow, 'id' | 'name'> | null;
+};
+
 export function ProductShippingRules({ rules, onRulesChange }: ProductShippingRulesProps) {
   const { data: shippingClasses, isLoading } = useQuery({
     queryKey: ['shipping-classes-for-products'],
-    queryFn: async () => {
+    queryFn: async (): Promise<ShippingClassWithType[]> => {
       const { data, error } = await supabase
         .from('shipping_classes')
         .select(`
@@ -31,55 +43,61 @@ export function ProductShippingRules({ rules, onRulesChange }: ProductShippingRu
         `)
         .eq('is_active', true)
         .order('name');
+
       if (error) throw error;
-      return data;
+      return (data || []) as ShippingClassWithType[];
     },
   });
 
-  // Initialize rules when shipping classes load
   useEffect(() => {
     if (shippingClasses && rules.length === 0) {
-      const initialRules = shippingClasses.map((sc) => ({
-        shipping_class_id: sc.id,
-        price: String(sc.base_price || 0),
+      const initialRules = shippingClasses.map((shippingClass) => ({
+        shipping_class_id: shippingClass.id,
+        price: String(shippingClass.base_price || 0),
         is_allowed: true,
       }));
+
       onRulesChange(initialRules);
     }
   }, [shippingClasses, rules.length, onRulesChange]);
 
-  const handleRuleChange = (classId: string, field: 'price' | 'is_allowed', value: string | boolean) => {
+  const handleRuleChange = (
+    classId: string,
+    field: 'price' | 'is_allowed',
+    value: string | boolean,
+  ) => {
     const updatedRules = rules.map((rule) => {
       if (rule.shipping_class_id === classId) {
         return { ...rule, [field]: value };
       }
+
       return rule;
     });
-    
-    // If the rule doesn't exist yet, add it
-    if (!updatedRules.find((r) => r.shipping_class_id === classId)) {
-      const shippingClass = shippingClasses?.find((sc) => sc.id === classId);
+
+    if (!updatedRules.find((rule) => rule.shipping_class_id === classId)) {
+      const shippingClass = shippingClasses?.find((item) => item.id === classId);
       updatedRules.push({
         shipping_class_id: classId,
         price: field === 'price' ? (value as string) : String(shippingClass?.base_price || 0),
         is_allowed: field === 'is_allowed' ? (value as boolean) : true,
       });
     }
-    
+
     onRulesChange(updatedRules);
   };
 
   const getRuleValue = (classId: string, field: 'price' | 'is_allowed') => {
-    const rule = rules.find((r) => r.shipping_class_id === classId);
+    const rule = rules.find((item) => item.shipping_class_id === classId);
     if (rule) {
       return rule[field];
     }
-    const shippingClass = shippingClasses?.find((sc) => sc.id === classId);
+
+    const shippingClass = shippingClasses?.find((item) => item.id === classId);
     return field === 'price' ? String(shippingClass?.base_price || 0) : true;
   };
 
   const getShippingIcon = (name: string) => {
-    const lower = name?.toLowerCase() || '';
+    const lower = name.toLowerCase();
     if (lower.includes('sea')) return <Ship className="h-4 w-4" />;
     if (lower.includes('express')) return <Package className="h-4 w-4" />;
     return <Plane className="h-4 w-4" />;
@@ -97,13 +115,14 @@ export function ProductShippingRules({ rules, onRulesChange }: ProductShippingRu
     return (
       <div className="rounded-lg border border-dashed border-primary/50 bg-primary/5 p-4">
         <div className="flex items-start gap-3">
-          <div className="p-2 rounded-full bg-primary/10">
+          <div className="rounded-full bg-primary/10 p-2">
             <AlertCircle className="h-5 w-5 text-primary" />
           </div>
           <div className="flex-1">
-            <h4 className="font-medium text-foreground mb-1">No Shipping Methods Configured</h4>
-            <p className="text-sm text-muted-foreground mb-3">
-              You need to set up shipping types and classes before you can assign shipping prices to products.
+            <h4 className="mb-1 font-medium text-foreground">No Shipping Methods Configured</h4>
+            <p className="mb-3 text-sm text-muted-foreground">
+              You need to set up shipping types and classes before you can assign shipping prices
+              to products.
             </p>
             <Button asChild size="sm" variant="outline">
               <Link to="/admin/shipping" className="inline-flex items-center gap-2">
@@ -123,49 +142,60 @@ export function ProductShippingRules({ rules, onRulesChange }: ProductShippingRu
       <p className="text-sm text-muted-foreground">
         Set custom shipping prices for this product or disable specific shipping methods.
       </p>
-      
+
       <div className="space-y-3">
-        {shippingClasses.map((sc) => (
+        {shippingClasses.map((shippingClass) => (
           <div
-            key={sc.id}
-            className="flex items-center gap-4 p-3 rounded-lg border border-border bg-muted/30"
+            key={shippingClass.id}
+            className="flex items-center gap-4 rounded-lg border border-border bg-muted/30 p-3"
           >
-            <div className="flex items-center gap-2 flex-1">
-              <div className="p-2 rounded bg-primary/10 text-primary">
-                {getShippingIcon((sc.shipping_types as any)?.name || '')}
+            <div className="flex flex-1 items-center gap-2">
+              <div className="rounded bg-primary/10 p-2 text-primary">
+                {getShippingIcon(shippingClass.shipping_types?.name || '')}
               </div>
               <div className="flex-1">
-                <p className="font-medium text-sm">{sc.name}</p>
+                <p className="text-sm font-medium">{shippingClass.name}</p>
                 <p className="text-xs text-muted-foreground">
-                  {(sc.shipping_types as any)?.name} • {sc.estimated_days_min}-{sc.estimated_days_max} days
+                  {shippingClass.shipping_types?.name || 'Unknown type'} •{' '}
+                  {shippingClass.estimated_days_min}-{shippingClass.estimated_days_max} days
                 </p>
               </div>
             </div>
-            
+
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
-                <Label htmlFor={`price-${sc.id}`} className="text-xs text-muted-foreground">
+                <Label
+                  htmlFor={`price-${shippingClass.id}`}
+                  className="text-xs text-muted-foreground"
+                >
                   Price
                 </Label>
                 <Input
-                  id={`price-${sc.id}`}
+                  id={`price-${shippingClass.id}`}
                   type="number"
                   step="0.01"
-                  className="w-24 h-8 text-sm"
-                  value={getRuleValue(sc.id, 'price') as string}
-                  onChange={(e) => handleRuleChange(sc.id, 'price', e.target.value)}
-                  disabled={!(getRuleValue(sc.id, 'is_allowed') as boolean)}
+                  className="h-8 w-24 text-sm"
+                  value={getRuleValue(shippingClass.id, 'price') as string}
+                  onChange={(event) =>
+                    handleRuleChange(shippingClass.id, 'price', event.target.value)
+                  }
+                  disabled={!(getRuleValue(shippingClass.id, 'is_allowed') as boolean)}
                 />
               </div>
-              
+
               <div className="flex items-center gap-2">
-                <Label htmlFor={`allowed-${sc.id}`} className="text-xs text-muted-foreground">
+                <Label
+                  htmlFor={`allowed-${shippingClass.id}`}
+                  className="text-xs text-muted-foreground"
+                >
                   Enabled
                 </Label>
                 <Switch
-                  id={`allowed-${sc.id}`}
-                  checked={getRuleValue(sc.id, 'is_allowed') as boolean}
-                  onCheckedChange={(checked) => handleRuleChange(sc.id, 'is_allowed', checked)}
+                  id={`allowed-${shippingClass.id}`}
+                  checked={getRuleValue(shippingClass.id, 'is_allowed') as boolean}
+                  onCheckedChange={(checked) =>
+                    handleRuleChange(shippingClass.id, 'is_allowed', checked)
+                  }
                 />
               </div>
             </div>

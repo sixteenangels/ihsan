@@ -6,6 +6,7 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp
 import { toast } from 'sonner';
 import { Loader2, Shield, Copy, Check } from 'lucide-react';
 import { BackupRecoveryCodes } from './BackupRecoveryCodes';
+import { getErrorMessage } from '@/lib/errors';
 
 interface TwoFactorSetupProps {
   onComplete: () => void;
@@ -38,8 +39,8 @@ export function TwoFactorSetup({ onComplete, onCancel }: TwoFactorSetupProps) {
         setFactorId(data.id);
         setStep('verify');
       }
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to setup 2FA');
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Failed to setup 2FA'));
     } finally {
       setIsLoading(false);
     }
@@ -101,8 +102,8 @@ export function TwoFactorSetup({ onComplete, onCancel }: TwoFactorSetupProps) {
       setStep('backup-codes');
       
       toast.success('Two-factor authentication enabled!');
-    } catch (error: any) {
-      toast.error(error.message || 'Invalid verification code');
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Invalid verification code'));
       setVerifyCode('');
     } finally {
       setIsLoading(false);

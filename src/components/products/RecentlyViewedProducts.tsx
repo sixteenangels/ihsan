@@ -1,5 +1,5 @@
 import { useRecentlyViewed } from '@/hooks/useRecentlyViewed';
-import { useProducts } from '@/hooks/useProducts';
+import { useProducts, type ProductWithDetails } from '@/hooks/useProducts';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { ProductCard } from './ProductCard';
 import { useMemo } from 'react';
@@ -18,7 +18,7 @@ export function RecentlyViewedProducts({ currentProductId }: RecentlyViewedProdu
     return recentlyViewed
       .filter((id) => id !== currentProductId)
       .map((id) => products.find((p) => p.id === id))
-      .filter(Boolean)
+      .filter((product): product is ProductWithDetails => Boolean(product))
       .slice(0, 6);
   }, [products, recentlyViewed, currentProductId]);
 
@@ -31,7 +31,7 @@ export function RecentlyViewedProducts({ currentProductId }: RecentlyViewedProdu
         <span className="text-xs text-muted-foreground sm:text-sm">{recentProducts.length} items</span>
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6">
-        {recentProducts.map((product: any) => (
+        {recentProducts.map((product) => (
           <ProductCard
             key={product.id}
             product={{
@@ -41,12 +41,12 @@ export function RecentlyViewedProducts({ currentProductId }: RecentlyViewedProdu
               category: product.category_name || 'Uncategorized',
               basePrice: product.base_price,
               images: product.images?.length > 0 ? product.images : ['https://via.placeholder.com/400'],
-              variants: product.variants?.map((v: any) => ({
-                id: v.id,
-                size: v.size || undefined,
-                color: v.color || undefined,
-                price: v.price,
-                stock: v.stock || 0,
+              variants: product.variants?.map((variant) => ({
+                id: variant.id,
+                size: variant.size || undefined,
+                color: variant.color || undefined,
+                price: variant.price,
+                stock: variant.stock || 0,
               })) || [],
               shippingOptions: [],
               isGroupBuyEligible: product.is_group_buy_eligible || false,

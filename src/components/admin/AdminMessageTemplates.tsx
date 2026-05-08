@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, Plus, Trash2, MessageSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import { useMessageTemplates, useSaveTemplate, useDeleteTemplate } from '@/hooks/useMessageTemplates';
+import { getErrorMessage } from '@/lib/errors';
 
 export function AdminMessageTemplates() {
   const { data: templates, isLoading } = useMessageTemplates();
@@ -32,8 +33,8 @@ export function AdminMessageTemplates() {
       setContent('');
       setCategory('');
       setOpen(false);
-    } catch (e: any) {
-      toast.error(e?.message || 'Failed to save');
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Failed to save'));
     }
   };
 

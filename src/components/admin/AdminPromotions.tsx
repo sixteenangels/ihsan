@@ -17,15 +17,47 @@ import { couponSchema, validateForm } from '@/lib/validations/admin';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useAuth } from '@/contexts/AuthContext';
 import { logAdminAction } from '@/lib/audit-log';
+import type { Enums, Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
+
+type CouponType = Enums<'coupon_type'>;
+type CouponRow = Tables<'coupons'>;
+type CouponInsert = TablesInsert<'coupons'>;
+type FlashDealProductRow = Pick<
+  Tables<'products'>,
+  'id' | 'name' | 'base_price' | 'is_flash_deal' | 'is_active' | 'flash_deal_ends_at'
+>;
+type StoreSettingValue = Tables<'store_settings'>['value'];
+type StoreSettingsMap = Record<string, StoreSettingValue>;
+type CouponFormState = {
+  code: string;
+  type: CouponType;
+  value: string;
+  min_order_amount: string;
+  max_uses: string;
+  expires_at: string;
+  marketing_label: string;
+  auto_apply: boolean;
+  first_order_only: boolean;
+};
+
+function parseNumericSetting(value: StoreSettingValue | undefined) {
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
 
 export function AdminPromotions() {
   const queryClient = useQueryClient();
   const { formatPrice } = useCurrency();
   const { user } = useAuth();
   const [isAddingCoupon, setIsAddingCoupon] = useState(false);
-  const [newCoupon, setNewCoupon] = useState({
+  const [newCoupon, setNewCoupon] = useState<CouponFormState>({
     code: '',
-    type: 'percentage' as 'percentage' | 'fixed_amount',
+    type: 'percentage',
     value: '',
     min_order_amount: '',
     max_uses: '',
@@ -45,19 +77,19 @@ export function AdminPromotions() {
 
   const { data: coupons, isLoading: couponsLoading } = useQuery({
     queryKey: ['admin-coupons'],
-    queryFn: async () => {
+    queryFn: async (): Promise<CouponRow[]> => {
       const { data, error } = await supabase
         .from('coupons')
         .select('*')
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return data;
+      return data || [];
     },
   });
 
   const { data: flashDealProducts, isLoading: flashDealsLoading } = useQuery({
     queryKey: ['admin-flash-deals-products'],
-    queryFn: async () => {
+    queryFn: async (): Promise<FlashDealProductRow[]> => {
       const { data, error } = await supabase
         .from('products')
         .select('id, name, base_price, is_flash_deal, is_active, flash_deal_ends_at')
@@ -71,19 +103,25 @@ export function AdminPromotions() {
   // Load referral settings from store_settings
   const { data: storeSettings } = useQuery({
     queryKey: ['admin-store-settings-promotions'],
-    queryFn: async () => {
+    queryFn: async (): Promise<StoreSettingsMap> => {
       const { data } = await supabase.from('store_settings').select('key, value');
-      const map: Record<string, any> = {};
-      data?.forEach(r => { map[r.key] = r.value; });
+      const map: StoreSettingsMap = {};
+      data?.forEach((record) => {
+        map[record.key] = record.value;
+      });
       return map;
     },
   });
 
   useEffect(() => {
     if (storeSettings) {
-      if (storeSettings.referral_discount_percent != null) setRefDiscount(String(storeSettings.referral_discount_percent));
-      if (storeSettings.referral_max_uses != null) setRefMaxUses(String(storeSettings.referral_max_uses));
-      if (storeSettings.referral_expiry_days != null) setRefExpiryDays(String(storeSettings.referral_expiry_days));
+      const discount = parseNumericSetting(storeSettings.referral_discount_percent);
+      const maxUses = parseNumericSetting(storeSettings.referral_max_uses);
+      const expiryDays = parseNumericSetting(storeSettings.referral_expiry_days);
+
+      if (discount != null) setRefDiscount(String(discount));
+      if (maxUses != null) setRefMaxUses(String(maxUses));
+      if (expiryDays != null) setRefExpiryDays(String(expiryDays));
     }
   }, [storeSettings]);
 
@@ -111,8 +149,8 @@ export function AdminPromotions() {
   };
 
   const addCouponMutation = useMutation({
-    mutationFn: async (couponData: any) => {
-      const payload = {
+    mutationFn: async (couponData: CouponFormState) => {
+      const payload: CouponInsert = {
         code: couponData.code.toUpperCase(),
         type: couponData.type,
         value: parseFloat(couponData.value),
@@ -204,7 +242,7 @@ export function AdminPromotions() {
 
   const toggleFlashDeal = useMutation({
     mutationFn: async ({ id, is_flash_deal }: { id: string; is_flash_deal: boolean }) => {
-      const update: any = { is_flash_deal };
+      const update: TablesUpdate<'products'> = { is_flash_deal };
       if (!is_flash_deal) update.flash_deal_ends_at = null;
       const { error } = await supabase.from('products').update(update).eq('id', id);
       if (error) throw error;
@@ -330,7 +368,7 @@ export function AdminPromotions() {
                     <Label>Type</Label>
                     <Select
                       value={newCoupon.type}
-                      onValueChange={(value: 'percentage' | 'fixed_amount') => setNewCoupon(prev => ({ ...prev, type: value }))}
+                      onValueChange={(value: CouponType) => setNewCoupon(prev => ({ ...prev, type: value }))}
                     >
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>

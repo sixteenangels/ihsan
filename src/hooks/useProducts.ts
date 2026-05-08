@@ -13,6 +13,7 @@ export interface ProductWithDetails {
   is_flash_deal: boolean | null;
   is_free_shipping: boolean | null;
   is_active: boolean | null;
+  expected_restock_date: string | null;
   is_fragile: boolean | null;
   reinforced_packaging_cost: number | null;
   allow_standard_packaging: boolean | null;
@@ -46,6 +47,11 @@ export interface ProductWithDetails {
       } | null;
     } | null;
   }[];
+}
+
+function readExpectedRestockDate(product: object): string | null {
+  const value = (product as { expected_restock_date?: unknown }).expected_restock_date;
+  return typeof value === 'string' ? value : null;
 }
 
 async function fetchProducts(): Promise<ProductWithDetails[]> {
@@ -127,6 +133,7 @@ async function fetchProducts(): Promise<ProductWithDetails[]> {
     is_flash_deal: product.is_flash_deal,
     is_free_shipping: product.is_free_shipping,
     is_active: product.is_active,
+    expected_restock_date: readExpectedRestockDate(product),
     is_fragile: product.is_fragile,
     reinforced_packaging_cost: product.reinforced_packaging_cost != null ? Number(product.reinforced_packaging_cost) : null,
     allow_standard_packaging: product.allow_standard_packaging,
@@ -221,6 +228,7 @@ async function fetchProductById(id: string): Promise<ProductWithDetails | null> 
     is_flash_deal: product.is_flash_deal,
     is_free_shipping: product.is_free_shipping,
     is_active: product.is_active,
+    expected_restock_date: readExpectedRestockDate(product),
     is_fragile: product.is_fragile,
     reinforced_packaging_cost: product.reinforced_packaging_cost != null ? Number(product.reinforced_packaging_cost) : null,
     allow_standard_packaging: product.allow_standard_packaging,

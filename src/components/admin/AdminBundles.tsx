@@ -12,6 +12,13 @@ import {
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Plus, Trash2, Loader2, Package } from 'lucide-react';
+import type { Tables } from '@/integrations/supabase/types';
+
+type ProductOption = Pick<Tables<'products'>, 'id' | 'name'>;
+type BundleRow = Tables<'product_bundles'> & {
+  products: Pick<Tables<'products'>, 'name'> | null;
+  bundled: Pick<Tables<'products'>, 'name'> | null;
+};
 
 export function AdminBundles() {
   const queryClient = useQueryClient();
@@ -20,7 +27,7 @@ export function AdminBundles() {
 
   const { data: products } = useQuery({
     queryKey: ['admin-products-list'],
-    queryFn: async () => {
+    queryFn: async (): Promise<ProductOption[]> => {
       const { data } = await supabase.from('products').select('id, name').eq('is_active', true).order('name');
       return data || [];
     },
@@ -28,13 +35,13 @@ export function AdminBundles() {
 
   const { data: bundles, isLoading } = useQuery({
     queryKey: ['admin-bundles'],
-    queryFn: async () => {
+    queryFn: async (): Promise<BundleRow[]> => {
       const { data, error } = await supabase
         .from('product_bundles')
         .select('id, product_id, bundled_product_id, products!product_bundles_product_id_fkey(name), bundled:products!product_bundles_bundled_product_id_fkey(name)')
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return data || [];
+      return (data || []) as unknown as BundleRow[];
     },
   });
 
@@ -126,7 +133,7 @@ export function AdminBundles() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {bundles?.map((b: any) => (
+                {bundles?.map((b) => (
                   <TableRow key={b.id}>
                     <TableCell className="font-medium">{b.products?.name || '-'}</TableCell>
                     <TableCell>{b.bundled?.name || '-'}</TableCell>

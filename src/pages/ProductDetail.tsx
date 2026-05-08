@@ -231,6 +231,14 @@ export default function ProductDetail() {
     );
   }
 
+  const expectedRestockDateLabel = product.expected_restock_date
+    ? new Date(product.expected_restock_date).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    : null;
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -331,8 +339,15 @@ export default function ProductDetail() {
                     {hasAnyStock ? `${totalAvailableStock} unit(s) available across active variants` : 'Currently out of stock'}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    Add to cart without locking the final shipping method. You can finish the choices at checkout.
+                    {hasAnyStock
+                      ? 'Add to cart without locking the final shipping method. You can finish the choices at checkout.'
+                      : 'Set a restock alert and we will notify you as soon as this item is available again.'}
                   </p>
+                  {!hasAnyStock && expectedRestockDateLabel && (
+                    <p className="mt-2 text-sm font-medium text-primary">
+                      Expected restock: {expectedRestockDateLabel}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Delivery Window</p>
@@ -447,13 +462,22 @@ export default function ProductDetail() {
                 </Button>
               </div>
               <div className="flex flex-wrap gap-2">
-                <PriceDropAlert productId={product.id} />
+                <PriceDropAlert
+                  productId={product.id}
+                  productName={product.name}
+                  currentPrice={product.base_price}
+                />
                 <BackInStockAlert
                   productId={product.id}
                   productName={product.name}
                   variantId={alertVariantId}
                   isOutOfStock={showRestockAlert}
                 />
+                {showRestockAlert && expectedRestockDateLabel && (
+                  <p className="w-full text-sm text-muted-foreground">
+                    We are currently expecting more stock around {expectedRestockDateLabel}.
+                  </p>
+                )}
               </div>
             </div>
           </div>

@@ -15,7 +15,7 @@ export function CompareBar() {
   if (compareItems.length === 0 || !isEnabled('compare')) return null;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-background border-t shadow-lg z-50 p-4">
+    <div className="fixed bottom-20 left-0 right-0 z-50 border-t bg-background p-4 shadow-lg md:bottom-0">
       <div className="container mx-auto flex items-center justify-between gap-4">
         <div className="flex items-center gap-4 overflow-x-auto">
           <span className="text-sm font-medium whitespace-nowrap">

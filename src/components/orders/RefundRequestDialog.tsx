@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import type { TablesInsert } from '@/integrations/supabase/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -55,17 +56,15 @@ export function RefundRequestDialog({ order, disabled }: RefundRequestDialogProp
     mutationFn: async () => {
       if (!user) throw new Error('Please sign in to request a refund');
 
-      // Use type assertion for new table
-      const client = supabase as any;
-      const { error } = await client
-        .from('refund_requests')
-        .insert({
-          order_id: order.id,
-          user_id: user.id,
-          reason,
-          details: details || null,
-          refund_amount: order.total_amount,
-        });
+      const refundRequest: TablesInsert<'refund_requests'> = {
+        order_id: order.id,
+        user_id: user.id,
+        reason,
+        details: details || null,
+        refund_amount: order.total_amount,
+      };
+
+      const { error } = await supabase.from('refund_requests').insert(refundRequest);
 
       if (error) throw error;
     },

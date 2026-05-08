@@ -33,6 +33,14 @@ interface ProductReviewsProps {
   productName: string;
 }
 
+interface DeliveredOrder {
+  order_items: Array<{
+    product_variants: {
+      product_id: string | null;
+    } | null;
+  }> | null;
+}
+
 export function ProductReviews({ productId, productName }: ProductReviewsProps) {
   const { user } = useAuth();
   const { isEnabled } = useFeatureFlags();
@@ -130,8 +138,9 @@ export function ProductReviews({ productId, productName }: ProductReviewsProps) 
       .eq('status', 'delivered');
 
     if (orders) {
-      const hasPurchased = orders.some(order =>
-        order.order_items?.some((item: any) =>
+      const deliveredOrders = orders as DeliveredOrder[];
+      const hasPurchased = deliveredOrders.some(order =>
+        order.order_items?.some((item) =>
           item.product_variants?.product_id === productId
         )
       );

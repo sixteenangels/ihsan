@@ -4,12 +4,12 @@ import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWishlist } from '@/hooks/useWishlist';
-import { useProducts } from '@/hooks/useProducts';
+import { useProducts, type ProductWithDetails } from '@/hooks/useProducts';
 import { ProductCard } from '@/components/products/ProductCard';
 import { Button } from '@/components/ui/button';
 import { useEffect } from 'react';
 
-function toProductCardFormat(product: any) {
+function toProductCardFormat(product: ProductWithDetails) {
   return {
     id: product.id,
     name: product.name,
@@ -17,12 +17,12 @@ function toProductCardFormat(product: any) {
     category: product.category_name || 'Uncategorized',
     basePrice: product.base_price,
     images: product.images.length > 0 ? product.images : ['https://via.placeholder.com/400'],
-    variants: product.variants.map((v: any) => ({
-      id: v.id,
-      size: v.size || undefined,
-      color: v.color || undefined,
-      price: v.price,
-      stock: v.stock || 0,
+    variants: product.variants.map((variant) => ({
+      id: variant.id,
+      size: variant.size || undefined,
+      color: variant.color || undefined,
+      price: variant.price,
+      stock: variant.stock || 0,
     })),
     shippingOptions: [],
     isGroupBuyEligible: product.is_group_buy_eligible || false,

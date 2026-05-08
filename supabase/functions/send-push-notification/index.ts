@@ -9,7 +9,7 @@ interface PushPayload {
   user_id: string
   title: string
   body: string
-  data?: Record<string, any>
+  data?: Record<string, unknown>
 }
 
 Deno.serve(async (req) => {
