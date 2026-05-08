@@ -56,7 +56,7 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { Checkbox } from '@/components/ui/checkbox';
-import { getCategoryIconComponent } from '@/lib/categoryIcons';
+import { formatCategoryLabel, getCategoryIconComponent } from '@/lib/categoryIcons';
 
 const DEFAULT_SORT_BY = 'newest';
 const DEFAULT_PRICE_RANGE: [number, number] = [0, 10000];
@@ -539,7 +539,7 @@ export default function Products() {
               className="cursor-pointer px-3 py-1.5 text-center text-xs sm:px-4 sm:py-2 sm:text-sm"
               onClick={() => setSelectedCategory('')}
             >
-              All
+              🛍️ All
             </Badge>
             {categories?.map((category) => {
               const CategoryIcon = getCategoryIconComponent(category.name) || Package;
@@ -555,7 +555,7 @@ export default function Products() {
                   }
                 >
                   <CategoryIcon className="h-3.5 w-3.5 shrink-0" />
-                  {category.name} ({category.product_count || 0})
+                  {formatCategoryLabel(category.name)} ({category.product_count || 0})
                 </Badge>
               );
             })}

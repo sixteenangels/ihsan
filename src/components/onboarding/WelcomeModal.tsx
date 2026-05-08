@@ -10,6 +10,7 @@ import { MapPin, Heart, Bell, Check, ArrowRight } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { formatCategoryLabel } from '@/lib/categoryIcons';
 
 const INTERESTS = [
   'Electronics', 'Fashion', 'Beauty', 'Home & Kitchen', 'Sports',
@@ -140,7 +141,7 @@ export function WelcomeModal() {
                     onClick={() => toggleInterest(interest)}
                   >
                     {selectedInterests.includes(interest) && <Check className="h-3 w-3 mr-1" />}
-                    {interest}
+                    {formatCategoryLabel(interest)}
                   </Badge>
                 ))}
               </div>

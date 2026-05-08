@@ -57,6 +57,56 @@ export const categoryIconMap: Record<string, string> = {
   garden: 'Flower2',
 };
 
+export const categoryEmojiMap: Record<string, string> = {
+  fashion: '👗',
+  clothing: '👕',
+  beauty: '💄',
+  cosmetics: '💅',
+  'personal care': '🧴',
+  'beauty & health': '✨',
+  health: '❤️',
+  electronics: '📱',
+  gadgets: '🔌',
+  'auto parts': '🚘',
+  auto: '🚗',
+  home: '🏠',
+  kitchen: '🍳',
+  living: '🛋️',
+  'home & living': '🛋️',
+  'home & garden': '🌿',
+  food: '🍽️',
+  drinks: '🥤',
+  beverages: '🧃',
+  'food & drinks': '🍽️',
+  sports: '🏋️',
+  fitness: '🏃',
+  'sports & fitness': '💪',
+  books: '📚',
+  toys: '🧸',
+  games: '🎮',
+  kids: '🍼',
+  baby: '🍼',
+  accessories: '⌚',
+  jewelry: '💎',
+  shoes: '👟',
+  bags: '👜',
+  automotive: '🚗',
+  pets: '🐾',
+  office: '💼',
+  furniture: '🪑',
+  music: '🎵',
+  art: '🎨',
+  tools: '🛠️',
+  garden: '🌱',
+  deals: '🔥',
+  'deals & offers': '🎁',
+  offers: '🎁',
+  'new arrivals': '✨',
+  'trending now': '📈',
+  trending: '📈',
+  'ready now': '📦',
+};
+
 const categoryIconComponents: Record<string, LucideIcon> = {
   Shirt,
   Sparkles,
@@ -97,4 +147,20 @@ export function getCategoryIconName(categoryName: string): string {
 export function getCategoryIconComponent(categoryName: string): LucideIcon {
   const iconName = getCategoryIconName(categoryName);
   return categoryIconComponents[iconName] || Package;
+}
+
+export function getCategoryEmoji(categoryName: string): string {
+  const lower = categoryName.toLowerCase();
+
+  if (categoryEmojiMap[lower]) return categoryEmojiMap[lower];
+
+  for (const [key, emoji] of Object.entries(categoryEmojiMap)) {
+    if (lower.includes(key) || key.includes(lower)) return emoji;
+  }
+
+  return '📦';
+}
+
+export function formatCategoryLabel(categoryName: string): string {
+  return `${getCategoryEmoji(categoryName)} ${categoryName}`;
 }

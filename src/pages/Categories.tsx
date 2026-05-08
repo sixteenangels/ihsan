@@ -8,7 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Loader2, Eye } from 'lucide-react';
 import { ProductQuickView } from '@/components/products/ProductQuickView';
-import { getCategoryIconComponent } from '@/lib/categoryIcons';
+import { formatCategoryLabel, getCategoryIconComponent } from '@/lib/categoryIcons';
 
 function toQuickViewFormat(product: ProductWithDetails) {
   return {
@@ -98,7 +98,9 @@ export default function Categories() {
                       <Icon className="h-5 w-5 text-primary" />
                     </div>
                     <div>
-                      <h2 className="text-xl font-bold text-foreground sm:text-2xl">{category.name}</h2>
+                      <h2 className="text-xl font-bold text-foreground sm:text-2xl">
+                        {formatCategoryLabel(category.name)}
+                      </h2>
                       <p className="text-sm text-muted-foreground">{category.product_count || 0} products</p>
                     </div>
                   </div>
