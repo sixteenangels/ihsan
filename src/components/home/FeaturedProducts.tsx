@@ -33,6 +33,8 @@ function toProductCardFormat(product: ProductWithDetails) {
           ? 'air_express'
           : 'air_normal') as 'sea' | 'air_normal' | 'air_express',
         name: r.shipping_class?.name || '',
+        details:
+          r.shipping_class?.description || r.shipping_class?.shipping_type?.description || undefined,
         price: r.price,
         estimatedDays: r.shipping_class
           ? `${r.shipping_class.estimated_days_min}-${r.shipping_class.estimated_days_max} days`

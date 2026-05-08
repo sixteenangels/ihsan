@@ -1473,6 +1473,7 @@ export type Database = {
         Row: {
           base_price: number | null
           created_at: string
+          description: string | null
           estimated_days_max: number
           estimated_days_min: number
           id: string
@@ -1484,6 +1485,7 @@ export type Database = {
         Insert: {
           base_price?: number | null
           created_at?: string
+          description?: string | null
           estimated_days_max: number
           estimated_days_min: number
           id?: string
@@ -1495,6 +1497,7 @@ export type Database = {
         Update: {
           base_price?: number | null
           created_at?: string
+          description?: string | null
           estimated_days_max?: number
           estimated_days_min?: number
           id?: string

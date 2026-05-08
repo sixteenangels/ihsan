@@ -269,9 +269,14 @@ export function ProductQuickView({ product, open, onOpenChange }: ProductQuickVi
                 <p className="text-sm font-medium mb-2">Shipping Options</p>
                 <div className="space-y-1">
                   {product.shippingOptions.slice(0, 2).map(opt => (
-                    <div key={opt.id} className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">{opt.name}</span>
-                      <span>{opt.estimatedDays}</span>
+                    <div key={opt.id} className="text-sm">
+                      <div className="flex justify-between gap-3">
+                        <span className="text-muted-foreground">{opt.name}</span>
+                        <span>{opt.estimatedDays}</span>
+                      </div>
+                      {opt.details && (
+                        <p className="text-xs text-muted-foreground">{opt.details}</p>
+                      )}
                     </div>
                   ))}
                 </div>

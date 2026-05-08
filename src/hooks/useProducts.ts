@@ -39,11 +39,13 @@ export interface ProductWithDetails {
     shipping_class: {
       id: string;
       name: string;
+      description: string | null;
       estimated_days_min: number;
       estimated_days_max: number;
       shipping_type: {
         id: string;
         name: string;
+        description: string | null;
       } | null;
     } | null;
   }[];
@@ -91,9 +93,10 @@ async function fetchProducts(): Promise<ProductWithDetails[]> {
       shipping_classes(
         id,
         name,
+        description,
         estimated_days_min,
         estimated_days_max,
-        shipping_types(id, name)
+        shipping_types(id, name, description)
       )
     `);
 
@@ -159,6 +162,7 @@ async function fetchProducts(): Promise<ProductWithDetails[]> {
       shipping_class: rule.shipping_classes ? {
         id: rule.shipping_classes.id,
         name: rule.shipping_classes.name,
+        description: rule.shipping_classes.description,
         estimated_days_min: rule.shipping_classes.estimated_days_min,
         estimated_days_max: rule.shipping_classes.estimated_days_max,
         shipping_type: rule.shipping_classes.shipping_types,
@@ -209,9 +213,10 @@ async function fetchProductById(id: string): Promise<ProductWithDetails | null> 
       shipping_classes(
         id,
         name,
+        description,
         estimated_days_min,
         estimated_days_max,
-        shipping_types(id, name)
+        shipping_types(id, name, description)
       )
     `)
     .eq('product_id', id);
@@ -254,6 +259,7 @@ async function fetchProductById(id: string): Promise<ProductWithDetails | null> 
       shipping_class: rule.shipping_classes ? {
         id: rule.shipping_classes.id,
         name: rule.shipping_classes.name,
+        description: rule.shipping_classes.description,
         estimated_days_min: rule.shipping_classes.estimated_days_min,
         estimated_days_max: rule.shipping_classes.estimated_days_max,
         shipping_type: rule.shipping_classes.shipping_types,

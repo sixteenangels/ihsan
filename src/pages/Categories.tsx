@@ -35,6 +35,8 @@ function toQuickViewFormat(product: ProductWithDetails) {
             ? 'air_express'
             : 'air_normal') as 'sea' | 'air_normal' | 'air_express',
         name: r.shipping_class?.name || '',
+        details:
+          r.shipping_class?.description || r.shipping_class?.shipping_type?.description || undefined,
         price: r.price,
         estimatedDays: r.shipping_class
           ? `${r.shipping_class.estimated_days_min}-${r.shipping_class.estimated_days_max} days`
@@ -105,7 +107,7 @@ export default function Categories() {
                     </div>
                   </div>
                   <Link
-                    to={`/products?category=${category.id}`}
+                    to={`/products?category=${encodeURIComponent(category.name)}`}
                     className="flex items-center gap-1 text-sm text-primary hover:underline sm:text-base"
                   >
                     View All

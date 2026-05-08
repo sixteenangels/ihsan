@@ -25,10 +25,11 @@ type ShippingClassWithType = {
   id: string;
   name: string;
   base_price: number | null;
+  description: string | null;
   estimated_days_min: number;
   estimated_days_max: number;
   is_active: boolean | null;
-  shipping_types: Pick<ShippingTypeRow, 'id' | 'name'> | null;
+  shipping_types: Pick<ShippingTypeRow, 'id' | 'name' | 'description'> | null;
 };
 
 export function ProductShippingRules({ rules, onRulesChange }: ProductShippingRulesProps) {
@@ -39,7 +40,7 @@ export function ProductShippingRules({ rules, onRulesChange }: ProductShippingRu
         .from('shipping_classes')
         .select(`
           *,
-          shipping_types(id, name)
+          shipping_types(id, name, description)
         `)
         .eq('is_active', true)
         .order('name');
@@ -159,6 +160,11 @@ export function ProductShippingRules({ rules, onRulesChange }: ProductShippingRu
                   {shippingClass.shipping_types?.name || 'Unknown type'} •{' '}
                   {shippingClass.estimated_days_min}-{shippingClass.estimated_days_max} days
                 </p>
+                {(shippingClass.description || shippingClass.shipping_types?.description) && (
+                  <p className="text-xs text-muted-foreground">
+                    {shippingClass.description || shippingClass.shipping_types?.description}
+                  </p>
+                )}
               </div>
             </div>
 

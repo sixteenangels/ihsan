@@ -40,12 +40,14 @@ interface ShippingClass {
   id: string;
   name: string;
   base_price: number;
+  description?: string | null;
   estimated_days_min: number;
   estimated_days_max: number;
   product_prices: Record<string, number>;
   shipping_type: {
     id: string;
     name: string;
+    description?: string | null;
   };
 }
 
@@ -88,12 +90,14 @@ interface ShippingRuleRow {
     id: string;
     name: string;
     base_price: number | null;
+    description: string | null;
     estimated_days_min: number;
     estimated_days_max: number;
     is_active: boolean | null;
     shipping_types: {
       id: string;
       name: string;
+      description: string | null;
       is_active: boolean | null;
     } | null;
   } | null;
@@ -245,10 +249,11 @@ export default function Checkout() {
           id,
           name,
           base_price,
+          description,
           estimated_days_min,
           estimated_days_max,
           is_active,
-          shipping_types!inner(id, name, is_active)
+          shipping_types!inner(id, name, description, is_active)
         )
       `)
       .in('product_id', cartProductIds)
@@ -285,6 +290,7 @@ export default function Checkout() {
             id: sc.id,
             name: sc.name,
             base_price: sc.base_price,
+            description: sc.description,
             estimated_days_min: sc.estimated_days_min,
             estimated_days_max: sc.estimated_days_max,
             product_prices: {
@@ -292,8 +298,9 @@ export default function Checkout() {
             },
             shipping_type: sc.shipping_types ? {
               id: sc.shipping_types.id,
-              name: sc.shipping_types.name
-            } : { id: '', name: '' }
+              name: sc.shipping_types.name,
+              description: sc.shipping_types.description,
+            } : { id: '', name: '', description: null }
           }
         });
       }
@@ -1356,6 +1363,11 @@ export default function Checkout() {
                                 <p className="text-sm text-muted-foreground">
                                   {shipping.estimated_days_min}-{shipping.estimated_days_max} days delivery
                                 </p>
+                                {(shipping.description || shipping.shipping_type?.description) && (
+                                  <p className="text-sm text-muted-foreground">
+                                    {shipping.description || shipping.shipping_type?.description}
+                                  </p>
+                                )}
                               </div>
                             </div>
                             <p className="pl-8 text-sm font-semibold text-foreground sm:pl-0">

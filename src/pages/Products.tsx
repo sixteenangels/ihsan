@@ -158,6 +158,8 @@ function toProductCardFormat(product: ProductWithDetails) {
             ? 'air_express'
             : 'air_normal') as 'sea' | 'air_normal' | 'air_express',
         name: rule.shipping_class?.name || '',
+        details:
+          rule.shipping_class?.description || rule.shipping_class?.shipping_type?.description || undefined,
         price: rule.price,
         estimatedDays: rule.shipping_class
           ? `${rule.shipping_class.estimated_days_min}-${rule.shipping_class.estimated_days_max} days`
@@ -298,7 +300,9 @@ export default function Products() {
 
     if (currentSavedSearchFilters.selectedCategory) {
       filtered = filtered.filter(
-        (product) => product.category_name === currentSavedSearchFilters.selectedCategory,
+        (product) =>
+          product.category_name === currentSavedSearchFilters.selectedCategory ||
+          product.category_id === currentSavedSearchFilters.selectedCategory,
       );
     }
 
@@ -546,11 +550,17 @@ export default function Products() {
               return (
                 <Badge
                   key={category.id}
-                  variant={selectedCategory === category.name ? 'default' : 'outline'}
+                  variant={
+                    selectedCategory === category.name || selectedCategory === category.id
+                      ? 'default'
+                      : 'outline'
+                  }
                   className="flex cursor-pointer items-center gap-1.5 px-3 py-1.5 text-center text-xs sm:py-2 sm:text-sm"
                   onClick={() =>
                     setSelectedCategory((currentCategory) =>
-                      currentCategory === category.name ? '' : category.name,
+                      currentCategory === category.name || currentCategory === category.id
+                        ? ''
+                        : category.name,
                     )
                   }
                 >

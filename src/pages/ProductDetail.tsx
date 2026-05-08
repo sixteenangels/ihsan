@@ -56,6 +56,8 @@ function toCartProduct(product: ProductWithDetails): Product {
           ? 'air_express'
           : 'air_normal') as 'sea' | 'air_normal' | 'air_express',
         name: r.shipping_class?.name || '',
+        details:
+          r.shipping_class?.description || r.shipping_class?.shipping_type?.description || undefined,
         price: r.price,
         estimatedDays: r.shipping_class
           ? `${r.shipping_class.estimated_days_min}-${r.shipping_class.estimated_days_max} days`
@@ -357,7 +359,9 @@ export default function ProductDetail() {
                       : 'Shipping estimate set at checkout'}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    {highlightedShipping?.shipping_class?.name || 'Choose your preferred shipping class'}.
+                    {highlightedShipping?.shipping_class?.description ||
+                      highlightedShipping?.shipping_class?.shipping_type?.description ||
+                      `${highlightedShipping?.shipping_class?.name || 'Choose your preferred shipping class'}.`}
                   </p>
                 </div>
                 <div>
@@ -414,6 +418,13 @@ export default function ProductDetail() {
                             <p className="text-sm text-muted-foreground">
                               {option.shipping_class?.estimated_days_min}-{option.shipping_class?.estimated_days_max} days
                             </p>
+                            {(option.shipping_class?.description ||
+                              option.shipping_class?.shipping_type?.description) && (
+                              <p className="text-sm text-muted-foreground">
+                                {option.shipping_class?.description ||
+                                  option.shipping_class?.shipping_type?.description}
+                              </p>
+                            )}
                           </div>
                         </div>
                         <p className="pl-11 text-sm font-semibold text-primary sm:pl-0">{formatPrice(option.price)}</p>

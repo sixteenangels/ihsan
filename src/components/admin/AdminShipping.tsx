@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -23,6 +24,7 @@ type ShippingClassWithType = ShippingClassRow & {
 interface ShippingClassFormValues {
   id?: string;
   name: string;
+  description: string;
   shipping_type_id: string;
   base_price: string;
   estimated_days_min: string;
@@ -30,14 +32,23 @@ interface ShippingClassFormValues {
   is_active?: boolean | null;
 }
 
+interface ShippingTypeFormValues {
+  id?: string;
+  name: string;
+  description: string;
+  is_active?: boolean | null;
+}
+
 export function AdminShipping() {
   const queryClient = useQueryClient();
   const [isAddingType, setIsAddingType] = useState(false);
   const [isAddingClass, setIsAddingClass] = useState(false);
+  const [editingType, setEditingType] = useState<ShippingTypeFormValues | null>(null);
   const [editingClass, setEditingClass] = useState<ShippingClassFormValues | null>(null);
   const [newType, setNewType] = useState({ name: '', description: '' });
   const [newClass, setNewClass] = useState<ShippingClassFormValues>({
     name: '',
+    description: '',
     shipping_type_id: '',
     base_price: '',
     estimated_days_min: '',
@@ -81,6 +92,27 @@ export function AdminShipping() {
     addTypeMutation.mutate(newType);
   };
 
+  const handleUpdateType = () => {
+    if (!editingType?.id) return;
+
+    const validation = validateForm(shippingTypeSchema, {
+      name: editingType.name,
+      description: editingType.description,
+    });
+    if (!validation.success) {
+      const firstError = Object.values(validation.errors || {})[0];
+      toast.error(firstError || 'Please fix the form errors');
+      return;
+    }
+
+    updateTypeMutation.mutate({
+      id: editingType.id,
+      name: editingType.name,
+      description: editingType.description,
+      is_active: editingType.is_active,
+    });
+  };
+
   const addTypeMutation = useMutation({
     mutationFn: async (typeData: { name: string; description: string }) => {
       const { error } = await supabase.from('shipping_types').insert(typeData);
@@ -110,6 +142,7 @@ export function AdminShipping() {
 
     const validation = validateForm(shippingClassSchema, {
       name: editingClass.name,
+      description: editingClass.description,
       shipping_type_id: editingClass.shipping_type_id,
       base_price: editingClass.base_price,
       estimated_days_min: editingClass.estimated_days_min,
@@ -128,6 +161,7 @@ export function AdminShipping() {
     mutationFn: async (classData: ShippingClassFormValues) => {
       const { error } = await supabase.from('shipping_classes').insert({
         name: classData.name,
+        description: classData.description || null,
         shipping_type_id: classData.shipping_type_id,
         base_price: parseFloat(classData.base_price),
         estimated_days_min: parseInt(classData.estimated_days_min, 10),
@@ -141,6 +175,7 @@ export function AdminShipping() {
       setIsAddingClass(false);
       setNewClass({
         name: '',
+        description: '',
         shipping_type_id: '',
         base_price: '',
         estimated_days_min: '',
@@ -156,6 +191,8 @@ export function AdminShipping() {
         .from('shipping_classes')
         .update({
           name: data.name,
+          description: data.description || null,
+          shipping_type_id: data.shipping_type_id,
           base_price: parseFloat(data.base_price),
           estimated_days_min: parseInt(data.estimated_days_min, 10),
           estimated_days_max: parseInt(data.estimated_days_max, 10),
@@ -168,6 +205,27 @@ export function AdminShipping() {
       queryClient.invalidateQueries({ queryKey: ['admin-shipping-classes'] });
       toast.success('Shipping class updated');
       setEditingClass(null);
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const updateTypeMutation = useMutation({
+    mutationFn: async ({ id, ...data }: ShippingTypeFormValues & { id: string }) => {
+      const { error } = await supabase
+        .from('shipping_types')
+        .update({
+          name: data.name,
+          description: data.description || null,
+          is_active: data.is_active,
+        })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-shipping-types'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-shipping-classes'] });
+      toast.success('Shipping type updated');
+      setEditingType(null);
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -209,11 +267,19 @@ export function AdminShipping() {
   const toEditableClass = (shippingClass: ShippingClassWithType): ShippingClassFormValues => ({
     id: shippingClass.id,
     name: shippingClass.name,
+    description: shippingClass.description ?? '',
     shipping_type_id: shippingClass.shipping_type_id,
     base_price: String(shippingClass.base_price),
     estimated_days_min: String(shippingClass.estimated_days_min),
     estimated_days_max: String(shippingClass.estimated_days_max),
     is_active: shippingClass.is_active,
+  });
+
+  const toEditableType = (shippingType: ShippingTypeRow): ShippingTypeFormValues => ({
+    id: shippingType.id,
+    name: shippingType.name,
+    description: shippingType.description ?? '',
+    is_active: shippingType.is_active,
   });
 
   if (typesLoading || classesLoading) {
@@ -279,10 +345,45 @@ export function AdminShipping() {
                     <p className="text-sm text-muted-foreground">{type.description}</p>
                   </div>
                 </div>
-                <Switch
-                  checked={type.is_active ?? true}
-                  onCheckedChange={(checked) => toggleTypeActive.mutate({ id: type.id, is_active: checked })}
-                />
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={type.is_active ?? true}
+                    onCheckedChange={(checked) => toggleTypeActive.mutate({ id: type.id, is_active: checked })}
+                  />
+                  <Dialog open={editingType?.id === type.id} onOpenChange={(open) => !open && setEditingType(null)}>
+                    <DialogTrigger asChild>
+                      <Button variant="ghost" size="icon" onClick={() => setEditingType(toEditableType(type))}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-md bg-background">
+                      <DialogHeader>
+                        <DialogTitle>Edit Shipping Type</DialogTitle>
+                      </DialogHeader>
+                      {editingType && (
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label>Name</Label>
+                            <Input
+                              value={editingType.name}
+                              onChange={(e) => setEditingType((prev) => (prev ? { ...prev, name: e.target.value } : prev))}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Description</Label>
+                            <Textarea
+                              value={editingType.description}
+                              onChange={(e) => setEditingType((prev) => (prev ? { ...prev, description: e.target.value } : prev))}
+                              rows={4}
+                              placeholder="Describe this shipping method for customers."
+                            />
+                          </div>
+                          <Button onClick={handleUpdateType}>Save Changes</Button>
+                        </div>
+                      )}
+                    </DialogContent>
+                  </Dialog>
+                </div>
               </div>
             ))}
           </div>
@@ -310,6 +411,15 @@ export function AdminShipping() {
                     value={newClass.name}
                     onChange={(e) => setNewClass((prev) => ({ ...prev, name: e.target.value }))}
                     placeholder="e.g., Standard Sea"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Customer Details</Label>
+                  <Textarea
+                    value={newClass.description}
+                    onChange={(e) => setNewClass((prev) => ({ ...prev, description: e.target.value }))}
+                    rows={4}
+                    placeholder="e.g., Best for bulky items, delivered to Ghana after consolidation."
                   />
                 </div>
                 <div className="space-y-2">
@@ -376,6 +486,9 @@ export function AdminShipping() {
                     <p className="text-sm text-muted-foreground">
                       {shippingClass.shipping_types?.name || 'Unknown type'} - {shippingClass.estimated_days_min}-{shippingClass.estimated_days_max} days
                     </p>
+                    {shippingClass.description && (
+                      <p className="mt-1 text-sm text-muted-foreground">{shippingClass.description}</p>
+                    )}
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-3 sm:justify-end">
@@ -408,6 +521,35 @@ export function AdminShipping() {
                               value={editingClass.name}
                               onChange={(e) => setEditingClass((prev) => (prev ? { ...prev, name: e.target.value } : prev))}
                             />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Customer Details</Label>
+                            <Textarea
+                              value={editingClass.description}
+                              onChange={(e) => setEditingClass((prev) => (prev ? { ...prev, description: e.target.value } : prev))}
+                              rows={4}
+                              placeholder="Describe this shipping option for customers."
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Shipping Type</Label>
+                            <Select
+                              value={editingClass.shipping_type_id}
+                              onValueChange={(value) =>
+                                setEditingClass((prev) => (prev ? { ...prev, shipping_type_id: value } : prev))
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select type" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {shippingTypes?.map((type) => (
+                                  <SelectItem key={type.id} value={type.id}>
+                                    {type.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </div>
                           <div className="space-y-2">
                             <Label>Base Price</Label>
