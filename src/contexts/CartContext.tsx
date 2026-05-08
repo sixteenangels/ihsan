@@ -6,7 +6,12 @@ interface CartContextType {
   selectedItems: CartItem[];
   selectedShipping: ShippingOption | null;
   selectedItemIds: string[];
-  addToCart: (product: Product, variant: ProductVariant | null, quantity?: number) => void;
+  addToCart: (
+    product: Product,
+    variant: ProductVariant | null,
+    quantity?: number,
+    selectionMode?: 'preserve' | 'include' | 'only',
+  ) => void;
   removeFromCart: (itemId: string) => void;
   updateQuantity: (itemId: string, quantity: number) => void;
   updateVariant: (itemId: string, variant: ProductVariant) => void;
@@ -57,7 +62,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
     });
   }, [items]);
 
-  const addToCart = (product: Product, variant: ProductVariant | null, quantity = 1) => {
+  const addToCart = (
+    product: Product,
+    variant: ProductVariant | null,
+    quantity = 1,
+    selectionMode: 'preserve' | 'include' | 'only' = 'preserve',
+  ) => {
     setItems((prev) => {
       // Build a synthetic "not selected" variant when none provided
       const effectiveVariant: ProductVariant =
@@ -74,6 +84,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
       );
 
       if (existingItem) {
+        if (selectionMode !== 'preserve') {
+          setSelectedItemIdsState((prevSelectedIds) =>
+            selectionMode === 'only'
+              ? [existingItem.id]
+              : prevSelectedIds.includes(existingItem.id)
+                ? prevSelectedIds
+                : [...prevSelectedIds, existingItem.id]
+          );
+        }
+
         return prev.map((item) =>
           item.id === existingItem.id
             ? { ...item, quantity: item.quantity + quantity }
@@ -81,10 +101,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
         );
       }
 
+      const nextItemId = `${product.id}-${effectiveVariant.id}-${Date.now()}`;
+      if (selectionMode !== 'preserve') {
+        setSelectedItemIdsState((prevSelectedIds) =>
+          selectionMode === 'only' ? [nextItemId] : [...prevSelectedIds, nextItemId]
+        );
+      }
+
       return [
         ...prev,
         {
-          id: `${product.id}-${effectiveVariant.id}-${Date.now()}`,
+          id: nextItemId,
           product,
           variant: effectiveVariant,
           quantity,

@@ -161,6 +161,23 @@ export function getCategoryEmoji(categoryName: string): string {
   return '📦';
 }
 
+export function getCategoryIconSource(icon: string | null | undefined): string | null {
+  const value = icon?.trim();
+
+  if (!value) return null;
+  if (value.startsWith('data:image/')) return value;
+  if (value.startsWith('<svg')) {
+    return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(value)}`;
+  }
+  if (value.startsWith('http://') || value.startsWith('https://') || value.startsWith('//')) {
+    return value;
+  }
+  if (value.startsWith('/')) return value;
+  if (value.startsWith('blob:')) return value;
+
+  return null;
+}
+
 export function formatCategoryLabel(categoryName: string): string {
   return `${getCategoryEmoji(categoryName)} ${categoryName}`;
 }

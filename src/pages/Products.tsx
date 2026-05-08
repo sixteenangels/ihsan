@@ -7,7 +7,6 @@ import {
   LayoutGrid,
   List,
   Loader2,
-  Package,
   Search,
   SlidersHorizontal,
   Trash2,
@@ -17,6 +16,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
+import { CategoryIconDisplay } from '@/components/categories/CategoryIconDisplay';
 import { ProductCard } from '@/components/products/ProductCard';
 import { ProductQuickView } from '@/components/products/ProductQuickView';
 import { useProducts, ProductWithDetails } from '@/hooks/useProducts';
@@ -56,7 +56,6 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { Checkbox } from '@/components/ui/checkbox';
-import { formatCategoryLabel, getCategoryIconComponent } from '@/lib/categoryIcons';
 
 const DEFAULT_SORT_BY = 'newest';
 const DEFAULT_PRICE_RANGE: [number, number] = [0, 10000];
@@ -546,7 +545,6 @@ export default function Products() {
               🛍️ All
             </Badge>
             {categories?.map((category) => {
-              const CategoryIcon = getCategoryIconComponent(category.name) || Package;
               return (
                 <Badge
                   key={category.id}
@@ -564,8 +562,13 @@ export default function Products() {
                     )
                   }
                 >
-                  <CategoryIcon className="h-3.5 w-3.5 shrink-0" />
-                  {formatCategoryLabel(category.name)} ({category.product_count || 0})
+                  <CategoryIconDisplay
+                    categoryName={category.name}
+                    icon={category.icon}
+                    className="h-3.5 w-3.5 shrink-0"
+                    emojiClassName="text-sm"
+                  />
+                  {category.name} ({category.product_count || 0})
                 </Badge>
               );
             })}

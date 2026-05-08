@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, Loader2 } from 'lucide-react';
+import { CategoryIconDisplay } from '@/components/categories/CategoryIconDisplay';
 import { useAuth } from '@/contexts/AuthContext';
 import { logAdminAction } from '@/lib/audit-log';
 import type { Database } from '@/integrations/supabase/types';
@@ -228,12 +229,12 @@ export function AdminCategories() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="icon">Icon (emoji)</Label>
+                <Label htmlFor="icon">Icon</Label>
                 <Input
                   id="icon"
                   value={form.icon}
                   onChange={(e) => setForm({ ...form, icon: e.target.value })}
-                  placeholder="Pick an emoji"
+                  placeholder="Emoji, SVG URL, image URL, or inline SVG"
                 />
                 <div className="grid grid-cols-4 gap-2 rounded-lg border border-border p-3 sm:grid-cols-8">
                   {EMOJI_PRESETS.map((emoji) => (
@@ -250,7 +251,7 @@ export function AdminCategories() {
                   ))}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Use one of the presets, or use your device emoji keyboard in the field for any emoji you want.
+                  Use a preset emoji, or paste a custom emoji, SVG URL, image URL, or inline SVG markup.
                 </p>
               </div>
 
@@ -301,7 +302,12 @@ export function AdminCategories() {
                   <div key={category.id} className="rounded-lg border border-border bg-card p-4">
                     <div className="flex items-start gap-3">
                       <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-muted text-2xl">
-                        {category.icon || '📦'}
+                        <CategoryIconDisplay
+                          categoryName={category.name}
+                          icon={category.icon}
+                          className="h-6 w-6"
+                          emojiClassName="text-2xl"
+                        />
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
@@ -359,7 +365,16 @@ export function AdminCategories() {
                   <TableBody>
                     {categories.map((category) => (
                       <TableRow key={category.id}>
-                        <TableCell className="text-2xl">{category.icon || '📦'}</TableCell>
+                        <TableCell>
+                          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-muted">
+                            <CategoryIconDisplay
+                              categoryName={category.name}
+                              icon={category.icon}
+                              className="h-5 w-5"
+                              emojiClassName="text-xl"
+                            />
+                          </div>
+                        </TableCell>
                         <TableCell className="font-medium">{category.name}</TableCell>
                         <TableCell className="text-muted-foreground">{category.slug}</TableCell>
                         <TableCell>{category.product_count || 0}</TableCell>

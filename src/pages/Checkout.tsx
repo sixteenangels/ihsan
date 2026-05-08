@@ -136,8 +136,10 @@ export default function Checkout() {
   const {
     items,
     selectedItems,
+    selectedItemIds,
     subtotal,
     selectedSubtotal,
+    setSelectedItemIds,
     updateVariant,
     clearSelectedItems,
   } = useCart();
@@ -338,10 +340,20 @@ export default function Checkout() {
 
   // Redirect if cart is empty
   useEffect(() => {
-    if (items.length === 0 || selectedItems.length === 0) {
+    if (items.length === 0) {
+      navigate('/cart');
+      return;
+    }
+
+    if (selectedItemIds.length === 0) {
+      setSelectedItemIds(items.map((item) => item.id));
+      return;
+    }
+
+    if (selectedItems.length === 0) {
       navigate('/cart');
     }
-  }, [items.length, selectedItems.length, navigate]);
+  }, [items, navigate, selectedItemIds.length, selectedItems.length, setSelectedItemIds]);
 
   // Load Paystack script
   useEffect(() => {
@@ -828,7 +840,8 @@ export default function Checkout() {
 
       const orderItems = selectedItems.map(item => ({
         order_id: order.id,
-        product_variant_id: item.variant.id,
+        product_id: item.product.id,
+        product_variant_id: isVariantPlaceholder(item.variant.id) ? null : item.variant.id,
         product_name: item.product.name,
         variant_details: [item.variant.color, item.variant.size].filter(Boolean).join(' - '),
         quantity: item.quantity,
@@ -1032,7 +1045,8 @@ export default function Checkout() {
       // Create order items
       const orderItems = selectedItems.map(item => ({
         order_id: order.id,
-        product_variant_id: item.variant.id,
+        product_id: item.product.id,
+        product_variant_id: isVariantPlaceholder(item.variant.id) ? null : item.variant.id,
         product_name: item.product.name,
         variant_details: [item.variant.color, item.variant.size].filter(Boolean).join(' - '),
         quantity: item.quantity,

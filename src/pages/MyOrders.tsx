@@ -31,7 +31,8 @@ interface OrderItem {
   quantity: number;
   unit_price: number;
   total_price: number;
-  product_variant_id: string;
+  product_id: string | null;
+  product_variant_id: string | null;
 }
 
 interface ShippingAddress {
@@ -336,16 +337,24 @@ export default function MyOrders() {
       setOrders(mappedOrders);
 
       // Fetch product images for order items
-      const variantIds = data.flatMap(o => o.order_items?.map((i) => i.product_variant_id) || []);
-      if (variantIds.length > 0) {
+      const productIdsFromItems = data.flatMap((order) =>
+        order.order_items?.map((item) => item.product_id).filter((productId): productId is string => Boolean(productId)) || [],
+      );
+      const variantIds = data.flatMap((order) =>
+        order.order_items?.map((item) => item.product_variant_id).filter((variantId): variantId is string => Boolean(variantId)) || [],
+      );
+      if (productIdsFromItems.length > 0 || variantIds.length > 0) {
         const uniqueIds = [...new Set(variantIds)];
-        const { data: variants } = await supabase
-          .from('product_variants')
-          .select('id, product_id')
-          .in('id', uniqueIds);
-        
-        if (variants) {
-          const productIds = [...new Set(variants.map(v => v.product_id))];
+        const { data: variants } = uniqueIds.length > 0
+          ? await supabase
+              .from('product_variants')
+              .select('id, product_id')
+              .in('id', uniqueIds)
+          : { data: [] as Pick<ProductVariantLookupRow, 'id' | 'product_id'>[] };
+
+        const linkedVariants = variants || [];
+        const productIds = [...new Set([...productIdsFromItems, ...linkedVariants.map(v => v.product_id)])];
+        if (productIds.length > 0) {
           const { data: images } = await supabase
             .from('product_images')
             .select('product_id, image_url, order_index')
@@ -360,9 +369,9 @@ export default function MyOrders() {
                 productImageMap[img.product_id] = img.image_url;
               }
             }
-            for (const v of variants) {
-              if (productImageMap[v.product_id]) {
-                imgMap[v.id] = productImageMap[v.product_id];
+            for (const productId of productIds) {
+              if (productImageMap[productId]) {
+                imgMap[productId] = productImageMap[productId];
               }
             }
             setProductImages(imgMap);
@@ -409,20 +418,24 @@ export default function MyOrders() {
 
   const handleBuyAgain = async (order: Order) => {
     // Look up products + variants for each order item, then add to local cart
-    const variantIds = order.order_items.map((i) => i.product_variant_id);
-    if (variantIds.length === 0) return;
+    const productIds = [...new Set(order.order_items.map((item) => item.product_id).filter((productId): productId is string => Boolean(productId)))];
+    const variantIds = order.order_items
+      .map((item) => item.product_variant_id)
+      .filter((variantId): variantId is string => Boolean(variantId));
+    if (productIds.length === 0) return;
 
-    const { data: variantRows } = await supabase
-      .from('product_variants')
-      .select('id, product_id, color, size, price_override, stock')
-      .in('id', variantIds);
+    const { data: variantRows } = variantIds.length > 0
+      ? await supabase
+          .from('product_variants')
+          .select('id, product_id, color, size, price_override, stock')
+          .in('id', variantIds)
+      : { data: [] as ProductVariantLookupRow[] };
 
-    if (!variantRows || variantRows.length === 0) {
+    if (!variantRows && productIds.length === 0) {
       toast.error('Some products are no longer available.');
       return;
     }
 
-    const productIds = [...new Set(variantRows.map((v) => v.product_id))];
     const { data: productRows } = await supabase
       .from('products')
       .select('id, name, description, base_price, is_group_buy_eligible, is_flash_deal, is_free_shipping, rating, review_count, product_images(image_url, order_index)')
@@ -432,9 +445,8 @@ export default function MyOrders() {
 
     let added = 0;
     for (const item of order.order_items) {
-      const variant = variantRows.find((v) => v.id === item.product_variant_id);
-      if (!variant) continue;
-      const productRow = (productRows as ProductLookupRow[]).find((p) => p.id === variant.product_id);
+      const variant = (variantRows || []).find((v) => v.id === item.product_variant_id);
+      const productRow = (productRows as ProductLookupRow[]).find((p) => p.id === (item.product_id || variant?.product_id));
       if (!productRow) continue;
       const images = (productRow.product_images || [])
         .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
@@ -454,14 +466,18 @@ export default function MyOrders() {
         rating: Number(productRow.rating) || 0,
         reviewCount: productRow.review_count || 0,
       };
-      const cartVariant: ProductVariant = {
-        id: variant.id,
-        size: variant.size || undefined,
-        color: variant.color || undefined,
-        price: variant.price_override != null ? Number(variant.price_override) : Number(productRow.base_price),
-        stock: variant.stock || 0,
-      };
-      addToCart(cartProduct, cartVariant, item.quantity);
+      if (variant) {
+        const cartVariant: ProductVariant = {
+          id: variant.id,
+          size: variant.size || undefined,
+          color: variant.color || undefined,
+          price: variant.price_override != null ? Number(variant.price_override) : Number(productRow.base_price),
+          stock: variant.stock || 0,
+        };
+        addToCart(cartProduct, cartVariant, item.quantity);
+      } else {
+        addToCart(cartProduct, null, item.quantity);
+      }
       added++;
     }
     if (added > 0) {
@@ -504,20 +520,23 @@ export default function MyOrders() {
     if (!reviewDialogOrder || !user) return;
     setReviewSubmitting(true);
     
-    // Get product_id from order items via variant
-    const variantId = reviewDialogOrder.order_items[0]?.product_variant_id;
-    if (!variantId) { setReviewSubmitting(false); return; }
-    
-    const { data: variant } = await supabase
-      .from('product_variants')
-      .select('product_id')
-      .eq('id', variantId)
-      .single();
-    
-    if (!variant) { setReviewSubmitting(false); toast.error('Could not find product'); return; }
+    const firstItem = reviewDialogOrder.order_items[0];
+    let productId = firstItem?.product_id || null;
+
+    if (!productId && firstItem?.product_variant_id) {
+      const { data: variant } = await supabase
+        .from('product_variants')
+        .select('product_id')
+        .eq('id', firstItem.product_variant_id)
+        .single();
+
+      productId = variant?.product_id || null;
+    }
+
+    if (!productId) { setReviewSubmitting(false); toast.error('Could not find product'); return; }
     
     const { error } = await supabase.from('reviews').insert({
-      product_id: variant.product_id,
+      product_id: productId,
       user_id: user.id,
       rating: reviewRating,
       comment: reviewComment || null,
@@ -667,9 +686,9 @@ export default function MyOrders() {
                             <div className="flex min-w-0 flex-1 items-center gap-3">
                               {order.order_items[0] && (
                                 <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 border border-border bg-muted">
-                                  {productImages[order.order_items[0].product_variant_id] ? (
+                                  {productImages[order.order_items[0].product_id || ''] ? (
                                     <img
-                                      src={productImages[order.order_items[0].product_variant_id]}
+                                      src={productImages[order.order_items[0].product_id || '']}
                                       alt={order.order_items[0].product_name}
                                       className="w-full h-full object-cover"
                                     />
@@ -953,9 +972,9 @@ export default function MyOrders() {
                               {order.order_items.map((item) => (
                                 <div key={item.id} className="flex items-start gap-3 rounded-lg bg-muted/30 p-3">
                                   <div className="w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 border border-border bg-muted">
-                                    {productImages[item.product_variant_id] ? (
+                                    {productImages[item.product_id || ''] ? (
                                       <img
-                                        src={productImages[item.product_variant_id]}
+                                        src={productImages[item.product_id || '']}
                                         alt={item.product_name}
                                         className="w-full h-full object-cover"
                                       />

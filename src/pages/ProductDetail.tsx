@@ -164,7 +164,7 @@ export default function ProductDetail() {
     // the customer can choose at checkout.
     if (selectedVariants.length === 0) {
       addToCart(cartProduct, null, 1);
-      toast.success('Added to cart. Choose variant at checkout.');
+      toast.success(product.variants.length > 0 ? 'Added to cart. Choose variant at checkout.' : 'Added to cart.');
       return;
     }
 
@@ -453,9 +453,9 @@ export default function ProductDetail() {
                   if (!product) return;
                   const cartProduct = toCartProduct(product);
                   if (selectedVariants.length === 0) {
-                    addToCart(cartProduct, null, 1);
+                    addToCart(cartProduct, null, 1, 'only');
                   } else {
-                    selectedVariants.forEach((variant) => {
+                    selectedVariants.forEach((variant, index) => {
                       const cartVariant: ProductVariant = {
                         id: variant.id,
                         size: variant.size || undefined,
@@ -463,7 +463,12 @@ export default function ProductDetail() {
                         price: variant.price,
                         stock: variant.stock || 0,
                       };
-                      addToCart(cartProduct, cartVariant, variant.quantity);
+                      addToCart(
+                        cartProduct,
+                        cartVariant,
+                        variant.quantity,
+                        index === 0 ? 'only' : 'include',
+                      );
                     });
                   }
                   navigate('/checkout');
