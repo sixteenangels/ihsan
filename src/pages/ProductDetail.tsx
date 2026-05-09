@@ -154,9 +154,6 @@ export default function ProductDetail() {
   const alertVariantId = selectedVariants.length === 1 ? selectedVariants[0].id : null;
   const showRestockAlert = selectedVariantOutOfStock || (!hasAnyStock && selectedVariants.length === 0);
   const highlightedShipping = selectedShipping || availableShipping[0] || null;
-  const groupBuySavings = product.group_buy_price != null && product.base_price > 0
-    ? Math.max(0, Math.round(((product.base_price - product.group_buy_price) / product.base_price) * 100))
-    : 0;
 
   const handleAddToCart = () => {
     if (!product) return;
@@ -242,6 +239,9 @@ export default function ProductDetail() {
         year: 'numeric',
       })
     : null;
+  const groupBuySavings = product.group_buy_price != null && product.base_price > 0
+    ? Math.max(0, Math.round(((product.base_price - product.group_buy_price) / product.base_price) * 100))
+    : 0;
 
   return (
     <div className="min-h-screen bg-background">

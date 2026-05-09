@@ -55,6 +55,18 @@ export default function Cart() {
       : cartSyncState === 'error'
         ? CloudOff
         : Cloud;
+  const syncTitle =
+    cartSyncState === 'synced'
+      ? 'Cart saved to your account'
+      : cartSyncState === 'error'
+        ? 'Cart sync is temporarily unavailable'
+        : 'Cart saved on this device';
+  const syncDescription =
+    cartSyncState === 'synced'
+      ? 'Your saved items can be restored when you sign in on another device.'
+      : cartSyncState === 'error'
+        ? 'Your items are still safe on this device, but account sync could not finish just now.'
+        : 'Your cart is stored locally and will stay here while you continue shopping.';
 
   if (items.length === 0) {
     return (
@@ -100,21 +112,9 @@ export default function Cart() {
         {showSyncNotice ? (
           <Alert className="mb-6 border-border bg-card/70">
             <SyncIcon className="h-4 w-4" />
-            <AlertTitle>
-              {cartSyncState === 'synced'
-                ? 'Cart saved to your account'
-                : cartSyncState === 'error'
-                  ? 'Cart sync is temporarily unavailable'
-                  : 'Saving your cart'}
-            </AlertTitle>
+            <AlertTitle>{syncTitle}</AlertTitle>
             <AlertDescription className="space-y-1">
-              <p>
-                {cartSyncState === 'synced'
-                  ? 'Your saved items can be restored when you sign in on another device.'
-                  : cartSyncState === 'error'
-                    ? 'Your items are still safe on this device, but account sync could not finish just now.'
-                    : 'We are updating your saved cart in the background.'}
-              </p>
+              <p>{syncDescription}</p>
               {lastSyncedAt ? (
                 <p className="text-xs text-muted-foreground">
                   Last synced {new Date(lastSyncedAt).toLocaleString()}
