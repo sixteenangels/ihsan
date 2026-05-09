@@ -6,8 +6,12 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { getGroupBuySavingsPercent, getGroupBuyUnitPrice } from '@/lib/groupBuyPricing';
+import { useCurrency } from '@/hooks/useCurrency';
 
 function GroupBuyCardFromDB({ groupBuy }: { groupBuy: GroupBuyWithProduct }) {
+  const { formatPrice } = useCurrency();
+
   if (!groupBuy.product) return null;
 
   const progress = ((groupBuy.current_participants || 0) / groupBuy.min_participants) * 100;
@@ -15,8 +19,16 @@ function GroupBuyCardFromDB({ groupBuy }: { groupBuy: GroupBuyWithProduct }) {
     0,
     Math.ceil((new Date(groupBuy.expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
   );
-  const discountedPrice =
-    groupBuy.product.base_price * (1 - (groupBuy.discount_percentage || 0) / 100);
+  const discountedPrice = getGroupBuyUnitPrice({
+    basePrice: groupBuy.product.base_price,
+    groupPrice: groupBuy.group_price,
+    discountPercentage: groupBuy.discount_percentage,
+  });
+  const savingsPercent = getGroupBuySavingsPercent({
+    basePrice: groupBuy.product.base_price,
+    groupPrice: groupBuy.group_price,
+    discountPercentage: groupBuy.discount_percentage,
+  });
 
   return (
     <Card className="overflow-hidden hover:shadow-lg transition-all duration-300 border-border bg-card">
@@ -28,7 +40,7 @@ function GroupBuyCardFromDB({ groupBuy }: { groupBuy: GroupBuyWithProduct }) {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 to-transparent" />
         <Badge className="absolute top-3 left-3 bg-accent text-accent-foreground text-lg px-3 py-1">
-          {groupBuy.discount_percentage || 0}% OFF
+          {savingsPercent}% OFF
         </Badge>
         <div className="absolute bottom-3 left-3 right-3">
           <h3 className="text-lg font-bold text-primary-foreground line-clamp-1">
@@ -40,9 +52,9 @@ function GroupBuyCardFromDB({ groupBuy }: { groupBuy: GroupBuyWithProduct }) {
         <div className="flex items-center justify-between mb-3">
           <div>
             <p className="text-sm text-muted-foreground line-through">
-              ${groupBuy.product.base_price.toFixed(2)}
+              {formatPrice(groupBuy.product.base_price)}
             </p>
-            <p className="text-xl font-bold text-primary">${discountedPrice.toFixed(2)}</p>
+            <p className="text-xl font-bold text-primary">{formatPrice(discountedPrice)}</p>
           </div>
           <div className="flex items-center gap-1 text-muted-foreground">
             <Clock className="h-4 w-4" />
