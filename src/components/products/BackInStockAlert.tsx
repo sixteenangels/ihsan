@@ -5,6 +5,10 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 
+interface StockAlertRecord {
+  id: string;
+}
+
 interface BackInStockAlertProps {
   productId: string;
   productName: string;
@@ -23,11 +27,11 @@ export function BackInStockAlert({
 
   const { data: existingAlert } = useQuery({
     queryKey: ['stock-alert', user?.id, productId, variantId || 'product'],
-    queryFn: async () => {
+    queryFn: async (): Promise<StockAlertRecord | null> => {
       if (!user) return null;
 
-      let query = (supabase as any)
-        .from('stock_alerts')
+      let query = supabase
+        .from('stock_alerts' as never)
         .select('*')
         .eq('user_id', user.id)
         .eq('product_id', productId);
@@ -50,8 +54,8 @@ export function BackInStockAlert({
       }
 
       if (existingAlert) {
-        const { error } = await (supabase as any)
-          .from('stock_alerts')
+        const { error } = await supabase
+          .from('stock_alerts' as never)
           .delete()
           .eq('id', existingAlert.id);
 
@@ -59,13 +63,13 @@ export function BackInStockAlert({
         return 'removed';
       }
 
-      const { error } = await (supabase as any)
-        .from('stock_alerts')
+      const { error } = await supabase
+        .from('stock_alerts' as never)
         .insert({
           user_id: user.id,
           product_id: productId,
           product_variant_id: variantId || null,
-        });
+        } as never);
 
       if (error) throw error;
       return 'created';
@@ -74,6 +78,7 @@ export function BackInStockAlert({
       queryClient.invalidateQueries({
         queryKey: ['stock-alert', user?.id, productId, variantId || 'product'],
       });
+      queryClient.invalidateQueries({ queryKey: ['stock-alerts', user?.id] });
       toast.success(
         result === 'created'
           ? `${productName} has been added to your restock alerts.`

@@ -6,10 +6,16 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, MessageCircle, Send } from 'lucide-react';
+import { Loader2, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { useState } from 'react';
 import { format } from 'date-fns';
+import type { Tables } from '@/integrations/supabase/types';
+
+type ProductQuestionRow = Tables<'product_questions'> & {
+  products: Pick<Tables<'products'>, 'name'> | null;
+  profiles: Pick<Tables<'profiles'>, 'name' | 'email'> | null;
+};
 
 export function AdminQA() {
   const { user } = useAuth();
@@ -18,13 +24,13 @@ export function AdminQA() {
 
   const { data: questions, isLoading } = useQuery({
     queryKey: ['admin-questions'],
-    queryFn: async () => {
+    queryFn: async (): Promise<ProductQuestionRow[]> => {
       const { data, error } = await supabase
         .from('product_questions')
         .select('*, products(name), profiles:user_id(name, email)')
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return data;
+      return (data || []) as unknown as ProductQuestionRow[];
     },
   });
 
@@ -70,7 +76,7 @@ export function AdminQA() {
     );
   }
 
-  const unanswered = questions?.filter((q: any) => !q.answer).length || 0;
+  const unanswered = questions?.filter((question) => !question.answer).length || 0;
 
   return (
     <div className="space-y-6">
@@ -90,7 +96,7 @@ export function AdminQA() {
         </Card>
       ) : (
         <div className="space-y-4">
-          {questions?.map((q: any) => (
+          {questions?.map((q) => (
             <Card key={q.id}>
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between">

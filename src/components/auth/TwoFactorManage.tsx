@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { Loader2, Shield, ShieldCheck, ShieldOff, Trash2, Key } from 'lucide-react';
 import { TwoFactorSetup } from './TwoFactorSetup';
 import { BackupRecoveryCodes } from './BackupRecoveryCodes';
+import { getErrorMessage } from '@/lib/errors';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -54,7 +55,7 @@ export function TwoFactorManage() {
           .eq('is_used', false);
         setUnusedCodesCount(count || 0);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error loading factors:', error);
     } finally {
       setIsLoading(false);
@@ -73,8 +74,8 @@ export function TwoFactorManage() {
       
       toast.success('Two-factor authentication disabled');
       loadFactors();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to disable 2FA');
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Failed to disable 2FA'));
     }
   };
 

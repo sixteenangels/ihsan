@@ -56,6 +56,8 @@ function toCartProduct(product: ProductWithDetails): Product {
           ? 'air_express'
           : 'air_normal') as 'sea' | 'air_normal' | 'air_express',
         name: r.shipping_class?.name || '',
+        details:
+          r.shipping_class?.description || r.shipping_class?.shipping_type?.description || undefined,
         price: r.price,
         estimatedDays: r.shipping_class
           ? `${r.shipping_class.estimated_days_min}-${r.shipping_class.estimated_days_max} days`
@@ -87,11 +89,13 @@ interface ShippingRule {
   shipping_class: {
     id: string;
     name: string;
+    description: string | null;
     estimated_days_min: number;
     estimated_days_max: number;
     shipping_type: {
       id: string;
       name: string;
+      description: string | null;
     } | null;
   } | null;
 }
@@ -150,9 +154,6 @@ export default function ProductDetail() {
   const alertVariantId = selectedVariants.length === 1 ? selectedVariants[0].id : null;
   const showRestockAlert = selectedVariantOutOfStock || (!hasAnyStock && selectedVariants.length === 0);
   const highlightedShipping = selectedShipping || availableShipping[0] || null;
-  const groupBuySavings = product.group_buy_price != null && product.base_price > 0
-    ? Math.max(0, Math.round(((product.base_price - product.group_buy_price) / product.base_price) * 100))
-    : 0;
 
   const handleAddToCart = () => {
     if (!product) return;
@@ -162,7 +163,7 @@ export default function ProductDetail() {
     // the customer can choose at checkout.
     if (selectedVariants.length === 0) {
       addToCart(cartProduct, null, 1);
-      toast.success('Added to cart. Choose variant at checkout.');
+      toast.success(product.variants.length > 0 ? 'Added to cart. Choose variant at checkout.' : 'Added to cart.');
       return;
     }
 
@@ -230,6 +231,17 @@ export default function ProductDetail() {
       </div>
     );
   }
+
+  const expectedRestockDateLabel = product.expected_restock_date
+    ? new Date(product.expected_restock_date).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    : null;
+  const groupBuySavings = product.group_buy_price != null && product.base_price > 0
+    ? Math.max(0, Math.round(((product.base_price - product.group_buy_price) / product.base_price) * 100))
+    : 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -331,8 +343,15 @@ export default function ProductDetail() {
                     {hasAnyStock ? `${totalAvailableStock} unit(s) available across active variants` : 'Currently out of stock'}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    Add to cart without locking the final shipping method. You can finish the choices at checkout.
+                    {hasAnyStock
+                      ? 'Add to cart without locking the final shipping method. You can finish the choices at checkout.'
+                      : 'Set a restock alert and we will notify you as soon as this item is available again.'}
                   </p>
+                  {!hasAnyStock && expectedRestockDateLabel && (
+                    <p className="mt-2 text-sm font-medium text-primary">
+                      Expected restock: {expectedRestockDateLabel}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Delivery Window</p>
@@ -342,7 +361,9 @@ export default function ProductDetail() {
                       : 'Shipping estimate set at checkout'}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    {highlightedShipping?.shipping_class?.name || 'Choose your preferred shipping class'}.
+                    {highlightedShipping?.shipping_class?.description ||
+                      highlightedShipping?.shipping_class?.shipping_type?.description ||
+                      `${highlightedShipping?.shipping_class?.name || 'Choose your preferred shipping class'}.`}
                   </p>
                 </div>
                 <div>
@@ -399,6 +420,13 @@ export default function ProductDetail() {
                             <p className="text-sm text-muted-foreground">
                               {option.shipping_class?.estimated_days_min}-{option.shipping_class?.estimated_days_max} days
                             </p>
+                            {(option.shipping_class?.description ||
+                              option.shipping_class?.shipping_type?.description) && (
+                              <p className="text-sm text-muted-foreground">
+                                {option.shipping_class?.description ||
+                                  option.shipping_class?.shipping_type?.description}
+                              </p>
+                            )}
                           </div>
                         </div>
                         <p className="pl-11 text-sm font-semibold text-primary sm:pl-0">{formatPrice(option.price)}</p>
@@ -427,9 +455,9 @@ export default function ProductDetail() {
                   if (!product) return;
                   const cartProduct = toCartProduct(product);
                   if (selectedVariants.length === 0) {
-                    addToCart(cartProduct, null, 1);
+                    addToCart(cartProduct, null, 1, 'only');
                   } else {
-                    selectedVariants.forEach((variant) => {
+                    selectedVariants.forEach((variant, index) => {
                       const cartVariant: ProductVariant = {
                         id: variant.id,
                         size: variant.size || undefined,
@@ -437,7 +465,12 @@ export default function ProductDetail() {
                         price: variant.price,
                         stock: variant.stock || 0,
                       };
-                      addToCart(cartProduct, cartVariant, variant.quantity);
+                      addToCart(
+                        cartProduct,
+                        cartVariant,
+                        variant.quantity,
+                        index === 0 ? 'only' : 'include',
+                      );
                     });
                   }
                   navigate('/checkout');
@@ -447,13 +480,22 @@ export default function ProductDetail() {
                 </Button>
               </div>
               <div className="flex flex-wrap gap-2">
-                <PriceDropAlert productId={product.id} />
+                <PriceDropAlert
+                  productId={product.id}
+                  productName={product.name}
+                  currentPrice={product.base_price}
+                />
                 <BackInStockAlert
                   productId={product.id}
                   productName={product.name}
                   variantId={alertVariantId}
                   isOutOfStock={showRestockAlert}
                 />
+                {showRestockAlert && expectedRestockDateLabel && (
+                  <p className="w-full text-sm text-muted-foreground">
+                    We are currently expecting more stock around {expectedRestockDateLabel}.
+                  </p>
+                )}
               </div>
             </div>
           </div>

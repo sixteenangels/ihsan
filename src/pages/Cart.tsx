@@ -1,10 +1,20 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { Trash2, Minus, Plus, ArrowLeft, ShoppingBag } from 'lucide-react';
+import {
+  Trash2,
+  Minus,
+  Plus,
+  ArrowLeft,
+  ShoppingBag,
+  Cloud,
+  CloudOff,
+  CheckCircle2,
+} from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { isVariantPlaceholder, useCart } from '@/contexts/CartContext';
 import { useCurrency } from '@/hooks/useCurrency';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
@@ -23,6 +33,9 @@ export default function Cart() {
     clearCart,
     subtotal,
     selectedSubtotal,
+    cartSyncState,
+    lastSyncedAt,
+    localOnlyItemCount,
   } = useCart();
 
   const handleCheckout = () => {
@@ -35,6 +48,25 @@ export default function Cart() {
   };
 
   const allSelected = items.length > 0 && selectedItemIds.length === items.length;
+  const showSyncNotice = cartSyncState !== 'local' || localOnlyItemCount > 0;
+  const SyncIcon =
+    cartSyncState === 'synced'
+      ? CheckCircle2
+      : cartSyncState === 'error'
+        ? CloudOff
+        : Cloud;
+  const syncTitle =
+    cartSyncState === 'synced'
+      ? 'Cart saved to your account'
+      : cartSyncState === 'error'
+        ? 'Cart sync is temporarily unavailable'
+        : 'Cart saved on this device';
+  const syncDescription =
+    cartSyncState === 'synced'
+      ? 'Your saved items can be restored when you sign in on another device.'
+      : cartSyncState === 'error'
+        ? 'Your items are still safe on this device, but account sync could not finish just now.'
+        : 'Your cart is stored locally and will stay here while you continue shopping.';
 
   if (items.length === 0) {
     return (
@@ -76,6 +108,27 @@ export default function Cart() {
         <h1 className="mb-6 text-2xl font-bold font-serif text-foreground md:mb-8 md:text-3xl">
           Shopping Cart
         </h1>
+
+        {showSyncNotice ? (
+          <Alert className="mb-6 border-border bg-card/70">
+            <SyncIcon className="h-4 w-4" />
+            <AlertTitle>{syncTitle}</AlertTitle>
+            <AlertDescription className="space-y-1">
+              <p>{syncDescription}</p>
+              {lastSyncedAt ? (
+                <p className="text-xs text-muted-foreground">
+                  Last synced {new Date(lastSyncedAt).toLocaleString()}
+                </p>
+              ) : null}
+              {localOnlyItemCount > 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  {localOnlyItemCount} item{localOnlyItemCount === 1 ? '' : 's'} still need a
+                  final variant choice before they can sync across devices.
+                </p>
+              ) : null}
+            </AlertDescription>
+          </Alert>
+        ) : null}
 
         <div className="grid gap-6 lg:grid-cols-3 lg:gap-8">
           <div className="lg:col-span-2 space-y-4">

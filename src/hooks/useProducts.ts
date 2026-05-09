@@ -13,6 +13,7 @@ export interface ProductWithDetails {
   is_flash_deal: boolean | null;
   is_free_shipping: boolean | null;
   is_active: boolean | null;
+  expected_restock_date: string | null;
   is_fragile: boolean | null;
   reinforced_packaging_cost: number | null;
   allow_standard_packaging: boolean | null;
@@ -38,14 +39,21 @@ export interface ProductWithDetails {
     shipping_class: {
       id: string;
       name: string;
+      description: string | null;
       estimated_days_min: number;
       estimated_days_max: number;
       shipping_type: {
         id: string;
         name: string;
+        description: string | null;
       } | null;
     } | null;
   }[];
+}
+
+function readExpectedRestockDate(product: object): string | null {
+  const value = (product as { expected_restock_date?: unknown }).expected_restock_date;
+  return typeof value === 'string' ? value : null;
 }
 
 async function fetchProducts(): Promise<ProductWithDetails[]> {
@@ -85,9 +93,10 @@ async function fetchProducts(): Promise<ProductWithDetails[]> {
       shipping_classes(
         id,
         name,
+        description,
         estimated_days_min,
         estimated_days_max,
-        shipping_types(id, name)
+        shipping_types(id, name, description)
       )
     `);
 
@@ -127,6 +136,7 @@ async function fetchProducts(): Promise<ProductWithDetails[]> {
     is_flash_deal: product.is_flash_deal,
     is_free_shipping: product.is_free_shipping,
     is_active: product.is_active,
+    expected_restock_date: readExpectedRestockDate(product),
     is_fragile: product.is_fragile,
     reinforced_packaging_cost: product.reinforced_packaging_cost != null ? Number(product.reinforced_packaging_cost) : null,
     allow_standard_packaging: product.allow_standard_packaging,
@@ -152,6 +162,7 @@ async function fetchProducts(): Promise<ProductWithDetails[]> {
       shipping_class: rule.shipping_classes ? {
         id: rule.shipping_classes.id,
         name: rule.shipping_classes.name,
+        description: rule.shipping_classes.description,
         estimated_days_min: rule.shipping_classes.estimated_days_min,
         estimated_days_max: rule.shipping_classes.estimated_days_max,
         shipping_type: rule.shipping_classes.shipping_types,
@@ -202,9 +213,10 @@ async function fetchProductById(id: string): Promise<ProductWithDetails | null> 
       shipping_classes(
         id,
         name,
+        description,
         estimated_days_min,
         estimated_days_max,
-        shipping_types(id, name)
+        shipping_types(id, name, description)
       )
     `)
     .eq('product_id', id);
@@ -221,6 +233,7 @@ async function fetchProductById(id: string): Promise<ProductWithDetails | null> 
     is_flash_deal: product.is_flash_deal,
     is_free_shipping: product.is_free_shipping,
     is_active: product.is_active,
+    expected_restock_date: readExpectedRestockDate(product),
     is_fragile: product.is_fragile,
     reinforced_packaging_cost: product.reinforced_packaging_cost != null ? Number(product.reinforced_packaging_cost) : null,
     allow_standard_packaging: product.allow_standard_packaging,
@@ -246,6 +259,7 @@ async function fetchProductById(id: string): Promise<ProductWithDetails | null> 
       shipping_class: rule.shipping_classes ? {
         id: rule.shipping_classes.id,
         name: rule.shipping_classes.name,
+        description: rule.shipping_classes.description,
         estimated_days_min: rule.shipping_classes.estimated_days_min,
         estimated_days_max: rule.shipping_classes.estimated_days_max,
         shipping_type: rule.shipping_classes.shipping_types,

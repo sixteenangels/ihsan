@@ -3,15 +3,24 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { toast } from 'sonner';
 import { Loader2, Users, Shield, User, Crown, ChevronDown, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
+import type { Enums, Tables } from '@/integrations/supabase/types';
 
-type AppRole = 'customer' | 'manager' | 'admin';
+type AppRole = Enums<'app_role'>;
+type UserProfile = Tables<'profiles'>;
+type UserRoleRow = Tables<'user_roles'>;
+type ManagerPermissionRow = Tables<'manager_permissions'>;
+type AdminUserRow = UserProfile & {
+  role: AppRole;
+  roleId?: string;
+  permissions: string[];
+};
 
 const PERMISSION_SECTIONS = [
   { key: 'products', label: 'Products' },
@@ -38,7 +47,7 @@ export function AdminUsers() {
 
   const { data: usersWithRoles, isLoading } = useQuery({
     queryKey: ['admin-users'],
-    queryFn: async () => {
+    queryFn: async (): Promise<AdminUserRow[]> => {
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('*')
@@ -56,15 +65,15 @@ export function AdminUsers() {
         .from('manager_permissions')
         .select('*');
 
-      const rolesMap = new Map(roles?.map(r => [r.user_id, r]) || []);
+      const rolesMap = new Map<string, UserRoleRow>(roles?.map((role) => [role.user_id, role]) || []);
       const permsMap = new Map<string, string[]>();
-      allPerms?.forEach(p => {
-        const existing = permsMap.get(p.user_id) || [];
-        existing.push(p.permission);
-        permsMap.set(p.user_id, existing);
+      allPerms?.forEach((permission: ManagerPermissionRow) => {
+        const existing = permsMap.get(permission.user_id) || [];
+        existing.push(permission.permission);
+        permsMap.set(permission.user_id, existing);
       });
 
-      return profiles?.map(profile => ({
+      return profiles?.map((profile) => ({
         ...profile,
         role: rolesMap.get(profile.user_id)?.role || 'customer',
         roleId: rolesMap.get(profile.user_id)?.id,
@@ -151,7 +160,7 @@ export function AdminUsers() {
     onError: (error: Error) => toast.error(error.message),
   });
 
-  const getRoleIcon = (role: string) => {
+  const getRoleIcon = (role: AppRole) => {
     switch (role) {
       case 'admin': return <Crown className="h-4 w-4 text-primary" />;
       case 'manager': return <Shield className="h-4 w-4 text-accent-foreground" />;
@@ -159,7 +168,7 @@ export function AdminUsers() {
     }
   };
 
-  const getRoleBadgeVariant = (role: string) => {
+  const getRoleBadgeVariant = (role: AppRole): BadgeProps['variant'] => {
     switch (role) {
       case 'admin': return 'default';
       case 'manager': return 'secondary';
@@ -266,7 +275,7 @@ export function AdminUsers() {
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
-                      <Badge variant={getRoleBadgeVariant(user.role) as any}>
+                      <Badge variant={getRoleBadgeVariant(user.role)}>
                         {user.role}
                       </Badge>
                       <Select

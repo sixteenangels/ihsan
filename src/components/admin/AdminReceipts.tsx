@@ -62,6 +62,10 @@ interface ReceiptOrder {
   order_items: ReceiptOrderItem[];
 }
 
+interface ReceiptOrderQuery extends Omit<ReceiptOrder, 'profiles'> {
+  user_id: string;
+}
+
 interface ReceiptRecord {
   id: string;
   generated_at: string;
@@ -72,11 +76,52 @@ interface ReceiptRecord {
   orders: ReceiptOrder | null;
 }
 
+interface ReceiptRecordQuery extends Omit<ReceiptRecord, 'orders'> {
+  orders: ReceiptOrderQuery | null;
+}
+
 interface ReceiptCandidate {
   id: string;
   order_number: string;
   total_amount: number;
   status: string;
+}
+
+async function enrichReceiptsWithProfiles(receipts: ReceiptRecordQuery[]): Promise<ReceiptRecord[]> {
+  const userIds = [...new Set(
+    receipts
+      .map((receipt) => receipt.orders?.user_id)
+      .filter((userId): userId is string => Boolean(userId)),
+  )];
+
+  const profilesMap = new Map<string, ReceiptProfile>();
+  if (userIds.length > 0) {
+    const { data: profiles, error: profilesError } = await supabase
+      .from('profiles')
+      .select('user_id, name, email')
+      .in('user_id', userIds);
+
+    if (profilesError) {
+      throw profilesError;
+    }
+
+    (profiles || []).forEach((profile) => {
+      profilesMap.set(profile.user_id, {
+        name: profile.name,
+        email: profile.email,
+      });
+    });
+  }
+
+  return receipts.map((receipt) => ({
+    ...receipt,
+    orders: receipt.orders
+      ? {
+          ...receipt.orders,
+          profiles: profilesMap.get(receipt.orders.user_id) || null,
+        }
+      : null,
+  }));
 }
 
 function mapReceiptForPrinting(receipt: ReceiptRecord): PrintableReceipt {
@@ -163,14 +208,14 @@ export function AdminReceipts() {
             status,
             created_at,
             shipping_address,
-            profiles:user_id(name, email),
+            user_id,
             order_items(product_name, variant_details, quantity, unit_price, total_price)
           )
         `)
         .order('generated_at', { ascending: false });
 
       if (error) throw error;
-      return (data || []) as ReceiptRecord[];
+      return enrichReceiptsWithProfiles((data || []) as ReceiptRecordQuery[]);
     },
   });
 
@@ -230,7 +275,7 @@ export function AdminReceipts() {
             status,
             created_at,
             shipping_address,
-            profiles:user_id(name, email),
+            user_id,
             order_items(product_name, variant_details, quantity, unit_price, total_price)
           )
         `)
@@ -249,7 +294,9 @@ export function AdminReceipts() {
       });
 
       let emailResult: { sent?: boolean; skipped?: boolean } | null = null;
-      const typedReceipt = receiptDetails as ReceiptRecord;
+      const [typedReceipt] = await enrichReceiptsWithProfiles([
+        receiptDetails as ReceiptRecordQuery,
+      ]);
       if (typedReceipt.orders?.profiles?.email) {
         emailResult = await sendReceiptEmail(typedReceipt);
       }

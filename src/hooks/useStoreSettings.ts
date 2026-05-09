@@ -1,9 +1,8 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
 
-interface StoreSettings {
-  [key: string]: any;
-}
+type StoreSettings = Record<string, Json>;
 
 async function fetchStoreSettings(): Promise<StoreSettings> {
   const { data, error } = await supabase

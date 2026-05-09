@@ -4,11 +4,11 @@ import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { useCategories } from '@/hooks/useCategories';
 import { useProducts, ProductWithDetails } from '@/hooks/useProducts';
+import { CategoryIconDisplay } from '@/components/categories/CategoryIconDisplay';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Loader2, Eye } from 'lucide-react';
 import { ProductQuickView } from '@/components/products/ProductQuickView';
-import { getCategoryIconComponent } from '@/lib/categoryIcons';
 
 function toQuickViewFormat(product: ProductWithDetails) {
   return {
@@ -35,6 +35,8 @@ function toQuickViewFormat(product: ProductWithDetails) {
             ? 'air_express'
             : 'air_normal') as 'sea' | 'air_normal' | 'air_express',
         name: r.shipping_class?.name || '',
+        details:
+          r.shipping_class?.description || r.shipping_class?.shipping_type?.description || undefined,
         price: r.price,
         estimatedDays: r.shipping_class
           ? `${r.shipping_class.estimated_days_min}-${r.shipping_class.estimated_days_max} days`
@@ -52,7 +54,7 @@ function toQuickViewFormat(product: ProductWithDetails) {
 export default function Categories() {
   const { data: categories, isLoading: categoriesLoading } = useCategories();
   const { data: products, isLoading: productsLoading } = useProducts();
-  const [quickViewProduct, setQuickViewProduct] = useState<any>(null);
+  const [quickViewProduct, setQuickViewProduct] = useState<ReturnType<typeof toQuickViewFormat> | null>(null);
 
   const getCategoryProducts = (categoryId: string) => {
     return products?.filter((p) => p.category_id === categoryId).slice(0, 3) || [];
@@ -88,22 +90,28 @@ export default function Categories() {
         <div className="space-y-10 sm:space-y-12">
           {categories?.filter((c) => c.is_active).map((category) => {
             const categoryProducts = getCategoryProducts(category.id);
-            const Icon = getCategoryIconComponent(category.name);
 
             return (
               <div key={category.id} className="space-y-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                      <Icon className="h-5 w-5 text-primary" />
+                      <CategoryIconDisplay
+                        categoryName={category.name}
+                        icon={category.icon}
+                        className="h-5 w-5 text-primary"
+                        emojiClassName="text-lg"
+                      />
                     </div>
                     <div>
-                      <h2 className="text-xl font-bold text-foreground sm:text-2xl">{category.name}</h2>
+                      <h2 className="text-xl font-bold text-foreground sm:text-2xl">
+                        {category.name}
+                      </h2>
                       <p className="text-sm text-muted-foreground">{category.product_count || 0} products</p>
                     </div>
                   </div>
                   <Link
-                    to={`/products?category=${category.id}`}
+                    to={`/products?category=${encodeURIComponent(category.name)}`}
                     className="flex items-center gap-1 text-sm text-primary hover:underline sm:text-base"
                   >
                     View All

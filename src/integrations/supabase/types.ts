@@ -632,7 +632,8 @@ export type Database = {
           id: string
           order_id: string
           product_name: string
-          product_variant_id: string
+          product_id: string | null
+          product_variant_id: string | null
           quantity: number
           total_price: number
           unit_price: number
@@ -643,7 +644,8 @@ export type Database = {
           id?: string
           order_id: string
           product_name: string
-          product_variant_id: string
+          product_id?: string | null
+          product_variant_id?: string | null
           quantity: number
           total_price: number
           unit_price: number
@@ -654,7 +656,8 @@ export type Database = {
           id?: string
           order_id?: string
           product_name?: string
-          product_variant_id?: string
+          product_id?: string | null
+          product_variant_id?: string | null
           quantity?: number
           total_price?: number
           unit_price?: number
@@ -666,6 +669,13 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
             referencedColumns: ["id"]
           },
           {
@@ -1473,6 +1483,7 @@ export type Database = {
         Row: {
           base_price: number | null
           created_at: string
+          description: string | null
           estimated_days_max: number
           estimated_days_min: number
           id: string
@@ -1484,6 +1495,7 @@ export type Database = {
         Insert: {
           base_price?: number | null
           created_at?: string
+          description?: string | null
           estimated_days_max: number
           estimated_days_min: number
           id?: string
@@ -1495,6 +1507,7 @@ export type Database = {
         Update: {
           base_price?: number | null
           created_at?: string
+          description?: string | null
           estimated_days_max?: number
           estimated_days_min?: number
           id?: string

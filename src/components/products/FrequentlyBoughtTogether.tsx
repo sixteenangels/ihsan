@@ -13,6 +13,20 @@ interface Props {
   productId: string;
 }
 
+interface BundleProduct {
+  id: string;
+  name: string;
+  base_price: number;
+  product_images: Array<{
+    image_url: string;
+    order_index: number | null;
+  }> | null;
+}
+
+interface ProductBundleResult {
+  bundled_product: BundleProduct | null;
+}
+
 export function FrequentlyBoughtTogether({ productId }: Props) {
   const { formatPrice } = useCurrency();
   const { isEnabled } = useFeatureFlags();
@@ -23,8 +37,7 @@ export function FrequentlyBoughtTogether({ productId }: Props) {
       const { data, error } = await supabase
         .from('product_bundles')
         .select(`
-          bundled_product_id,
-          products:bundled_product_id (
+          bundled_product:products!product_bundles_bundled_product_id_fkey (
             id, name, base_price,
             product_images (image_url, order_index)
           )
@@ -32,9 +45,10 @@ export function FrequentlyBoughtTogether({ productId }: Props) {
         .eq('product_id', productId);
 
       if (error) throw error;
-      return (data || [])
-        .map((b: any) => b.products)
-        .filter(Boolean);
+      const rows = (data || []) as ProductBundleResult[];
+      return rows
+        .map((bundle) => bundle.bundled_product)
+        .filter((product): product is BundleProduct => Boolean(product));
     },
   });
 
@@ -44,7 +58,7 @@ export function FrequentlyBoughtTogether({ productId }: Props) {
     <div className="mt-8">
       <h3 className="text-lg font-semibold text-foreground mb-4">Frequently Bought Together</h3>
       <div className="flex flex-wrap items-center gap-3">
-        {bundles.map((product: any, i: number) => {
+        {bundles.map((product, i: number) => {
           const image = product.product_images?.[0]?.image_url || '/placeholder.svg';
           return (
             <div key={product.id} className="flex items-center gap-3">

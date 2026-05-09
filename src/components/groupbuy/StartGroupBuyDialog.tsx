@@ -23,6 +23,8 @@ import {
 import { toast } from 'sonner';
 import { Users, Loader2, CreditCard } from 'lucide-react';
 import { useCurrency } from '@/hooks/useCurrency';
+import { getErrorMessage } from '@/lib/errors';
+import type { PaystackTransactionResponse, PaystackWindow } from '@/lib/paystack';
 
 interface StartGroupBuyDialogProps {
   product: {
@@ -109,14 +111,15 @@ export function StartGroupBuyDialog({ product }: StartGroupBuyDialogProps) {
       const reference = `GB-NEW-${Date.now()}`;
       const amountInPesewas = Math.round(totalAmount * 100);
 
-      const handler = (window as any).PaystackPop?.setup({
+      const paystackWindow = window as PaystackWindow;
+      const handler = paystackWindow.PaystackPop?.setup({
         key: keyData.publicKey,
         email: profile?.email || user.email || '',
         amount: amountInPesewas,
         currency: 'GHS',
         ref: reference,
         metadata: { type: 'group_buy_start', product_id: product.id, user_id: user.id },
-        callback: async (response: any) => {
+        callback: async (response: PaystackTransactionResponse) => {
           const { data: verification } = await supabase.functions.invoke(
             'verify-paystack-payment',
             { body: { reference: response.reference } }
@@ -141,8 +144,8 @@ export function StartGroupBuyDialog({ product }: StartGroupBuyDialogProps) {
         toast.error('Payment system not loaded. Please refresh and try again.');
         setIsPaying(false);
       }
-    } catch (err: any) {
-      toast.error(err.message || 'Payment failed');
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Payment failed'));
       setIsPaying(false);
     }
   };
@@ -154,7 +157,7 @@ export function StartGroupBuyDialog({ product }: StartGroupBuyDialogProps) {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
 
-    const { data: gbData, error: gbError } = await (supabase as any)
+    const { data: gbData, error: gbError } = await supabase
       .from('group_buys')
       .insert({
         product_id: product.id,

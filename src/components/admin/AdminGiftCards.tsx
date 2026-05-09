@@ -15,6 +15,10 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { useCurrency } from '@/hooks/useCurrency';
 import { logAdminAction } from '@/lib/audit-log';
+import type { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
+
+type GiftCardRow = Tables<'gift_cards'>;
+type GiftCardProfile = Pick<Tables<'profiles'>, 'user_id' | 'name' | 'email'>;
 
 function generateGiftCode() {
   const random = Math.random().toString(36).slice(2, 10).toUpperCase();
@@ -32,7 +36,7 @@ export function AdminGiftCards() {
 
   const { data: giftCards = [], isLoading } = useQuery({
     queryKey: ['admin-gift-cards'],
-    queryFn: async () => {
+    queryFn: async (): Promise<GiftCardRow[]> => {
       const { data, error } = await supabase
         .from('gift_cards')
         .select('*')
@@ -45,7 +49,7 @@ export function AdminGiftCards() {
 
   const { data: profiles = [] } = useQuery({
     queryKey: ['admin-gift-card-profiles'],
-    queryFn: async () => {
+    queryFn: async (): Promise<GiftCardProfile[]> => {
       const { data, error } = await supabase
         .from('profiles')
         .select('user_id, name, email');
@@ -62,21 +66,27 @@ export function AdminGiftCards() {
 
   const createMutation = useMutation({
     mutationFn: async () => {
+      if (!user?.id) {
+        throw new Error('You must be signed in to create gift cards.');
+      }
+
       const amount = Number(value);
       if (!amount || amount <= 0) {
         throw new Error('Enter a valid gift card value.');
       }
 
+      const payload: TablesInsert<'gift_cards'> = {
+        code: code.trim().toUpperCase(),
+        initial_value: amount,
+        balance: amount,
+        created_by: user.id,
+        expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
+        is_active: true,
+      };
+
       const { data, error } = await supabase
         .from('gift_cards')
-        .insert({
-          code: code.trim().toUpperCase(),
-          initial_value: amount,
-          balance: amount,
-          created_by: user?.id as string,
-          expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
-          is_active: true,
-        } as any)
+        .insert(payload)
         .select()
         .single();
 
@@ -110,9 +120,11 @@ export function AdminGiftCards() {
 
   const toggleMutation = useMutation({
     mutationFn: async ({ id, nextActive, cardCode }: { id: string; nextActive: boolean; cardCode: string }) => {
+      const update: TablesUpdate<'gift_cards'> = { is_active: nextActive };
+
       const { error } = await supabase
         .from('gift_cards')
-        .update({ is_active: nextActive } as any)
+        .update(update)
         .eq('id', id);
 
       if (error) throw error;
@@ -210,7 +222,7 @@ export function AdminGiftCards() {
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold">
-              {formatPrice(giftCards.reduce((sum, card: any) => sum + Number(card.balance || 0), 0))}
+              {formatPrice(giftCards.reduce((sum, card) => sum + Number(card.balance || 0), 0))}
             </p>
           </CardContent>
         </Card>
@@ -220,7 +232,7 @@ export function AdminGiftCards() {
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold">
-              {giftCards.filter((card: any) => !!card.redeemed_by).length}
+              {giftCards.filter((card) => !!card.redeemed_by).length}
             </p>
           </CardContent>
         </Card>
@@ -249,7 +261,7 @@ export function AdminGiftCards() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {giftCards.map((card: any) => {
+                {giftCards.map((card) => {
                   const redeemer = card.redeemed_by ? profileMap.get(card.redeemed_by) : null;
 
                   return (

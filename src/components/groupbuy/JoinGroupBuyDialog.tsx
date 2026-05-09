@@ -14,6 +14,8 @@ import {
 import { toast } from 'sonner';
 import { Users, Loader2, Check, UserMinus, CreditCard } from 'lucide-react';
 import { useCurrency } from '@/hooks/useCurrency';
+import { getErrorMessage } from '@/lib/errors';
+import type { PaystackTransactionResponse, PaystackWindow } from '@/lib/paystack';
 
 interface JoinGroupBuyDialogProps {
   groupBuy: {
@@ -122,7 +124,8 @@ export function JoinGroupBuyDialog({ groupBuy }: JoinGroupBuyDialogProps) {
       const amountInPesewas = Math.round(totalAmount * 100);
 
       // Load Paystack inline
-      const handler = (window as any).PaystackPop?.setup({
+      const paystackWindow = window as PaystackWindow;
+      const handler = paystackWindow.PaystackPop?.setup({
         key: keyData.publicKey,
         email: profile?.email || user.email || '',
         amount: amountInPesewas,
@@ -135,7 +138,7 @@ export function JoinGroupBuyDialog({ groupBuy }: JoinGroupBuyDialogProps) {
           quantity: parseInt(quantity),
           variant_id: selectedVariantId || null,
         },
-        callback: async (response: any) => {
+        callback: async (response: PaystackTransactionResponse) => {
           // Verify payment server-side before saving
           const { data: verification } = await supabase.functions.invoke(
             'verify-paystack-payment',
@@ -161,8 +164,8 @@ export function JoinGroupBuyDialog({ groupBuy }: JoinGroupBuyDialogProps) {
         toast.error('Payment system not loaded. Please refresh and try again.');
         setPayingWithPaystack(false);
       }
-    } catch (err: any) {
-      toast.error(err.message || 'Payment failed');
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Payment failed'));
       setPayingWithPaystack(false);
     }
   };

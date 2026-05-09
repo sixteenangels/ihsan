@@ -10,6 +10,7 @@ export interface ShippingOption {
   id: string;
   type: 'sea' | 'air_normal' | 'air_express';
   name: string;
+  details?: string;
   price: number;
   estimatedDays: string;
   available: boolean;

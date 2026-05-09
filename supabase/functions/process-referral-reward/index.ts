@@ -90,8 +90,10 @@ Deno.serve(async (req) => {
       .select('key, value')
       .in('key', ['referral_discount_percent', 'referral_max_uses', 'referral_expiry_days']);
 
-    const settings: Record<string, any> = {};
-    settingsRows?.forEach((r: any) => { settings[r.key] = r.value; });
+    const settings: Record<string, unknown> = {};
+    settingsRows?.forEach((row) => {
+      settings[row.key] = row.value;
+    });
 
     const discountPercent = typeof settings.referral_discount_percent === 'number' ? settings.referral_discount_percent : 10;
     const maxUses = typeof settings.referral_max_uses === 'number' ? settings.referral_max_uses : 1;
@@ -133,10 +135,11 @@ Deno.serve(async (req) => {
       JSON.stringify({ success: true, coupon_code: couponCode }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('Referral reward error:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: errorMessage }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

@@ -33,6 +33,18 @@ interface ProductReviewsProps {
   productName: string;
 }
 
+interface DeliveredOrder {
+  order_items: Array<{
+    product_id: string | null;
+    product_variant_id: string | null;
+  }> | null;
+}
+
+interface ProductVariantLookup {
+  id: string;
+  product_id: string;
+}
+
 export function ProductReviews({ productId, productName }: ProductReviewsProps) {
   const { user } = useAuth();
   const { isEnabled } = useFeatureFlags();
@@ -48,13 +60,6 @@ export function ProductReviews({ productId, productName }: ProductReviewsProps) 
     title: '',
     comment: '',
   });
-
-  useEffect(() => {
-    fetchReviews();
-    if (user) {
-      checkCanReview();
-    }
-  }, [checkCanReview, fetchReviews, user]);
 
   const fetchReviews = useCallback(async () => {
     setLoading(true);
@@ -120,19 +125,35 @@ export function ProductReviews({ productId, productName }: ProductReviewsProps) 
       .select(`
         id,
         order_items!inner (
-          product_variant_id,
-          product_variants:product_variant_id (
-            product_id
-          )
+          product_id,
+          product_variant_id
         )
       `)
       .eq('user_id', user!.id)
       .eq('status', 'delivered');
 
     if (orders) {
-      const hasPurchased = orders.some(order =>
-        order.order_items?.some((item: any) =>
-          item.product_variants?.product_id === productId
+      const deliveredOrders = orders as DeliveredOrder[];
+      const variantIds = [...new Set(
+        deliveredOrders.flatMap((order) =>
+          (order.order_items || [])
+            .map((item) => (!item.product_id ? item.product_variant_id : null))
+            .filter((variantId): variantId is string => Boolean(variantId)),
+        ),
+      )];
+      const { data: variants } = variantIds.length > 0
+        ? await supabase
+            .from('product_variants')
+            .select('id, product_id')
+            .in('id', variantIds)
+        : { data: [] as ProductVariantLookup[] };
+      const variantProductMap = new Map(
+        (variants || []).map((variant) => [variant.id, variant.product_id]),
+      );
+      const hasPurchased = deliveredOrders.some(order =>
+        order.order_items?.some((item) =>
+          item.product_id === productId ||
+          (item.product_variant_id ? variantProductMap.get(item.product_variant_id) === productId : false)
         )
       );
 
@@ -148,8 +169,17 @@ export function ProductReviews({ productId, productName }: ProductReviewsProps) 
       }
 
       setCanReview(hasPurchased && !existingReview);
+    } else {
+      setCanReview(false);
     }
   }, [productId, user]);
+
+  useEffect(() => {
+    fetchReviews();
+    if (user) {
+      checkCanReview();
+    }
+  }, [checkCanReview, fetchReviews, user]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

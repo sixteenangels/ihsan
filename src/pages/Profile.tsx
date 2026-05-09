@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { User, MapPin, Phone, Mail, Plus, Trash2, Loader2, Edit2, Check, X, Package, Clock, Truck, CheckCircle, XCircle, RefreshCcw, ShoppingBag, Gift, Award, Copy, Cake } from 'lucide-react';
+import { User, MapPin, Phone, Mail, Plus, Trash2, Loader2, Edit2, Check, X, Package, Clock, Truck, CheckCircle, XCircle, RefreshCcw, ShoppingBag, Gift, Award, Copy, Cake, Wallet, Bell, Headphones } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
@@ -24,12 +24,13 @@ import {
 } from '@/components/ui/dialog';
 import { TwoFactorManage } from '@/components/auth/TwoFactorManage';
 import { SessionManagement } from '@/components/auth/SessionManagement';
-import { PushNotificationSettings } from '@/components/profile/PushNotificationSettings';
 import { RefundRequestDialog } from '@/components/orders/RefundRequestDialog';
 import { useReferral } from '@/hooks/useReferral';
 import { useLoyaltyPoints } from '@/hooks/useLoyaltyPoints';
 import { WalletSection } from '@/components/profile/WalletSection';
-import { Wallet } from 'lucide-react';
+import { AlertsSection } from '@/components/profile/AlertsSection';
+import { PushNotificationSettings } from '@/components/profile/PushNotificationSettings';
+import { SupportCenterSection } from '@/components/profile/SupportCenterSection';
 
 interface Profile {
   name: string | null;
@@ -431,7 +432,7 @@ export default function Profile() {
         <h1 className="mb-6 text-2xl font-bold font-serif text-foreground md:mb-8 md:text-3xl">My Account</h1>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="mb-6 grid h-auto w-full grid-cols-2 gap-2 rounded-2xl bg-muted/70 p-2 sm:grid-cols-3 md:mb-8 md:grid-cols-7">
+          <TabsList className="mb-6 grid h-auto w-full grid-cols-2 gap-2 rounded-2xl bg-muted/70 p-2 sm:grid-cols-3 md:mb-8 lg:grid-cols-5 xl:grid-cols-9">
             <TabsTrigger value="profile" className="flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs sm:text-sm">
               <User className="h-4 w-4" />
               <span>Profile</span>
@@ -447,6 +448,14 @@ export default function Profile() {
             <TabsTrigger value="wallet" className="flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs sm:text-sm">
               <Wallet className="h-4 w-4" />
               <span>Wallet</span>
+            </TabsTrigger>
+            <TabsTrigger value="alerts" className="flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs sm:text-sm">
+              <Bell className="h-4 w-4" />
+              <span>Alerts</span>
+            </TabsTrigger>
+            <TabsTrigger value="support" className="flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs sm:text-sm">
+              <Headphones className="h-4 w-4" />
+              <span>Support</span>
             </TabsTrigger>
             <TabsTrigger value="refunds" className="flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs sm:text-sm">
               <RefreshCcw className="h-4 w-4" />
@@ -841,6 +850,16 @@ export default function Profile() {
           {/* Wallet Tab */}
           <TabsContent value="wallet">
             <WalletSection />
+          </TabsContent>
+
+          {/* Alerts Tab */}
+          <TabsContent value="alerts">
+            <AlertsSection />
+          </TabsContent>
+
+          {/* Support Tab */}
+          <TabsContent value="support">
+            <SupportCenterSection />
           </TabsContent>
 
           {/* Refunds Tab */}

@@ -31,13 +31,25 @@ const origins = [
   { value: 'other', label: 'Other' },
 ];
 
+interface DutyEstimate {
+  cifValue: number;
+  importDuty: number;
+  vat: number;
+  nhil: number;
+  getfund: number;
+  ecowasLevy: number;
+  examLevy: number;
+  totalDuty: number;
+  totalCost: number;
+}
+
 export default function CustomsDutyEstimator() {
   const { formatPrice } = useCurrency();
   const [productValue, setProductValue] = useState('');
   const [shippingCost, setShippingCost] = useState('');
   const [category, setCategory] = useState('');
   const [origin, setOrigin] = useState('');
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<DutyEstimate | null>(null);
 
   const handleCalculate = () => {
     const cat = categories.find((c) => c.value === category);

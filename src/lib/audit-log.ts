@@ -12,14 +12,14 @@ interface AuditLogInput {
 export async function logAdminAction(input: AuditLogInput) {
   if (!input.actorUserId) return;
 
-  const { error } = await (supabase as any).from('audit_logs').insert({
+  const { error } = await supabase.from('audit_logs' as never).insert({
     actor_user_id: input.actorUserId,
     action: input.action,
     entity_type: input.entityType,
     entity_id: input.entityId || null,
     summary: input.summary,
     metadata: input.metadata || {},
-  });
+  } as never);
 
   if (error) {
     console.error('Audit log error:', error);

@@ -40,12 +40,14 @@ interface ShippingClass {
   id: string;
   name: string;
   base_price: number;
+  description?: string | null;
   estimated_days_min: number;
   estimated_days_max: number;
   product_prices: Record<string, number>;
   shipping_type: {
     id: string;
     name: string;
+    description?: string | null;
   };
 }
 
@@ -88,12 +90,14 @@ interface ShippingRuleRow {
     id: string;
     name: string;
     base_price: number | null;
+    description: string | null;
     estimated_days_min: number;
     estimated_days_max: number;
     is_active: boolean | null;
     shipping_types: {
       id: string;
       name: string;
+      description: string | null;
       is_active: boolean | null;
     } | null;
   } | null;
@@ -132,8 +136,10 @@ export default function Checkout() {
   const {
     items,
     selectedItems,
+    selectedItemIds,
     subtotal,
     selectedSubtotal,
+    setSelectedItemIds,
     updateVariant,
     clearSelectedItems,
   } = useCart();
@@ -245,10 +251,11 @@ export default function Checkout() {
           id,
           name,
           base_price,
+          description,
           estimated_days_min,
           estimated_days_max,
           is_active,
-          shipping_types!inner(id, name, is_active)
+          shipping_types!inner(id, name, description, is_active)
         )
       `)
       .in('product_id', cartProductIds)
@@ -285,6 +292,7 @@ export default function Checkout() {
             id: sc.id,
             name: sc.name,
             base_price: sc.base_price,
+            description: sc.description,
             estimated_days_min: sc.estimated_days_min,
             estimated_days_max: sc.estimated_days_max,
             product_prices: {
@@ -292,8 +300,9 @@ export default function Checkout() {
             },
             shipping_type: sc.shipping_types ? {
               id: sc.shipping_types.id,
-              name: sc.shipping_types.name
-            } : { id: '', name: '' }
+              name: sc.shipping_types.name,
+              description: sc.shipping_types.description,
+            } : { id: '', name: '', description: null }
           }
         });
       }
@@ -331,10 +340,20 @@ export default function Checkout() {
 
   // Redirect if cart is empty
   useEffect(() => {
-    if (items.length === 0 || selectedItems.length === 0) {
+    if (items.length === 0) {
+      navigate('/cart');
+      return;
+    }
+
+    if (selectedItemIds.length === 0) {
+      setSelectedItemIds(items.map((item) => item.id));
+      return;
+    }
+
+    if (selectedItems.length === 0) {
       navigate('/cart');
     }
-  }, [items.length, selectedItems.length, navigate]);
+  }, [items, navigate, selectedItemIds.length, selectedItems.length, setSelectedItemIds]);
 
   // Load Paystack script
   useEffect(() => {
@@ -821,7 +840,8 @@ export default function Checkout() {
 
       const orderItems = selectedItems.map(item => ({
         order_id: order.id,
-        product_variant_id: item.variant.id,
+        product_id: item.product.id,
+        product_variant_id: isVariantPlaceholder(item.variant.id) ? null : item.variant.id,
         product_name: item.product.name,
         variant_details: [item.variant.color, item.variant.size].filter(Boolean).join(' - '),
         quantity: item.quantity,
@@ -923,8 +943,6 @@ export default function Checkout() {
       return;
     }
     setOrderCreationInProgress(true);
-
-    const selectedAddress = addresses.find(a => a.id === selectedAddressId);
     
     try {
       // Step 1: Server-side verification (Fix #1)
@@ -979,143 +997,6 @@ export default function Checkout() {
 
       await finalizeOrder(paymentReference);
       return;
-
-      // Step 4: Create order with verified payment (Fix #4: payment_received)
-      const { data: order, error: orderError } = await supabase
-        .from('orders')
-        .insert([{
-          order_number: `IHS-${Date.now()}`,
-          user_id: user?.id as string,
-          subtotal: selectedSubtotal,
-          shipping_price: shippingCost,
-          total_amount: total,
-          shipping_class_id: selectedShippingId,
-          shipping_address: JSON.parse(JSON.stringify(selectedAddress || {})),
-          status: 'payment_received' as const,
-          payment_reference: paymentReference,
-          notes: null,
-          estimated_delivery_start: new Date(Date.now() + (selectedShipping?.estimated_days_min || 7) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          estimated_delivery_end: new Date(Date.now() + (selectedShipping?.estimated_days_max || 14) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          packaging_type: hasFragile ? packagingChoice : null,
-          packaging_cost: reinforcedPackagingCost,
-          wallet_credit_used: walletApplied,
-        }])
-        .select()
-        .single();
-
-      if (orderError) throw orderError;
-
-      // Debit wallet if used
-      if (walletApplied > 0 && user?.id) {
-        try {
-          const walletTransaction: WalletTransactionInsert = {
-            user_id: user.id,
-            amount: walletApplied,
-            type: 'debit',
-            description: `Used for order ${order.order_number}`,
-            order_id: order.id,
-            created_by: user.id,
-          };
-          await supabase.from('wallet_transactions').insert(walletTransaction);
-        } catch (e) {
-          console.error('Wallet debit failed (non-blocking):', e);
-        }
-      }
-
-      // Create order items
-      const orderItems = selectedItems.map(item => ({
-        order_id: order.id,
-        product_variant_id: item.variant.id,
-        product_name: item.product.name,
-        variant_details: [item.variant.color, item.variant.size].filter(Boolean).join(' - '),
-        quantity: item.quantity,
-        unit_price: item.variant.price,
-        total_price: item.variant.price * item.quantity,
-      }));
-
-      const { error: itemsError } = await supabase
-        .from('order_items')
-        .insert(orderItems);
-
-      if (itemsError) throw itemsError;
-
-      // Create initial tracking entry
-      await supabase
-        .from('order_tracking')
-        .insert({
-          order_id: order.id,
-          status: 'payment_received',
-          location_name: 'Payment Gateway',
-          notes: 'Payment verified successfully via Paystack.',
-        });
-
-      // Fix #5: Increment coupon current_uses
-      if (appliedCoupon) {
-        await supabase
-          .from('coupons')
-          .update({ current_uses: appliedCoupon.current_uses + 1 })
-          .eq('id', appliedCoupon.id);
-      }
-
-      // Award loyalty points based on store_settings
-      try {
-        const { data: settingsData } = await supabase
-          .from('store_settings')
-          .select('key, value')
-          .in('key', ['loyaltyEnabled', 'loyaltyPointsPerOrder', 'loyaltyMinOrderAmount']);
-        
-        const sMap: Record<string, Database['public']['Tables']['store_settings']['Row']['value']> = {};
-        settingsData?.forEach(r => { sMap[r.key] = r.value; });
-        
-        const loyaltyEnabled = sMap.loyaltyEnabled !== false; // default true
-        const pointsPerGhs = typeof sMap.loyaltyPointsPerOrder === 'number' ? sMap.loyaltyPointsPerOrder : 1;
-        const minAmount = typeof sMap.loyaltyMinOrderAmount === 'number' ? sMap.loyaltyMinOrderAmount : 0;
-
-        if (loyaltyEnabled && total >= minAmount && user?.id) {
-          const pointsToAward = Math.floor(total * pointsPerGhs);
-          if (pointsToAward > 0) {
-            await supabase.from('loyalty_points').insert({
-              user_id: user.id,
-              points: pointsToAward,
-              type: 'earn',
-              description: `Order #${order.order_number} - ${pointsToAward} points earned`,
-              order_id: order.id,
-            });
-          }
-        }
-      } catch (loyaltyErr) {
-        console.error('Loyalty points error (non-blocking):', loyaltyErr);
-      }
-
-      // Notify all admins/managers about the new order
-      try {
-        const { data: adminRoles } = await supabase
-          .from('user_roles')
-          .select('user_id')
-          .in('role', ['admin', 'manager']);
-
-        if (adminRoles && adminRoles.length > 0) {
-          const adminNotifications = adminRoles.map(r => ({
-            user_id: r.user_id,
-            title: 'New Order Received',
-            message: `Order ${order.order_number} - ${formatPrice(total)} placed.`,
-            type: 'new_order',
-            data: { orderId: order.id, orderNumber: order.order_number, total },
-          }));
-          await supabase.from('notifications').insert(adminNotifications);
-        }
-      } catch (notifErr) {
-        console.error('Admin notification error (non-blocking):', notifErr);
-      }
-
-      // Remove only the items that were actually checked out.
-      setPendingPaymentRef(null);
-      clearSelectedItems();
-      toast.success('Order placed successfully!');
-      navigate(`/order-confirmation/${order.id}`);
-      // Fix #7: Reset processing state after navigation
-      setIsProcessing(false);
-      setOrderCreationInProgress(false);
     } catch (error) {
       console.error('Order creation error:', error);
       toast.error('Failed to create order. Contact support with ref: ' + paymentReference);
@@ -1356,6 +1237,11 @@ export default function Checkout() {
                                 <p className="text-sm text-muted-foreground">
                                   {shipping.estimated_days_min}-{shipping.estimated_days_max} days delivery
                                 </p>
+                                {(shipping.description || shipping.shipping_type?.description) && (
+                                  <p className="text-sm text-muted-foreground">
+                                    {shipping.description || shipping.shipping_type?.description}
+                                  </p>
+                                )}
                               </div>
                             </div>
                             <p className="pl-8 text-sm font-semibold text-foreground sm:pl-0">

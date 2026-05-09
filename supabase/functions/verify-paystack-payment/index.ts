@@ -68,10 +68,11 @@ serve(async (req: Request) => {
       }),
       { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
     console.error("Error verifying payment:", error);
     return new Response(
-      JSON.stringify({ verified: false, error: error.message }),
+      JSON.stringify({ verified: false, error: errorMessage }),
       { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   }

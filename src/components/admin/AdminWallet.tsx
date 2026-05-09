@@ -16,6 +16,10 @@ import { useCurrency } from '@/hooks/useCurrency';
 import { useAuth } from '@/contexts/AuthContext';
 import { logAdminAction } from '@/lib/audit-log';
 
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : 'Failed to credit wallet';
+}
+
 export function AdminWallet() {
   const { formatPrice } = useCurrency();
   const { user } = useAuth();
@@ -75,8 +79,8 @@ export function AdminWallet() {
       setCreditAmount('');
       setCreditDescription('');
       setOpen(false);
-    } catch (e: any) {
-      toast.error(e?.message || 'Failed to credit wallet');
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error));
     }
   };
 

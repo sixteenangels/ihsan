@@ -6,6 +6,7 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { Loader2, Shield, ArrowLeft, Key } from 'lucide-react';
+import { getErrorMessage } from '@/lib/errors';
 
 interface TwoFactorVerifyProps {
   onSuccess: () => void;
@@ -51,8 +52,8 @@ export function TwoFactorVerify({ onSuccess, onBack }: TwoFactorVerifyProps) {
 
       toast.success('Verification successful!');
       onSuccess();
-    } catch (error: any) {
-      toast.error(error.message || 'Invalid verification code');
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Invalid verification code'));
       setCode('');
     } finally {
       setIsLoading(false);
@@ -96,8 +97,8 @@ export function TwoFactorVerify({ onSuccess, onBack }: TwoFactorVerifyProps) {
 
       toast.success('Recovery code accepted!');
       onSuccess();
-    } catch (error: any) {
-      toast.error(error.message || 'Invalid recovery code');
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Invalid recovery code'));
       setRecoveryCode('');
     } finally {
       setIsLoading(false);

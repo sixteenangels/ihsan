@@ -4,13 +4,24 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Trophy, Crown, Medal, Star } from 'lucide-react';
 import { useCurrency } from '@/hooks/useCurrency';
+import type { Tables } from '@/integrations/supabase/types';
+
+type OrderSpendRow = Pick<Tables<'orders'>, 'user_id' | 'total_amount'>;
+type CustomerProfile = Pick<Tables<'profiles'>, 'user_id' | 'name' | 'email'>;
+type LeaderboardCustomer = {
+  user_id: string;
+  name: string;
+  email: string;
+  total_spent: number;
+  order_count: number;
+};
 
 export function CustomerLeaderboard() {
   const { formatPrice } = useCurrency();
 
   const { data: topCustomers, isLoading } = useQuery({
     queryKey: ['admin-customer-leaderboard'],
-    queryFn: async () => {
+    queryFn: async (): Promise<LeaderboardCustomer[]> => {
       const { data, error } = await supabase
         .from('orders')
         .select('user_id, total_amount');
@@ -19,7 +30,9 @@ export function CustomerLeaderboard() {
 
       // Aggregate by user
       const userTotals: Record<string, { total: number; count: number }> = {};
-      (data || []).forEach((order) => {
+      const orders = (data || []) as OrderSpendRow[];
+
+      orders.forEach((order) => {
         if (!userTotals[order.user_id]) {
           userTotals[order.user_id] = { total: 0, count: 0 };
         }
@@ -36,8 +49,10 @@ export function CustomerLeaderboard() {
         .select('user_id, name, email')
         .in('user_id', userIds);
 
-      const profileMap: Record<string, any> = {};
-      (profiles || []).forEach((p) => { profileMap[p.user_id] = p; });
+      const profileMap: Record<string, CustomerProfile> = {};
+      (profiles || []).forEach((profile) => {
+        profileMap[profile.user_id] = profile;
+      });
 
       return userIds
         .map((uid) => ({

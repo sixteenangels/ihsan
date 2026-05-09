@@ -1,27 +1,20 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import type { Tables, TablesInsert } from '@/integrations/supabase/types';
 import { useAuth } from '@/contexts/AuthContext';
 
-export interface MessageTemplate {
-  id: string;
-  name: string;
-  content: string;
-  category: string | null;
-  created_by: string;
-  created_at: string;
-  updated_at: string;
-}
+export type MessageTemplate = Tables<'admin_message_templates'>;
 
 export function useMessageTemplates() {
   return useQuery({
     queryKey: ['admin-message-templates'],
-    queryFn: async () => {
-      const { data, error } = await (supabase as any)
+    queryFn: async (): Promise<MessageTemplate[]> => {
+      const { data, error } = await supabase
         .from('admin_message_templates')
         .select('*')
         .order('name', { ascending: true });
       if (error) throw error;
-      return (data || []) as MessageTemplate[];
+      return data || [];
     },
   });
 }
@@ -31,12 +24,18 @@ export function useSaveTemplate() {
   const { user } = useAuth();
   return useMutation({
     mutationFn: async (input: { name: string; content: string; category?: string }) => {
-      const { error } = await (supabase as any).from('admin_message_templates').insert({
+      if (!user?.id) {
+        throw new Error('You must be signed in to save a template.');
+      }
+
+      const payload: TablesInsert<'admin_message_templates'> = {
         name: input.name,
         content: input.content,
         category: input.category || null,
-        created_by: user?.id,
-      });
+        created_by: user.id,
+      };
+
+      const { error } = await supabase.from('admin_message_templates').insert(payload);
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-message-templates'] }),
@@ -47,7 +46,7 @@ export function useDeleteTemplate() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await (supabase as any).from('admin_message_templates').delete().eq('id', id);
+      const { error } = await supabase.from('admin_message_templates').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-message-templates'] }),

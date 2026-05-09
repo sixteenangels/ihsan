@@ -11,6 +11,22 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
+type RpcError = {
+  message: string;
+};
+
+type RedeemGiftCardResult = {
+  amount: number | string | null;
+} | null;
+
+type RedeemGiftCardRpc = (
+  fn: 'redeem_gift_card',
+  args: { input_code: string }
+) => Promise<{
+  data: RedeemGiftCardResult;
+  error: RpcError | null;
+}>;
+
 export function WalletSection() {
   const queryClient = useQueryClient();
   const { data: txs, isLoading } = useWalletTransactions();
@@ -25,7 +41,8 @@ export function WalletSection() {
         throw new Error('Enter a gift card code.');
       }
 
-      const { data, error } = await (supabase as any).rpc('redeem_gift_card', {
+      const redeemGiftCard = supabase.rpc.bind(supabase) as unknown as RedeemGiftCardRpc;
+      const { data, error } = await redeemGiftCard('redeem_gift_card', {
         input_code: trimmedCode,
       });
 

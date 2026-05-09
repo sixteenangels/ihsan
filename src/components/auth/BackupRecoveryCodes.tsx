@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { Loader2, Copy, Check, Download, RefreshCw, Key } from 'lucide-react';
+import { getErrorMessage } from '@/lib/errors';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -65,8 +66,8 @@ export function BackupRecoveryCodes({ codes: initialCodes, onComplete, showAsSet
       setCodes(newCodes);
       setHasAcknowledged(false);
       toast.success('New backup codes generated');
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to generate backup codes');
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Failed to generate backup codes'));
     } finally {
       setIsLoading(false);
     }

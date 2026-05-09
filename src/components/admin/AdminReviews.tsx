@@ -8,6 +8,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Star, Trash2, Eye, EyeOff, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import type { Tables } from '@/integrations/supabase/types';
+
+type ReviewRow = Tables<'reviews'>;
+type ReviewWithRelations = ReviewRow & {
+  products: { name: string | null } | null;
+  profiles: { name: string | null; email: string | null } | null;
+};
 
 export function AdminReviews() {
   const queryClient = useQueryClient();
@@ -15,7 +22,7 @@ export function AdminReviews() {
 
   const { data: reviews, isLoading } = useQuery({
     queryKey: ['admin-reviews'],
-    queryFn: async () => {
+    queryFn: async (): Promise<ReviewWithRelations[]> => {
       const { data, error } = await supabase
         .from('reviews')
         .select(`
@@ -43,7 +50,7 @@ export function AdminReviews() {
       return (data || []).map((review) => ({
         ...review,
         profiles: profilesMap.get(review.user_id) || null,
-      }));
+      })) as ReviewWithRelations[];
     },
   });
 
@@ -202,7 +209,7 @@ export function AdminReviews() {
                 
                 <div className="flex items-center justify-between pt-2 border-t border-border">
                   <p className="text-sm text-muted-foreground">
-                    By: {(review.profiles as any)?.name || (review.profiles as any)?.email || 'Unknown'}
+                    By: {review.profiles?.name || review.profiles?.email || 'Unknown'}
                   </p>
                   <div className="flex gap-2">
                     <Button
