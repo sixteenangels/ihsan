@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Star, Users, Zap, Truck, Clock, Heart, ShoppingCart, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -29,6 +29,8 @@ export function ProductQuickView({ product, open, onOpenChange }: ProductQuickVi
   const { addToCart } = useCart();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [selectedVariant, setSelectedVariant] = useState<string | null>(null);
+  const [selectedColor, setSelectedColor] = useState<string | null>(null);
+  const [selectedSize, setSelectedSize] = useState<string | null>(null);
 
   const variants = useMemo(() => product?.variants ?? [], [product?.variants]);
 
@@ -48,6 +50,44 @@ export function ProductQuickView({ product, open, onOpenChange }: ProductQuickVi
     });
     return Array.from(sizeSet);
   }, [variants]);
+
+  useEffect(() => {
+    setSelectedColor((currentColor) =>
+      currentColor && colors.includes(currentColor) ? currentColor : colors[0] || null,
+    );
+  }, [colors]);
+
+  const variantsForSelectedColor = useMemo(() => {
+    if (colors.length === 0) return variants;
+    return variants.filter((variant) => variant.color === selectedColor);
+  }, [colors.length, selectedColor, variants]);
+
+  const sizesForSelectedColor = useMemo(() => {
+    const sizeSet = new Set<string>();
+    variantsForSelectedColor.forEach((variant) => {
+      if (variant.size) sizeSet.add(variant.size);
+    });
+    return Array.from(sizeSet);
+  }, [variantsForSelectedColor]);
+
+  useEffect(() => {
+    if (sizesForSelectedColor.length === 0) {
+      const fallbackVariant = variantsForSelectedColor[0];
+      setSelectedSize(null);
+      setSelectedVariant(fallbackVariant?.id || null);
+      return;
+    }
+
+    setSelectedSize((currentSize) => {
+      const nextSize =
+        currentSize && sizesForSelectedColor.includes(currentSize)
+          ? currentSize
+          : variantsForSelectedColor.find((variant) => (variant.stock || 0) > 0)?.size || sizesForSelectedColor[0];
+      const nextVariant = variantsForSelectedColor.find((variant) => variant.size === nextSize);
+      setSelectedVariant(nextVariant?.id || null);
+      return nextSize;
+    });
+  }, [sizesForSelectedColor, variantsForSelectedColor]);
 
   if (!product) return null;
 
@@ -216,18 +256,22 @@ export function ProductQuickView({ product, open, onOpenChange }: ProductQuickVi
                 <p className="text-sm font-medium mb-2">Color</p>
                 <div className="flex gap-2 flex-wrap">
                   {colors.map(color => {
-                    const variant = product.variants?.find(v => v.color === color);
-                    const isSelected = selectedVariant === variant?.id || 
-                      (!selectedVariant && product.variants?.[0]?.color === color);
+                    const isSelected = selectedColor === color;
+                    const availableSizes = variants.filter((variant) => variant.color === color && (variant.stock || 0) > 0).length;
                     return (
                       <button
                         key={color}
-                        onClick={() => setSelectedVariant(variant?.id || null)}
+                        onClick={() => {
+                          setSelectedColor(color);
+                          setSelectedSize(null);
+                          setSelectedVariant(null);
+                        }}
                         className={`px-4 py-2 rounded-md text-sm border transition-all ${
                           isSelected 
                             ? 'border-primary bg-primary/10 text-primary' 
                             : 'border-border hover:border-primary'
                         }`}
+                        title={`${availableSizes} available size${availableSizes === 1 ? '' : 's'}`}
                       >
                         {color}
                       </button>
@@ -240,19 +284,28 @@ export function ProductQuickView({ product, open, onOpenChange }: ProductQuickVi
             {/* Size Selection */}
             {sizes.length > 0 && (
               <div className="mb-4">
-                <p className="text-sm font-medium mb-2">Size</p>
+                <p className="text-sm font-medium mb-2">
+                  Size{selectedColor ? ` for ${selectedColor}` : ''}
+                </p>
                 <div className="flex gap-2 flex-wrap">
-                  {sizes.map(size => {
-                    const variant = product.variants?.find(v => v.size === size);
-                    const isSelected = selectedVariant === variant?.id;
+                  {sizesForSelectedColor.map(size => {
+                    const variant = variantsForSelectedColor.find(v => v.size === size);
+                    const isSelected = selectedSize === size && selectedVariant === variant?.id;
+                    const isAvailable = (variant?.stock || 0) > 0;
                     return (
                       <button
                         key={size}
-                        onClick={() => setSelectedVariant(variant?.id || null)}
+                        onClick={() => {
+                          setSelectedSize(size);
+                          setSelectedVariant(variant?.id || null);
+                        }}
+                        disabled={!isAvailable}
                         className={`w-10 h-10 rounded-md text-sm border transition-all ${
                           isSelected 
                             ? 'border-primary bg-primary/10 text-primary' 
-                            : 'border-border hover:border-primary'
+                            : isAvailable
+                              ? 'border-border hover:border-primary'
+                              : 'border-border bg-muted text-muted-foreground line-through cursor-not-allowed'
                         }`}
                       >
                         {size}

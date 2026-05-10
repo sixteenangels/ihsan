@@ -49,16 +49,28 @@ function formatSkuPart(value: string, fallback: string) {
     .replace(/^-+|-+$/g, '');
 }
 
+function getStockForCombination(
+  stockValues: string[],
+  sizeIndex: number,
+  combinationIndex: number,
+  sizeCount: number,
+) {
+  if (stockValues.length === 0) return '0';
+  if (stockValues.length > sizeCount) return stockValues[combinationIndex] || stockValues[0] || '0';
+  return stockValues[sizeIndex] || stockValues[0] || '0';
+}
+
 function buildVariantCombinations(variant: VariantData) {
   const sizes = splitCommaValues(variant.size);
   const colors = splitCommaValues(variant.color);
+  const stockValues = splitCommaValues(variant.stock);
   const sizeValues = sizes.length > 0 ? sizes : [''];
   const colorValues = colors.length > 0 ? colors : [''];
   const combinations = colorValues.flatMap((color) =>
-    sizeValues.map((size) => ({ color, size })),
+    sizeValues.map((size, sizeIndex) => ({ color, size, sizeIndex })),
   );
 
-  return combinations.map(({ color, size }, index) => {
+  return combinations.map(({ color, size, sizeIndex }, index) => {
     const totalCombinations = combinations.length;
     const skuSuffix = formatSkuPart([color, size].filter(Boolean).join('-'), `VAR-${index + 1}`);
 
@@ -67,12 +79,17 @@ function buildVariantCombinations(variant: VariantData) {
       id: totalCombinations === 1 ? variant.id : undefined,
       color,
       size,
+      stock: getStockForCombination(stockValues, sizeIndex, index, sizeValues.length),
       sku:
         variant.sku.trim() && totalCombinations > 1
           ? `${variant.sku.trim()}-${skuSuffix}`
           : variant.sku.trim(),
     };
   });
+}
+
+function parseStock(stock: string) {
+  return parseInt(stock, 10) || 0;
 }
 
 export function ProductVariantsManager({ variants, onVariantsChange, basePrice }: ProductVariantsManagerProps) {
@@ -99,7 +116,7 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
     });
 
     if (uniqueGeneratedVariants.length === 0) {
-      toast.error('Those variant combinations already exist.');
+      toast.error('Those colour and size combinations already exist.');
       return;
     }
 
@@ -112,7 +129,7 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
     }
 
     if (uniqueGeneratedVariants.length > 1) {
-      toast.success(`Created ${uniqueGeneratedVariants.length} variants.`);
+      toast.success(`Created ${uniqueGeneratedVariants.length} size variants.`);
     }
 
     setCurrentVariant(defaultVariant);
@@ -143,6 +160,19 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
     return basePrice ? parseFloat(basePrice) : 0;
   };
 
+  const groupedVariants = variants.reduce<Record<string, Array<{ variant: VariantData; index: number }>>>(
+    (groups, variant, index) => {
+      const colorKey = variant.color.trim() || 'No colour';
+      if (!groups[colorKey]) {
+        groups[colorKey] = [];
+      }
+
+      groups[colorKey].push({ variant, index });
+      return groups;
+    },
+    {},
+  );
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -155,23 +185,10 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
         )}
       </div>
 
-      {/* Variant Form */}
       {showForm && (
         <Card className="border-primary/50">
           <CardContent className="pt-4 space-y-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="variant-size">Size(s)</Label>
-                <Input
-                  id="variant-size"
-                  value={currentVariant.size}
-                  onChange={(e) => setCurrentVariant({ ...currentVariant, size: e.target.value })}
-                  placeholder="e.g., S, M, L, XL"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Separate sizes with commas to create one variant per size.
-                </p>
-              </div>
               <div className="space-y-2">
                 <Label htmlFor="variant-color">Colour</Label>
                 <Input
@@ -181,12 +198,36 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
                   placeholder="e.g., Black"
                 />
                 <p className="text-xs text-muted-foreground">
-                  You can also enter multiple colours with commas.
+                  Use one colour when stock differs by colour. Add Blue or White as separate rows.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="variant-size">Sizes</Label>
+                <Input
+                  id="variant-size"
+                  value={currentVariant.size}
+                  onChange={(e) => setCurrentVariant({ ...currentVariant, size: e.target.value })}
+                  placeholder="e.g., S, M, L, XL"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Commas create separate variants that customers select under this colour.
                 </p>
               </div>
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="space-y-2">
+                <Label htmlFor="variant-stock">Stock per Size</Label>
+                <Input
+                  id="variant-stock"
+                  value={currentVariant.stock}
+                  onChange={(e) => setCurrentVariant({ ...currentVariant, stock: e.target.value })}
+                  placeholder="e.g., 5, 3, 2, 8 or 5 for all"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Match the size order, or enter one number to apply to every size.
+                </p>
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="variant-price">Price Override</Label>
                 <Input
@@ -199,17 +240,7 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="variant-stock">Stock *</Label>
-                <Input
-                  id="variant-stock"
-                  type="number"
-                  value={currentVariant.stock}
-                  onChange={(e) => setCurrentVariant({ ...currentVariant, stock: e.target.value })}
-                  placeholder="0"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="variant-sku">SKU</Label>
+                <Label htmlFor="variant-sku">SKU Prefix</Label>
                 <Input
                   id="variant-sku"
                   value={currentVariant.sku}
@@ -236,46 +267,56 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
         </Card>
       )}
 
-      {/* Variants List */}
       {variants.length > 0 && (
-        <div className="space-y-2">
-          {variants.map((variant, index) => (
-            <div
-              key={index}
-              className="flex flex-col gap-3 rounded-lg border border-border bg-muted/30 p-3 sm:flex-row sm:items-center sm:justify-between"
-            >
-              <div className="min-w-0 space-y-2 sm:flex sm:items-center sm:gap-3 sm:space-y-0">
-                <div className="flex flex-wrap gap-2">
-                  {variant.size && (
-                    <Badge variant="secondary">Size: {variant.size}</Badge>
-                  )}
-                  {variant.color && (
-                    <Badge variant="secondary">Colour: {variant.color}</Badge>
-                  )}
+        <div className="space-y-3">
+          {Object.entries(groupedVariants).map(([color, entries]) => (
+            <div key={color} className="rounded-lg border border-border bg-muted/20 p-3">
+              <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-medium text-foreground">Colour: {color}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {entries.length} size option{entries.length === 1 ? '' : 's'} in inventory
+                  </p>
                 </div>
-                <span className="text-sm text-muted-foreground">
-                  ${getVariantDisplayPrice(variant).toFixed(2)} • {variant.stock} in stock
-                  {variant.sku && ` • SKU: ${variant.sku}`}
-                </span>
+                <Badge variant="secondary">
+                  {entries.reduce((sum, entry) => sum + parseStock(entry.variant.stock), 0)} total
+                </Badge>
               </div>
-              <div className="flex items-center gap-1">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleEditVariant(index)}
-                >
-                  Edit
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-destructive"
-                  onClick={() => handleRemoveVariant(index)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                {entries.map(({ variant, index }) => (
+                  <div
+                    key={`${variant.color}-${variant.size}-${index}`}
+                    className="flex flex-col gap-2 rounded-md border border-border bg-background p-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="min-w-0">
+                      <div className="mb-1 flex flex-wrap gap-2">
+                        <Badge variant="outline">Size: {variant.size || 'Default'}</Badge>
+                        <Badge variant={parseStock(variant.stock) > 0 ? 'secondary' : 'destructive'}>
+                          {parseStock(variant.stock)} in stock
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        ${getVariantDisplayPrice(variant).toFixed(2)}
+                        {variant.sku ? ` - SKU: ${variant.sku}` : ''}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button type="button" variant="ghost" size="sm" onClick={() => handleEditVariant(index)}>
+                        Edit
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive"
+                        onClick={() => handleRemoveVariant(index)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           ))}
@@ -284,7 +325,7 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
 
       {variants.length === 0 && !showForm && (
         <p className="text-sm text-muted-foreground">
-          No variants added. Click "Add Variant" to create size/color options.
+          No variants added. Add a colour, comma-separated sizes, and stock to create selectable inventory.
         </p>
       )}
     </div>

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Check, Minus, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -24,7 +24,6 @@ interface VariantSelectorProps {
   onQuantityChange: (variantId: string, quantity: number) => void;
 }
 
-// Common color mappings for visual swatches
 const colorMap: Record<string, string> = {
   black: '#000000',
   white: '#FFFFFF',
@@ -55,6 +54,14 @@ function getColorHex(colorName: string | null): string | null {
   return colorMap[normalized] || null;
 }
 
+function getVariantStock(variant?: Variant) {
+  return variant?.stock || 0;
+}
+
+function getUniqueValues(values: Array<string | null>) {
+  return Array.from(new Set(values.filter((value): value is string => Boolean(value))));
+}
+
 export function VariantSelector({
   variants,
   selectedVariants,
@@ -62,57 +69,79 @@ export function VariantSelector({
   onQuantityChange,
 }: VariantSelectorProps) {
   const { formatPrice } = useCurrency();
-  
-  // Group variants by color and size
-  const uniqueColors = useMemo(() => {
-    const colors = new Set<string>();
-    variants.forEach((v) => {
-      if (v.color) colors.add(v.color);
-    });
-    return Array.from(colors);
-  }, [variants]);
 
-  const uniqueSizes = useMemo(() => {
-    const sizes = new Set<string>();
-    variants.forEach((v) => {
-      if (v.size) sizes.add(v.size);
-    });
-    return Array.from(sizes);
-  }, [variants]);
-
-  const [selectedColor, setSelectedColor] = useState<string | null>(
-    uniqueColors.length > 0 ? uniqueColors[0] : null
+  const uniqueColors = useMemo(
+    () => getUniqueValues(variants.map((variant) => variant.color)),
+    [variants],
   );
-  const [selectedSize, setSelectedSize] = useState<string | null>(
-    uniqueSizes.length > 0 ? uniqueSizes[0] : null
+  const uniqueSizes = useMemo(
+    () => getUniqueValues(variants.map((variant) => variant.size)),
+    [variants],
+  );
+  const [selectedColor, setSelectedColor] = useState<string | null>(null);
+  const [selectedSize, setSelectedSize] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (uniqueColors.length === 0) {
+      setSelectedColor(null);
+      return;
+    }
+
+    setSelectedColor((currentColor) =>
+      currentColor && uniqueColors.includes(currentColor) ? currentColor : uniqueColors[0],
+    );
+  }, [uniqueColors]);
+
+  const variantsForSelectedColor = useMemo(() => {
+    if (uniqueColors.length === 0) return variants;
+    return variants.filter((variant) => variant.color === selectedColor);
+  }, [selectedColor, uniqueColors.length, variants]);
+
+  const sizesForSelectedColor = useMemo(
+    () => getUniqueValues(variantsForSelectedColor.map((variant) => variant.size)),
+    [variantsForSelectedColor],
   );
 
-  // Find the variant that matches current selection
+  useEffect(() => {
+    if (sizesForSelectedColor.length === 0) {
+      setSelectedSize(null);
+      return;
+    }
+
+    setSelectedSize((currentSize) => {
+      if (currentSize && sizesForSelectedColor.includes(currentSize)) {
+        return currentSize;
+      }
+
+      const firstInStockVariant = variantsForSelectedColor.find((variant) => getVariantStock(variant) > 0);
+      return firstInStockVariant?.size || sizesForSelectedColor[0];
+    });
+  }, [sizesForSelectedColor, variantsForSelectedColor]);
+
   const currentVariant = useMemo(() => {
-    return variants.find((v) => {
-      const colorMatch = !uniqueColors.length || v.color === selectedColor;
-      const sizeMatch = !uniqueSizes.length || v.size === selectedSize;
-      return colorMatch && sizeMatch;
-    });
-  }, [variants, selectedColor, selectedSize, uniqueColors.length, uniqueSizes.length]);
+    if (sizesForSelectedColor.length === 0) {
+      return variantsForSelectedColor[0];
+    }
+
+    return variantsForSelectedColor.find((variant) => variant.size === selectedSize);
+  }, [selectedSize, sizesForSelectedColor.length, variantsForSelectedColor]);
 
   const isVariantSelected = (variantId: string) => {
-    return selectedVariants.some((v) => v.id === variantId);
+    return selectedVariants.some((variant) => variant.id === variantId);
   };
 
   const getSelectedQuantity = (variantId: string) => {
-    const selected = selectedVariants.find((v) => v.id === variantId);
+    const selected = selectedVariants.find((variant) => variant.id === variantId);
     return selected?.quantity || 1;
   };
 
-  // If no colors or sizes, show simple variant list
   if (uniqueColors.length === 0 && uniqueSizes.length === 0) {
     return (
       <div className="space-y-3">
         {variants.map((variant) => {
           const isSelected = isVariantSelected(variant.id);
           const quantity = getSelectedQuantity(variant.id);
-          
+
           return (
             <div
               key={variant.id}
@@ -120,17 +149,13 @@ export function VariantSelector({
                 'flex items-center justify-between p-4 rounded-lg border transition-all cursor-pointer',
                 isSelected
                   ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
-                  : 'border-border hover:border-primary/50'
+                  : 'border-border hover:border-primary/50',
               )}
               onClick={() => onVariantToggle(variant)}
             >
               <div>
-                <p className="font-medium text-foreground">
-                  {formatPrice(variant.price)}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {variant.stock || 0} in stock
-                </p>
+                <p className="font-medium text-foreground">{formatPrice(variant.price)}</p>
+                <p className="text-sm text-muted-foreground">{getVariantStock(variant)} in stock</p>
               </div>
               {isSelected && (
                 <div className="flex items-center gap-2">
@@ -138,8 +163,8 @@ export function VariantSelector({
                     size="icon"
                     variant="outline"
                     className="h-8 w-8"
-                    onClick={(e) => {
-                      e.stopPropagation();
+                    onClick={(event) => {
+                      event.stopPropagation();
                       onQuantityChange(variant.id, Math.max(1, quantity - 1));
                     }}
                   >
@@ -150,8 +175,8 @@ export function VariantSelector({
                     size="icon"
                     variant="outline"
                     className="h-8 w-8"
-                    onClick={(e) => {
-                      e.stopPropagation();
+                    onClick={(event) => {
+                      event.stopPropagation();
                       onQuantityChange(variant.id, quantity + 1);
                     }}
                   >
@@ -168,50 +193,53 @@ export function VariantSelector({
 
   return (
     <div className="space-y-6">
-      {/* Color Selector */}
       {uniqueColors.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h4 className="font-medium text-foreground">Color</h4>
+            <h4 className="font-medium text-foreground">Colour</h4>
             {selectedColor && (
-              <span className="text-sm text-muted-foreground capitalize">
-                {selectedColor}
-              </span>
+              <span className="text-sm text-muted-foreground capitalize">{selectedColor}</span>
             )}
           </div>
           <div className="flex flex-wrap gap-3">
             {uniqueColors.map((color) => {
               const hexColor = getColorHex(color);
               const isSelected = selectedColor === color;
-              
+              const colorVariants = variants.filter((variant) => variant.color === color);
+              const availableSizeCount = colorVariants.filter((variant) => getVariantStock(variant) > 0).length;
+
               return (
                 <button
                   key={color}
-                  onClick={() => setSelectedColor(color)}
+                  onClick={() => {
+                    setSelectedColor(color);
+                    setSelectedSize(null);
+                  }}
                   className={cn(
-                    'relative h-10 w-10 rounded-full border-2 transition-all flex items-center justify-center',
+                    'flex min-h-12 items-center gap-2 rounded-full border px-3 py-2 text-sm transition-all',
                     isSelected
-                      ? 'border-primary ring-2 ring-primary/30 ring-offset-2 ring-offset-background'
-                      : 'border-border hover:border-primary/50'
+                      ? 'border-primary bg-primary/5 text-primary ring-2 ring-primary/20'
+                      : 'border-border hover:border-primary/50',
                   )}
-                  style={hexColor ? { backgroundColor: hexColor } : undefined}
-                  title={color}
+                  title={`${color} - ${availableSizeCount} available size${availableSizeCount === 1 ? '' : 's'}`}
                 >
-                  {!hexColor && (
-                    <span className="text-xs font-medium text-foreground uppercase">
-                      {color.slice(0, 2)}
-                    </span>
-                  )}
-                  {isSelected && hexColor && (
-                    <Check
-                      className={cn(
-                        'h-5 w-5',
-                        hexColor === '#FFFFFF' || hexColor === '#FFFDD0'
-                          ? 'text-foreground'
-                          : 'text-white'
-                      )}
-                    />
-                  )}
+                  <span
+                    className="flex h-7 w-7 items-center justify-center rounded-full border border-border"
+                    style={hexColor ? { backgroundColor: hexColor } : undefined}
+                  >
+                    {isSelected && hexColor && (
+                      <Check
+                        className={cn(
+                          'h-4 w-4',
+                          hexColor === '#FFFFFF' || hexColor === '#FFFDD0'
+                            ? 'text-foreground'
+                            : 'text-white',
+                        )}
+                      />
+                    )}
+                    {!hexColor && <span className="text-[10px] font-medium uppercase">{color.slice(0, 2)}</span>}
+                  </span>
+                  <span className="capitalize">{color}</span>
                 </button>
               );
             })}
@@ -219,20 +247,21 @@ export function VariantSelector({
         </div>
       )}
 
-      {/* Size Selector */}
-      {uniqueSizes.length > 0 && (
+      {sizesForSelectedColor.length > 0 && (
         <div className="space-y-3">
-          <h4 className="font-medium text-foreground">Size</h4>
+          <div className="flex items-center justify-between">
+            <h4 className="font-medium text-foreground">
+              Size{selectedColor ? ` for ${selectedColor}` : ''}
+            </h4>
+            <span className="text-xs text-muted-foreground">
+              {sizesForSelectedColor.length} option{sizesForSelectedColor.length === 1 ? '' : 's'}
+            </span>
+          </div>
           <div className="flex flex-wrap gap-2">
-            {uniqueSizes.map((size) => {
+            {sizesForSelectedColor.map((size) => {
+              const variantForSize = variantsForSelectedColor.find((variant) => variant.size === size);
               const isSelected = selectedSize === size;
-              // Check if this size is available for selected color
-              const variantForSize = variants.find(
-                (v) =>
-                  v.size === size &&
-                  (uniqueColors.length === 0 || v.color === selectedColor)
-              );
-              const isAvailable = variantForSize && (variantForSize.stock || 0) > 0;
+              const isAvailable = getVariantStock(variantForSize) > 0;
 
               return (
                 <button
@@ -240,12 +269,12 @@ export function VariantSelector({
                   onClick={() => setSelectedSize(size)}
                   disabled={!isAvailable}
                   className={cn(
-                    'px-4 py-2 rounded-lg border text-sm font-medium transition-all',
+                    'rounded-lg border px-4 py-2 text-sm font-medium transition-all',
                     isSelected
                       ? 'border-primary bg-primary text-primary-foreground'
                       : isAvailable
-                      ? 'border-border hover:border-primary/50 text-foreground'
-                      : 'border-border bg-muted text-muted-foreground cursor-not-allowed line-through'
+                        ? 'border-border text-foreground hover:border-primary/50'
+                        : 'cursor-not-allowed border-border bg-muted text-muted-foreground line-through',
                   )}
                 >
                   {size}
@@ -256,19 +285,14 @@ export function VariantSelector({
         </div>
       )}
 
-      {/* Current Selection Info */}
       {currentVariant && (
         <div className="p-4 rounded-lg bg-muted/50 border border-border space-y-3">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-2xl font-bold text-primary">
-                {formatPrice(currentVariant.price)}
-              </p>
+              <p className="text-2xl font-bold text-primary">{formatPrice(currentVariant.price)}</p>
               <p className="text-sm text-muted-foreground">
-                {(currentVariant.stock || 0) > 0 ? (
-                  <span className="text-primary">
-                    {currentVariant.stock} in stock
-                  </span>
+                {getVariantStock(currentVariant) > 0 ? (
+                  <span className="text-primary">{getVariantStock(currentVariant)} in stock</span>
                 ) : (
                   <span className="text-destructive">Out of stock</span>
                 )}
@@ -291,27 +315,17 @@ export function VariantSelector({
                   variant="outline"
                   className="h-8 w-8"
                   onClick={() =>
-                    onQuantityChange(
-                      currentVariant.id,
-                      Math.max(1, getSelectedQuantity(currentVariant.id) - 1)
-                    )
+                    onQuantityChange(currentVariant.id, Math.max(1, getSelectedQuantity(currentVariant.id) - 1))
                   }
                 >
                   <Minus className="h-3 w-3" />
                 </Button>
-                <span className="w-8 text-center font-medium">
-                  {getSelectedQuantity(currentVariant.id)}
-                </span>
+                <span className="w-8 text-center font-medium">{getSelectedQuantity(currentVariant.id)}</span>
                 <Button
                   size="icon"
                   variant="outline"
                   className="h-8 w-8"
-                  onClick={() =>
-                    onQuantityChange(
-                      currentVariant.id,
-                      getSelectedQuantity(currentVariant.id) + 1
-                    )
-                  }
+                  onClick={() => onQuantityChange(currentVariant.id, getSelectedQuantity(currentVariant.id) + 1)}
                 >
                   <Plus className="h-3 w-3" />
                 </Button>
@@ -322,33 +336,25 @@ export function VariantSelector({
           <Button
             className="w-full"
             onClick={() => onVariantToggle(currentVariant)}
-            disabled={(currentVariant.stock || 0) === 0}
+            disabled={getVariantStock(currentVariant) === 0}
           >
-            {isVariantSelected(currentVariant.id)
-              ? 'Remove from Selection'
-              : 'Add to Selection'}
+            {isVariantSelected(currentVariant.id) ? 'Remove from Selection' : 'Add to Selection'}
           </Button>
         </div>
       )}
 
-      {/* Selected Variants Summary */}
       {selectedVariants.length > 0 && (
         <div className="p-4 rounded-lg border border-primary/20 bg-primary/5 space-y-2">
-          <h4 className="font-medium text-foreground">
-            {selectedVariants.length} variant(s) selected
-          </h4>
+          <h4 className="font-medium text-foreground">{selectedVariants.length} variant(s) selected</h4>
           <div className="space-y-1">
-            {selectedVariants.map((v) => (
-              <div
-                key={v.id}
-                className="flex items-center justify-between text-sm"
-              >
+            {selectedVariants.map((variant) => (
+              <div key={variant.id} className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">
-                  {v.color || 'Default'}
-                  {v.size && ` - ${v.size}`} × {v.quantity}
+                  {variant.color || 'Default'}
+                  {variant.size && ` - ${variant.size}`} x {variant.quantity}
                 </span>
                 <span className="font-medium text-foreground">
-                  {formatPrice(v.price * v.quantity)}
+                  {formatPrice(variant.price * variant.quantity)}
                 </span>
               </div>
             ))}
