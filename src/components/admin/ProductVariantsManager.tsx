@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,6 +20,14 @@ interface ProductVariantsManagerProps {
   variants: VariantData[];
   onVariantsChange: (variants: VariantData[]) => void;
   basePrice: string;
+}
+
+interface DraftCombination {
+  color: string;
+  size: string;
+  sizeIndex: number;
+  combinationIndex: number;
+  stock: string;
 }
 
 const defaultVariant: VariantData = {
@@ -88,6 +96,27 @@ function buildVariantCombinations(variant: VariantData) {
   });
 }
 
+function buildDraftCombinations(variant: VariantData): DraftCombination[] {
+  if (!variant.color.trim() && !variant.size.trim()) {
+    return [];
+  }
+
+  const sizes = splitCommaValues(variant.size);
+  const colors = splitCommaValues(variant.color);
+  const stockValues = splitCommaValues(variant.stock);
+  const sizeValues = sizes.length > 0 ? sizes : [''];
+  const colorValues = colors.length > 0 ? colors : [''];
+  const combinations = colorValues.flatMap((color) =>
+    sizeValues.map((size, sizeIndex) => ({ color, size, sizeIndex })),
+  );
+
+  return combinations.map((combination, index) => ({
+    ...combination,
+    combinationIndex: index,
+    stock: getStockForCombination(stockValues, combination.sizeIndex, index, sizeValues.length),
+  }));
+}
+
 function parseStock(stock: string) {
   return parseInt(stock, 10) || 0;
 }
@@ -96,6 +125,21 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
   const [showForm, setShowForm] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [currentVariant, setCurrentVariant] = useState<VariantData>(defaultVariant);
+  const draftCombinations = useMemo(
+    () => buildDraftCombinations(currentVariant),
+    [currentVariant],
+  );
+
+  const handleDraftStockChange = (combinationIndex: number, stock: string) => {
+    const nextStockValues = draftCombinations.map((combination) =>
+      combination.combinationIndex === combinationIndex ? stock : combination.stock || '0',
+    );
+
+    setCurrentVariant((prev) => ({
+      ...prev,
+      stock: nextStockValues.join(', '),
+    }));
+  };
 
   const handleAddVariant = () => {
     if (!currentVariant.size && !currentVariant.color) {
@@ -129,7 +173,7 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
     }
 
     if (uniqueGeneratedVariants.length > 1) {
-      toast.success(`Created ${uniqueGeneratedVariants.length} size variants.`);
+      toast.success(`Created ${uniqueGeneratedVariants.length} inventory variants.`);
     }
 
     setCurrentVariant(defaultVariant);
@@ -225,7 +269,7 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
                   placeholder="e.g., 5, 3, 2, 8 or 5 for all"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Match the size order, or enter one number to apply to every size.
+                  Match the size order, enter one number for all, or use the stock boxes below.
                 </p>
               </div>
               <div className="space-y-2">
@@ -249,6 +293,56 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
                 />
               </div>
             </div>
+
+            {draftCombinations.length > 0 && (
+              <div className="rounded-lg border border-border bg-muted/20 p-3">
+                <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Inventory rows to create</p>
+                    <p className="text-xs text-muted-foreground">
+                      Set stock for each colour and size before saving.
+                    </p>
+                  </div>
+                  <Badge variant="secondary">
+                    {draftCombinations.length} row{draftCombinations.length === 1 ? '' : 's'}
+                  </Badge>
+                </div>
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                  {draftCombinations.map((combination) => (
+                    <div
+                      key={`${combination.color}-${combination.size}-${combination.combinationIndex}`}
+                      className="grid grid-cols-[1fr_7rem] items-end gap-3 rounded-md border border-border bg-background p-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-foreground">
+                          {combination.color || 'Default colour'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Size: {combination.size || 'Default size'}
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <Label
+                          htmlFor={`variant-stock-${combination.combinationIndex}`}
+                          className="text-xs"
+                        >
+                          Stock
+                        </Label>
+                        <Input
+                          id={`variant-stock-${combination.combinationIndex}`}
+                          type="number"
+                          min="0"
+                          value={combination.stock}
+                          onChange={(event) =>
+                            handleDraftStockChange(combination.combinationIndex, event.target.value)
+                          }
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" size="sm" onClick={handleCancel}>

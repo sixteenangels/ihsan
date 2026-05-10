@@ -14,7 +14,15 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
 import { toast } from 'sonner';
@@ -122,6 +130,18 @@ interface ProductVariantRow {
 
 type StoreSettingRow = Database['public']['Tables']['store_settings']['Row'];
 type WalletTransactionInsert = Database['public']['Tables']['wallet_transactions']['Insert'];
+
+function groupVariantOptionsByColor(variants: VariantOption[]) {
+  return variants.reduce<Record<string, VariantOption[]>>((groups, variant) => {
+    const color = variant.color || 'Default colour';
+    if (!groups[color]) {
+      groups[color] = [];
+    }
+
+    groups[color].push(variant);
+    return groups;
+  }, {});
+}
 
 export default function Checkout() {
   const navigate = useNavigate();
@@ -1527,40 +1547,55 @@ export default function Checkout() {
                   <CardTitle className="text-base">Choose Variants Before Payment</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {unresolvedVariantItems.map((item) => (
-                    <div key={item.id} className="space-y-2">
-                      <div>
-                        <p className="font-medium text-foreground">{item.product.name}</p>
-                        <p className="text-sm text-muted-foreground">Quantity: {item.quantity}</p>
-                      </div>
-                      <Select
-                        value=""
-                        onValueChange={(variantId) => {
-                          const variant = (productVariantOptions[item.product.id] || []).find((option) => option.id === variantId);
-                          if (!variant) return;
+                  {unresolvedVariantItems.map((item) => {
+                    const variantOptions = productVariantOptions[item.product.id] || [];
+                    const groupedVariantOptions = groupVariantOptionsByColor(variantOptions);
 
-                          updateVariant(item.id, {
-                            id: variant.id,
-                            color: variant.color || undefined,
-                            size: variant.size || undefined,
-                            price: variant.price_override ?? item.product.basePrice,
-                            stock: variant.stock || 0,
-                          });
-                        }}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select variant" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {(productVariantOptions[item.product.id] || []).map((variant) => (
-                            <SelectItem key={variant.id} value={variant.id}>
-                              {[variant.color, variant.size].filter(Boolean).join(' / ') || 'Default'}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  ))}
+                    return (
+                      <div key={item.id} className="space-y-2">
+                        <div>
+                          <p className="font-medium text-foreground">{item.product.name}</p>
+                          <p className="text-sm text-muted-foreground">Quantity: {item.quantity}</p>
+                        </div>
+                        <Select
+                          value=""
+                          onValueChange={(variantId) => {
+                            const variant = variantOptions.find((option) => option.id === variantId);
+                            if (!variant) return;
+
+                            updateVariant(item.id, {
+                              id: variant.id,
+                              color: variant.color || undefined,
+                              size: variant.size || undefined,
+                              price: variant.price_override ?? item.product.basePrice,
+                              stock: variant.stock || 0,
+                            });
+                          }}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select colour and size" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(groupedVariantOptions).map(([color, options]) => (
+                              <SelectGroup key={color}>
+                                <SelectLabel>{color}</SelectLabel>
+                                {options.map((variant) => {
+                                  const stock = variant.stock || 0;
+                                  const label = variant.size || 'Default size';
+
+                                  return (
+                                    <SelectItem key={variant.id} value={variant.id} disabled={stock <= 0}>
+                                      {label} - {stock > 0 ? `${stock} in stock` : 'Out of stock'}
+                                    </SelectItem>
+                                  );
+                                })}
+                              </SelectGroup>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    );
+                  })}
                 </CardContent>
               </Card>
             )}
