@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 import { Users, Loader2, Check, UserMinus, CreditCard } from 'lucide-react';
 import { useCurrency } from '@/hooks/useCurrency';
 import { getErrorMessage } from '@/lib/errors';
-import type { PaystackTransactionResponse, PaystackWindow } from '@/lib/paystack';
+import { loadPaystack, type PaystackTransactionResponse } from '@/lib/paystack';
 
 interface JoinGroupBuyDialogProps {
   groupBuy: {
@@ -111,6 +111,7 @@ export function JoinGroupBuyDialog({ groupBuy }: JoinGroupBuyDialogProps) {
     setPayingWithPaystack(true);
 
     try {
+      const paystack = await loadPaystack();
       // Get Paystack key
       const { data: keyData, error: keyError } = await supabase.functions.invoke('get-paystack-key');
       if (keyError || !keyData?.publicKey) {
@@ -123,15 +124,18 @@ export function JoinGroupBuyDialog({ groupBuy }: JoinGroupBuyDialogProps) {
         .eq('user_id', user.id)
         .single();
 
+      const customerEmail = profile?.email || user.email;
+      if (!customerEmail) {
+        throw new Error('Add an email address to continue with payment');
+      }
+
       const reference = `GB-${groupBuy.id.slice(0, 8)}-${Date.now()}`;
       const amountInPesewas = Math.round(totalAmount * 100);
       callbackFiredRef.current = false;
 
-      // Load Paystack inline
-      const paystackWindow = window as PaystackWindow;
-      const handler = paystackWindow.PaystackPop?.setup({
+      const handler = paystack.setup({
         key: keyData.publicKey,
-        email: profile?.email || user.email || '',
+        email: customerEmail,
         amount: amountInPesewas,
         currency: 'GHS',
         ref: reference,
@@ -189,6 +193,12 @@ export function JoinGroupBuyDialog({ groupBuy }: JoinGroupBuyDialogProps) {
 
       if (verification.amount !== expectedAmount) {
         toast.error('Payment amount mismatch. Contact support with ref: ' + paymentRef);
+        setPayingWithPaystack(false);
+        return;
+      }
+
+      if (verification.currency !== 'GHS') {
+        toast.error('Payment currency mismatch. Contact support with ref: ' + paymentRef);
         setPayingWithPaystack(false);
         return;
       }

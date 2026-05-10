@@ -21,6 +21,7 @@ import { toast } from 'sonner';
 import { useWalletBalance } from '@/hooks/useWallet';
 import { useLoyaltyPoints } from '@/hooks/useLoyaltyPoints';
 import { useStoreSettings } from '@/hooks/useStoreSettings';
+import { loadPaystack, type PaystackTransactionResponse } from '@/lib/paystack';
 
 interface Address {
   id: string;
@@ -73,14 +74,6 @@ interface Coupon {
   marketing_label?: string | null;
 }
 
-interface PaystackHandler {
-  openIframe: () => void;
-}
-
-interface PaystackPop {
-  setup: (options: Record<string, unknown>) => PaystackHandler;
-}
-
 interface ShippingRuleRow {
   product_id: string;
   shipping_class_id: string;
@@ -123,12 +116,6 @@ interface ProductVariantRow {
 
 type StoreSettingRow = Database['public']['Tables']['store_settings']['Row'];
 type WalletTransactionInsert = Database['public']['Tables']['wallet_transactions']['Insert'];
-
-declare global {
-  interface Window {
-    PaystackPop?: PaystackPop;
-  }
-}
 
 export default function Checkout() {
   const navigate = useNavigate();
@@ -355,15 +342,10 @@ export default function Checkout() {
     }
   }, [items, navigate, selectedItemIds.length, selectedItems.length, setSelectedItemIds]);
 
-  // Load Paystack script
   useEffect(() => {
-    const script = document.createElement('script');
-    script.src = 'https://js.paystack.co/v1/inline.js';
-    script.async = true;
-    document.body.appendChild(script);
-    return () => {
-      document.body.removeChild(script);
-    };
+    void loadPaystack().catch((error) => {
+      console.warn('Paystack preload failed; checkout will retry when payment starts.', error);
+    });
   }, []);
 
   useEffect(() => {
@@ -703,10 +685,6 @@ export default function Checkout() {
       toast.error('Confirm the courier delivery fee terms before payment');
       return;
     }
-    if (!user?.email) {
-      toast.error('User email not found');
-      return;
-    }
     if (useLoyaltyCredit && requestedLoyaltyPoints > 0 && requestedLoyaltyPoints < loyaltyMinRedeemPoints) {
       toast.error(`Redeem at least ${loyaltyMinRedeemPoints} points.`);
       return;
@@ -723,14 +701,15 @@ export default function Checkout() {
       return;
     }
 
-    if (!window.PaystackPop) {
-      toast.error('Payment system is loading. Please try again in a moment.');
+    if (!user?.email) {
+      toast.error('User email not found');
       return;
     }
 
     setIsProcessing(true);
 
     try {
+      const paystack = await loadPaystack();
       const { data: configData, error: configError } = await supabase.functions.invoke('get-paystack-key');
       
       if (configError || !configData?.publicKey) {
@@ -743,13 +722,13 @@ export default function Checkout() {
       setPendingPaymentRef(reference);
       callbackFiredRef.current = false;
 
-      const handler = window.PaystackPop.setup({
+      const handler = paystack.setup({
         key: configData.publicKey,
         email: user.email,
         amount: Math.round(total * 100),
         currency: 'GHS',
         ref: reference,
-        callback: function(response: { reference: string }) {
+        callback: function(response: PaystackTransactionResponse) {
           callbackFiredRef.current = true;
           verifyAndCreateOrder(response.reference).catch((err) => {
             console.error('Order creation error:', err);
@@ -764,9 +743,8 @@ export default function Checkout() {
             // Use a small delay to let callback set the flag first
             if (!callbackFiredRef.current) {
               setIsProcessing(false);
-              if (pendingPaymentRef) {
-                setShowPaymentRecovery(true);
-              }
+              setPendingPaymentRef(reference);
+              setShowPaymentRecovery(true);
             }
           }, 500);
         },
@@ -972,6 +950,14 @@ export default function Checkout() {
       if (verification.amount !== expectedAmount) {
         console.error(`Amount mismatch: expected ${expectedAmount}, got ${verification.amount}`);
         toast.error('Payment amount mismatch. Contact support with ref: ' + paymentReference);
+        setIsProcessing(false);
+        setOrderCreationInProgress(false);
+        return;
+      }
+
+      if (verification.currency !== 'GHS') {
+        console.error(`Currency mismatch: expected GHS, got ${verification.currency}`);
+        toast.error('Payment currency mismatch. Contact support with ref: ' + paymentReference);
         setIsProcessing(false);
         setOrderCreationInProgress(false);
         return;
