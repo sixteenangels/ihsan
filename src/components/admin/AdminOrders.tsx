@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
 import { Loader2, Eye, MapPin, Package, Calendar, Clock, CreditCard, ShoppingBag, PackageCheck, Truck, Plane, MapPinned, Home, CheckCircle, XCircle, RotateCcw, Search, Download, StickyNote, CheckSquare, BellRing, MessageSquare, Plus, type LucideIcon } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
@@ -22,8 +23,10 @@ import { SwipeableOrderCard } from './SwipeableOrderCard';
 import { SwipeHintOverlay } from './SwipeHintOverlay';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Database, Json } from '@/integrations/supabase/types';
+import { useDocumentVisibility } from '@/hooks/useDocumentVisibility';
 import { logAdminAction } from '@/lib/audit-log';
 import { generateProofVerificationCode, uploadProofOfDelivery } from '@/lib/proof-of-delivery';
+import { creditWalletByAdmin } from '@/lib/wallet';
 import {
   buildDeliveryWindowEmailHtml,
   buildDeliveryWindowEmailSubject,
@@ -31,6 +34,9 @@ import {
   buildOrderStatusEmailHtml,
   buildOrderStatusEmailSubject,
   buildOrderStatusEmailText,
+  buildRefundEmailHtml,
+  buildRefundEmailSubject,
+  buildRefundEmailText,
 } from '@/lib/email-templates';
 
 const ORDER_STATUSES = [
@@ -57,6 +63,9 @@ type OrderRow = Database['public']['Tables']['orders']['Row'];
 type OrderItemRow = Database['public']['Tables']['order_items']['Row'];
 type OrderTrackingRow = Database['public']['Tables']['order_tracking']['Row'];
 type ProfileRow = Database['public']['Tables']['profiles']['Row'];
+type ProductImageRow = Database['public']['Tables']['product_images']['Row'];
+type ProductVariantRow = Database['public']['Tables']['product_variants']['Row'];
+type RefundRequestRow = Database['public']['Tables']['refund_requests']['Row'];
 
 interface ShippingAddress {
   full_name?: string;
@@ -77,10 +86,13 @@ interface FulfillmentChecks {
 }
 
 type AdminOrder = OrderRow & {
-  order_items: OrderItemRow[];
+  order_items: Array<OrderItemRow & { image_url: string | null }>;
   order_tracking: OrderTrackingRow[];
   profiles: Pick<ProfileRow, 'user_id' | 'name' | 'email'> | null;
+  refund_request: RefundRequestRow | null;
 };
+
+type RefundChannel = 'original_payment' | 'wallet_credit' | 'mixed';
 
 const ORDER_STATUS_OPTIONS: OrderStatus[] = [
   'pending',
@@ -139,6 +151,155 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
   refunded: 'Refunded',
 };
 
+const STANDARD_CHECKPOINTS = [
+  { key: 'payment_received', label: 'Payment' },
+  { key: 'order_placed', label: 'Ordered' },
+  { key: 'packed_for_delivery', label: 'Packed' },
+  { key: 'in_transit', label: 'In Transit' },
+  { key: 'in_ghana', label: 'In Ghana' },
+  { key: 'ready_for_delivery', label: 'Ready' },
+  { key: 'delivered', label: 'Delivered' },
+] as const;
+
+const COURIER_CHECKPOINTS = [
+  { key: 'payment_received', label: 'Payment' },
+  { key: 'order_processed', label: 'Processed' },
+  { key: 'handed_to_courier', label: 'Courier' },
+  { key: 'out_for_delivery', label: 'Out for Delivery' },
+  { key: 'delivered', label: 'Delivered' },
+] as const;
+
+const ORDER_FLOW_STATUSES: OrderStatus[] = [
+  'pending',
+  'payment_received',
+  'order_placed',
+  'order_processed',
+  'confirmed',
+  'processing',
+  'packed_for_delivery',
+  'shipped',
+  'in_transit',
+  'in_ghana',
+  'ready_for_delivery',
+  'handed_to_courier',
+  'out_for_delivery',
+  'delivered',
+];
+
+function getCheckpointsForOrder(status: string) {
+  return ['order_processed', 'handed_to_courier', 'out_for_delivery'].includes(status)
+    ? COURIER_CHECKPOINTS
+    : STANDARD_CHECKPOINTS;
+}
+
+function getProgressPercentage(status: string, checkpoints: typeof STANDARD_CHECKPOINTS | typeof COURIER_CHECKPOINTS) {
+  const keys = checkpoints.map((checkpoint) => checkpoint.key);
+  const idx = keys.indexOf(status);
+  if (idx >= 0) {
+    return Math.round(((idx + 1) / keys.length) * 100);
+  }
+
+  const orderIdx = ORDER_FLOW_STATUSES.indexOf(status as OrderStatus);
+  if (orderIdx < 0) {
+    return 0;
+  }
+
+  for (let i = keys.length - 1; i >= 0; i -= 1) {
+    if (ORDER_FLOW_STATUSES.indexOf(keys[i] as OrderStatus) <= orderIdx) {
+      return Math.round(((i + 1) / keys.length) * 100);
+    }
+  }
+
+  return 0;
+}
+
+function getCheckpointStatus(
+  orderStatus: string,
+  checkpointKey: string,
+  checkpoints: typeof STANDARD_CHECKPOINTS | typeof COURIER_CHECKPOINTS,
+): 'done' | 'current' | 'pending' {
+  const orderIdx = ORDER_FLOW_STATUSES.indexOf(orderStatus as OrderStatus);
+  const checkIdx = ORDER_FLOW_STATUSES.indexOf(checkpointKey as OrderStatus);
+
+  if (checkIdx < 0 || orderIdx < 0) {
+    return 'pending';
+  }
+
+  if (orderIdx >= checkIdx) {
+    return 'done';
+  }
+
+  const keys = checkpoints.map((checkpoint) => checkpoint.key);
+  const currentCheckpointIndex = keys.findIndex(
+    (key) => ORDER_FLOW_STATUSES.indexOf(key as OrderStatus) > orderIdx,
+  );
+
+  if (currentCheckpointIndex >= 0 && keys[currentCheckpointIndex] === checkpointKey) {
+    return 'current';
+  }
+
+  return 'pending';
+}
+
+function getAutoNote(status: string, productName: string) {
+  switch (status) {
+    case 'payment_received':
+      return `We've received payment for "${productName}".`;
+    case 'order_placed':
+      return `The order for "${productName}" has been placed successfully.`;
+    case 'order_processed':
+      return 'Item verified and prepared for courier pickup.';
+    case 'confirmed':
+      return 'The order is confirmed and queued for fulfillment.';
+    case 'processing':
+      return 'The order is currently being processed.';
+    case 'packed_for_delivery':
+      return 'The order has been packed and is ready to ship.';
+    case 'shipped':
+      return 'The order has been shipped.';
+    case 'in_transit':
+      return 'The order is currently in transit.';
+    case 'in_ghana':
+      return 'The shipment has arrived in Ghana.';
+    case 'ready_for_delivery':
+      return 'The order is ready for final delivery.';
+    case 'handed_to_courier':
+      return 'Courier has picked up the package.';
+    case 'out_for_delivery':
+      return 'The order is out for delivery.';
+    case 'delivered':
+      return 'The order has been delivered.';
+    case 'cancelled':
+      return 'The order has been cancelled.';
+    case 'refunded':
+      return 'The order has been refunded.';
+    default:
+      return '';
+  }
+}
+
+function getSuggestedRefundWalletCredit(order: AdminOrder) {
+  const shipping = Number(order.shipping_price || 0);
+  const packaging = Number(order.packaging_cost || 0);
+  const requestedAmount = Number(order.refund_request?.refund_amount || order.total_amount || 0);
+  return Math.max(0, Math.min(requestedAmount, shipping + packaging));
+}
+
+function getRefundStatusLabel(status: string) {
+  switch (status) {
+    case 'pending':
+      return 'Pending';
+    case 'approved':
+      return 'Approved';
+    case 'rejected':
+      return 'Rejected';
+    case 'processed':
+      return 'Processed';
+    default:
+      return status.replaceAll('_', ' ');
+  }
+}
+
 export function AdminOrders() {
   const queryClient = useQueryClient();
   const { formatPrice } = useCurrency();
@@ -146,6 +307,7 @@ export function AdminOrders() {
   const { data: templates = [] } = useMessageTemplates();
   const saveTemplateMutation = useSaveTemplate();
   const proofUploadInputRef = useRef<HTMLInputElement | null>(null);
+  const isDocumentVisible = useDocumentVisibility();
   const [selectedOrder, setSelectedOrder] = useState<AdminOrder | null>(null);
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -156,6 +318,16 @@ export function AdminOrders() {
   const [statusNotes, setStatusNotes] = useState<Record<string, string>>({});
   const [adminNotes, setAdminNotes] = useState<Record<string, string>>({});
   const [selectedFulfillmentOrder, setSelectedFulfillmentOrder] = useState<AdminOrder | null>(null);
+  const [selectedRefundOrder, setSelectedRefundOrder] = useState<AdminOrder | null>(null);
+  const [refundDraft, setRefundDraft] = useState<{
+    refundChannel: RefundChannel;
+    walletCreditAmount: string;
+    adminNotes: string;
+  }>({
+    refundChannel: 'original_payment',
+    walletCreditAmount: '',
+    adminNotes: '',
+  });
   const [fulfillmentDraft, setFulfillmentDraft] = useState({
     stage: 'new',
     picked: false,
@@ -194,6 +366,10 @@ export function AdminOrders() {
 
   // Real-time subscription for new/updated orders
   useEffect(() => {
+    if (!isDocumentVisible) {
+      return;
+    }
+
     const channel = supabase
       .channel('admin-orders-realtime')
       .on(
@@ -217,7 +393,7 @@ export function AdminOrders() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [queryClient]);
+  }, [isDocumentVisible, queryClient]);
 
   const { data: orders, isLoading } = useQuery({
     queryKey: ['admin-orders'],
@@ -229,6 +405,8 @@ export function AdminOrders() {
           order_items(
             id,
             product_name,
+            product_id,
+            product_variant_id,
             variant_details,
             quantity,
             unit_price,
@@ -248,32 +426,107 @@ export function AdminOrders() {
 
       if (ordersError) throw ordersError;
 
-      const userIds = [...new Set(ordersData?.map(o => o.user_id) || [])];
-      
+      const safeOrders = ordersData || [];
+      const userIds = [...new Set(safeOrders.map((order) => order.user_id))];
+      const directProductIds = [
+        ...new Set(
+          safeOrders
+            .flatMap((order) => order.order_items ?? [])
+            .map((item) => item.product_id)
+            .filter((productId): productId is string => Boolean(productId)),
+        ),
+      ];
+      const variantIds = [
+        ...new Set(
+          safeOrders
+            .flatMap((order) => order.order_items ?? [])
+            .map((item) => item.product_variant_id)
+            .filter((variantId): variantId is string => Boolean(variantId)),
+        ),
+      ];
+
+      let profilesMap = new Map<string, Pick<ProfileRow, 'user_id' | 'name' | 'email'>>();
       if (userIds.length > 0) {
         const { data: profilesData } = await supabase
           .from('profiles')
           .select('user_id, name, email')
           .in('user_id', userIds);
 
-        const profilesMap = new Map(
-          profilesData?.map(p => [p.user_id, p]) || []
-        );
-
-        return (ordersData?.map(order => ({
-          ...order,
-          profiles: profilesMap.get(order.user_id) || null,
-          order_items: order.order_items ?? [],
-          order_tracking: order.order_tracking ?? [],
-        })) || []) as AdminOrder[];
+        profilesMap = new Map(profilesData?.map((profile) => [profile.user_id, profile]) || []);
       }
 
-      return (ordersData?.map((order) => ({
+      let variantProductMap = new Map<string, string>();
+      if (variantIds.length > 0) {
+        const { data: variantData } = await supabase
+          .from('product_variants')
+          .select('id, product_id')
+          .in('id', variantIds);
+
+        variantProductMap = new Map(
+          (variantData as Pick<ProductVariantRow, 'id' | 'product_id'>[] | null)?.map((variant) => [
+            variant.id,
+            variant.product_id,
+          ]) || [],
+        );
+      }
+
+      const imageProductIds = [
+        ...new Set([
+          ...directProductIds,
+          ...variantIds
+            .map((variantId) => variantProductMap.get(variantId))
+            .filter((productId): productId is string => Boolean(productId)),
+        ]),
+      ];
+
+      const productImageMap = new Map<string, string>();
+      if (imageProductIds.length > 0) {
+        const { data: imageData } = await supabase
+          .from('product_images')
+          .select('product_id, image_url, order_index')
+          .in('product_id', imageProductIds)
+          .order('order_index', { ascending: true });
+
+        (imageData as Pick<ProductImageRow, 'product_id' | 'image_url' | 'order_index'>[] | null)?.forEach(
+          (image) => {
+            if (!productImageMap.has(image.product_id)) {
+              productImageMap.set(image.product_id, image.image_url);
+            }
+          },
+        );
+      }
+
+      const refundRequestMap = new Map<string, RefundRequestRow>();
+      if (safeOrders.length > 0) {
+        const { data: refundRequestData } = await supabase
+          .from('refund_requests')
+          .select('*')
+          .in('order_id', safeOrders.map((order) => order.id))
+          .order('created_at', { ascending: false });
+
+        (refundRequestData as RefundRequestRow[] | null)?.forEach((request) => {
+          if (!refundRequestMap.has(request.order_id)) {
+            refundRequestMap.set(request.order_id, request);
+          }
+        });
+      }
+
+      return safeOrders.map((order) => ({
         ...order,
-        profiles: null,
-        order_items: order.order_items ?? [],
+        profiles: profilesMap.get(order.user_id) || null,
+        refund_request: refundRequestMap.get(order.id) || null,
+        order_items: (order.order_items ?? []).map((item) => {
+          const resolvedProductId =
+            item.product_id ||
+            (item.product_variant_id ? variantProductMap.get(item.product_variant_id) || null : null);
+
+          return {
+            ...item,
+            image_url: resolvedProductId ? productImageMap.get(resolvedProductId) || null : null,
+          };
+        }),
         order_tracking: order.order_tracking ?? [],
-      })) || []) as AdminOrder[];
+      })) as AdminOrder[];
     },
   });
 
@@ -741,6 +994,37 @@ export function AdminOrders() {
     });
   };
 
+  const resetRefundDialog = () => {
+    setSelectedRefundOrder(null);
+    setRefundDraft({
+      refundChannel: 'original_payment',
+      walletCreditAmount: '',
+      adminNotes: '',
+    });
+  };
+
+  const openRefundDialog = (order: AdminOrder) => {
+    const suggestedWalletCredit = getSuggestedRefundWalletCredit(order);
+    const hasShippingRefundHint = /(shipping|buffer|delivery)/i.test(
+      `${order.refund_request?.reason || ''} ${order.refund_request?.details || ''}`,
+    );
+
+    setSelectedRefundOrder(order);
+    setRefundDraft({
+      refundChannel:
+        order.refund_request?.refund_channel === 'wallet_credit' || order.refund_request?.refund_channel === 'mixed'
+          ? order.refund_request.refund_channel
+          : 'original_payment',
+      walletCreditAmount:
+        order.refund_request?.wallet_credit_amount
+          ? String(order.refund_request.wallet_credit_amount)
+          : suggestedWalletCredit > 0 && hasShippingRefundHint
+            ? String(suggestedWalletCredit)
+            : '',
+      adminNotes: order.refund_request?.admin_notes || order.admin_notes || '',
+    });
+  };
+
   const handleProofFileSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !selectedFulfillmentOrder) return;
@@ -784,6 +1068,193 @@ export function AdminOrders() {
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to save admin note');
+    },
+  });
+
+  const processRefundMutation = useMutation({
+    mutationFn: async (order: AdminOrder) => {
+      const walletCredit = Number.parseFloat(refundDraft.walletCreditAmount || '0') || 0;
+      const maxRefundAmount = Number(order.refund_request?.refund_amount || order.total_amount || 0);
+
+      if (walletCredit < 0) {
+        throw new Error('Wallet credit amount cannot be negative.');
+      }
+
+      if (refundDraft.refundChannel !== 'original_payment' && walletCredit <= 0) {
+        throw new Error('Add a wallet credit amount for wallet-based refunds.');
+      }
+
+      if (walletCredit > maxRefundAmount) {
+        throw new Error('Wallet credit amount cannot exceed the refund total.');
+      }
+
+      if (order.refund_request) {
+        const { error: refundRequestError } = await supabase
+          .from('refund_requests')
+          .update({
+            status: 'processed',
+            admin_notes: refundDraft.adminNotes || null,
+            refund_channel: refundDraft.refundChannel,
+            wallet_credit_amount: walletCredit,
+            processed_at: new Date().toISOString(),
+            processed_by: user?.id || null,
+          })
+          .eq('id', order.refund_request.id);
+
+        if (refundRequestError) throw refundRequestError;
+      }
+
+      if (walletCredit > 0) {
+        await creditWalletByAdmin({
+          userId: order.user_id,
+          amount: walletCredit,
+          description: `Refund credit for order ${order.order_number}`,
+          createdBy: user?.id,
+          orderId: order.id,
+          referenceKey: `order-refund:${order.id}:${order.refund_request?.id || 'manual'}:wallet-credit`,
+          notificationTitle: 'Wallet Refund Received',
+          notificationMessage: `${formatPrice(walletCredit)} has been credited to your Ihsan wallet for order ${order.order_number}.`,
+        });
+      }
+
+      const { error: orderError } = await supabase
+        .from('orders')
+        .update({
+          status: 'refunded',
+          admin_notes: refundDraft.adminNotes || order.admin_notes || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', order.id);
+
+      if (orderError) throw orderError;
+
+      const refundTrackingNoteParts = [
+        walletCredit > 0
+          ? `Refund processed. ${formatPrice(walletCredit)} credited to the customer's wallet.`
+          : 'Refund processed and recorded by support.',
+      ];
+
+      if (refundDraft.refundChannel === 'mixed') {
+        refundTrackingNoteParts.push('Remaining balance was marked for original payment refund.');
+      } else if (refundDraft.refundChannel === 'original_payment') {
+        refundTrackingNoteParts.push('Customer should receive the refund through the original payment channel.');
+      }
+
+      if (refundDraft.adminNotes.trim()) {
+        refundTrackingNoteParts.push(refundDraft.adminNotes.trim());
+      }
+
+      const { error: trackingError } = await supabase.from('order_tracking').insert({
+        order_id: order.id,
+        status: 'refunded',
+        location_name: 'Ihsan Support Desk',
+        notes: refundTrackingNoteParts.join(' '),
+      });
+
+      if (trackingError) throw trackingError;
+
+      const statusMessage = walletCredit > 0
+        ? refundDraft.refundChannel === 'mixed'
+          ? `Your refund has been processed. ${formatPrice(walletCredit)} was credited to your wallet and the remaining balance will be completed via your original payment channel.`
+          : `Your refund has been processed. ${formatPrice(walletCredit)} was credited to your wallet for future checkout use.`
+        : 'Your refund has been processed! Please check your original payment channel.';
+
+      await supabase.from('notifications').insert({
+        user_id: order.user_id,
+        title: 'Refund Processed',
+        message: statusMessage,
+        type: 'refund_status',
+        data: {
+          orderId: order.id,
+          orderNumber: order.order_number,
+          refund_channel: refundDraft.refundChannel,
+          wallet_credit_amount: walletCredit,
+        },
+      });
+
+      try {
+        await supabase.functions.invoke('send-push-notification', {
+          body: {
+            user_id: order.user_id,
+            title: `Refund for order ${order.order_number}`,
+            body: statusMessage,
+            data: {
+              type: 'refund_status',
+              orderId: order.id,
+              orderNumber: order.order_number,
+              refund_channel: refundDraft.refundChannel,
+              wallet_credit_amount: walletCredit,
+            },
+          },
+        });
+      } catch (pushError) {
+        console.log('Push notification failed:', pushError);
+      }
+
+      const emailResult = order.profiles?.email
+        ? await supabase.functions.invoke('send-transactional-email', {
+            body: {
+              to: order.profiles.email,
+              subject: buildRefundEmailSubject({
+                orderNumber: order.order_number,
+                statusLabel: 'processed',
+              }),
+              html: buildRefundEmailHtml({
+                customerName: order.profiles?.name || 'there',
+                orderNumber: order.order_number,
+                statusLabel: 'processed',
+                message: statusMessage,
+                adminNotes: refundDraft.adminNotes || undefined,
+              }),
+              text: buildRefundEmailText({
+                customerName: order.profiles?.name || 'there',
+                orderNumber: order.order_number,
+                statusLabel: 'processed',
+                message: statusMessage,
+                adminNotes: refundDraft.adminNotes || undefined,
+              }),
+              type: 'refund_status',
+              relatedEntityType: order.refund_request ? 'refund_request' : 'order',
+              relatedEntityId: order.refund_request?.id || order.id,
+              requestedBy: user?.id,
+              metadata: {
+                orderId: order.id,
+                orderNumber: order.order_number,
+                refundChannel: refundDraft.refundChannel,
+                walletCreditAmount: walletCredit,
+                source: order.refund_request ? 'refund_request' : 'manual_order_refund',
+              },
+            },
+          })
+        : { data: { sent: false, skipped: true }, error: null };
+
+      if (emailResult.error) throw emailResult.error;
+
+      await logAdminAction({
+        actorUserId: user?.id,
+        action: order.refund_request ? 'refund_request.processed' : 'order.refunded',
+        entityType: order.refund_request ? 'refund_request' : 'order',
+        entityId: order.refund_request?.id || order.id,
+        summary: `Processed refund for order ${order.order_number}.`,
+        metadata: {
+          orderId: order.id,
+          orderNumber: order.order_number,
+          refundRequestId: order.refund_request?.id || null,
+          refundChannel: refundDraft.refundChannel,
+          walletCredit,
+          emailSent: emailResult.data?.sent || false,
+        },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-refund-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['refund-requests'] });
+      toast.success('Refund processed');
+      resetRefundDialog();
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to process refund');
     },
   });
 
@@ -1041,6 +1512,9 @@ export function AdminOrders() {
                   ? ORDER_STATUSES[currentIdx + 1]
                   : undefined;
                 const prevStatus = currentIdx > 0 ? ORDER_STATUSES[currentIdx - 1] : undefined;
+                const checkpoints = getCheckpointsForOrder(order.status || 'pending');
+                const isCancelled = ['cancelled', 'refunded'].includes(order.status || '');
+                const primaryProductName = order.order_items[0]?.product_name || 'this order';
                 return (
                 <SwipeableOrderCard
                   key={order.id}
@@ -1098,7 +1572,7 @@ export function AdminOrders() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-4">
+                    <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-5">
                       <div>
                         <p className="text-sm text-muted-foreground">Customer</p>
                         <p className="font-medium text-foreground">
@@ -1130,7 +1604,102 @@ export function AdminOrders() {
                           <p className="text-sm text-muted-foreground italic">Not set</p>
                         )}
                       </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Refund</p>
+                        {order.refund_request ? (
+                          <div className="space-y-1">
+                            <Badge variant="secondary" className="w-fit">
+                              {getRefundStatusLabel(order.refund_request.status)}
+                            </Badge>
+                            <p className="text-xs text-muted-foreground">
+                              {formatPrice(Number(order.refund_request.refund_amount || order.total_amount))}
+                            </p>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground italic">No refund request</p>
+                        )}
+                      </div>
                     </div>
+
+                    {!isCancelled && (
+                      <div className="mb-4 grid gap-4 rounded-lg border border-border bg-muted/40 p-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(300px,1fr)]">
+                        <div className="space-y-3">
+                          <p className="text-sm font-semibold text-foreground">Horizontal Progress</p>
+                          <Progress value={getProgressPercentage(order.status || 'pending', checkpoints)} className="h-2.5" />
+                          <div className="flex justify-between gap-2">
+                            {checkpoints.map((checkpoint) => {
+                              const checkpointStatus = getCheckpointStatus(
+                                order.status || 'pending',
+                                checkpoint.key,
+                                checkpoints,
+                              );
+
+                              return (
+                                <div key={checkpoint.key} className="flex flex-1 flex-col items-center">
+                                  <div
+                                    className={`mb-1 h-3 w-3 rounded-full ${
+                                      checkpointStatus === 'done'
+                                        ? 'bg-primary'
+                                        : checkpointStatus === 'current'
+                                          ? 'bg-primary/50 ring-2 ring-primary/30'
+                                          : 'bg-muted-foreground/20'
+                                    }`}
+                                  />
+                                  <span
+                                    className={`text-center text-[10px] leading-tight ${
+                                      checkpointStatus === 'done'
+                                        ? 'font-medium text-primary'
+                                        : checkpointStatus === 'current'
+                                          ? 'text-foreground'
+                                          : 'text-muted-foreground'
+                                    }`}
+                                  >
+                                    {checkpoint.label}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        <div className="space-y-3">
+                          <p className="text-sm font-semibold text-foreground">Vertical Mapping</p>
+                          <div className="space-y-3">
+                            {(order.order_tracking.length > 0 ? [...order.order_tracking].reverse() : [{
+                              id: `fallback-${order.id}`,
+                              created_at: order.created_at,
+                              status: order.status || 'pending',
+                              notes: null,
+                              location_name: null,
+                              latitude: null,
+                              longitude: null,
+                              order_id: order.id,
+                            }]).map((track, index, items) => (
+                              <div key={track.id} className="flex gap-3">
+                                <div className="flex flex-col items-center">
+                                  <div className={`h-3 w-3 rounded-full ${index === 0 ? 'bg-primary' : 'bg-muted-foreground/30'}`} />
+                                  {index < items.length - 1 && <div className="my-1 h-full w-0.5 bg-muted-foreground/20" />}
+                                </div>
+                                <div className="min-w-0 flex-1 pb-2">
+                                  <p className={`text-sm font-medium ${index === 0 ? 'text-primary' : 'text-foreground'}`}>
+                                    {STATUS_LABELS[track.status as OrderStatus] || track.status.replaceAll('_', ' ')}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {format(new Date(track.created_at), 'MMM d, h:mm a')}
+                                  </p>
+                                  <p className="mt-1 text-xs text-muted-foreground">
+                                    {track.notes || getAutoNote(track.status, primaryProductName)}
+                                  </p>
+                                  {track.location_name && (
+                                    <p className="mt-1 text-[11px] text-muted-foreground/80">{track.location_name}</p>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Order Items with Full Details */}
                     <div className="mb-4 p-4 bg-muted rounded-lg">
@@ -1138,16 +1707,32 @@ export function AdminOrders() {
                       <div className="space-y-3">
                         {order.order_items?.map((item) => (
                           <div key={item.id} className="flex flex-col gap-3 rounded-lg border border-border bg-background p-3 sm:flex-row sm:items-start sm:justify-between">
-                            <div className="flex-1">
-                              <p className="font-medium text-foreground">{item.product_name}</p>
-                              {item.variant_details && (
-                                <p className="text-sm text-primary mt-1">
-                                  Variant: {item.variant_details}
-                                </p>
-                              )}
-                              <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
-                                <span>Qty: <strong className="text-foreground">{item.quantity}</strong></span>
-                                <span>Unit Price: <strong className="text-foreground">{formatPrice(Number(item.unit_price))}</strong></span>
+                            <div className="flex min-w-0 flex-1 gap-3">
+                              <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg border border-border bg-muted">
+                                {item.image_url ? (
+                                  <img
+                                    src={item.image_url}
+                                    alt={item.product_name}
+                                    className="h-full w-full object-cover"
+                                    loading="lazy"
+                                  />
+                                ) : (
+                                  <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                                    <Package className="h-5 w-5" />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="font-medium text-foreground">{item.product_name}</p>
+                                {item.variant_details && (
+                                  <p className="text-sm text-primary mt-1">
+                                    Variant: {item.variant_details}
+                                  </p>
+                                )}
+                                <div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+                                  <span>Qty: <strong className="text-foreground">{item.quantity}</strong></span>
+                                  <span>Unit Price: <strong className="text-foreground">{formatPrice(Number(item.unit_price))}</strong></span>
+                                </div>
                               </div>
                             </div>
                             <div className="text-right">
@@ -1417,11 +2002,49 @@ export function AdminOrders() {
                             View Details
                           </Button>
                         </DialogTrigger>
-                        <DialogContent className="max-w-2xl bg-background">
+                        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto bg-background">
                           <DialogHeader>
                             <DialogTitle>Order #{order.order_number}</DialogTitle>
                           </DialogHeader>
                           <div className="space-y-4">
+                            <div>
+                              <h4 className="mb-2 font-semibold">Order Items</h4>
+                              <div className="space-y-2">
+                                {order.order_items?.map((item) => (
+                                  <div
+                                    key={item.id}
+                                    className="flex items-start gap-3 rounded-lg border border-border bg-muted/50 p-3"
+                                  >
+                                    <div className="h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg border border-border bg-background">
+                                      {item.image_url ? (
+                                        <img
+                                          src={item.image_url}
+                                          alt={item.product_name}
+                                          className="h-full w-full object-cover"
+                                          loading="lazy"
+                                        />
+                                      ) : (
+                                        <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                                          <Package className="h-4 w-4" />
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <p className="font-medium text-foreground">{item.product_name}</p>
+                                      {item.variant_details && (
+                                        <p className="mt-1 text-sm text-primary">Variant: {item.variant_details}</p>
+                                      )}
+                                      <p className="mt-1 text-sm text-muted-foreground">
+                                        Qty {item.quantity} at {formatPrice(Number(item.unit_price))}
+                                      </p>
+                                    </div>
+                                    <p className="text-sm font-semibold text-primary">
+                                      {formatPrice(Number(item.total_price))}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
                             <div>
                               <h4 className="font-semibold mb-2">Shipping Address</h4>
                               {getShippingAddress(order.shipping_address) ? (
@@ -1459,6 +2082,16 @@ export function AdminOrders() {
                           </div>
                         </DialogContent>
                       </Dialog>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openRefundDialog(order)}
+                        disabled={order.status === 'refunded' || processRefundMutation.isPending}
+                      >
+                        <RotateCcw className="h-4 w-4 mr-1" />
+                        {order.refund_request ? 'Process Refund' : 'Manual Refund'}
+                      </Button>
 
                       <Dialog>
                         <DialogTrigger asChild>
@@ -1575,6 +2208,142 @@ export function AdminOrders() {
           </div>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={!!selectedRefundOrder} onOpenChange={(open) => !open && resetRefundDialog()}>
+        <DialogContent className="bg-background sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedRefundOrder?.refund_request ? 'Process Refund' : 'Manual Refund'}
+              {selectedRefundOrder ? ` for #${selectedRefundOrder.order_number}` : ''}
+            </DialogTitle>
+          </DialogHeader>
+
+          {selectedRefundOrder && (
+            <div className="space-y-4">
+              <div className="rounded-lg border border-border bg-muted/40 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Refund Summary</p>
+                    <p className="text-sm text-muted-foreground">
+                      Order total: {formatPrice(Number(selectedRefundOrder.total_amount))}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Customer: {selectedRefundOrder.profiles?.name || 'Unknown'}
+                    </p>
+                  </div>
+                  {selectedRefundOrder.refund_request ? (
+                    <Badge variant="secondary">
+                      {getRefundStatusLabel(selectedRefundOrder.refund_request.status)}
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline">Manual refund</Badge>
+                  )}
+                </div>
+
+                {selectedRefundOrder.refund_request ? (
+                  <div className="mt-3 space-y-2 text-sm">
+                    <p>
+                      <span className="font-medium text-foreground">Requested amount:</span>{' '}
+                      {formatPrice(
+                        Number(
+                          selectedRefundOrder.refund_request.refund_amount || selectedRefundOrder.total_amount,
+                        ),
+                      )}
+                    </p>
+                    <p>
+                      <span className="font-medium text-foreground">Reason:</span>{' '}
+                      {selectedRefundOrder.refund_request.reason}
+                    </p>
+                    {selectedRefundOrder.refund_request.details && (
+                      <p className="text-muted-foreground">{selectedRefundOrder.refund_request.details}</p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    This order has no customer refund request yet. Processing here will mark the order as refunded,
+                    add a tracking update, and notify the customer.
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="refund-channel">Refund route</Label>
+                <Select
+                  value={refundDraft.refundChannel}
+                  onValueChange={(value) =>
+                    setRefundDraft((prev) => ({ ...prev, refundChannel: value as RefundChannel }))
+                  }
+                >
+                  <SelectTrigger id="refund-channel">
+                    <SelectValue placeholder="Select refund route" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover z-50">
+                    <SelectItem value="original_payment">Original payment method</SelectItem>
+                    <SelectItem value="wallet_credit">Wallet credit only</SelectItem>
+                    <SelectItem value="mixed">Mixed refund + wallet credit</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {refundDraft.refundChannel !== 'original_payment' && (
+                <div className="space-y-2">
+                  <Label htmlFor="refund-wallet-credit">Wallet credit amount</Label>
+                  <Input
+                    id="refund-wallet-credit"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={refundDraft.walletCreditAmount}
+                    onChange={(e) =>
+                      setRefundDraft((prev) => ({ ...prev, walletCreditAmount: e.target.value }))
+                    }
+                    placeholder="0.00"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Suggested for shipping or buffer adjustments:{' '}
+                    {formatPrice(getSuggestedRefundWalletCredit(selectedRefundOrder))}
+                  </p>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="refund-admin-notes">Admin notes</Label>
+                <Textarea
+                  id="refund-admin-notes"
+                  value={refundDraft.adminNotes}
+                  onChange={(e) => setRefundDraft((prev) => ({ ...prev, adminNotes: e.target.value }))}
+                  placeholder="Add notes about how this refund was handled..."
+                  rows={4}
+                />
+              </div>
+
+              <Alert>
+                <AlertDescription>
+                  This records the refund in the order timeline and notifies the customer. Any original-payment
+                  transfer still needs to be completed through your payment operations flow.
+                </AlertDescription>
+              </Alert>
+
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <Button variant="outline" onClick={resetRefundDialog} disabled={processRefundMutation.isPending}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => processRefundMutation.mutate(selectedRefundOrder)}
+                  disabled={processRefundMutation.isPending}
+                >
+                  {processRefundMutation.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                  )}
+                  Process Refund
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!selectedFulfillmentOrder} onOpenChange={(open) => !open && setSelectedFulfillmentOrder(null)}>
         <DialogContent className="bg-background sm:max-w-xl">

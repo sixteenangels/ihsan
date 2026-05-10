@@ -5,141 +5,141 @@ import { componentTagger } from "lovable-tagger";
 import { VitePWA } from "vite-plugin-pwa";
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
-  server: {
-    host: "::",
-    port: 8080,
-  },
-  build: {
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          if (!id.includes("node_modules")) {
-            return;
-          }
+export default defineConfig(({ mode }) => {
+  const buildId =
+    process.env.VERCEL_GIT_COMMIT_SHA ||
+    process.env.npm_package_version ||
+    new Date().toISOString();
 
-          if (
-            id.includes("@supabase/") ||
-            id.includes("leaflet") ||
-            id.includes("react-leaflet")
-          ) {
-            return "supabase-maps";
-          }
+  return {
+    define: {
+      __APP_BUILD_ID__: JSON.stringify(buildId),
+    },
+    server: {
+      host: "::",
+      port: 8080,
+    },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (!id.includes("node_modules")) {
+              return;
+            }
 
-          if (id.includes("recharts")) {
-            return "charts";
-          }
+            if (
+              id.includes("@supabase/") ||
+              id.includes("leaflet") ||
+              id.includes("react-leaflet")
+            ) {
+              return "supabase-maps";
+            }
 
-          if (id.includes("framer-motion")) {
-            return "motion";
-          }
+            if (id.includes("recharts")) {
+              return "charts";
+            }
 
-          if (id.includes("react-router") || id.includes("@remix-run/router")) {
-            return "router";
-          }
+            if (id.includes("framer-motion")) {
+              return "motion";
+            }
 
-          if (id.includes("@tanstack/react-query")) {
-            return "query";
-          }
+            if (id.includes("react-router") || id.includes("@remix-run/router")) {
+              return "router";
+            }
 
-          if (
-            id.includes("react-hook-form") ||
-            id.includes("@hookform/resolvers") ||
-            id.includes("zod") ||
-            id.includes("input-otp")
-          ) {
-            return "forms";
-          }
+            if (id.includes("@tanstack/react-query")) {
+              return "query";
+            }
 
-          if (id.includes("next-themes")) {
-            return "theme";
-          }
+            if (
+              id.includes("react-hook-form") ||
+              id.includes("@hookform/resolvers") ||
+              id.includes("zod") ||
+              id.includes("input-otp")
+            ) {
+              return "forms";
+            }
 
-          if (id.includes("date-fns")) {
-            return "date-utils";
-          }
+            if (id.includes("next-themes")) {
+              return "theme";
+            }
 
-          if (id.includes("react-day-picker")) {
-            return "calendar";
-          }
+            if (id.includes("date-fns")) {
+              return "date-utils";
+            }
 
-          if (id.includes("jspdf") || id.includes("html2canvas")) {
-            return "pdf-tools";
-          }
+            if (id.includes("react-day-picker")) {
+              return "calendar";
+            }
 
-          if (id.includes("@radix-ui/")) {
-            return "radix";
-          }
+            if (id.includes("jspdf") || id.includes("html2canvas")) {
+              return "pdf-tools";
+            }
 
-          if (id.includes("lucide-react")) {
-            return "icons";
-          }
+            if (id.includes("@radix-ui/")) {
+              return "radix";
+            }
 
-          if (id.includes("embla-carousel-react") || id.includes("react-resizable-panels")) {
-            return "layout-tools";
-          }
+            if (id.includes("lucide-react")) {
+              return "icons";
+            }
 
-          if (id.includes("cmdk") || id.includes("vaul") || id.includes("sonner")) {
-            return "ui-extensions";
-          }
+            if (id.includes("embla-carousel-react") || id.includes("react-resizable-panels")) {
+              return "layout-tools";
+            }
 
-          return "vendor";
+            if (id.includes("cmdk") || id.includes("vaul") || id.includes("sonner")) {
+              return "ui-extensions";
+            }
+
+            return "vendor";
+          },
         },
       },
     },
-  },
-  plugins: [
-    react(),
-    mode === "development" && componentTagger(),
-    VitePWA({
-      registerType: "autoUpdate",
-      includeAssets: ["favicon.png", "robots.txt"],
-      manifest: {
-        name: "Ihsan App",
-        short_name: "Ihsan",
-        description: "Premium E-Commerce Shopping - Your trusted shopping destination",
-        theme_color: "#e65c00",
-        background_color: "#f5f5f5",
-        display: "standalone",
-        orientation: "portrait",
-        start_url: "/",
-        icons: [
-          {
-            src: "/favicon.png",
-            sizes: "192x192",
-            type: "image/png",
-            purpose: "any maskable",
-          },
-          {
-            src: "/favicon.png",
-            sizes: "512x512",
-            type: "image/png",
-            purpose: "any maskable",
-          },
-        ],
-      },
-      workbox: {
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff,woff2}"],
-        importScripts: ["/sw-push.js"],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/.*supabase\.co\/.*/i,
-            handler: "NetworkFirst",
-            options: {
-              cacheName: "supabase-cache",
-              expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 60 * 60 * 24, // 24 hours
-              },
+    plugins: [
+      react(),
+      mode === "development" && componentTagger(),
+      VitePWA({
+        registerType: "autoUpdate",
+        includeAssets: ["favicon.png", "robots.txt"],
+        manifest: {
+          name: "Ihsan App",
+          short_name: "Ihsan",
+          description: "Premium E-Commerce Shopping - Your trusted shopping destination",
+          theme_color: "#e65c00",
+          background_color: "#f5f5f5",
+          display: "standalone",
+          orientation: "portrait",
+          start_url: "/",
+          icons: [
+            {
+              src: "/favicon.png",
+              sizes: "192x192",
+              type: "image/png",
+              purpose: "any maskable",
             },
-          },
-        ],
+            {
+              src: "/favicon.png",
+              sizes: "512x512",
+              type: "image/png",
+              purpose: "any maskable",
+            },
+          ],
+        },
+        workbox: {
+          cleanupOutdatedCaches: true,
+          clientsClaim: true,
+          skipWaiting: true,
+          globPatterns: ["**/*.{js,css,html,ico,png,svg,woff,woff2}"],
+          importScripts: ["/sw-push.js"],
+        },
+      }),
+    ].filter(Boolean),
+    resolve: {
+      alias: {
+        "@": path.resolve(__dirname, "./src"),
       },
-    }),
-  ].filter(Boolean),
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
     },
-  },
-}));
+  };
+});
