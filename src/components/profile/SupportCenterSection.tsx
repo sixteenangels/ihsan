@@ -28,6 +28,8 @@ const SUPPORT_SUBJECTS = [
   'Returns & Refunds',
   'Group Buys',
 ];
+const SUPPORT_CONVERSATION_POLL_MS = 20000;
+const SUPPORT_REQUEST_POLL_MS = 45000;
 
 function getConversationStatusVariant(status: string) {
   if (status === 'closed') return 'secondary' as const;
@@ -54,6 +56,8 @@ export function SupportCenterSection() {
   const { data: conversations = [], isLoading: conversationsLoading } = useQuery({
     queryKey: ['support-conversations', user?.id],
     enabled: Boolean(user?.id),
+    refetchInterval: isDocumentVisible ? SUPPORT_CONVERSATION_POLL_MS : false,
+    refetchOnWindowFocus: true,
     queryFn: async (): Promise<SupportConversation[]> => {
       if (!user?.id) return [];
 
@@ -88,6 +92,8 @@ export function SupportCenterSection() {
   const { data: supportRequests = [], isLoading: requestsLoading } = useQuery({
     queryKey: ['support-requests', user?.id],
     enabled: Boolean(user?.id),
+    refetchInterval: isDocumentVisible ? SUPPORT_REQUEST_POLL_MS : false,
+    refetchOnWindowFocus: true,
     queryFn: async (): Promise<LegacySupportRequest[]> => {
       if (!user?.id) return [];
 
@@ -111,30 +117,6 @@ export function SupportCenterSection() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
-
-  useEffect(() => {
-    if (!user?.id || !isDocumentVisible) return;
-
-    const conversationChannel = supabase
-      .channel(`support-conversations-${user.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'chat_support_conversations',
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['support-conversations', user.id] });
-        },
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(conversationChannel);
-    };
-  }, [isDocumentVisible, queryClient, user?.id]);
 
   useEffect(() => {
     if (!selectedConversationId || !isDocumentVisible) return;

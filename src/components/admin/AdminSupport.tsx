@@ -63,6 +63,8 @@ interface SupportRequest {
 const SUPPORT_PRIORITIES: SupportRequest['priority'][] = ['low', 'normal', 'high', 'urgent'];
 const SUPPORT_CATEGORIES = ['General', 'Orders & Shipping', 'Payments', 'Returns & Refunds', 'Group Buys'];
 type SupportQueueFilter = 'all' | 'open' | 'overdue' | 'urgent' | 'unassigned';
+const ADMIN_SUPPORT_CONVERSATION_POLL_MS = 15000;
+const ADMIN_SUPPORT_QUEUE_POLL_MS = 30000;
 
 function getSlaThresholdHours(request: SupportRequest) {
   switch (request.priority) {
@@ -113,6 +115,8 @@ export function AdminSupport() {
   // Fetch all conversations with profiles
   const { data: conversations, isLoading: loadingConversations } = useQuery({
     queryKey: ['admin-support-conversations'],
+    refetchInterval: isDocumentVisible ? ADMIN_SUPPORT_CONVERSATION_POLL_MS : false,
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const { data: convData, error } = await supabase
         .from('chat_support_conversations')
@@ -170,6 +174,8 @@ export function AdminSupport() {
 
   const { data: supportRequests, isLoading: loadingSupportRequests } = useQuery({
     queryKey: ['admin-support-requests'],
+    refetchInterval: isDocumentVisible ? ADMIN_SUPPORT_QUEUE_POLL_MS : false,
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('support_requests')
@@ -225,30 +231,6 @@ export function AdminSupport() {
       supabase.removeChannel(channel);
     };
   }, [isDocumentVisible, selectedConversationId, queryClient]);
-
-  // Subscribe to new conversations
-  useEffect(() => {
-    if (!isDocumentVisible) return;
-
-    const channel = supabase
-      .channel('admin-new-conversations')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'chat_support_conversations',
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['admin-support-conversations'] });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [isDocumentVisible, queryClient]);
 
   useEffect(() => {
     scrollToBottom();
