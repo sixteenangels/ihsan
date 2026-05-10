@@ -16,7 +16,7 @@ import { WelcomeModal } from "@/components/onboarding/WelcomeModal";
 import { MaintenanceMode } from "@/components/MaintenanceMode";
 import { missingSupabaseEnvVars, supabaseConfigError } from "@/integrations/supabase/client";
 import { ThemeProvider } from "next-themes";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useLayoutEffect } from "react";
 import { Loader2 } from "lucide-react";
 
 // Lazy load all pages for code splitting
@@ -90,6 +90,10 @@ function SupabaseConfigScreen() {
 function AppRouterContent() {
   const location = useLocation();
   const isAdminRoute = location.pathname.startsWith("/admin");
+
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [location.pathname]);
 
   return (
     <MaintenanceMode>

@@ -10,7 +10,7 @@ import { MapPin, Heart, Bell, Check, ArrowRight } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
-import { formatCategoryLabel } from '@/lib/categoryIcons';
+import { CategoryIconDisplay } from '@/components/categories/CategoryIconDisplay';
 
 const INTERESTS = [
   'Electronics', 'Fashion', 'Beauty', 'Home & Kitchen', 'Sports',
@@ -117,7 +117,7 @@ export function WelcomeModal() {
                 <SelectTrigger>
                   <SelectValue placeholder="Select your region" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-80">
                   {REGIONS.map(r => (
                     <SelectItem key={r} value={r}>{r}</SelectItem>
                   ))}
@@ -137,11 +137,15 @@ export function WelcomeModal() {
                   <Badge
                     key={interest}
                     variant={selectedInterests.includes(interest) ? 'default' : 'outline'}
-                    className="cursor-pointer text-sm py-2 px-3"
+                    className="cursor-pointer px-3 py-2 text-sm"
                     onClick={() => toggleInterest(interest)}
                   >
                     {selectedInterests.includes(interest) && <Check className="h-3 w-3 mr-1" />}
-                    {formatCategoryLabel(interest)}
+                    <CategoryIconDisplay
+                      categoryName={interest}
+                      className="mr-1 h-3.5 w-3.5"
+                    />
+                    {interest}
                   </Badge>
                 ))}
               </div>

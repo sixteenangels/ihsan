@@ -25,140 +25,124 @@ import {
   Wrench,
 } from 'lucide-react';
 
-// Map category names to Lucide icon labels used for admin/category metadata.
-export const categoryIconMap: Record<string, string> = {
-  fashion: 'Shirt',
-  clothing: 'Shirt',
-  beauty: 'Sparkles',
-  'beauty & health': 'Sparkles',
-  health: 'Heart',
-  electronics: 'Smartphone',
-  gadgets: 'Smartphone',
-  home: 'Home',
-  'home & garden': 'Home',
-  food: 'UtensilsCrossed',
-  'food & drinks': 'UtensilsCrossed',
-  sports: 'Dumbbell',
-  'sports & fitness': 'Dumbbell',
-  books: 'BookOpen',
-  toys: 'Gamepad2',
-  kids: 'Baby',
-  accessories: 'Watch',
-  jewelry: 'Gem',
-  shoes: 'Footprints',
-  bags: 'ShoppingBag',
-  automotive: 'Car',
-  pets: 'Dog',
-  office: 'Briefcase',
-  furniture: 'Sofa',
-  music: 'Music',
-  art: 'Palette',
-  tools: 'Wrench',
-  garden: 'Flower2',
-};
-
-export const categoryEmojiMap: Record<string, string> = {
-  fashion: '👗',
-  clothing: '👕',
-  beauty: '💄',
-  cosmetics: '💅',
-  'personal care': '🧴',
-  'beauty & health': '✨',
-  health: '❤️',
-  electronics: '📱',
-  gadgets: '🔌',
-  'auto parts': '🚘',
-  auto: '🚗',
-  home: '🏠',
-  kitchen: '🍳',
-  living: '🛋️',
-  'home & living': '🛋️',
-  'home & garden': '🌿',
-  food: '🍽️',
-  drinks: '🥤',
-  beverages: '🧃',
-  'food & drinks': '🍽️',
-  sports: '🏋️',
-  fitness: '🏃',
-  'sports & fitness': '💪',
-  books: '📚',
-  toys: '🧸',
-  games: '🎮',
-  kids: '🍼',
-  baby: '🍼',
-  accessories: '⌚',
-  jewelry: '💎',
-  shoes: '👟',
-  bags: '👜',
-  automotive: '🚗',
-  pets: '🐾',
-  office: '💼',
-  furniture: '🪑',
-  music: '🎵',
-  art: '🎨',
-  tools: '🛠️',
-  garden: '🌱',
-  deals: '🔥',
-  'deals & offers': '🎁',
-  offers: '🎁',
-  'new arrivals': '✨',
-  'trending now': '📈',
-  trending: '📈',
-  'ready now': '📦',
-};
-
-const categoryIconComponents: Record<string, LucideIcon> = {
-  Shirt,
-  Sparkles,
-  Heart,
-  Smartphone,
-  Home,
-  UtensilsCrossed,
-  Dumbbell,
-  BookOpen,
-  Gamepad2,
+const categoryIconComponents = {
   Baby,
-  Watch,
-  Gem,
-  Footprints,
-  ShoppingBag,
+  BookOpen,
+  Briefcase,
   Car,
   Dog,
-  Briefcase,
-  Sofa,
-  Music,
-  Palette,
-  Wrench,
+  Dumbbell,
   Flower2,
+  Footprints,
+  Gamepad2,
+  Gem,
+  Heart,
+  Home,
+  Music,
   Package,
-};
+  Palette,
+  Shirt,
+  ShoppingBag,
+  Smartphone,
+  Sofa,
+  Sparkles,
+  UtensilsCrossed,
+  Watch,
+  Wrench,
+} satisfies Record<string, LucideIcon>;
 
-export function getCategoryIconName(categoryName: string): string {
-  const lower = categoryName.toLowerCase();
-  // Try exact match first
-  if (categoryIconMap[lower]) return categoryIconMap[lower];
-  // Try partial match
-  for (const [key, icon] of Object.entries(categoryIconMap)) {
-    if (lower.includes(key) || key.includes(lower)) return icon;
+type CategoryIconName = keyof typeof categoryIconComponents;
+
+export interface CategoryIconPreset {
+  label: string;
+  iconName: CategoryIconName;
+  token: string;
+  matchers: string[];
+}
+
+export const categoryIconPresets: CategoryIconPreset[] = [
+  { label: 'General', iconName: 'Package', token: 'lucide:Package', matchers: ['general', 'all', 'misc', 'ready now'] },
+  { label: 'Fashion', iconName: 'Shirt', token: 'lucide:Shirt', matchers: ['fashion', 'clothing', 'apparel'] },
+  { label: 'Beauty', iconName: 'Sparkles', token: 'lucide:Sparkles', matchers: ['beauty', 'cosmetics', 'personal care', 'new arrivals'] },
+  { label: 'Health', iconName: 'Heart', token: 'lucide:Heart', matchers: ['health', 'wellness'] },
+  { label: 'Electronics', iconName: 'Smartphone', token: 'lucide:Smartphone', matchers: ['electronics', 'gadgets', 'tech'] },
+  { label: 'Home', iconName: 'Home', token: 'lucide:Home', matchers: ['home', 'home & garden', 'home & living', 'living', 'kitchen'] },
+  { label: 'Food', iconName: 'UtensilsCrossed', token: 'lucide:UtensilsCrossed', matchers: ['food', 'food & drinks', 'drinks', 'beverages'] },
+  { label: 'Sports', iconName: 'Dumbbell', token: 'lucide:Dumbbell', matchers: ['sports', 'fitness', 'sports & fitness'] },
+  { label: 'Books', iconName: 'BookOpen', token: 'lucide:BookOpen', matchers: ['books'] },
+  { label: 'Toys', iconName: 'Gamepad2', token: 'lucide:Gamepad2', matchers: ['toys', 'games'] },
+  { label: 'Kids', iconName: 'Baby', token: 'lucide:Baby', matchers: ['kids', 'baby'] },
+  { label: 'Accessories', iconName: 'Watch', token: 'lucide:Watch', matchers: ['accessories'] },
+  { label: 'Jewelry', iconName: 'Gem', token: 'lucide:Gem', matchers: ['jewelry'] },
+  { label: 'Shoes', iconName: 'Footprints', token: 'lucide:Footprints', matchers: ['shoes', 'footwear'] },
+  { label: 'Bags', iconName: 'ShoppingBag', token: 'lucide:ShoppingBag', matchers: ['bags', 'offers', 'deals', 'deals & offers', 'trending', 'trending now'] },
+  { label: 'Automotive', iconName: 'Car', token: 'lucide:Car', matchers: ['automotive', 'auto', 'auto parts'] },
+  { label: 'Pets', iconName: 'Dog', token: 'lucide:Dog', matchers: ['pets'] },
+  { label: 'Office', iconName: 'Briefcase', token: 'lucide:Briefcase', matchers: ['office', 'business'] },
+  { label: 'Furniture', iconName: 'Sofa', token: 'lucide:Sofa', matchers: ['furniture'] },
+  { label: 'Music', iconName: 'Music', token: 'lucide:Music', matchers: ['music'] },
+  { label: 'Art', iconName: 'Palette', token: 'lucide:Palette', matchers: ['art', 'craft'] },
+  { label: 'Tools', iconName: 'Wrench', token: 'lucide:Wrench', matchers: ['tools', 'hardware'] },
+  { label: 'Garden', iconName: 'Flower2', token: 'lucide:Flower2', matchers: ['garden', 'plants'] },
+];
+
+function normalizeIconKey(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, '');
+}
+
+function isExternalIconValue(value: string): boolean {
+  return (
+    value.startsWith('data:image/') ||
+    value.startsWith('<svg') ||
+    value.startsWith('http://') ||
+    value.startsWith('https://') ||
+    value.startsWith('//') ||
+    value.startsWith('/') ||
+    value.startsWith('blob:')
+  );
+}
+
+function resolveCategoryIconPreset(value: string | null | undefined): CategoryIconPreset | null {
+  const trimmedValue = value?.trim();
+  if (!trimmedValue || isExternalIconValue(trimmedValue) || trimmedValue.startsWith('text:')) {
+    return null;
   }
-  return 'Package';
+
+  const normalizedValue = normalizeIconKey(trimmedValue);
+
+  for (const preset of categoryIconPresets) {
+    const presetTokens = [
+      preset.token,
+      preset.label,
+      preset.iconName,
+      ...preset.matchers,
+    ].map(normalizeIconKey);
+
+    if (presetTokens.includes(normalizedValue)) {
+      return preset;
+    }
+  }
+
+  return null;
+}
+
+export function getCategoryIconName(categoryName: string): CategoryIconName {
+  return resolveCategoryIconPreset(categoryName)?.iconName ?? 'Package';
+}
+
+export function getCategoryLucideIcon(icon: string | null | undefined): LucideIcon | null {
+  const preset = resolveCategoryIconPreset(icon);
+  if (!preset) return null;
+  return categoryIconComponents[preset.iconName] ?? null;
+}
+
+export function getCategoryIconToken(icon: string | null | undefined): string | null {
+  return resolveCategoryIconPreset(icon)?.token ?? null;
 }
 
 export function getCategoryIconComponent(categoryName: string): LucideIcon {
   const iconName = getCategoryIconName(categoryName);
   return categoryIconComponents[iconName] || Package;
-}
-
-export function getCategoryEmoji(categoryName: string): string {
-  const lower = categoryName.toLowerCase();
-
-  if (categoryEmojiMap[lower]) return categoryEmojiMap[lower];
-
-  for (const [key, emoji] of Object.entries(categoryEmojiMap)) {
-    if (lower.includes(key) || key.includes(lower)) return emoji;
-  }
-
-  return '📦';
 }
 
 export function getCategoryIconSource(icon: string | null | undefined): string | null {
@@ -176,8 +160,4 @@ export function getCategoryIconSource(icon: string | null | undefined): string |
   if (value.startsWith('blob:')) return value;
 
   return null;
-}
-
-export function formatCategoryLabel(categoryName: string): string {
-  return `${getCategoryEmoji(categoryName)} ${categoryName}`;
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -45,6 +45,7 @@ export function StartGroupBuyDialog({ product }: StartGroupBuyDialogProps) {
   const [quantity, setQuantity] = useState('1');
   const [step, setStep] = useState<'setup' | 'payment'>('setup');
   const [isPaying, setIsPaying] = useState(false);
+  const callbackFiredRef = useRef(false);
 
   const { data: variants } = useQuery({
     queryKey: ['product-variants', product.id],
@@ -74,11 +75,14 @@ export function StartGroupBuyDialog({ product }: StartGroupBuyDialogProps) {
     enabled: !!user,
   });
 
+  const hasVariants = (variants?.length ?? 0) > 0;
   const offeredUnitPrice = product.group_buy_price ?? product.base_price;
   const discountPercentage = product.base_price > 0
     ? Math.max(0, Math.round(((product.base_price - offeredUnitPrice) / product.base_price) * 100))
     : 0;
-  const totalAmount = offeredUnitPrice * parseInt(quantity || '1', 10);
+  const normalizedQuantity = Math.max(1, Number.parseInt(quantity || '1', 10) || 1);
+  const normalizedParticipantCount = Math.max(2, Number.parseInt(participantCount || '2', 10) || 2);
+  const totalAmount = offeredUnitPrice * normalizedQuantity;
 
   const resetForm = () => {
     setParticipantCount('5');
@@ -108,8 +112,9 @@ export function StartGroupBuyDialog({ product }: StartGroupBuyDialogProps) {
         .eq('user_id', user.id)
         .single();
 
-      const reference = `GB-NEW-${Date.now()}`;
+      const reference = `GB-NEW-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       const amountInPesewas = Math.round(totalAmount * 100);
+      callbackFiredRef.current = false;
 
       const paystackWindow = window as PaystackWindow;
       const handler = paystackWindow.PaystackPop?.setup({
@@ -120,21 +125,16 @@ export function StartGroupBuyDialog({ product }: StartGroupBuyDialogProps) {
         ref: reference,
         metadata: { type: 'group_buy_start', product_id: product.id, user_id: user.id },
         callback: async (response: PaystackTransactionResponse) => {
-          const { data: verification } = await supabase.functions.invoke(
-            'verify-paystack-payment',
-            { body: { reference: response.reference } }
-          );
-
-          if (verification?.verified) {
-            await createGroupBuy(response.reference);
-          } else {
-            toast.error(`Payment could not be verified. Contact support with ref: ${response.reference}`);
-            setIsPaying(false);
-          }
+          callbackFiredRef.current = true;
+          await verifyAndCreateGroupBuy(response.reference, amountInPesewas);
         },
         onClose: () => {
-          setIsPaying(false);
-          toast.info('Payment cancelled. You were not charged.');
+          setTimeout(() => {
+            if (!callbackFiredRef.current) {
+              setIsPaying(false);
+              toast.info('Payment cancelled. You were not charged.');
+            }
+          }, 500);
         },
       });
 
@@ -150,10 +150,58 @@ export function StartGroupBuyDialog({ product }: StartGroupBuyDialogProps) {
     }
   };
 
+  const verifyAndCreateGroupBuy = async (paymentRef: string, expectedAmount: number) => {
+    try {
+      const { data: verification, error: verificationError } = await supabase.functions.invoke(
+        'verify-paystack-payment',
+        { body: { reference: paymentRef } }
+      );
+
+      if (verificationError) {
+        toast.error(`Payment verification failed. Contact support with ref: ${paymentRef}`);
+        setIsPaying(false);
+        return;
+      }
+
+      if (!verification?.verified) {
+        toast.error(`Payment could not be verified. Contact support with ref: ${paymentRef}`);
+        setIsPaying(false);
+        return;
+      }
+
+      if (verification.amount !== expectedAmount) {
+        toast.error(`Payment amount mismatch. Contact support with ref: ${paymentRef}`);
+        setIsPaying(false);
+        return;
+      }
+
+      await createGroupBuy(paymentRef);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, `Failed to create group buy. Contact support with ref: ${paymentRef}`));
+      setIsPaying(false);
+    }
+  };
+
   const createGroupBuy = async (paymentRef: string) => {
     if (!user) return;
 
-    const requiredParticipants = Math.max(2, parseInt(participantCount || '2', 10));
+    const { data: existingParticipant } = await supabase
+      .from('group_buy_participants')
+      .select('group_buy_id')
+      .eq('payment_reference', paymentRef)
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (existingParticipant) {
+      queryClient.invalidateQueries({ queryKey: ['group-buys'] });
+      queryClient.invalidateQueries({ queryKey: ['my-group-buys'] });
+      toast.success('Your group buy was already created.');
+      setIsOpen(false);
+      setIsPaying(false);
+      resetForm();
+      return;
+    }
+
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
 
@@ -162,8 +210,8 @@ export function StartGroupBuyDialog({ product }: StartGroupBuyDialogProps) {
       .insert({
         product_id: product.id,
         title: `${product.name} Group Buy`,
-        min_participants: requiredParticipants,
-        max_participants: requiredParticipants,
+        min_participants: normalizedParticipantCount,
+        max_participants: normalizedParticipantCount,
         discount_percentage: discountPercentage > 0 ? discountPercentage : 0,
         group_price: offeredUnitPrice,
         expires_at: expiresAt.toISOString(),
@@ -184,19 +232,28 @@ export function StartGroupBuyDialog({ product }: StartGroupBuyDialogProps) {
       full_name: defaultAddress.full_name,
       phone: defaultAddress.phone,
       address_line1: defaultAddress.address_line1,
+      address_line2: defaultAddress.address_line2,
       city: defaultAddress.city,
+      state: defaultAddress.state,
       country: defaultAddress.country,
     } : null;
 
-    await supabase.from('group_buy_participants').insert({
+    const { error: participantError } = await supabase.from('group_buy_participants').insert({
       group_buy_id: gbData.id,
       user_id: user.id,
-      quantity: parseInt(quantity, 10),
+      quantity: normalizedQuantity,
       variant_id: selectedVariantId || null,
       payment_reference: paymentRef,
       payment_status: 'paid',
       shipping_address: addressData,
     });
+
+    if (participantError) {
+      await supabase.from('group_buys').delete().eq('id', gbData.id).eq('created_by', user.id);
+      toast.error(participantError.message || 'Payment was verified but the group buy could not be created.');
+      setIsPaying(false);
+      return;
+    }
 
     queryClient.invalidateQueries({ queryKey: ['group-buys'] });
     queryClient.invalidateQueries({ queryKey: ['my-group-buys'] });
@@ -277,7 +334,7 @@ export function StartGroupBuyDialog({ product }: StartGroupBuyDialogProps) {
                 <Button variant="outline" className="flex-1" onClick={() => setIsOpen(false)}>Cancel</Button>
                 <Button
                   className="flex-1"
-                  disabled={parseInt(participantCount || '0', 10) < 2 || (variants && variants.length > 0 && !selectedVariantId)}
+                  disabled={normalizedParticipantCount < 2 || (hasVariants && !selectedVariantId)}
                   onClick={() => setStep('payment')}
                 >
                   Next: Pay and Start

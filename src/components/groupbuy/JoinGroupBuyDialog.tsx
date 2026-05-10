@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -42,6 +42,7 @@ export function JoinGroupBuyDialog({ groupBuy }: JoinGroupBuyDialogProps) {
   const [selectedVariantId, setSelectedVariantId] = useState<string>('');
   const [step, setStep] = useState<'select' | 'payment'>('select');
   const [payingWithPaystack, setPayingWithPaystack] = useState(false);
+  const callbackFiredRef = useRef(false);
 
   // Fetch product variants
   const { data: variants } = useQuery({
@@ -89,6 +90,7 @@ export function JoinGroupBuyDialog({ groupBuy }: JoinGroupBuyDialogProps) {
     enabled: !!user,
   });
 
+  const hasVariants = (variants?.length ?? 0) > 0;
   const discountedPrice = groupBuy.group_price != null
     ? groupBuy.group_price
     : groupBuy.product
@@ -101,7 +103,8 @@ export function JoinGroupBuyDialog({ groupBuy }: JoinGroupBuyDialogProps) {
       ? Number(groupBuy.group_price)
       : Number(selectedVariant.price_override) * (1 - (groupBuy.discount_percentage || 0) / 100)
     : discountedPrice;
-  const totalAmount = unitPrice * parseInt(quantity || '1');
+  const normalizedQuantity = Math.max(1, Number.parseInt(quantity || '1', 10) || 1);
+  const totalAmount = unitPrice * normalizedQuantity;
 
   const handlePaystackPayment = async () => {
     if (!user) return;
@@ -122,6 +125,7 @@ export function JoinGroupBuyDialog({ groupBuy }: JoinGroupBuyDialogProps) {
 
       const reference = `GB-${groupBuy.id.slice(0, 8)}-${Date.now()}`;
       const amountInPesewas = Math.round(totalAmount * 100);
+      callbackFiredRef.current = false;
 
       // Load Paystack inline
       const paystackWindow = window as PaystackWindow;
@@ -135,26 +139,20 @@ export function JoinGroupBuyDialog({ groupBuy }: JoinGroupBuyDialogProps) {
           type: 'group_buy',
           group_buy_id: groupBuy.id,
           user_id: user.id,
-          quantity: parseInt(quantity),
+          quantity: normalizedQuantity,
           variant_id: selectedVariantId || null,
         },
         callback: async (response: PaystackTransactionResponse) => {
-          // Verify payment server-side before saving
-          const { data: verification } = await supabase.functions.invoke(
-            'verify-paystack-payment',
-            { body: { reference: response.reference } }
-          );
-
-          if (verification?.verified) {
-            await saveParticipant(response.reference);
-          } else {
-            toast.error('Payment could not be verified. If you were charged, contact support with ref: ' + response.reference);
-            setPayingWithPaystack(false);
-          }
+          callbackFiredRef.current = true;
+          await verifyAndSaveParticipant(response.reference, amountInPesewas);
         },
         onClose: () => {
-          setPayingWithPaystack(false);
-          toast.info('Payment cancelled. You were not charged.');
+          setTimeout(() => {
+            if (!callbackFiredRef.current) {
+              setPayingWithPaystack(false);
+              toast.info('Payment cancelled. You were not charged.');
+            }
+          }, 500);
         },
       });
 
@@ -170,8 +168,59 @@ export function JoinGroupBuyDialog({ groupBuy }: JoinGroupBuyDialogProps) {
     }
   };
 
+  const verifyAndSaveParticipant = async (paymentRef: string, expectedAmount: number) => {
+    try {
+      const { data: verification, error: verificationError } = await supabase.functions.invoke(
+        'verify-paystack-payment',
+        { body: { reference: paymentRef } }
+      );
+
+      if (verificationError) {
+        toast.error('Payment verification failed. Contact support with ref: ' + paymentRef);
+        setPayingWithPaystack(false);
+        return;
+      }
+
+      if (!verification?.verified) {
+        toast.error('Payment could not be verified. If you were charged, contact support with ref: ' + paymentRef);
+        setPayingWithPaystack(false);
+        return;
+      }
+
+      if (verification.amount !== expectedAmount) {
+        toast.error('Payment amount mismatch. Contact support with ref: ' + paymentRef);
+        setPayingWithPaystack(false);
+        return;
+      }
+
+      await saveParticipant(paymentRef);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Failed to join the group buy after payment verification'));
+      setPayingWithPaystack(false);
+    }
+  };
+
   const saveParticipant = async (paymentRef: string) => {
     if (!user) return;
+
+    const { data: existingParticipant } = await supabase
+      .from('group_buy_participants')
+      .select('id, payment_status')
+      .eq('group_buy_id', groupBuy.id)
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (existingParticipant?.payment_status === 'paid') {
+      queryClient.invalidateQueries({ queryKey: ['group-buys'] });
+      queryClient.invalidateQueries({ queryKey: ['group-buy-participation'] });
+      queryClient.invalidateQueries({ queryKey: ['my-group-buys'] });
+      queryClient.invalidateQueries({ queryKey: ['group-buy-detail'] });
+      toast.success('You are already in this group buy.');
+      setIsOpen(false);
+      setStep('select');
+      setPayingWithPaystack(false);
+      return;
+    }
 
     const addressData = defaultAddress ? {
       full_name: defaultAddress.full_name,
@@ -188,7 +237,7 @@ export function JoinGroupBuyDialog({ groupBuy }: JoinGroupBuyDialogProps) {
       .insert({
         group_buy_id: groupBuy.id,
         user_id: user.id,
-        quantity: parseInt(quantity),
+        quantity: normalizedQuantity,
         variant_id: selectedVariantId || null,
         payment_reference: paymentRef,
         payment_status: 'paid',
@@ -197,7 +246,13 @@ export function JoinGroupBuyDialog({ groupBuy }: JoinGroupBuyDialogProps) {
 
     if (error) {
       if (error.message.includes('duplicate') || error.code === '23505') {
-        toast.error('You have already joined this group buy');
+        toast.success('You are already in this group buy.');
+        queryClient.invalidateQueries({ queryKey: ['group-buys'] });
+        queryClient.invalidateQueries({ queryKey: ['group-buy-participation'] });
+        queryClient.invalidateQueries({ queryKey: ['my-group-buys'] });
+        queryClient.invalidateQueries({ queryKey: ['group-buy-detail'] });
+        setIsOpen(false);
+        setStep('select');
       } else {
         toast.error(error.message || 'Failed to join');
       }
@@ -356,7 +411,11 @@ export function JoinGroupBuyDialog({ groupBuy }: JoinGroupBuyDialogProps) {
 
               <div className="flex gap-2 pt-2">
                 <Button variant="outline" className="flex-1" onClick={() => setIsOpen(false)}>Cancel</Button>
-                <Button className="flex-1" onClick={() => setStep('payment')}>
+                <Button
+                  className="flex-1"
+                  disabled={hasVariants && !selectedVariantId}
+                  onClick={() => setStep('payment')}
+                >
                   <CreditCard className="h-4 w-4 mr-2" /> Proceed to Pay
                 </Button>
               </div>

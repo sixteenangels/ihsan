@@ -1,10 +1,17 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
+import { useAuth } from '@/contexts/AuthContext';
+import { logAdminAction } from '@/lib/audit-log';
+import {
+  categoryIconPresets,
+  getCategoryIconToken,
+} from '@/lib/categoryIcons';
+import { CategoryIconDisplay } from '@/components/categories/CategoryIconDisplay';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   Dialog,
@@ -13,6 +20,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import {
   Table,
   TableBody,
@@ -21,12 +31,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, Loader2 } from 'lucide-react';
-import { CategoryIconDisplay } from '@/components/categories/CategoryIconDisplay';
-import { useAuth } from '@/contexts/AuthContext';
-import { logAdminAction } from '@/lib/audit-log';
-import type { Database } from '@/integrations/supabase/types';
 
 type CategoryRow = Database['public']['Tables']['categories']['Row'];
 type CategoryInsert = Database['public']['Tables']['categories']['Insert'];
@@ -42,11 +46,9 @@ interface CategoryForm {
 const defaultForm: CategoryForm = {
   name: '',
   slug: '',
-  icon: '📦',
+  icon: 'lucide:Package',
   is_active: true,
 };
-
-const EMOJI_PRESETS = ['📦', '🛍️', '👑', '🧴', '🍱', '🏠', '💄', '🧸', '🪑', '🎒', '📚', '🎮', '💻', '🍯', '✨', '🌿'];
 
 export function AdminCategories() {
   const queryClient = useQueryClient();
@@ -58,10 +60,7 @@ export function AdminCategories() {
   const { data: categories, isLoading } = useQuery({
     queryKey: ['admin-categories'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('categories')
-        .select('*')
-        .order('name');
+      const { data, error } = await supabase.from('categories').select('*').order('name');
       if (error) throw error;
       return (data || []) as CategoryRow[];
     },
@@ -96,8 +95,7 @@ export function AdminCategories() {
       queryClient.invalidateQueries({ queryKey: ['admin-categories'] });
       queryClient.invalidateQueries({ queryKey: ['categories'] });
       toast.success('Category created successfully');
-      setIsOpen(false);
-      setForm(defaultForm);
+      handleClose();
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -113,10 +111,7 @@ export function AdminCategories() {
         is_active: data.is_active,
       };
 
-      const { error } = await supabase
-        .from('categories')
-        .update(payload)
-        .eq('id', id);
+      const { error } = await supabase.from('categories').update(payload).eq('id', id);
       if (error) throw error;
 
       await logAdminAction({
@@ -132,9 +127,7 @@ export function AdminCategories() {
       queryClient.invalidateQueries({ queryKey: ['admin-categories'] });
       queryClient.invalidateQueries({ queryKey: ['categories'] });
       toast.success('Category updated successfully');
-      setIsOpen(false);
-      setEditingId(null);
-      setForm(defaultForm);
+      handleClose();
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -169,19 +162,20 @@ export function AdminCategories() {
     setForm({
       name: category.name,
       slug: category.slug,
-      icon: category.icon || '📦',
+      icon: category.icon || 'lucide:Package',
       is_active: category.is_active ?? true,
     });
     setIsOpen(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
     if (editingId) {
       updateMutation.mutate({ id: editingId, data: form });
-    } else {
-      createMutation.mutate(form);
+      return;
     }
+
+    createMutation.mutate(form);
   };
 
   const handleClose = () => {
@@ -190,30 +184,39 @@ export function AdminCategories() {
     setForm(defaultForm);
   };
 
+  const categoryRows = categories ?? [];
+  const selectedPresetToken = getCategoryIconToken(form.icon);
+  const isSaving = createMutation.isPending || updateMutation.isPending;
+
   return (
     <div>
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between md:mb-8">
         <h1 className="text-2xl font-bold font-serif text-foreground md:text-3xl">Categories</h1>
-        <Dialog open={isOpen} onOpenChange={(open) => !open ? handleClose() : setIsOpen(true)}>
+        <Dialog open={isOpen} onOpenChange={(open) => (open ? setIsOpen(true) : handleClose())}>
           <DialogTrigger asChild>
-            <Button onClick={() => { setEditingId(null); setForm(defaultForm); }} className="self-start sm:self-auto">
+            <Button
+              onClick={() => {
+                setEditingId(null);
+                setForm(defaultForm);
+              }}
+              className="self-start sm:self-auto"
+            >
               <Plus className="mr-2 h-4 w-4" />
               Add Category
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-h-[90vh] overflow-y-auto bg-background sm:max-w-lg">
+          <DialogContent className="max-h-[90vh] overflow-y-auto bg-background sm:max-w-2xl">
             <DialogHeader>
-              <DialogTitle>
-                {editingId ? 'Edit Category' : 'Add New Category'}
-              </DialogTitle>
+              <DialogTitle>{editingId ? 'Edit Category' : 'Add New Category'}</DialogTitle>
             </DialogHeader>
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Name *</Label>
                 <Input
                   id="name"
                   value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  onChange={(event) => setForm({ ...form, name: event.target.value })}
                   required
                 />
               </div>
@@ -223,36 +226,65 @@ export function AdminCategories() {
                 <Input
                   id="slug"
                   value={form.slug}
-                  onChange={(e) => setForm({ ...form, slug: e.target.value })}
+                  onChange={(event) => setForm({ ...form, slug: event.target.value })}
                   placeholder="auto-generated from name if empty"
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="icon">Icon</Label>
+              <div className="space-y-3">
+                <Label htmlFor="icon">Category Icon</Label>
                 <Input
                   id="icon"
                   value={form.icon}
-                  onChange={(e) => setForm({ ...form, icon: e.target.value })}
-                  placeholder="Emoji, SVG URL, image URL, or inline SVG"
+                  onChange={(event) => setForm({ ...form, icon: event.target.value })}
+                  placeholder="lucide:Shirt, SVG URL, inline SVG, or text:Sale"
                 />
-                <div className="grid grid-cols-4 gap-2 rounded-lg border border-border p-3 sm:grid-cols-8">
-                  {EMOJI_PRESETS.map((emoji) => (
-                    <button
-                      key={emoji}
-                      type="button"
-                      className={`rounded-lg border p-2 text-xl transition-colors ${
-                        form.icon === emoji ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/50'
-                      }`}
-                      onClick={() => setForm({ ...form, icon: emoji })}
-                    >
-                      {emoji}
-                    </button>
-                  ))}
+
+                <div className="rounded-xl border border-border bg-muted/20 p-4">
+                  <div className="mb-4 flex items-center gap-3">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                      <CategoryIconDisplay
+                        categoryName={form.name || 'Category'}
+                        icon={form.icon}
+                        className="h-6 w-6"
+                        emojiClassName="text-xl"
+                      />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-foreground">Preview</p>
+                      <p className="text-xs text-muted-foreground">
+                        SVG presets keep category cards consistent across the storefront and admin.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+                    {categoryIconPresets.map((preset) => (
+                      <button
+                        key={preset.token}
+                        type="button"
+                        className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
+                          selectedPresetToken === preset.token
+                            ? 'border-primary bg-primary/10 text-primary'
+                            : 'border-border bg-background hover:border-primary/50'
+                        }`}
+                        onClick={() => setForm({ ...form, icon: preset.token })}
+                      >
+                        <CategoryIconDisplay
+                          categoryName={preset.label}
+                          icon={preset.token}
+                          className="h-4 w-4 shrink-0"
+                        />
+                        <span>{preset.label}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Use a preset emoji, or paste a custom emoji, SVG URL, image URL, or inline SVG markup.
-                </p>
+
+                <div className="rounded-lg border border-dashed border-border p-3 text-xs text-muted-foreground">
+                  <p>Use an SVG preset token, paste an SVG URL, or inline SVG markup.</p>
+                  <p className="mt-1">Legacy emoji values fall back to a matching SVG automatically.</p>
+                </div>
               </div>
 
               <div className="flex items-center justify-between rounded-lg border border-border p-3">
@@ -260,9 +292,7 @@ export function AdminCategories() {
                 <Switch
                   id="is_active"
                   checked={form.is_active}
-                  onCheckedChange={(checked) =>
-                    setForm({ ...form, is_active: checked })
-                  }
+                  onCheckedChange={(checked) => setForm({ ...form, is_active: checked })}
                 />
               </div>
 
@@ -270,13 +300,8 @@ export function AdminCategories() {
                 <Button type="button" variant="outline" onClick={handleClose}>
                   Cancel
                 </Button>
-                <Button
-                  type="submit"
-                  disabled={createMutation.isPending || updateMutation.isPending}
-                >
-                  {(createMutation.isPending || updateMutation.isPending) && (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  )}
+                <Button type="submit" disabled={isSaving}>
+                  {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   {editingId ? 'Update' : 'Create'}
                 </Button>
               </div>
@@ -291,17 +316,17 @@ export function AdminCategories() {
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
-          ) : categories.length === 0 ? (
+          ) : categoryRows.length === 0 ? (
             <div className="py-8 text-center text-muted-foreground">
               No categories yet. Add your first category to get started.
             </div>
           ) : (
             <>
               <div className="space-y-3 p-4 md:hidden">
-                {categories.map((category) => (
+                {categoryRows.map((category) => (
                   <div key={category.id} className="rounded-lg border border-border bg-card p-4">
                     <div className="flex items-start gap-3">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-muted text-2xl">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-muted text-primary">
                         <CategoryIconDisplay
                           categoryName={category.name}
                           icon={category.icon}
@@ -328,12 +353,9 @@ export function AdminCategories() {
                         </p>
                       </div>
                     </div>
+
                     <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                      <Button
-                        variant="outline"
-                        className="flex-1"
-                        onClick={() => handleEdit(category)}
-                      >
+                      <Button variant="outline" className="flex-1" onClick={() => handleEdit(category)}>
                         <Pencil className="mr-2 h-4 w-4" />
                         Edit
                       </Button>
@@ -363,10 +385,10 @@ export function AdminCategories() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {categories.map((category) => (
+                    {categoryRows.map((category) => (
                       <TableRow key={category.id}>
                         <TableCell>
-                          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-muted">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-muted text-primary">
                             <CategoryIconDisplay
                               categoryName={category.name}
                               icon={category.icon}
@@ -391,11 +413,7 @@ export function AdminCategories() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleEdit(category)}
-                            >
+                            <Button variant="ghost" size="icon" onClick={() => handleEdit(category)}>
                               <Pencil className="h-4 w-4" />
                             </Button>
                             <Button

@@ -1,4 +1,8 @@
-import { getCategoryIconComponent, getCategoryIconSource } from '@/lib/categoryIcons';
+import {
+  getCategoryIconComponent,
+  getCategoryIconSource,
+  getCategoryLucideIcon,
+} from '@/lib/categoryIcons';
 import { cn } from '@/lib/utils';
 
 interface CategoryIconDisplayProps {
@@ -15,6 +19,7 @@ export function CategoryIconDisplay({
   emojiClassName,
 }: CategoryIconDisplayProps) {
   const iconSource = getCategoryIconSource(icon);
+  const CustomIcon = getCategoryLucideIcon(icon);
   const iconValue = icon?.trim();
 
   if (iconSource) {
@@ -28,7 +33,11 @@ export function CategoryIconDisplay({
     );
   }
 
-  if (iconValue) {
+  if (CustomIcon) {
+    return <CustomIcon aria-hidden="true" className={className} />;
+  }
+
+  if (iconValue?.startsWith('text:')) {
     return (
       <span
         aria-hidden="true"
@@ -37,7 +46,7 @@ export function CategoryIconDisplay({
           emojiClassName ?? className,
         )}
       >
-        {iconValue}
+        {iconValue.slice(5).trim()}
       </span>
     );
   }

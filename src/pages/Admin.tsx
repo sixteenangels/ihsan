@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2, Package, FolderTree, Users, LayoutDashboard, ShoppingCart, Truck, Tag, Star, MessageCircle, FileText, Bell, Settings, AlertTriangle, RefreshCcw, HelpCircle, Award, Link2, Wallet, MessageSquare, Gift, ScrollText, Menu } from 'lucide-react';
@@ -62,6 +62,7 @@ export default function Admin() {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const mainContentRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!isLoading && (!user || !isAdmin)) {
@@ -93,6 +94,11 @@ export default function Admin() {
     () => navItems.find((item) => isActivePath(location.pathname, item.href))?.name || 'Dashboard',
     [location.pathname, navItems],
   );
+
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    mainContentRef.current?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [location.pathname]);
 
   if (isLoading) {
     return (
@@ -210,7 +216,10 @@ export default function Admin() {
       </Sheet>
 
       {/* Main Content */}
-      <main className="mt-16 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-3 py-4 sm:px-4 sm:py-5 md:mt-0 md:p-8">
+      <main
+        ref={mainContentRef}
+        className="mt-16 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-3 py-4 sm:px-4 sm:py-5 md:mt-0 md:p-8"
+      >
         <div className="mx-auto w-full max-w-full">
           <Routes>
             <Route path="/" element={<AdminDashboard />} />
