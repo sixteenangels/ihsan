@@ -15,6 +15,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { buildSupportReplyEmailHtml, buildSupportReplyEmailText } from '@/lib/email-templates';
 import { logAdminAction } from '@/lib/audit-log';
+import { useDocumentVisibility } from '@/hooks/useDocumentVisibility';
 
 interface Conversation {
   id: string;
@@ -103,6 +104,7 @@ export function AdminSupport() {
   const [requestSummaries, setRequestSummaries] = useState<Record<string, string>>({});
   const [queueFilter, setQueueFilter] = useState<SupportQueueFilter>('all');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const isDocumentVisible = useDocumentVisibility();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -200,7 +202,7 @@ export function AdminSupport() {
 
   // Subscribe to realtime messages
   useEffect(() => {
-    if (!selectedConversationId) return;
+    if (!selectedConversationId || !isDocumentVisible) return;
 
     const channel = supabase
       .channel(`admin-chat-${selectedConversationId}`)
@@ -222,10 +224,12 @@ export function AdminSupport() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [selectedConversationId, queryClient]);
+  }, [isDocumentVisible, selectedConversationId, queryClient]);
 
   // Subscribe to new conversations
   useEffect(() => {
+    if (!isDocumentVisible) return;
+
     const channel = supabase
       .channel('admin-new-conversations')
       .on(
@@ -244,7 +248,7 @@ export function AdminSupport() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [queryClient]);
+  }, [isDocumentVisible, queryClient]);
 
   useEffect(() => {
     scrollToBottom();

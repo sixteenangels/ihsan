@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+import { useDocumentVisibility } from '@/hooks/useDocumentVisibility';
 
 type SupportConversation = Tables<'chat_support_conversations'>;
 type SupportMessage = Tables<'chat_support_messages'>;
@@ -48,6 +49,7 @@ export function SupportCenterSection() {
   const [draftReply, setDraftReply] = useState('');
   const [newConversationSubject, setNewConversationSubject] = useState(SUPPORT_SUBJECTS[0]);
   const [newConversationMessage, setNewConversationMessage] = useState('');
+  const isDocumentVisible = useDocumentVisibility();
 
   const { data: conversations = [], isLoading: conversationsLoading } = useQuery({
     queryKey: ['support-conversations', user?.id],
@@ -111,7 +113,7 @@ export function SupportCenterSection() {
   }, [messages]);
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id || !isDocumentVisible) return;
 
     const conversationChannel = supabase
       .channel(`support-conversations-${user.id}`)
@@ -132,10 +134,10 @@ export function SupportCenterSection() {
     return () => {
       supabase.removeChannel(conversationChannel);
     };
-  }, [queryClient, user?.id]);
+  }, [isDocumentVisible, queryClient, user?.id]);
 
   useEffect(() => {
-    if (!selectedConversationId) return;
+    if (!selectedConversationId || !isDocumentVisible) return;
 
     const messagesChannel = supabase
       .channel(`support-messages-${selectedConversationId}`)
@@ -159,7 +161,7 @@ export function SupportCenterSection() {
     return () => {
       supabase.removeChannel(messagesChannel);
     };
-  }, [queryClient, selectedConversationId, user?.id]);
+  }, [isDocumentVisible, queryClient, selectedConversationId, user?.id]);
 
   const createConversationMutation = useMutation({
     mutationFn: async () => {

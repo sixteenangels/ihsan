@@ -9,6 +9,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { MessageCircle, X, Send, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { useDocumentVisibility } from '@/hooks/useDocumentVisibility';
 
 interface Message {
   id: string;
@@ -28,6 +29,7 @@ export function LiveChatWidget() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const isDocumentVisible = useDocumentVisibility();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -39,7 +41,7 @@ export function LiveChatWidget() {
 
   // Subscribe to realtime messages
   useEffect(() => {
-    if (!conversationId) return;
+    if (!conversationId || !isOpen || !isDocumentVisible) return;
 
     const channel = supabase
       .channel(`chat-${conversationId}`)
@@ -64,7 +66,7 @@ export function LiveChatWidget() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [conversationId]);
+  }, [conversationId, isDocumentVisible, isOpen]);
 
   const loadMessages = useCallback(async (convId: string) => {
     const { data, error } = await supabase
@@ -124,6 +126,12 @@ export function LiveChatWidget() {
       findOrCreateConversation();
     }
   }, [findOrCreateConversation, isOpen, user]);
+
+  useEffect(() => {
+    if (isOpen && conversationId && isDocumentVisible) {
+      loadMessages(conversationId);
+    }
+  }, [conversationId, isDocumentVisible, isOpen, loadMessages]);
 
   const sendMessage = async () => {
     if (!newMessage.trim() || !conversationId || !user) return;
