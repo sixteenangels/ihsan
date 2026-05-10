@@ -174,7 +174,7 @@ export function AdminGiftCards() {
               Create Gift Card
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-h-[90vh] overflow-y-auto bg-background sm:max-w-lg">
             <DialogHeader>
               <DialogTitle>Create Gift Card</DialogTitle>
             </DialogHeader>

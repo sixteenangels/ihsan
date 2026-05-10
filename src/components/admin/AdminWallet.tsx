@@ -154,7 +154,7 @@ export function AdminWallet() {
                     Credit Wallet
                   </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="max-h-[90vh] overflow-y-auto bg-background sm:max-w-lg">
                   <DialogHeader>
                     <DialogTitle>Credit Wallet</DialogTitle>
                   </DialogHeader>

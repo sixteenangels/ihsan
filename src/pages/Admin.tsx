@@ -121,9 +121,9 @@ export default function Admin() {
   };
 
   return (
-    <div className="flex min-h-screen overflow-x-hidden bg-background">
+    <div className="flex h-screen min-h-screen overflow-hidden bg-background">
       {/* Sidebar */}
-      <aside className="hidden w-64 border-r border-border bg-card md:flex md:flex-col">
+      <aside className="hidden h-screen w-64 border-r border-border bg-card md:flex md:flex-col">
         <div className="p-6">
           <Link to="/" className="flex items-center gap-2">
             <span className="text-2xl font-bold font-serif text-primary">Ihsan</span>
@@ -222,7 +222,7 @@ export default function Admin() {
       {/* Main Content */}
       <main
         ref={mainContentRef}
-        className="mt-16 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-3 py-4 sm:px-4 sm:py-5 md:mt-0 md:p-8"
+        className="min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-auto px-3 pb-8 pt-20 sm:px-4 md:p-8"
       >
         <div className="mx-auto w-full max-w-full">
           <Routes>

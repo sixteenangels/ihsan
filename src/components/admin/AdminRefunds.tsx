@@ -322,7 +322,7 @@ export function AdminRefunds() {
       </Card>
 
       <Dialog open={!!selectedRequest} onOpenChange={(open) => !open && resetDialog()}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="max-h-[90vh] overflow-y-auto bg-background sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Refund Request Details</DialogTitle>
           </DialogHeader>

@@ -175,7 +175,7 @@ export function AdminLoyalty() {
                 Birthday Coupons
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-h-[90vh] overflow-y-auto bg-background sm:max-w-lg">
               <DialogHeader>
                 <DialogTitle>Send Birthday Coupons</DialogTitle>
               </DialogHeader>
@@ -210,7 +210,7 @@ export function AdminLoyalty() {
                 Award / Deduct Points
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-h-[90vh] overflow-y-auto bg-background sm:max-w-lg">
               <DialogHeader>
                 <DialogTitle>Award / Deduct Points</DialogTitle>
               </DialogHeader>

@@ -17,6 +17,13 @@ import { supabase } from '@/integrations/supabase/client';
 const emailSchema = z.string().email('Please enter a valid email address');
 const passwordSchema = z.string().min(6, 'Password must be at least 6 characters');
 const nameSchema = z.string().min(2, 'Name must be at least 2 characters');
+const PENDING_REFERRAL_CODE_KEY = 'ihsan_pending_referral_code';
+const PROCESSED_REFERRAL_PREFIX = 'ihsan_processed_referral';
+
+function normalizeReferralCode(referralCode: string | null) {
+  const normalized = referralCode?.trim().toUpperCase();
+  return normalized || null;
+}
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -65,6 +72,17 @@ export default function Auth() {
     }
   }, [searchParams]);
 
+  useEffect(() => {
+    const ref = normalizeReferralCode(searchParams.get('ref'));
+    if (!ref) return;
+
+    try {
+      localStorage.setItem(PENDING_REFERRAL_CODE_KEY, ref);
+    } catch (error) {
+      console.warn('Could not store referral code for later processing:', error);
+    }
+  }, [searchParams]);
+
   // Check if user is coming from password reset link
   useEffect(() => {
     const tab = searchParams.get('tab');
@@ -76,13 +94,44 @@ export default function Auth() {
   // Process referral after signup + login
   const referralProcessed = useRef(false);
   useEffect(() => {
-    const ref = searchParams.get('ref');
-    if (user && ref && !referralProcessed.current) {
-      referralProcessed.current = true;
-      supabase.functions.invoke('process-referral-reward', {
-        body: { referral_code: ref, referred_user_id: user.id },
-      }).catch((err) => console.error('Referral processing error:', err));
+    if (!user || referralProcessed.current) return;
+
+    let storedRef: string | null = null;
+    try {
+      storedRef = localStorage.getItem(PENDING_REFERRAL_CODE_KEY);
+    } catch {
+      storedRef = null;
     }
+
+    const ref = normalizeReferralCode(searchParams.get('ref')) || normalizeReferralCode(storedRef);
+    if (!ref) return;
+
+    const processedKey = `${PROCESSED_REFERRAL_PREFIX}:${user.id}:${ref}`;
+    try {
+      if (localStorage.getItem(processedKey)) return;
+    } catch {
+      // If storage is unavailable, still try to process the referral once for this session.
+    }
+
+    referralProcessed.current = true;
+    void (async () => {
+      const { error } = await supabase.functions.invoke('process-referral-reward', {
+        body: { referral_code: ref, referred_user_id: user.id },
+      });
+
+      if (error) {
+        referralProcessed.current = false;
+        console.error('Referral processing error:', error);
+        return;
+      }
+
+      try {
+        localStorage.setItem(processedKey, 'true');
+        localStorage.removeItem(PENDING_REFERRAL_CODE_KEY);
+      } catch {
+        // Referral was processed; failing to update local storage should not block the user.
+      }
+    })();
   }, [user, searchParams]);
 
   // Redirect if already logged in (unless resetting password)

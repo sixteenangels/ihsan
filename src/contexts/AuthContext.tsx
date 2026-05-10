@@ -127,7 +127,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signUp = async (email: string, password: string, name: string) => {
-    const redirectUrl = `${window.location.origin}/`;
+    const redirectUrl = getOAuthRedirectUrl();
     
     const { error } = await supabase.auth.signUp({
       email,
@@ -182,7 +182,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const resendVerificationEmail = async (email: string) => {
-    const redirectUrl = `${window.location.origin}/`;
+    const redirectUrl = getOAuthRedirectUrl();
     const { error } = await supabase.auth.resend({
       type: 'signup',
       email,

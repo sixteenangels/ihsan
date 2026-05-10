@@ -266,31 +266,36 @@ export default function Checkout() {
     (shippingRules as ShippingRuleRow[] | null)?.forEach((rule) => {
       const sc = rule.shipping_classes;
       if (!sc || !sc.is_active) return;
+      const productQuantity = selectedItems
+        .filter((item) => item.product.id === rule.product_id)
+        .reduce((sum, item) => sum + item.quantity, 0);
+      const unitShippingPrice = Number(rule.price ?? sc.base_price ?? 0);
 
       const productIsFreeShipping =
         productMeta[rule.product_id]?.is_free_shipping ||
         selectedItems.some((item) =>
           item.product.id === rule.product_id && item.product.isFreeShippingEligible
         );
+      const productShippingTotal = productIsFreeShipping ? 0 : unitShippingPrice * productQuantity;
 
       const existing = shippingClassCounts.get(sc.id);
       if (existing) {
         existing.count++;
-        existing.totalPrice += productIsFreeShipping ? 0 : Number(rule.price || 0);
-        existing.data.product_prices[rule.product_id] = Number(rule.price || 0);
+        existing.totalPrice += productShippingTotal;
+        existing.data.product_prices[rule.product_id] = unitShippingPrice;
       } else {
         shippingClassCounts.set(sc.id, {
           count: 1,
-          totalPrice: productIsFreeShipping ? 0 : Number(rule.price || 0),
+          totalPrice: productShippingTotal,
           data: {
             id: sc.id,
             name: sc.name,
-            base_price: sc.base_price,
+            base_price: Number(sc.base_price || 0),
             description: sc.description,
             estimated_days_min: sc.estimated_days_min,
             estimated_days_max: sc.estimated_days_max,
             product_prices: {
-              [rule.product_id]: Number(rule.price || 0),
+              [rule.product_id]: unitShippingPrice,
             },
             shipping_type: sc.shipping_types ? {
               id: sc.shipping_types.id,
@@ -432,6 +437,9 @@ export default function Checkout() {
   // Cart-level fragile / free shipping detection for the selected checkout items
   const hasFragile = selectedItems.some((it) => productMeta[it.product.id]?.is_fragile);
   const allFreeShipping = selectedItems.length > 0 && selectedItems.every((it) =>
+    productMeta[it.product.id]?.is_free_shipping || it.product.isFreeShippingEligible
+  );
+  const hasFreeShippingItems = selectedItems.some((it) =>
     productMeta[it.product.id]?.is_free_shipping || it.product.isFreeShippingEligible
   );
   const allowsStandardPackaging = selectedItems.every((it) =>
@@ -1344,6 +1352,9 @@ export default function Checkout() {
                                     {shipping.description || shipping.shipping_type?.description}
                                   </p>
                                 )}
+                                <p className="text-xs text-muted-foreground">
+                                  Priced per selected item quantity.
+                                </p>
                               </div>
                             </div>
                             <p className="pl-8 text-sm font-semibold text-foreground sm:pl-0">
@@ -1644,7 +1655,7 @@ export default function Checkout() {
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">
-                      Shipping{allFreeShipping && rawShippingCost > 0 ? ' (free)' : shippingCost < rawShippingCost ? ' (free items excluded)' : ''}
+                      Shipping{allFreeShipping ? ' (free)' : hasFreeShippingItems ? ' (free items excluded)' : ''}
                     </span>
                     <span className="text-foreground">{formatPrice(shippingCost)}</span>
                   </div>
@@ -1712,7 +1723,7 @@ export default function Checkout() {
 
       {/* Payment Recovery Dialog */}
       <Dialog open={showPaymentRecovery} onOpenChange={setShowPaymentRecovery}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto bg-background">
           <DialogHeader>
             <DialogTitle>Payment Interrupted</DialogTitle>
           </DialogHeader>
@@ -1758,7 +1769,7 @@ export default function Checkout() {
           }
         }}
       >
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto bg-background">
           <DialogHeader>
             <DialogTitle>Courier Delivery Fee</DialogTitle>
           </DialogHeader>
@@ -1796,7 +1807,7 @@ export default function Checkout() {
 
       {/* Standard Packaging Damage Disclaimer */}
       <Dialog open={showStandardWarning} onOpenChange={setShowStandardWarning}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto bg-background">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-destructive" />

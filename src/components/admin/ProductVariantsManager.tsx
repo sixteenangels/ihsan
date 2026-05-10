@@ -4,7 +4,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2, X } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 export interface VariantData {
   id?: string;
@@ -29,6 +30,51 @@ const defaultVariant: VariantData = {
   sku: '',
 };
 
+function splitCommaValues(value: string) {
+  return value
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function buildVariantKey(variant: VariantData) {
+  return `${variant.color.trim().toLowerCase()}::${variant.size.trim().toLowerCase()}`;
+}
+
+function formatSkuPart(value: string, fallback: string) {
+  return (value || fallback)
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function buildVariantCombinations(variant: VariantData) {
+  const sizes = splitCommaValues(variant.size);
+  const colors = splitCommaValues(variant.color);
+  const sizeValues = sizes.length > 0 ? sizes : [''];
+  const colorValues = colors.length > 0 ? colors : [''];
+  const combinations = colorValues.flatMap((color) =>
+    sizeValues.map((size) => ({ color, size })),
+  );
+
+  return combinations.map(({ color, size }, index) => {
+    const totalCombinations = combinations.length;
+    const skuSuffix = formatSkuPart([color, size].filter(Boolean).join('-'), `VAR-${index + 1}`);
+
+    return {
+      ...variant,
+      id: totalCombinations === 1 ? variant.id : undefined,
+      color,
+      size,
+      sku:
+        variant.sku.trim() && totalCombinations > 1
+          ? `${variant.sku.trim()}-${skuSuffix}`
+          : variant.sku.trim(),
+    };
+  });
+}
+
 export function ProductVariantsManager({ variants, onVariantsChange, basePrice }: ProductVariantsManagerProps) {
   const [showForm, setShowForm] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -39,12 +85,34 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
       return;
     }
 
+    const generatedVariants = buildVariantCombinations(currentVariant);
+    const existingKeys = new Set(
+      variants
+        .filter((_, index) => index !== editingIndex)
+        .map(buildVariantKey),
+    );
+    const uniqueGeneratedVariants = generatedVariants.filter((variant) => {
+      const key = buildVariantKey(variant);
+      if (existingKeys.has(key)) return false;
+      existingKeys.add(key);
+      return true;
+    });
+
+    if (uniqueGeneratedVariants.length === 0) {
+      toast.error('Those variant combinations already exist.');
+      return;
+    }
+
     if (editingIndex !== null) {
       const updated = [...variants];
-      updated[editingIndex] = currentVariant;
+      updated.splice(editingIndex, 1, ...uniqueGeneratedVariants);
       onVariantsChange(updated);
     } else {
-      onVariantsChange([...variants, currentVariant]);
+      onVariantsChange([...variants, ...uniqueGeneratedVariants]);
+    }
+
+    if (uniqueGeneratedVariants.length > 1) {
+      toast.success(`Created ${uniqueGeneratedVariants.length} variants.`);
     }
 
     setCurrentVariant(defaultVariant);
@@ -91,28 +159,34 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
       {showForm && (
         <Card className="border-primary/50">
           <CardContent className="pt-4 space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="variant-size">Size</Label>
+                <Label htmlFor="variant-size">Size(s)</Label>
                 <Input
                   id="variant-size"
                   value={currentVariant.size}
                   onChange={(e) => setCurrentVariant({ ...currentVariant, size: e.target.value })}
                   placeholder="e.g., S, M, L, XL"
                 />
+                <p className="text-xs text-muted-foreground">
+                  Separate sizes with commas to create one variant per size.
+                </p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="variant-color">Color</Label>
+                <Label htmlFor="variant-color">Colour</Label>
                 <Input
                   id="variant-color"
                   value={currentVariant.color}
                   onChange={(e) => setCurrentVariant({ ...currentVariant, color: e.target.value })}
-                  placeholder="e.g., Red, Blue, Black"
+                  placeholder="e.g., Black"
                 />
+                <p className="text-xs text-muted-foreground">
+                  You can also enter multiple colours with commas.
+                </p>
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div className="space-y-2">
                 <Label htmlFor="variant-price">Price Override</Label>
                 <Input
@@ -168,15 +242,15 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
           {variants.map((variant, index) => (
             <div
               key={index}
-              className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30"
+              className="flex flex-col gap-3 rounded-lg border border-border bg-muted/30 p-3 sm:flex-row sm:items-center sm:justify-between"
             >
-              <div className="flex items-center gap-3">
-                <div className="flex gap-2">
+              <div className="min-w-0 space-y-2 sm:flex sm:items-center sm:gap-3 sm:space-y-0">
+                <div className="flex flex-wrap gap-2">
                   {variant.size && (
                     <Badge variant="secondary">Size: {variant.size}</Badge>
                   )}
                   {variant.color && (
-                    <Badge variant="secondary">Color: {variant.color}</Badge>
+                    <Badge variant="secondary">Colour: {variant.color}</Badge>
                   )}
                 </div>
                 <span className="text-sm text-muted-foreground">

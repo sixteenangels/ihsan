@@ -1952,7 +1952,7 @@ export function AdminOrders() {
                             Set Delivery
                           </Button>
                         </DialogTrigger>
-                        <DialogContent className="max-w-md bg-background">
+                        <DialogContent className="max-h-[90vh] max-w-md overflow-y-auto bg-background">
                           <DialogHeader>
                             <DialogTitle>Set Estimated Delivery for #{order.order_number}</DialogTitle>
                           </DialogHeader>
@@ -2100,7 +2100,7 @@ export function AdminOrders() {
                             Add Tracking
                           </Button>
                         </DialogTrigger>
-                        <DialogContent className="max-w-lg bg-background">
+                        <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto bg-background">
                           <DialogHeader>
                             <DialogTitle>Add Tracking Update</DialogTitle>
                           </DialogHeader>
@@ -2210,7 +2210,7 @@ export function AdminOrders() {
       </Tabs>
 
       <Dialog open={!!selectedRefundOrder} onOpenChange={(open) => !open && resetRefundDialog()}>
-        <DialogContent className="bg-background sm:max-w-lg">
+        <DialogContent className="max-h-[90vh] overflow-y-auto bg-background sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>
               {selectedRefundOrder?.refund_request ? 'Process Refund' : 'Manual Refund'}
@@ -2346,7 +2346,7 @@ export function AdminOrders() {
       </Dialog>
 
       <Dialog open={!!selectedFulfillmentOrder} onOpenChange={(open) => !open && setSelectedFulfillmentOrder(null)}>
-        <DialogContent className="bg-background sm:max-w-xl">
+        <DialogContent className="max-h-[90vh] overflow-y-auto bg-background sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>
               Fulfillment Details {selectedFulfillmentOrder ? `for #${selectedFulfillmentOrder.order_number}` : ''}

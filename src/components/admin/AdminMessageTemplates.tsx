@@ -52,7 +52,7 @@ export function AdminMessageTemplates() {
               New Template
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-h-[90vh] overflow-y-auto bg-background sm:max-w-lg">
             <DialogHeader>
               <DialogTitle>Create Message Template</DialogTitle>
             </DialogHeader>

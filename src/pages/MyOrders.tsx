@@ -1160,7 +1160,7 @@ export default function MyOrders() {
 
       {/* Review Dialog */}
       <Dialog open={!!reviewDialogOrder} onOpenChange={(open) => !open && setReviewDialogOrder(null)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="max-h-[90vh] overflow-y-auto bg-background sm:max-w-md">
           <DialogHeader>
             <DialogTitle>How was your order?</DialogTitle>
           </DialogHeader>

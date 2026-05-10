@@ -57,43 +57,22 @@ interface OrderTrackingMapProps {
 
 function MapBoundsUpdater({ points }: { points: [number, number][] }) {
   const map = useMap();
-  
+
   useEffect(() => {
     if (points.length > 0) {
       const bounds = L.latLngBounds(points.map(p => L.latLng(p[0], p[1])));
       map.fitBounds(bounds, { padding: [50, 50] });
     }
   }, [points, map]);
-  
+
   return null;
 }
 
 export function OrderTrackingMap({ trackingPoints, orderStatus, estimatedDelivery }: OrderTrackingMapProps) {
-  const validPoints = trackingPoints.filter(p => p.latitude && p.longitude);
-  
-  if (validPoints.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MapPin className="h-5 w-5" />
-            Order Tracking
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-            <Package className="h-12 w-12 mb-4" />
-            <p>No tracking information available yet</p>
-            <p className="text-sm">Check back later for updates</p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const coordinates: [number, number][] = validPoints.map(p => [p.latitude!, p.longitude!]);
-  const center: [number, number] = coordinates[coordinates.length - 1];
-  const latestPoint = validPoints[validPoints.length - 1];
+  const validPoints = trackingPoints.filter(p => p.latitude != null && p.longitude != null);
+  const sortedTrackingPoints = [...trackingPoints].sort(
+    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+  );
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -108,12 +87,71 @@ export function OrderTrackingMap({ trackingPoints, orderStatus, estimatedDeliver
   const getStatusIcon = (status: string) => {
     switch (status.toLowerCase()) {
       case 'delivered': return <CheckCircle className="h-4 w-4" />;
-      case 'out_for_delivery': 
-      case 'in_transit': 
+      case 'out_for_delivery':
+      case 'in_transit':
       case 'shipped': return <Truck className="h-4 w-4" />;
       default: return <Package className="h-4 w-4" />;
     }
   };
+
+  if (validPoints.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <MapPin className="h-5 w-5" />
+              Order Tracking
+            </CardTitle>
+            <Badge className={`${getStatusColor(orderStatus)} text-white`}>
+              {getStatusIcon(orderStatus)}
+              <span className="ml-1 capitalize">{orderStatus.replace('_', ' ')}</span>
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {sortedTrackingPoints.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+              <Package className="h-12 w-12 mb-4" />
+              <p>No tracking information available yet</p>
+              <p className="text-sm">Check back later for updates</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Location pins have not been added yet, but status updates are available below.
+              </p>
+              <div className="space-y-0">
+                {sortedTrackingPoints.slice().reverse().map((point, index) => (
+                  <div key={point.id} className="flex gap-3">
+                    <div className="flex flex-col items-center">
+                      <div className={`h-3 w-3 rounded-full ${index === 0 ? 'bg-primary' : 'bg-muted-foreground/30'}`} />
+                      {index < sortedTrackingPoints.length - 1 && (
+                        <div className="my-1 min-h-8 w-0.5 flex-1 bg-muted-foreground/20" />
+                      )}
+                    </div>
+                    <div className="flex-1 pb-4">
+                      <p className="text-sm font-medium">{point.location_name || point.status.replaceAll('_', ' ')}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(point.created_at).toLocaleString()}
+                      </p>
+                      {point.notes && (
+                        <p className="mt-1 text-xs text-muted-foreground">{point.notes}</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const coordinates: [number, number][] = validPoints.map(p => [p.latitude!, p.longitude!]);
+  const center: [number, number] = coordinates[coordinates.length - 1];
+  const latestPoint = validPoints[validPoints.length - 1];
 
   return (
     <Card>

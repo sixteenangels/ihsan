@@ -13,8 +13,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Package, ArrowLeft, Search } from 'lucide-react';
+import { Loader2, Package, ArrowLeft, Search, CheckCircle, Clock, MapPin, PackageCheck, Truck } from 'lucide-react';
 import { format } from 'date-fns';
+import { Progress } from '@/components/ui/progress';
 
 interface OrderTrackingItem {
   id: string;
@@ -86,6 +87,248 @@ interface TrackedOrder {
   order_tracking: OrderTrackingPoint[];
   shipping_classes: ShippingClassSummary | null;
   receipt: ReceiptSummary | null;
+}
+
+const STATUS_ORDER = [
+  'pending',
+  'payment_received',
+  'order_placed',
+  'order_processed',
+  'confirmed',
+  'processing',
+  'packed_for_delivery',
+  'shipped',
+  'in_transit',
+  'in_ghana',
+  'ready_for_delivery',
+  'handed_to_courier',
+  'out_for_delivery',
+  'delivered',
+];
+
+const STATUS_LABELS: Record<string, string> = {
+  pending: 'Pending',
+  payment_received: 'Payment Received',
+  order_placed: 'Order Placed',
+  order_processed: 'Order Processed',
+  confirmed: 'Confirmed',
+  processing: 'Processing',
+  packed_for_delivery: 'Packed',
+  shipped: 'Shipped',
+  in_transit: 'In Transit',
+  in_ghana: 'In Ghana',
+  ready_for_delivery: 'Ready',
+  handed_to_courier: 'Courier Handoff',
+  out_for_delivery: 'Out for Delivery',
+  delivered: 'Delivered',
+  cancelled: 'Cancelled',
+  refunded: 'Refunded',
+};
+
+type TrackingCheckpoint = {
+  key: string;
+  label: string;
+  detail: string;
+};
+
+const STANDARD_CHECKPOINTS: TrackingCheckpoint[] = [
+  { key: 'payment_received', label: 'Payment', detail: 'Payment is confirmed.' },
+  { key: 'order_placed', label: 'Ordered', detail: 'Order is queued with the team.' },
+  { key: 'packed_for_delivery', label: 'Packed', detail: 'Items are packed for shipping.' },
+  { key: 'in_transit', label: 'In Transit', detail: 'Package is moving through the shipping route.' },
+  { key: 'in_ghana', label: 'In Ghana', detail: 'Package has arrived locally.' },
+  { key: 'ready_for_delivery', label: 'Ready', detail: 'Package is ready for delivery or pickup.' },
+  { key: 'delivered', label: 'Delivered', detail: 'Delivery is complete.' },
+];
+
+const COURIER_CHECKPOINTS: TrackingCheckpoint[] = [
+  { key: 'payment_received', label: 'Payment', detail: 'Payment is confirmed.' },
+  { key: 'order_processed', label: 'Processed', detail: 'Order is verified and packed.' },
+  { key: 'handed_to_courier', label: 'Courier', detail: 'Package has been handed to the courier.' },
+  { key: 'out_for_delivery', label: 'Out', detail: 'Courier is on the way.' },
+  { key: 'delivered', label: 'Delivered', detail: 'Delivery is complete.' },
+];
+
+function formatStatusLabel(status: string) {
+  return STATUS_LABELS[status] || status.replaceAll('_', ' ');
+}
+
+function getStatusIndex(status: string) {
+  return STATUS_ORDER.indexOf(status);
+}
+
+function getCheckpointsForTrackedOrder(order: TrackedOrder) {
+  const shippingName = order.shipping_classes?.name?.toLowerCase() || '';
+  const status = order.status || '';
+  const usesCourierFlow =
+    shippingName.includes('courier') ||
+    ['order_processed', 'handed_to_courier', 'out_for_delivery'].includes(status);
+
+  return usesCourierFlow ? COURIER_CHECKPOINTS : STANDARD_CHECKPOINTS;
+}
+
+function getProgressPercentage(status: string, checkpoints: TrackingCheckpoint[]) {
+  if (['cancelled', 'refunded'].includes(status)) return 100;
+
+  const checkpointIndex = checkpoints.findIndex((checkpoint) => checkpoint.key === status);
+  if (checkpointIndex >= 0) {
+    return Math.round(((checkpointIndex + 1) / checkpoints.length) * 100);
+  }
+
+  const orderIndex = getStatusIndex(status);
+  if (orderIndex < 0) return 0;
+
+  for (let index = checkpoints.length - 1; index >= 0; index -= 1) {
+    if (getStatusIndex(checkpoints[index].key) <= orderIndex) {
+      return Math.round(((index + 1) / checkpoints.length) * 100);
+    }
+  }
+
+  return 0;
+}
+
+function getCheckpointState(
+  currentStatus: string,
+  checkpointKey: string,
+  checkpoints: TrackingCheckpoint[],
+): 'done' | 'current' | 'pending' {
+  if (['cancelled', 'refunded'].includes(currentStatus)) return 'pending';
+
+  const currentIndex = getStatusIndex(currentStatus);
+  const checkpointIndex = getStatusIndex(checkpointKey);
+  if (currentIndex < 0 || checkpointIndex < 0) return 'pending';
+  if (currentIndex >= checkpointIndex) return 'done';
+
+  const nextCheckpoint = checkpoints.find((checkpoint) => getStatusIndex(checkpoint.key) > currentIndex);
+  return nextCheckpoint?.key === checkpointKey ? 'current' : 'pending';
+}
+
+function OrderProgressPanel({ order }: { order: TrackedOrder }) {
+  const status = order.status || 'pending';
+  const checkpoints = getCheckpointsForTrackedOrder(order);
+  const progressValue = getProgressPercentage(status, checkpoints);
+  const sortedTracking = [...order.order_tracking].sort(
+    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+  );
+  const trackingByStatus = new Map<string, OrderTrackingPoint>();
+
+  sortedTracking.forEach((point) => {
+    trackingByStatus.set(point.status, point);
+  });
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <CardTitle className="flex items-center gap-2">
+            <Truck className="h-5 w-5 text-primary" />
+            Order Progress
+          </CardTitle>
+          <Badge variant="outline" className="w-fit">
+            {formatStatusLabel(status)}
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="overflow-x-auto pb-2">
+          <div className="min-w-[620px] space-y-3">
+            <Progress value={progressValue} className="h-2" />
+            <div className="flex justify-between gap-2">
+              {checkpoints.map((checkpoint) => {
+                const state = getCheckpointState(status, checkpoint.key, checkpoints);
+                return (
+                  <div key={checkpoint.key} className="flex flex-1 flex-col items-center text-center">
+                    <div
+                      className={`mb-2 flex h-7 w-7 items-center justify-center rounded-full border ${
+                        state === 'done'
+                          ? 'border-primary bg-primary text-primary-foreground'
+                          : state === 'current'
+                            ? 'border-primary bg-primary/10 text-primary ring-4 ring-primary/10'
+                            : 'border-border bg-muted text-muted-foreground'
+                      }`}
+                    >
+                      {state === 'done' ? <CheckCircle className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
+                    </div>
+                    <span
+                      className={`text-xs font-medium ${
+                        state === 'done' || state === 'current' ? 'text-foreground' : 'text-muted-foreground'
+                      }`}
+                    >
+                      {checkpoint.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div className="mb-3 flex items-center gap-2">
+            <MapPin className="h-4 w-4 text-primary" />
+            <h3 className="text-sm font-semibold text-foreground">Vertical Tracking Map</h3>
+          </div>
+          <div className="space-y-0">
+            {checkpoints.map((checkpoint, index) => {
+              const state = getCheckpointState(status, checkpoint.key, checkpoints);
+              const trackingPoint = trackingByStatus.get(checkpoint.key);
+
+              return (
+                <div key={checkpoint.key} className="flex gap-3">
+                  <div className="flex flex-col items-center">
+                    <div
+                      className={`flex h-8 w-8 items-center justify-center rounded-full border ${
+                        state === 'done'
+                          ? 'border-primary bg-primary text-primary-foreground'
+                          : state === 'current'
+                            ? 'border-primary bg-background text-primary ring-4 ring-primary/10'
+                            : 'border-border bg-muted text-muted-foreground'
+                      }`}
+                    >
+                      {state === 'done' ? <CheckCircle className="h-4 w-4" /> : <PackageCheck className="h-4 w-4" />}
+                    </div>
+                    {index < checkpoints.length - 1 && (
+                      <div
+                        className={`min-h-12 w-0.5 flex-1 ${
+                          state === 'done' ? 'bg-primary/70' : 'bg-border'
+                        }`}
+                      />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1 pb-4">
+                    <div
+                      className={`rounded-xl border p-3 ${
+                        state === 'current'
+                          ? 'border-primary/40 bg-primary/5'
+                          : state === 'done'
+                            ? 'border-primary/20 bg-primary/5'
+                            : 'border-border bg-card'
+                      }`}
+                    >
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="font-medium text-foreground">{checkpoint.label}</p>
+                        {trackingPoint?.created_at && (
+                          <p className="text-xs text-muted-foreground">
+                            {format(new Date(trackingPoint.created_at), 'MMM d, h:mm a')}
+                          </p>
+                        )}
+                      </div>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {trackingPoint?.notes || trackingPoint?.location_name || checkpoint.detail}
+                      </p>
+                      {trackingPoint?.location_name && trackingPoint.notes && (
+                        <p className="mt-1 text-xs text-primary">{trackingPoint.location_name}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 export default function TrackOrder() {
@@ -287,6 +530,8 @@ export default function TrackOrder() {
                 </div>
               </CardContent>
             </Card>
+
+            <OrderProgressPanel order={order} />
 
             {/* Tracking Map */}
             <OrderTrackingMap

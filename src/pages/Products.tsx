@@ -739,7 +739,7 @@ export default function Products() {
       <Footer />
 
       <Dialog open={isSaveDialogOpen} onOpenChange={setIsSaveDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="max-h-[90vh] overflow-y-auto bg-background sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Save this search</DialogTitle>
             <DialogDescription>

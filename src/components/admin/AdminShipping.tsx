@@ -304,7 +304,7 @@ export function AdminShipping() {
                 Add Type
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md bg-background">
+            <DialogContent className="max-h-[90vh] max-w-md overflow-y-auto bg-background">
               <DialogHeader>
                 <DialogTitle>Add Shipping Type</DialogTitle>
               </DialogHeader>
@@ -356,7 +356,7 @@ export function AdminShipping() {
                         <Pencil className="h-4 w-4" />
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-md bg-background">
+                    <DialogContent className="max-h-[90vh] max-w-md overflow-y-auto bg-background">
                       <DialogHeader>
                         <DialogTitle>Edit Shipping Type</DialogTitle>
                       </DialogHeader>
@@ -400,7 +400,7 @@ export function AdminShipping() {
                 Add Class
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md bg-background">
+            <DialogContent className="max-h-[90vh] max-w-md overflow-y-auto bg-background">
               <DialogHeader>
                 <DialogTitle>Add Shipping Class</DialogTitle>
               </DialogHeader>
@@ -509,7 +509,7 @@ export function AdminShipping() {
                         <Pencil className="h-4 w-4" />
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-md bg-background">
+                    <DialogContent className="max-h-[90vh] max-w-md overflow-y-auto bg-background">
                       <DialogHeader>
                         <DialogTitle>Edit Shipping Class</DialogTitle>
                       </DialogHeader>

@@ -366,7 +366,7 @@ export function AdminReceipts() {
               Generate Receipt
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-h-[90vh] overflow-y-auto bg-background sm:max-w-lg">
             <DialogHeader>
               <DialogTitle>Generate Receipt for Order</DialogTitle>
             </DialogHeader>
@@ -510,7 +510,7 @@ export function AdminReceipts() {
       </Card>
 
       <Dialog open={!!selectedReceipt} onOpenChange={(open) => !open && setSelectedReceipt(null)}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto bg-background">
           <DialogHeader>
             <DialogTitle>Receipt Preview</DialogTitle>
           </DialogHeader>

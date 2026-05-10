@@ -16,6 +16,7 @@ export function ProductImageGallery({ images, productName }: ProductImageGallery
   const [panPosition, setPanPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const dragStart = useRef({ x: 0, y: 0 });
+  const swipeStart = useRef<{ x: number; y: number; time: number } | null>(null);
   const imageContainerRef = useRef<HTMLDivElement>(null);
 
   const displayImages = images.length > 0 ? images : ['https://via.placeholder.com/600'];
@@ -45,6 +46,36 @@ export function ProductImageGallery({ images, productName }: ProductImageGallery
   const resetZoom = () => {
     setZoomLevel(1);
     setPanPosition({ x: 0, y: 0 });
+  };
+
+  const handleMainImageTouchStart = (e: React.TouchEvent) => {
+    if (displayImages.length <= 1 || e.touches.length !== 1) return;
+
+    swipeStart.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY,
+      time: Date.now(),
+    };
+  };
+
+  const handleMainImageTouchEnd = (e: React.TouchEvent) => {
+    if (!swipeStart.current || displayImages.length <= 1) return;
+
+    const touch = e.changedTouches[0];
+    const deltaX = touch.clientX - swipeStart.current.x;
+    const deltaY = touch.clientY - swipeStart.current.y;
+    const elapsed = Date.now() - swipeStart.current.time;
+    const isHorizontalSwipe = Math.abs(deltaX) > 45 && Math.abs(deltaX) > Math.abs(deltaY) * 1.25;
+
+    if (isHorizontalSwipe && elapsed < 800) {
+      if (deltaX > 0) {
+        goToPrevious();
+      } else {
+        goToNext();
+      }
+    }
+
+    swipeStart.current = null;
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -102,7 +133,14 @@ export function ProductImageGallery({ images, productName }: ProductImageGallery
   return (
     <div className="space-y-4">
       {/* Main Image */}
-      <div className="relative aspect-square overflow-hidden rounded-xl bg-card border border-border group">
+      <div
+        className="relative aspect-square touch-pan-y overflow-hidden rounded-xl bg-card border border-border group"
+        onTouchStart={handleMainImageTouchStart}
+        onTouchEnd={handleMainImageTouchEnd}
+        onTouchCancel={() => {
+          swipeStart.current = null;
+        }}
+      >
         <img
           src={displayImages[selectedIndex]}
           alt={`${productName} - Image ${selectedIndex + 1}`}
@@ -113,8 +151,9 @@ export function ProductImageGallery({ images, productName }: ProductImageGallery
         <Button
           variant="secondary"
           size="icon"
-          className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 backdrop-blur-sm"
+          className="absolute top-4 right-4 opacity-100 transition-opacity bg-background/80 backdrop-blur-sm sm:opacity-0 sm:group-hover:opacity-100"
           onClick={() => setIsZoomOpen(true)}
+          aria-label="Zoom product image"
         >
           <ZoomIn className="h-4 w-4" />
         </Button>
@@ -125,16 +164,18 @@ export function ProductImageGallery({ images, productName }: ProductImageGallery
             <Button
               variant="secondary"
               size="icon"
-              className="absolute left-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 backdrop-blur-sm"
+              className="absolute left-4 top-1/2 -translate-y-1/2 opacity-100 transition-opacity bg-background/80 backdrop-blur-sm sm:opacity-0 sm:group-hover:opacity-100"
               onClick={goToPrevious}
+              aria-label="Previous product image"
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <Button
               variant="secondary"
               size="icon"
-              className="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 backdrop-blur-sm"
+              className="absolute right-4 top-1/2 -translate-y-1/2 opacity-100 transition-opacity bg-background/80 backdrop-blur-sm sm:opacity-0 sm:group-hover:opacity-100"
               onClick={goToNext}
+              aria-label="Next product image"
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
