@@ -615,17 +615,17 @@ export function AdminSettings() {
               {settings.loyaltyEnabled && (
                 <>
                   <div className="space-y-2">
-                    <Label>Points Earned Per Order (per ₵1 spent)</Label>
+                    <Label>Points Earned Per Order (per GHS 1 spent)</Label>
                     <Input
                       type="number"
                       min={0}
                       value={settings.loyaltyPointsPerOrder}
                       onChange={(e) => setSettings(prev => ({ ...prev, loyaltyPointsPerOrder: parseInt(e.target.value) || 0 }))}
                     />
-                    <p className="text-xs text-muted-foreground">E.g. 1 means 1 point per ₵1 spent</p>
+                    <p className="text-xs text-muted-foreground">E.g. 1 means 1 point per GHS 1 spent</p>
                   </div>
                   <div className="space-y-2">
-                    <Label>Minimum Order Amount to Qualify (₵)</Label>
+                    <Label>Minimum Order Amount to Qualify (GHS)</Label>
                     <Input
                       type="number"
                       min={0}
@@ -671,7 +671,7 @@ export function AdminSettings() {
                     <li>Referred user can start shopping right away</li>
                   </ol>
                   <p className="text-sm text-muted-foreground mt-2">
-                    Reward details (discount %, max uses, expiry) are configured in <strong>Promotions → Referral Reward Settings</strong>.
+                    Reward details (discount %, max uses, expiry) are configured in <strong>{'Promotions -> Referral Reward Settings'}</strong>.
                   </p>
                 </div>
               )}
@@ -682,3 +682,4 @@ export function AdminSettings() {
     </div>
   );
 }
+

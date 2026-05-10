@@ -19,6 +19,13 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const TEMP_SESSION_KEY = 'ihsan_temp_session';
+const SESSION_MODE_KEY = 'ihsan_session_mode';
+
+function clearStoredSessionPreference() {
+  sessionStorage.removeItem(TEMP_SESSION_KEY);
+  localStorage.removeItem(SESSION_MODE_KEY);
+}
 
 function getOAuthRedirectUrl() {
   if (typeof window === 'undefined') {
@@ -55,6 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             checkUserRole(session.user.id);
           }, 0);
         } else {
+          clearStoredSessionPreference();
           setIsAdmin(false);
           setUserRole('customer');
           setManagerPermissions([]);
@@ -62,7 +70,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    void supabase.auth.getSession().then(async ({ data: { session } }) => {
+      const sessionMode = localStorage.getItem(SESSION_MODE_KEY);
+      const hasTempSession = sessionStorage.getItem(TEMP_SESSION_KEY) === 'true';
+
+      if (session?.user && sessionMode === 'session' && !hasTempSession) {
+        await supabase.auth.signOut();
+        setSession(null);
+        setUser(null);
+        setIsLoading(false);
+        return;
+      }
+
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
@@ -126,9 +145,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (!error && !rememberMe) {
-      sessionStorage.setItem('ihsan_temp_session', 'true');
+      sessionStorage.setItem(TEMP_SESSION_KEY, 'true');
+      localStorage.setItem(SESSION_MODE_KEY, 'session');
     } else if (!error && rememberMe) {
-      sessionStorage.removeItem('ihsan_temp_session');
+      sessionStorage.removeItem(TEMP_SESSION_KEY);
+      localStorage.setItem(SESSION_MODE_KEY, 'persistent');
     }
 
     return { error: error as Error | null };
@@ -172,7 +193,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    sessionStorage.removeItem('ihsan_temp_session');
+    clearStoredSessionPreference();
     setUser(null);
     setSession(null);
     setIsAdmin(false);
