@@ -1,14 +1,19 @@
-import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Package, FolderTree, Users, ShoppingCart, AlertTriangle, Zap, TrendingUp, TrendingDown, DollarSign, Target, BellRing, ScrollText, ClipboardList, Factory } from 'lucide-react';
+import { Package, FolderTree, Users, ShoppingCart, AlertTriangle, Zap, TrendingUp, TrendingDown, DollarSign, Target, BellRing, ScrollText, ClipboardList, Factory, CheckSquare, ArrowRight, Phone, QrCode, PackageCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useCurrency } from '@/hooks/useCurrency';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { Progress } from '@/components/ui/progress';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
 import type { Database } from '@/integrations/supabase/types';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
 type OrderSummaryRow = Pick<Database['public']['Tables']['orders']['Row'], 'status' | 'total_amount' | 'created_at'>;
 type LowStockVariantRow = {
@@ -60,9 +65,71 @@ type AuditLogSummaryRow = {
   summary: string;
   created_at: string;
 };
+type PickPackOrderRow = Pick<
+  Database['public']['Tables']['orders']['Row'],
+  | 'id'
+  | 'order_number'
+  | 'status'
+  | 'created_at'
+  | 'fulfillment_stage'
+  | 'fulfillment_checks'
+  | 'shipping_address'
+  | 'total_amount'
+> & {
+  order_items:
+    | Array<{
+        id: string;
+        product_name: string;
+        quantity: number;
+      }>
+    | null;
+};
+
+interface RestockReservationRow {
+  id: string;
+  product_id: string;
+  product_name_snapshot: string;
+  variant_label: string | null;
+  desired_quantity: number;
+  intent: string;
+  customer_name: string;
+  customer_email: string;
+  status: string;
+  priority: string;
+  expected_restock_date: string | null;
+  created_at: string;
+}
+
+interface PickPackShippingAddress {
+  full_name?: string;
+  phone?: string | null;
+  city?: string;
+}
+
+type PickPackAction = 'picked' | 'quality_checked' | 'packed' | 'awaiting_dispatch' | 'dispatched';
+
+const PICK_PACK_ACTIONS: Array<{ action: PickPackAction; label: string }> = [
+  { action: 'picked', label: 'Pick' },
+  { action: 'quality_checked', label: 'QC' },
+  { action: 'packed', label: 'Pack' },
+  { action: 'awaiting_dispatch', label: 'Stage' },
+  { action: 'dispatched', label: 'Dispatch' },
+];
+
+function getPickPackNextAction(checks: Record<string, boolean> | null, status: string | null) {
+  if (!checks?.picked) return 'Pick items';
+  if (!checks?.quality_checked) return 'Quality check';
+  if (!checks?.packed) return 'Pack order';
+  if (!checks?.awaiting_dispatch) return 'Stage for dispatch';
+  if (status === 'packed_for_delivery') return 'Hand to courier';
+  return 'Review handoff';
+}
 
 export function AdminDashboard() {
+  const queryClient = useQueryClient();
   const { formatPrice } = useCurrency();
+  const { user } = useAuth();
+  const [scanCodeByOrder, setScanCodeByOrder] = useState<Record<string, string>>({});
 
   const { data: productCount } = useQuery({
     queryKey: ['admin-product-count'],
@@ -212,6 +279,151 @@ export function AdminDashboard() {
       if (error) throw error;
       return (data || []) as unknown as AuditLogSummaryRow[];
     },
+  });
+
+  const { data: pickPackOrders = [] } = useQuery({
+    queryKey: ['admin-pick-pack-queue'],
+    queryFn: async (): Promise<PickPackOrderRow[]> => {
+      const { data, error } = await supabase
+        .from('orders')
+        .select(`
+          id,
+          order_number,
+          status,
+          created_at,
+          fulfillment_stage,
+          fulfillment_checks,
+          shipping_address,
+          total_amount,
+          order_items (
+            id,
+            product_name,
+            quantity
+          )
+        `)
+        .in('status', [
+          'payment_received',
+          'order_placed',
+          'confirmed',
+          'processing',
+          'packed_for_delivery',
+        ])
+        .order('created_at', { ascending: true })
+        .limit(8);
+
+      if (error) throw error;
+      return (data || []) as unknown as PickPackOrderRow[];
+    },
+  });
+
+  const { data: restockReservations = [] } = useQuery({
+    queryKey: ['admin-restock-reservations'],
+    queryFn: async (): Promise<RestockReservationRow[]> => {
+      const { data, error } = await supabase
+        .from('restock_reservations' as never)
+        .select(`
+          id,
+          product_id,
+          product_name_snapshot,
+          variant_label,
+          desired_quantity,
+          intent,
+          customer_name,
+          customer_email,
+          status,
+          priority,
+          expected_restock_date,
+          created_at
+        `)
+        .in('status', ['new', 'contacted', 'deposit_requested', 'reserved'])
+        .order('created_at', { ascending: false })
+        .limit(8);
+
+      if (error) throw error;
+      return (data || []) as unknown as RestockReservationRow[];
+    },
+  });
+
+  const updateRestockReservationMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const { error } = await supabase
+        .from('restock_reservations' as never)
+        .update({ status, updated_at: new Date().toISOString() } as never)
+        .eq('id', id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-restock-reservations'] });
+      toast.success('Restock reservation updated');
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const pickPackActionMutation = useMutation({
+    mutationFn: async ({
+      orderId,
+      action,
+      scanCode,
+    }: {
+      orderId: string;
+      action: PickPackAction;
+      scanCode?: string;
+    }) => {
+      if (!user?.id) {
+        throw new Error('You must be signed in to update the pick-and-pack queue.');
+      }
+
+      const order = pickPackOrders.find((entry) => entry.id === orderId);
+      const currentChecks =
+        order?.fulfillment_checks &&
+        typeof order.fulfillment_checks === 'object' &&
+        !Array.isArray(order.fulfillment_checks)
+          ? (order.fulfillment_checks as Record<string, boolean>)
+          : {};
+      const nextChecks = { ...currentChecks, [action]: true };
+      const nextStatus =
+        action === 'awaiting_dispatch'
+          ? 'packed_for_delivery'
+          : action === 'dispatched'
+            ? 'handed_to_courier'
+            : undefined;
+      const orderUpdate: Record<string, unknown> = {
+        fulfillment_checks: nextChecks,
+        fulfillment_stage: action,
+        updated_at: new Date().toISOString(),
+      };
+
+      if (nextStatus) {
+        orderUpdate.status = nextStatus;
+      }
+
+      const { error: orderError } = await supabase
+        .from('orders')
+        .update(orderUpdate as never)
+        .eq('id', orderId);
+
+      if (orderError) throw orderError;
+
+      const trimmedScanCode = scanCode?.trim();
+      const { error: scanError } = await supabase
+        .from('pick_pack_scans' as never)
+        .insert({
+          order_id: orderId,
+          admin_user_id: user.id,
+          scan_code: trimmedScanCode || order?.order_number || orderId,
+          scan_type: trimmedScanCode ? 'barcode' : 'manual',
+          action,
+        } as never);
+
+      if (scanError) throw scanError;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-pick-pack-queue'] });
+      setScanCodeByOrder((current) => ({ ...current, [variables.orderId]: '' }));
+      toast.success('Pick-and-pack step saved');
+    },
+    onError: (error: Error) => toast.error(error.message),
   });
 
   const orderStats = useMemo(() => {
@@ -384,6 +596,45 @@ export function AdminDashboard() {
 
     return [...mapped.values()].sort((a, b) => b.urgentCount - a.urgentCount || b.productCount - a.productCount);
   }, [purchasePlanningQueue]);
+
+  const pickPackQueue = useMemo(() => {
+    return pickPackOrders
+      .map((order) => {
+        const checks =
+          order.fulfillment_checks && typeof order.fulfillment_checks === 'object'
+            ? (order.fulfillment_checks as Record<string, boolean>)
+            : null;
+        const shippingAddress =
+          (order.shipping_address as unknown as PickPackShippingAddress | null) || null;
+        const itemCount = (order.order_items || []).reduce(
+          (sum, item) => sum + Number(item.quantity || 0),
+          0,
+        );
+        const ageHours = Math.max(
+          1,
+          Math.round((Date.now() - new Date(order.created_at).getTime()) / (1000 * 60 * 60)),
+        );
+
+        return {
+          id: order.id,
+          orderNumber: order.order_number,
+          status: order.status || 'pending',
+          checks,
+          totalAmount: Number(order.total_amount || 0),
+          recipientName: shippingAddress?.full_name || 'Customer',
+          recipientPhone: shippingAddress?.phone || null,
+          city: shippingAddress?.city || 'Delivery address pending',
+          itemCount,
+          itemPreview: (order.order_items || [])
+            .slice(0, 2)
+            .map((item) => `${item.product_name} x${item.quantity}`)
+            .join(', '),
+          nextAction: getPickPackNextAction(checks, order.status),
+          ageHours,
+        };
+      })
+      .sort((left, right) => right.ageHours - left.ageHours);
+  }, [pickPackOrders]);
 
   const stats = [
     { name: 'Total Products', value: productCount ?? 0, icon: Package, color: 'text-primary' },
@@ -732,6 +983,188 @@ export function AdminDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="mb-8">
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <CheckSquare className="h-5 w-5 text-primary" />
+              Pick and Pack Mobile Queue
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              A compact queue for the next orders that should be picked, checked, and packed first.
+            </p>
+          </div>
+          <Button asChild variant="outline" size="sm">
+            <Link to="/admin/orders">
+              Open Orders
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {pickPackQueue.slice(0, 6).map((order) => (
+            <div
+              key={order.id}
+              className="rounded-xl border border-border bg-card p-4"
+            >
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-semibold text-foreground">{order.orderNumber}</p>
+                    <Badge variant={order.ageHours >= 24 ? 'destructive' : 'secondary'}>
+                      {order.ageHours >= 24 ? 'Needs attention' : `${order.ageHours}h in queue`}
+                    </Badge>
+                    <Badge variant="outline">{order.nextAction}</Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {order.recipientName} in {order.city}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {order.itemCount} item{order.itemCount === 1 ? '' : 's'} to process
+                    {order.itemPreview ? ` • ${order.itemPreview}` : ''}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {order.recipientPhone ? (
+                    <Button asChild size="sm" variant="outline">
+                      <a href={`tel:${order.recipientPhone}`}>
+                        <Phone className="h-4 w-4" />
+                        Call
+                      </a>
+                    </Button>
+                  ) : null}
+                  <Button asChild size="sm">
+                    <Link to="/admin/orders">
+                      Process
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+              <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+                <span>Status: {order.status.replace(/_/g, ' ')}</span>
+                <span>{formatPrice(order.totalAmount)}</span>
+              </div>
+              <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+                <div className="relative">
+                  <QrCode className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={scanCodeByOrder[order.id] || ''}
+                    onChange={(event) =>
+                      setScanCodeByOrder((current) => ({
+                        ...current,
+                        [order.id]: event.target.value,
+                      }))
+                    }
+                    placeholder="Scan or type barcode / QR code"
+                    className="pl-9"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+                  {PICK_PACK_ACTIONS.map((step) => (
+                    <Button
+                      key={step.action}
+                      size="sm"
+                      variant={order.checks?.[step.action] ? 'secondary' : 'outline'}
+                      disabled={order.checks?.[step.action] || pickPackActionMutation.isPending}
+                      onClick={() =>
+                        pickPackActionMutation.mutate({
+                          orderId: order.id,
+                          action: step.action,
+                          scanCode: scanCodeByOrder[order.id],
+                        })
+                      }
+                    >
+                      <PackageCheck className="h-4 w-4" />
+                      {order.checks?.[step.action] ? 'Done' : step.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ))}
+          {pickPackQueue.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              No active pick-and-pack orders right now.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="mb-8">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BellRing className="h-5 w-5 text-primary" />
+            Restock Reservation Queue
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Customers who want stock held, deposit follow-up, or restock priority.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {restockReservations.map((reservation) => (
+            <div key={reservation.id} className="rounded-xl border border-border bg-card p-4">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-semibold text-foreground">{reservation.product_name_snapshot}</p>
+                    {reservation.variant_label && (
+                      <Badge variant="outline">{reservation.variant_label}</Badge>
+                    )}
+                    <Badge variant={reservation.priority === 'high' ? 'destructive' : 'secondary'}>
+                      {reservation.priority === 'high' ? 'High intent' : 'Normal'}
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {reservation.customer_name} ({reservation.customer_email})
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Qty {reservation.desired_quantity} | {reservation.intent.replace(/_/g, ' ')}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Requested {format(new Date(reservation.created_at), 'MMM d, p')}
+                    {reservation.expected_restock_date
+                      ? ` | Expected ${format(new Date(reservation.expected_restock_date), 'MMM d, yyyy')}`
+                      : ''}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    ['contacted', 'Contacted'],
+                    ['deposit_requested', 'Deposit'],
+                    ['reserved', 'Reserved'],
+                    ['fulfilled', 'Fulfilled'],
+                  ].map(([status, label]) => (
+                    <Button
+                      key={status}
+                      size="sm"
+                      variant={reservation.status === status ? 'secondary' : 'outline'}
+                      disabled={
+                        reservation.status === status ||
+                        updateRestockReservationMutation.isPending
+                      }
+                      onClick={() =>
+                        updateRestockReservationMutation.mutate({
+                          id: reservation.id,
+                          status,
+                        })
+                      }
+                    >
+                      {label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ))}
+          {restockReservations.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              No active restock reservations right now.
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Low Stock Items */}
       {lowStockProducts && lowStockProducts.length > 0 && (

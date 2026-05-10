@@ -18,6 +18,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
+import { ResumeCheckoutBanner } from '@/components/checkout/ResumeCheckoutBanner';
+import { RecommendedProductsSection } from '@/components/products/RecommendedProductsSection';
 import { toast } from 'sonner';
 
 export default function Cart() {
@@ -108,6 +110,10 @@ export default function Cart() {
         <h1 className="mb-6 text-2xl font-bold font-serif text-foreground md:mb-8 md:text-3xl">
           Shopping Cart
         </h1>
+
+        <div className="mb-6">
+          <ResumeCheckoutBanner />
+        </div>
 
         {showSyncNotice ? (
           <Alert className="mb-6 border-border bg-card/70">
@@ -263,6 +269,15 @@ export default function Cart() {
               </CardContent>
             </Card>
           </div>
+        </div>
+
+        <div className="mt-10">
+          <RecommendedProductsSection
+            title="Add a few smart extras"
+            description="These picks lean toward the same categories, delivery style, and value range already in your cart."
+            seedProductIds={items.map((item) => item.product.id)}
+            excludeProductIds={items.map((item) => item.product.id)}
+          />
         </div>
       </main>
       <Footer />

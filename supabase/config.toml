@@ -22,3 +22,6 @@ verify_jwt = false
 
 [functions.process-referral-reward]
 verify_jwt = false
+
+[functions.send-checkout-recovery-reminders]
+verify_jwt = false

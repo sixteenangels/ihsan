@@ -23,6 +23,9 @@ import { ProductQA } from '@/components/products/ProductQA';
 import { FrequentlyBoughtTogether } from '@/components/products/FrequentlyBoughtTogether';
 import { PriceDropAlert } from '@/components/products/PriceDropAlert';
 import { BackInStockAlert } from '@/components/products/BackInStockAlert';
+import { RestockReservationDialog } from '@/components/products/RestockReservationDialog';
+import { useAuth } from '@/contexts/AuthContext';
+import { trackRecommendationEvent } from '@/lib/recommendationEvents';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -104,6 +107,7 @@ export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
   const { data: product, isLoading } = useProduct(id);
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { addToCart } = useCart();
   const { formatPrice } = useCurrency();
   const { addProduct } = useRecentlyViewed();
@@ -115,6 +119,19 @@ export default function ProductDetail() {
   useEffect(() => {
     if (id) addProduct(id);
   }, [id, addProduct]);
+
+  useEffect(() => {
+    if (!product) {
+      return;
+    }
+
+    trackRecommendationEvent({
+      productId: product.id,
+      userId: user?.id,
+      eventType: 'view',
+      source: 'product_detail',
+    });
+  }, [product, user?.id]);
 
   const handleVariantToggle = (variant: { id: string; size: string | null; color: string | null; price: number; stock: number | null }) => {
     const isSelected = selectedVariants.some((v) => v.id === variant.id);
@@ -153,6 +170,10 @@ export default function ProductDetail() {
     : false;
   const alertVariantId = selectedVariants.length === 1 ? selectedVariants[0].id : null;
   const showRestockAlert = selectedVariantOutOfStock || (!hasAnyStock && selectedVariants.length === 0);
+  const reservationVariantLabel =
+    selectedVariants.length === 1
+      ? [selectedVariants[0].color, selectedVariants[0].size].filter(Boolean).join(' / ')
+      : null;
   const highlightedShipping = selectedShipping || availableShipping[0] || null;
 
   const handleAddToCart = () => {
@@ -163,6 +184,12 @@ export default function ProductDetail() {
     // the customer can choose at checkout.
     if (selectedVariants.length === 0) {
       addToCart(cartProduct, null, 1);
+      trackRecommendationEvent({
+        productId: product.id,
+        userId: user?.id,
+        eventType: 'cart_add',
+        source: 'product_detail',
+      });
       toast.success(product.variants.length > 0 ? 'Added to cart. Choose variant at checkout.' : 'Added to cart.');
       return;
     }
@@ -176,6 +203,13 @@ export default function ProductDetail() {
         stock: variant.stock || 0,
       };
       addToCart(cartProduct, cartVariant, variant.quantity);
+    });
+    trackRecommendationEvent({
+      productId: product.id,
+      userId: user?.id,
+      eventType: 'cart_add',
+      source: 'product_detail',
+      weight: selectedVariants.reduce((sum, variant) => sum + variant.quantity, 0),
     });
     toast.success(`Added ${selectedVariants.length} item(s) to cart`);
     setSelectedVariants([]);
@@ -456,6 +490,12 @@ export default function ProductDetail() {
                   const cartProduct = toCartProduct(product);
                   if (selectedVariants.length === 0) {
                     addToCart(cartProduct, null, 1, 'only');
+                    trackRecommendationEvent({
+                      productId: product.id,
+                      userId: user?.id,
+                      eventType: 'cart_add',
+                      source: 'buy_now',
+                    });
                   } else {
                     selectedVariants.forEach((variant, index) => {
                       const cartVariant: ProductVariant = {
@@ -471,6 +511,13 @@ export default function ProductDetail() {
                         variant.quantity,
                         index === 0 ? 'only' : 'include',
                       );
+                    });
+                    trackRecommendationEvent({
+                      productId: product.id,
+                      userId: user?.id,
+                      eventType: 'cart_add',
+                      source: 'buy_now',
+                      weight: selectedVariants.reduce((sum, variant) => sum + variant.quantity, 0),
                     });
                   }
                   navigate('/checkout');
@@ -491,6 +538,15 @@ export default function ProductDetail() {
                   variantId={alertVariantId}
                   isOutOfStock={showRestockAlert}
                 />
+                {showRestockAlert ? (
+                  <RestockReservationDialog
+                    productId={product.id}
+                    productName={product.name}
+                    expectedRestockDate={product.expected_restock_date}
+                    productVariantId={alertVariantId}
+                    variantLabel={reservationVariantLabel}
+                  />
+                ) : null}
                 {showRestockAlert && expectedRestockDateLabel && (
                   <p className="w-full text-sm text-muted-foreground">
                     We are currently expecting more stock around {expectedRestockDateLabel}.

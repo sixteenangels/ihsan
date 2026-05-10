@@ -239,6 +239,15 @@ export function StartGroupBuyDialog({ product }: StartGroupBuyDialogProps) {
       return;
     }
 
+    await supabase.from('group_buy_tiers' as never).insert({
+      group_buy_id: gbData.id,
+      min_participants: normalizedParticipantCount,
+      group_price: offeredUnitPrice,
+      discount_percentage: discountPercentage > 0 ? discountPercentage : null,
+      reward_coupon_percent: 5,
+      label: 'Base group price',
+    } as never);
+
     const addressData = defaultAddress ? {
       full_name: defaultAddress.full_name,
       phone: defaultAddress.phone,
@@ -257,6 +266,8 @@ export function StartGroupBuyDialog({ product }: StartGroupBuyDialogProps) {
       payment_reference: paymentRef,
       payment_status: 'paid',
       shipping_address: addressData,
+      unit_price_at_join: offeredUnitPrice,
+      tier_label_at_join: 'Base group price',
     });
 
     if (participantError) {

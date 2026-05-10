@@ -20,6 +20,10 @@ export interface ProductWithDetails {
   allow_reinforced_packaging: boolean | null;
   rating: number | null;
   review_count: number | null;
+  recommendation_score: number;
+  recommendation_order_count: number;
+  recommendation_cart_count: number;
+  recommendation_revenue_score: number;
   category_id: string | null;
   category_name: string | null;
   images: string[];
@@ -49,6 +53,14 @@ export interface ProductWithDetails {
       } | null;
     } | null;
   }[];
+}
+
+interface RecommendationScoreRow {
+  product_id: string;
+  score: number | string | null;
+  order_count: number | null;
+  cart_count: number | null;
+  revenue_score: number | string | null;
 }
 
 function readExpectedRestockDate(product: object): string | null {
@@ -102,6 +114,20 @@ async function fetchProducts(): Promise<ProductWithDetails[]> {
 
   if (shippingError) throw shippingError;
 
+  const productIds = (products || []).map((product) => product.id);
+  const { data: recommendationScores } = productIds.length > 0
+    ? await supabase
+        .from('product_recommendation_scores' as never)
+        .select('product_id, score, order_count, cart_count, revenue_score')
+        .in('product_id', productIds)
+    : { data: [] as unknown[] };
+
+  const scoreMap = new Map<string, RecommendationScoreRow>();
+  ((recommendationScores as unknown[]) || []).forEach((row) => {
+    const score = row as RecommendationScoreRow;
+    scoreMap.set(score.product_id, score);
+  });
+
   // Map images, variants, and shipping rules to products
   const imagesMap = new Map<string, string[]>();
   images?.forEach((img) => {
@@ -124,7 +150,10 @@ async function fetchProducts(): Promise<ProductWithDetails[]> {
     shippingMap.set(rule.product_id, existing);
   });
 
-  return (products || []).map((product) => ({
+  return (products || []).map((product) => {
+    const recommendationScore = scoreMap.get(product.id);
+
+    return {
     id: product.id,
     name: product.name,
     description: product.description,
@@ -143,6 +172,10 @@ async function fetchProducts(): Promise<ProductWithDetails[]> {
     allow_reinforced_packaging: product.allow_reinforced_packaging,
     rating: product.rating ? Number(product.rating) : null,
     review_count: product.review_count,
+    recommendation_score: Number(recommendationScore?.score || 0),
+    recommendation_order_count: recommendationScore?.order_count || 0,
+    recommendation_cart_count: recommendationScore?.cart_count || 0,
+    recommendation_revenue_score: Number(recommendationScore?.revenue_score || 0),
     category_id: product.category_id,
     category_name: (product.categories as { name: string } | null)?.name || null,
     images: imagesMap.get(product.id) || [],
@@ -168,7 +201,8 @@ async function fetchProducts(): Promise<ProductWithDetails[]> {
         shipping_type: rule.shipping_classes.shipping_types,
       } : null,
     })),
-  }));
+  };
+  });
 }
 
 export function useProducts() {
@@ -221,6 +255,14 @@ async function fetchProductById(id: string): Promise<ProductWithDetails | null> 
     `)
     .eq('product_id', id);
 
+  const { data: recommendationScore } = await supabase
+    .from('product_recommendation_scores' as never)
+    .select('score, order_count, cart_count, revenue_score')
+    .eq('product_id', id)
+    .maybeSingle();
+
+  const typedScore = recommendationScore as unknown as Omit<RecommendationScoreRow, 'product_id'> | null;
+
   return {
     id: product.id,
     name: product.name,
@@ -240,6 +282,10 @@ async function fetchProductById(id: string): Promise<ProductWithDetails | null> 
     allow_reinforced_packaging: product.allow_reinforced_packaging,
     rating: product.rating ? Number(product.rating) : null,
     review_count: product.review_count,
+    recommendation_score: Number(typedScore?.score || 0),
+    recommendation_order_count: typedScore?.order_count || 0,
+    recommendation_cart_count: typedScore?.cart_count || 0,
+    recommendation_revenue_score: Number(typedScore?.revenue_score || 0),
     category_id: product.category_id,
     category_name: (product.categories as { name: string } | null)?.name || null,
     images: (images || []).map((img) => img.image_url),

@@ -5,6 +5,7 @@ import { CategorySection } from '@/components/home/CategorySection';
 import { FeaturedProducts } from '@/components/home/FeaturedProducts';
 import { GroupBuySection } from '@/components/home/GroupBuySection';
 import { RecentlyViewedProducts } from '@/components/products/RecentlyViewedProducts';
+import { ResumeCheckoutBanner } from '@/components/checkout/ResumeCheckoutBanner';
 
 const Index = () => {
   return (
@@ -12,6 +13,9 @@ const Index = () => {
       <Header />
       <main>
         <HeroSection />
+        <div className="container px-4 pt-6 sm:px-6">
+          <ResumeCheckoutBanner />
+        </div>
         <CategorySection />
         <FeaturedProducts />
         <div className="container px-4 sm:px-6">

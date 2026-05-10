@@ -7,6 +7,7 @@ import { useCurrency } from '@/hooks/useCurrency';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { OrderTrackingMap } from '@/components/order/OrderTrackingMap';
+import { OrderIssueDialog } from '@/components/support/OrderIssueDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -274,6 +275,15 @@ export default function TrackOrder() {
                     <p className="text-muted-foreground">Items</p>
                     <p className="font-medium">{order.order_items.length} items</p>
                   </div>
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <OrderIssueDialog
+                    orderId={order.id}
+                    orderNumber={order.order_number}
+                    orderStatus={order.status || 'pending'}
+                    itemNames={order.order_items.map((item) => item.product_name)}
+                    triggerLabel="Report Delivery Issue"
+                  />
                 </div>
               </CardContent>
             </Card>

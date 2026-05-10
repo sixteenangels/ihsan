@@ -53,7 +53,9 @@ import { GroupBuyParticipantList } from '@/components/groupbuy/GroupBuyParticipa
 
 type GroupBuyStatus = Database['public']['Enums']['group_buy_status'];
 type GroupBuyRecord = Database['public']['Tables']['group_buys']['Row'];
-type GroupBuyParticipantRecord = Database['public']['Tables']['group_buy_participants']['Row'];
+type GroupBuyParticipantRecord = Database['public']['Tables']['group_buy_participants']['Row'] & {
+  unit_price_at_join?: number | string | null;
+};
 
 interface GroupBuyForm {
   product_id: string;
@@ -61,6 +63,8 @@ interface GroupBuyForm {
   min_participants: string;
   max_participants: string;
   group_price: string;
+  tier_participants: string;
+  tier_group_price: string;
   expires_at: string;
 }
 
@@ -73,12 +77,24 @@ interface AdminGroupBuyRecord extends GroupBuyRecord {
   products: GroupBuyProductSummary | null;
 }
 
+interface GroupBuyTierRow {
+  id: string;
+  group_buy_id: string;
+  min_participants: number;
+  group_price: number | null;
+  discount_percentage: number | null;
+  reward_coupon_percent: number | null;
+  label: string;
+}
+
 const defaultForm: GroupBuyForm = {
   product_id: '',
   title: '',
   min_participants: '10',
   max_participants: '',
   group_price: '',
+  tier_participants: '',
+  tier_group_price: '',
   expires_at: '',
 };
 
@@ -122,6 +138,41 @@ export function AdminGroupBuys() {
 
       if (error) throw error;
       return (data || []) as AdminGroupBuyRecord[];
+    },
+  });
+
+  const { data: groupBuyTiers = [] } = useQuery({
+    queryKey: ['admin-group-buy-tiers'],
+    queryFn: async (): Promise<GroupBuyTierRow[]> => {
+      const { data, error } = await supabase
+        .from('group_buy_tiers' as never)
+        .select('id, group_buy_id, min_participants, group_price, discount_percentage, reward_coupon_percent, label')
+        .order('min_participants', { ascending: true });
+
+      if (error) throw error;
+      return ((data as unknown[]) || []).map((tier) => {
+        const typedTier = tier as {
+          id: string;
+          group_buy_id: string;
+          min_participants: number;
+          group_price: number | string | null;
+          discount_percentage: number | string | null;
+          reward_coupon_percent: number | string | null;
+          label: string;
+        };
+
+        return {
+          id: typedTier.id,
+          group_buy_id: typedTier.group_buy_id,
+          min_participants: typedTier.min_participants,
+          group_price: typedTier.group_price != null ? Number(typedTier.group_price) : null,
+          discount_percentage:
+            typedTier.discount_percentage != null ? Number(typedTier.discount_percentage) : null,
+          reward_coupon_percent:
+            typedTier.reward_coupon_percent != null ? Number(typedTier.reward_coupon_percent) : null,
+          label: typedTier.label,
+        };
+      });
     },
   });
 
@@ -183,6 +234,14 @@ export function AdminGroupBuys() {
         groupBuy.max_participants != null ? String(groupBuy.max_participants) : '',
       group_price:
         groupBuy.group_price != null ? String(groupBuy.group_price) : '',
+      tier_participants:
+        groupBuyTiers.find((tier) => tier.group_buy_id === groupBuy.id && tier.min_participants > groupBuy.min_participants)
+          ? String(groupBuyTiers.find((tier) => tier.group_buy_id === groupBuy.id && tier.min_participants > groupBuy.min_participants)?.min_participants)
+          : '',
+      tier_group_price:
+        groupBuyTiers.find((tier) => tier.group_buy_id === groupBuy.id && tier.min_participants > groupBuy.min_participants)?.group_price != null
+          ? String(groupBuyTiers.find((tier) => tier.group_buy_id === groupBuy.id && tier.min_participants > groupBuy.min_participants)?.group_price)
+          : '',
       expires_at: formatDateTimeLocal(groupBuy.expires_at),
     });
     setIsDialogOpen(true);
@@ -198,7 +257,7 @@ export function AdminGroupBuys() {
       const basePrice = Number(product?.base_price || 0);
       const groupPrice = data.group_price ? Number.parseFloat(data.group_price) : null;
 
-      const { error } = await supabase.from('group_buys').insert({
+      const { data: createdGroupBuy, error } = await supabase.from('group_buys').insert({
         product_id: data.product_id,
         title: data.title || null,
         min_participants: Number.parseInt(data.min_participants, 10),
@@ -210,12 +269,36 @@ export function AdminGroupBuys() {
         expires_at: data.expires_at,
         created_by: user.id,
         status: 'open',
-      });
+      }).select('id').single();
 
       if (error) throw error;
+
+      const baseTier = {
+        group_buy_id: createdGroupBuy.id,
+        min_participants: Number.parseInt(data.min_participants, 10),
+        group_price: groupPrice,
+        discount_percentage: calculateDiscountPercentage(basePrice, data.group_price),
+        reward_coupon_percent: 5,
+        label: 'Base group price',
+      };
+      const tierRows = [baseTier];
+      if (data.tier_participants && data.tier_group_price) {
+        tierRows.push({
+          group_buy_id: createdGroupBuy.id,
+          min_participants: Number.parseInt(data.tier_participants, 10),
+          group_price: Number.parseFloat(data.tier_group_price),
+          discount_percentage: calculateDiscountPercentage(basePrice, data.tier_group_price),
+          reward_coupon_percent: 5,
+          label: 'Momentum tier',
+        });
+      }
+
+      const { error: tierError } = await supabase.from('group_buy_tiers' as never).insert(tierRows as never);
+      if (tierError) throw tierError;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-group-buys'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-group-buy-tiers'] });
       queryClient.invalidateQueries({ queryKey: ['group-buys'] });
       toast.success('Group buy created');
       closeDialog();
@@ -244,9 +327,36 @@ export function AdminGroupBuys() {
         .eq('id', id);
 
       if (error) throw error;
+
+      await supabase.from('group_buy_tiers' as never).delete().eq('group_buy_id', id);
+
+      const baseGroupPrice = data.group_price ? Number.parseFloat(data.group_price) : null;
+      const tierRows = [{
+        group_buy_id: id,
+        min_participants: Number.parseInt(data.min_participants, 10),
+        group_price: baseGroupPrice,
+        discount_percentage: calculateDiscountPercentage(basePrice, data.group_price),
+        reward_coupon_percent: 5,
+        label: 'Base group price',
+      }];
+
+      if (data.tier_participants && data.tier_group_price) {
+        tierRows.push({
+          group_buy_id: id,
+          min_participants: Number.parseInt(data.tier_participants, 10),
+          group_price: Number.parseFloat(data.tier_group_price),
+          discount_percentage: calculateDiscountPercentage(basePrice, data.tier_group_price),
+          reward_coupon_percent: 5,
+          label: 'Momentum tier',
+        });
+      }
+
+      const { error: tierError } = await supabase.from('group_buy_tiers' as never).insert(tierRows as never);
+      if (tierError) throw tierError;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-group-buys'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-group-buy-tiers'] });
       queryClient.invalidateQueries({ queryKey: ['group-buys'] });
       queryClient.invalidateQueries({ queryKey: ['group-buy-detail'] });
       toast.success('Group buy updated');
@@ -313,14 +423,14 @@ export function AdminGroupBuys() {
       const paidParticipants = (participants || []) as GroupBuyParticipantRecord[];
       if (paidParticipants.length === 0) throw new Error('No paid participants');
 
-      const unitPrice = getGroupBuyUnitPrice({
+      const fallbackUnitPrice = getGroupBuyUnitPrice({
         basePrice: Number(groupBuy.products?.base_price || 0),
         groupPrice: groupBuy.group_price,
         discountPercentage: groupBuy.discount_percentage,
       });
 
       const totalAmount = paidParticipants.reduce((sum, participant) => {
-        return sum + unitPrice * (participant.quantity || 1);
+        return sum + Number(participant.unit_price_at_join || fallbackUnitPrice) * (participant.quantity || 1);
       }, 0);
 
       const { data: masterOrder, error: masterOrderError } = await supabase
@@ -341,7 +451,8 @@ export function AdminGroupBuys() {
       if (masterOrderError) throw masterOrderError;
 
       for (const participant of paidParticipants) {
-        const childTotal = unitPrice * (participant.quantity || 1);
+        const participantUnitPrice = Number(participant.unit_price_at_join || fallbackUnitPrice);
+        const childTotal = participantUnitPrice * (participant.quantity || 1);
         const shippingAddress =
           participant.shipping_address && typeof participant.shipping_address === 'object'
             ? participant.shipping_address
@@ -370,7 +481,7 @@ export function AdminGroupBuys() {
             product_variant_id: participant.variant_id,
             product_name: groupBuy.products?.name || 'Group Buy Product',
             quantity: participant.quantity || 1,
-            unit_price: unitPrice,
+            unit_price: participantUnitPrice,
             total_price: childTotal,
           });
         }
@@ -610,6 +721,42 @@ export function AdminGroupBuys() {
               />
             </div>
 
+            <div className="rounded-xl border border-border p-4">
+              <div className="mb-3">
+                <p className="text-sm font-semibold text-foreground">Momentum Tier</p>
+                <p className="text-xs text-muted-foreground">
+                  Optional lower price that unlocks when more participants join.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Unlock At Participants</Label>
+                  <Input
+                    type="number"
+                    min="3"
+                    value={form.tier_participants}
+                    onChange={(event) =>
+                      setForm((prev) => ({ ...prev, tier_participants: event.target.value }))
+                    }
+                    placeholder="e.g. 20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Tier Price</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.tier_group_price}
+                    onChange={(event) =>
+                      setForm((prev) => ({ ...prev, tier_group_price: event.target.value }))
+                    }
+                    placeholder="e.g. 95"
+                  />
+                </div>
+              </div>
+            </div>
+
             <div className="space-y-2">
               <Label>Expires At *</Label>
               <Input
@@ -702,6 +849,18 @@ export function AdminGroupBuys() {
                   </span>
                 </span>
               </div>
+              {groupBuyTiers.filter((tier) => tier.group_buy_id === selectedGroupBuy.id).length > 0 ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {groupBuyTiers
+                    .filter((tier) => tier.group_buy_id === selectedGroupBuy.id)
+                    .map((tier) => (
+                      <Badge key={tier.id} variant="outline">
+                        {tier.label}: {tier.min_participants}+ at{' '}
+                        {tier.group_price != null ? formatPrice(tier.group_price) : 'discount pricing'}
+                      </Badge>
+                    ))}
+                </div>
+              ) : null}
             </div>
             <div className="flex flex-wrap gap-2">
               <Button

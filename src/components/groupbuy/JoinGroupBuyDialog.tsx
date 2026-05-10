@@ -18,6 +18,7 @@ import { getErrorMessage } from '@/lib/errors';
 import { loadPaystack, type PaystackTransactionResponse } from '@/lib/paystack';
 
 interface JoinGroupBuyDialogProps {
+  inviteCode?: string | null;
   groupBuy: {
     id: string;
     product_id: string;
@@ -30,10 +31,17 @@ interface JoinGroupBuyDialogProps {
       name: string;
       base_price: number;
     } | null;
+    tiers?: Array<{
+      id: string;
+      min_participants: number;
+      group_price: number | null;
+      discount_percentage: number | null;
+      label: string;
+    }>;
   };
 }
 
-export function JoinGroupBuyDialog({ groupBuy }: JoinGroupBuyDialogProps) {
+export function JoinGroupBuyDialog({ groupBuy, inviteCode }: JoinGroupBuyDialogProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { formatPrice } = useCurrency();
@@ -90,18 +98,37 @@ export function JoinGroupBuyDialog({ groupBuy }: JoinGroupBuyDialogProps) {
     enabled: !!user,
   });
 
+  const { data: invite } = useQuery({
+    queryKey: ['group-buy-invite', inviteCode],
+    queryFn: async () => {
+      if (!inviteCode) return null;
+      const { data } = await supabase
+        .from('group_buy_invites' as never)
+        .select('invite_code, inviter_user_id')
+        .eq('invite_code', inviteCode)
+        .maybeSingle();
+
+      return data as unknown as { invite_code: string; inviter_user_id: string } | null;
+    },
+    enabled: !!inviteCode,
+  });
+
   const hasVariants = (variants?.length ?? 0) > 0;
+  const effectiveParticipantCount = (groupBuy.current_participants || 0) + 1;
+  const activeTier = [...(groupBuy.tiers || [])]
+    .filter((tier) => effectiveParticipantCount >= tier.min_participants)
+    .sort((left, right) => right.min_participants - left.min_participants)[0];
   const discountedPrice = groupBuy.group_price != null
-    ? groupBuy.group_price
+    ? activeTier?.group_price ?? groupBuy.group_price
     : groupBuy.product
-      ? groupBuy.product.base_price * (1 - (groupBuy.discount_percentage || 0) / 100)
+      ? groupBuy.product.base_price * (1 - ((activeTier?.discount_percentage ?? groupBuy.discount_percentage) || 0) / 100)
       : 0;
 
   const selectedVariant = variants?.find((v) => v.id === selectedVariantId);
   const unitPrice = selectedVariant?.price_override != null && groupBuy.product
-    ? groupBuy.group_price != null
-      ? Number(groupBuy.group_price)
-      : Number(selectedVariant.price_override) * (1 - (groupBuy.discount_percentage || 0) / 100)
+    ? activeTier?.group_price != null || groupBuy.group_price != null
+      ? Number(activeTier?.group_price ?? groupBuy.group_price)
+      : Number(selectedVariant.price_override) * (1 - ((activeTier?.discount_percentage ?? groupBuy.discount_percentage) || 0) / 100)
     : discountedPrice;
   const normalizedQuantity = Math.max(1, Number.parseInt(quantity || '1', 10) || 1);
   const totalAmount = unitPrice * normalizedQuantity;
@@ -252,6 +279,13 @@ export function JoinGroupBuyDialog({ groupBuy }: JoinGroupBuyDialogProps) {
         payment_reference: paymentRef,
         payment_status: 'paid',
         shipping_address: addressData,
+        invite_code: invite?.invite_code || null,
+        referred_by_user_id:
+          invite?.inviter_user_id && invite.inviter_user_id !== user.id
+            ? invite.inviter_user_id
+            : null,
+        unit_price_at_join: unitPrice,
+        tier_label_at_join: activeTier?.label || null,
       });
 
     if (error) {
@@ -339,7 +373,7 @@ export function JoinGroupBuyDialog({ groupBuy }: JoinGroupBuyDialogProps) {
               <span className="line-through text-muted-foreground">{formatPrice(groupBuy.product?.base_price || 0)}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="font-medium">Group Price:</span>
+              <span className="font-medium">{activeTier ? activeTier.label : 'Group Price'}:</span>
               <span className="text-xl font-bold text-primary">{formatPrice(discountedPrice)}</span>
             </div>
           </div>
@@ -417,6 +451,16 @@ export function JoinGroupBuyDialog({ groupBuy }: JoinGroupBuyDialogProps) {
                   <span className="font-medium">Total to pay:</span>
                   <span className="text-xl font-bold text-primary">{formatPrice(totalAmount)}</span>
                 </div>
+                {activeTier ? (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    This join uses tier: {activeTier.label}
+                  </p>
+                ) : null}
+                {invite ? (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Invite reward will be credited after your join is confirmed.
+                  </p>
+                ) : null}
               </div>
 
               <div className="flex gap-2 pt-2">

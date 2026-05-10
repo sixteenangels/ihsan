@@ -21,6 +21,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { OrderInvoice } from '@/components/orders/OrderInvoice';
 import { RefundRequestDialog } from '@/components/orders/RefundRequestDialog';
+import { OrderIssueDialog } from '@/components/support/OrderIssueDialog';
 import type { Product, ProductVariant } from '@/types';
 import type { LucideIcon } from 'lucide-react';
 
@@ -1073,6 +1074,13 @@ export default function MyOrders() {
                                   Track
                                 </Button>
                               </Link>
+                              <OrderIssueDialog
+                                orderId={order.id}
+                                orderNumber={order.order_number}
+                                orderStatus={order.status}
+                                itemNames={order.order_items.map((item) => item.product_name)}
+                                triggerLabel="Issue Center"
+                              />
                               
                               {/* Buy Again & Review - always visible for delivered */}
                               {order.status === 'delivered' && (

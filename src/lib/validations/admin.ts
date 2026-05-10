@@ -79,6 +79,7 @@ export const couponSchema = z.object({
     const num = parseInt(val);
     return !isNaN(num) && num >= 1;
   }, 'Maximum uses must be at least 1'),
+  starts_at: z.string().optional(),
   expires_at: z.string().optional(),
   marketing_label: z.string().max(120, 'Label must be less than 120 characters').optional(),
   auto_apply: z.boolean().optional(),

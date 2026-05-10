@@ -10,7 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Gift, Loader2, Plus } from 'lucide-react';
+import { Copy, Gift, Loader2, Plus, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -33,6 +33,11 @@ export function AdminGiftCards() {
   const [code, setCode] = useState(generateGiftCode());
   const [value, setValue] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
+
+  const copyGiftCardCode = async (giftCode: string) => {
+    await navigator.clipboard.writeText(giftCode);
+    toast.success('Gift card code copied.');
+  };
 
   const { data: giftCards = [], isLoading } = useQuery({
     queryKey: ['admin-gift-cards'],
@@ -75,8 +80,17 @@ export function AdminGiftCards() {
         throw new Error('Enter a valid gift card value.');
       }
 
+      const normalizedCode = code.trim().toUpperCase();
+      if (!/^[A-Z0-9_-]{4,50}$/.test(normalizedCode)) {
+        throw new Error('Gift card code must be 4-50 characters using letters, numbers, hyphens, or underscores.');
+      }
+
+      if (giftCards.some((card) => card.code.toUpperCase() === normalizedCode)) {
+        throw new Error('A gift card with this code already exists.');
+      }
+
       const payload: TablesInsert<'gift_cards'> = {
-        code: code.trim().toUpperCase(),
+        code: normalizedCode,
         initial_value: amount,
         balance: amount,
         created_by: user.id,
@@ -139,6 +153,7 @@ export function AdminGiftCards() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-gift-cards'] });
+      toast.success('Gift card status updated.');
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -147,7 +162,7 @@ export function AdminGiftCards() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-3xl font-bold font-serif text-foreground flex items-center gap-2">
           <Gift className="h-7 w-7 text-primary" />
           Gift Cards
@@ -170,9 +185,10 @@ export function AdminGiftCards() {
                   <Input
                     id="gift-card-code"
                     value={code}
-                    onChange={(event) => setCode(event.target.value.toUpperCase())}
+                    onChange={(event) => setCode(event.target.value.trim().toUpperCase())}
                   />
                   <Button type="button" variant="outline" onClick={() => setCode(generateGiftCode())}>
+                    <RefreshCw className="h-4 w-4" />
                     Regenerate
                   </Button>
                 </div>
@@ -198,7 +214,11 @@ export function AdminGiftCards() {
                   onChange={(event) => setExpiresAt(event.target.value)}
                 />
               </div>
-              <Button className="w-full" onClick={() => createMutation.mutate()} disabled={createMutation.isPending}>
+              <Button
+                className="w-full"
+                onClick={() => createMutation.mutate()}
+                disabled={createMutation.isPending || !code.trim() || !value}
+              >
                 {createMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 Create Gift Card
               </Button>
@@ -248,6 +268,7 @@ export function AdminGiftCards() {
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -266,7 +287,20 @@ export function AdminGiftCards() {
 
                   return (
                     <TableRow key={card.id}>
-                      <TableCell className="font-medium">{card.code}</TableCell>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          <span>{card.code}</span>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8"
+                            onClick={() => copyGiftCardCode(card.code)}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
                       <TableCell>{formatPrice(Number(card.initial_value || 0))}</TableCell>
                       <TableCell>{formatPrice(Number(card.balance || 0))}</TableCell>
                       <TableCell className="text-muted-foreground">
@@ -308,6 +342,7 @@ export function AdminGiftCards() {
                 )}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>

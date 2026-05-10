@@ -87,8 +87,12 @@ export function WalletSection() {
               value={giftCardCode}
               onChange={(event) => setGiftCardCode(event.target.value.toUpperCase())}
             />
-            <Button onClick={() => redeemGiftCardMutation.mutate()} disabled={redeemGiftCardMutation.isPending}>
-              {redeemGiftCardMutation.isPending ? 'Redeeming...' : 'Redeem'}
+            <Button
+              onClick={() => redeemGiftCardMutation.mutate()}
+              disabled={redeemGiftCardMutation.isPending || !giftCardCode.trim()}
+            >
+              {redeemGiftCardMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {redeemGiftCardMutation.isPending ? 'Redeeming' : 'Redeem'}
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">

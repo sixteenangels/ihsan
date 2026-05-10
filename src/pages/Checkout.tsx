@@ -22,6 +22,11 @@ import { useWalletBalance } from '@/hooks/useWallet';
 import { useLoyaltyPoints } from '@/hooks/useLoyaltyPoints';
 import { useStoreSettings } from '@/hooks/useStoreSettings';
 import { loadPaystack, type PaystackTransactionResponse } from '@/lib/paystack';
+import {
+  clearCheckoutRecoverySnapshot,
+  saveCheckoutRecoverySnapshot,
+} from '@/lib/checkoutRecovery';
+import { trackRecommendationEvent } from '@/lib/recommendationEvents';
 
 interface Address {
   id: string;
@@ -68,6 +73,7 @@ interface Coupon {
   min_order_amount: number | null;
   current_uses: number | null;
   max_uses?: number | null;
+  starts_at?: string | null;
   expires_at?: string | null;
   auto_apply?: boolean | null;
   first_order_only?: boolean | null;
@@ -149,6 +155,7 @@ export default function Checkout() {
   const [pendingCourierShippingId, setPendingCourierShippingId] = useState<string | null>(null);
   const callbackFiredRef = useRef(false);
   const [orderCreationInProgress, setOrderCreationInProgress] = useState(false);
+  const checkoutRecoverySnapshotIdRef = useRef<string | null>(null);
 
   // Wallet redemption
   const walletBalance = useWalletBalance();
@@ -502,10 +509,85 @@ export default function Checkout() {
 
   const selectedShipping = shippingClasses.find(s => s.id === selectedShippingId);
   const rawShippingCost = selectedShipping?.base_price || 0;
+
+  useEffect(() => {
+    if (selectedItems.length === 0) {
+      clearCheckoutRecoverySnapshot();
+      if (user) {
+        void supabase
+          .from('checkout_recovery_snapshots' as never)
+          .update({
+            status: 'dismissed',
+            updated_at: new Date().toISOString(),
+          } as never)
+          .eq('user_id', user.id)
+          .eq('status', 'active');
+      }
+      return;
+    }
+
+    const productNames = [...new Set(selectedItems.map((item) => item.product.name))];
+    const itemCount = selectedItems.reduce((sum, item) => sum + item.quantity, 0);
+    const now = new Date();
+    const reminderDueAt = new Date(now.getTime() + 2 * 60 * 60 * 1000).toISOString();
+
+    saveCheckoutRecoverySnapshot({
+      itemCount,
+      subtotal: selectedSubtotal,
+      productNames,
+      shippingLabel: selectedShipping?.name || null,
+      updatedAt: now.toISOString(),
+    });
+
+    selectedItems.forEach((item) => {
+      trackRecommendationEvent({
+        productId: item.product.id,
+        userId: user?.id,
+        eventType: 'checkout_seed',
+        source: 'checkout_recovery',
+        weight: item.quantity,
+      });
+    });
+
+    if (!user) {
+      return;
+    }
+
+    void (async () => {
+      const { data, error } = await supabase
+        .from('checkout_recovery_snapshots' as never)
+        .upsert(
+          {
+            user_id: user.id,
+            item_count: itemCount,
+            subtotal: selectedSubtotal,
+            product_names: productNames,
+            shipping_label: selectedShipping?.name || null,
+            checkout_path: '/checkout',
+            status: 'active',
+            last_seen_at: now.toISOString(),
+            reminder_due_at: reminderDueAt,
+            reminded_at: null,
+            updated_at: now.toISOString(),
+          } as never,
+          { onConflict: 'user_id' },
+        )
+        .select('id')
+        .single();
+
+      if (!error && data) {
+        checkoutRecoverySnapshotIdRef.current = (data as { id: string }).id;
+      }
+    })();
+  }, [selectedItems, selectedShipping?.name, selectedSubtotal, user]);
   const shippingCost = allFreeShipping ? 0 : rawShippingCost;
 
   // Calculate discount
   const isCouponEligible = useCallback((coupon: Coupon) => {
+    if (coupon.starts_at && new Date(coupon.starts_at) > new Date()) {
+      return false;
+    }
+
     if (coupon.expires_at && new Date(coupon.expires_at) < new Date()) {
       return false;
     }
@@ -583,6 +665,8 @@ export default function Checkout() {
     if (!isCouponEligible(typedCoupon)) {
       if (typedCoupon.first_order_only && userOrderCount > 0) {
         toast.error('This coupon is only available for first orders');
+      } else if (typedCoupon.starts_at && new Date(typedCoupon.starts_at) > new Date()) {
+        toast.error('This coupon is not active yet');
       } else if (typedCoupon.expires_at && new Date(typedCoupon.expires_at) < new Date()) {
         toast.error('This coupon has expired');
       } else if (typedCoupon.min_order_amount && selectedSubtotal < typedCoupon.min_order_amount) {
@@ -843,11 +927,43 @@ export default function Checkout() {
         });
 
       if (appliedCoupon) {
-        await supabase
-          .from('coupons')
-          .update({ current_uses: appliedCoupon.current_uses + 1 })
-          .eq('id', appliedCoupon.id);
+        const { error: couponRedemptionError } = await supabase.rpc('mark_coupon_redeemed' as never, {
+          coupon_id_input: appliedCoupon.id,
+          order_id_input: order.id,
+          discount_amount_input: discount,
+        } as never);
+
+        if (couponRedemptionError) {
+          console.error('Coupon redemption logging failed:', couponRedemptionError);
+        }
       }
+
+      if (user) {
+        const recoveryUpdate = supabase
+          .from('checkout_recovery_snapshots' as never)
+          .update({
+            status: 'recovered',
+            recovered_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          } as never);
+
+        if (checkoutRecoverySnapshotIdRef.current) {
+          await recoveryUpdate.eq('id', checkoutRecoverySnapshotIdRef.current);
+        } else {
+          await recoveryUpdate.eq('user_id', user.id);
+        }
+      }
+
+      selectedItems.forEach((item) => {
+        trackRecommendationEvent({
+          productId: item.product.id,
+          userId: user?.id,
+          eventType: 'order_complete',
+          source: 'checkout',
+          weight: item.quantity,
+          revenue: item.variant.price * item.quantity,
+        });
+      });
 
       try {
         const { data: settingsData } = await supabase

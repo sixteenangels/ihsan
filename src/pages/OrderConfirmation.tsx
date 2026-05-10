@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { Check, Package, MapPin, Truck, Share2, Copy } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
+import { RecommendedProductsSection } from '@/components/products/RecommendedProductsSection';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
@@ -27,10 +28,16 @@ interface Order {
   shipping_address: ShippingAddress | null;
 }
 
+interface OrderProductSeed {
+  product_id: string | null;
+  product_variant_id: string | null;
+}
+
 export default function OrderConfirmation() {
   const { orderId } = useParams();
   const { formatPrice } = useCurrency();
   const [order, setOrder] = useState<Order | null>(null);
+  const [orderProductIds, setOrderProductIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchOrder = useCallback(async () => {
@@ -38,14 +45,41 @@ export default function OrderConfirmation() {
 
     const { data } = await supabase
       .from('orders')
-      .select('*')
+      .select(`
+        *,
+        order_items (
+          product_id,
+          product_variant_id
+        )
+      `)
       .eq('id', orderId)
       .single();
 
     if (data) {
+      const orderItems = (data.order_items || []) as OrderProductSeed[];
+      const directProductIds = orderItems
+        .map((item) => item.product_id)
+        .filter((productId): productId is string => Boolean(productId));
+      const variantIds = orderItems
+        .map((item) => item.product_variant_id)
+        .filter((variantId): variantId is string => Boolean(variantId));
+      let resolvedVariantProductIds: string[] = [];
+
+      if (variantIds.length > 0) {
+        const { data: variants } = await supabase
+          .from('product_variants')
+          .select('id, product_id')
+          .in('id', variantIds);
+
+        resolvedVariantProductIds =
+          variants?.map((variant) => variant.product_id).filter(Boolean) || [];
+      }
+
+      setOrderProductIds([...new Set([...directProductIds, ...resolvedVariantProductIds])]);
+      const { order_items: _orderItems, ...orderRow } = data;
       setOrder({
-        ...data,
-        shipping_address: data.shipping_address as unknown as ShippingAddress | null,
+        ...orderRow,
+        shipping_address: orderRow.shipping_address as unknown as ShippingAddress | null,
       });
     }
     setLoading(false);
@@ -183,6 +217,15 @@ export default function OrderConfirmation() {
             <Link to="/products">
               <Button variant="ghost" size="lg" className="w-full sm:w-auto">Continue Shopping</Button>
             </Link>
+          </div>
+
+          <div className="mt-12 text-left">
+            <RecommendedProductsSection
+              title="Keep the order momentum going"
+              description="Picked from the same shopping pattern so it is easy to add a follow-up order or share with someone else."
+              seedProductIds={orderProductIds}
+              excludeProductIds={orderProductIds}
+            />
           </div>
         </div>
       </main>

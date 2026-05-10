@@ -34,6 +34,7 @@ type CouponFormState = {
   value: string;
   min_order_amount: string;
   max_uses: string;
+  starts_at: string;
   expires_at: string;
   marketing_label: string;
   auto_apply: boolean;
@@ -61,6 +62,7 @@ export function AdminPromotions() {
     value: '',
     min_order_amount: '',
     max_uses: '',
+    starts_at: '',
     expires_at: '',
     marketing_label: '',
     auto_apply: false,
@@ -156,7 +158,8 @@ export function AdminPromotions() {
         value: parseFloat(couponData.value),
         min_order_amount: couponData.min_order_amount ? parseFloat(couponData.min_order_amount) : null,
         max_uses: couponData.max_uses ? parseInt(couponData.max_uses) : null,
-        expires_at: couponData.expires_at || null,
+        starts_at: couponData.starts_at ? new Date(couponData.starts_at).toISOString() : null,
+        expires_at: couponData.expires_at ? new Date(couponData.expires_at).toISOString() : null,
         marketing_label: couponData.marketing_label || null,
         auto_apply: !!couponData.auto_apply,
         first_order_only: !!couponData.first_order_only,
@@ -187,6 +190,7 @@ export function AdminPromotions() {
         value: '',
         min_order_amount: '',
         max_uses: '',
+        starts_at: '',
         expires_at: '',
         marketing_label: '',
         auto_apply: false,
@@ -373,7 +377,7 @@ export function AdminPromotions() {
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="percentage">Percentage (%)</SelectItem>
-                        <SelectItem value="fixed_amount">Fixed Amount (₵)</SelectItem>
+                        <SelectItem value="fixed_amount">Fixed Amount (GHS)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -401,6 +405,14 @@ export function AdminPromotions() {
                     type="number"
                     value={newCoupon.max_uses}
                     onChange={(e) => setNewCoupon(prev => ({ ...prev, max_uses: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Starts At (optional)</Label>
+                  <Input
+                    type="datetime-local"
+                    value={newCoupon.starts_at}
+                    onChange={(e) => setNewCoupon(prev => ({ ...prev, starts_at: e.target.value }))}
                   />
                 </div>
                 <div className="space-y-2">
@@ -475,7 +487,8 @@ export function AdminPromotions() {
                     )}
                     <p className="text-xs text-muted-foreground">
                       Uses: {coupon.current_uses || 0}{coupon.max_uses ? `/${coupon.max_uses}` : ''}
-                      {coupon.expires_at && ` • Expires: ${format(new Date(coupon.expires_at), 'PP')}`}
+                      {coupon.starts_at && ` | Starts: ${format(new Date(coupon.starts_at), 'PP')}`}
+                      {coupon.expires_at && ` | Expires: ${format(new Date(coupon.expires_at), 'PP')}`}
                     </p>
                   </div>
                 </div>
@@ -601,7 +614,7 @@ export function AdminPromotions() {
             </div>
           </div>
           <p className="text-sm text-muted-foreground">
-            Referrers will receive a <strong>{refDiscount}% off</strong> coupon, usable <strong>{refMaxUses}×</strong>, valid for <strong>{refExpiryDays} days</strong> after each successful referral.
+            Referrers will receive a <strong>{refDiscount}% off</strong> coupon, usable <strong>{refMaxUses}x</strong>, valid for <strong>{refExpiryDays} days</strong> after each successful referral.
           </p>
           <Button onClick={() => saveReferralSettings.mutate()} disabled={saveReferralSettings.isPending}>
             {saveReferralSettings.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
