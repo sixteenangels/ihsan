@@ -1,139 +1,127 @@
-# Ihsan — Premium E-Commerce Platform
+# Ihsan - Premium E-Commerce Platform
 
-**Tagline:** _Global Shopping Made Simple_
-**Stack:** React 18 + Vite + TypeScript + Tailwind • Lovable Cloud (Supabase: Postgres, Auth, Storage, Realtime) • Paystack (GHS) • Framer Motion • PWA
-**Currency:** Ghana Cedis (GHS) — strictly enforced everywhere
-**Design philosophy:** _"Admin is the system."_ Manual control over shipping, pricing, and order flow — no fantasy automation.
+**Tagline:** Global Shopping Made Simple  
+**Stack:** React 18 + Vite + TypeScript + Tailwind + Supabase + Paystack + Framer Motion + PWA  
+**Currency:** Ghana Cedis (GHS), enforced throughout the product  
+**Design philosophy:** Admin is the system. Shipping, pricing, and fulfillment stay under manual control instead of pretending to be fully automated.
 
 ---
 
-## 1. Product Catalog & Discovery
+## 1. Product Catalog and Discovery
 
-- **Products** with multiple **variants** (color/size as colored pill badges), per-variant price + stock
-- **Special categories**: ⚡ Ready Now (in-stock fast ship) and 🎁 Combo bundles
-- **Product media**: image gallery with zoom, pan, and drag
-- **Discovery tools**: Quick View, Compare (with history), Wishlist, Grid/List toggle
-- **Frequently Bought Together**, **Related Products**, **Recently Viewed**
-- **Price Drop Alerts**
-- **Reviews** — only buyers who actually received the item can post (verified)
-- **Product Q&A**
+- Products support multiple variants with per-variant pricing and stock.
+- Special categories include Ready Now and Combo Bundles.
+- Product media includes gallery, zoom, pan, and drag support.
+- Discovery features include Quick View, Compare, Wishlist, Grid/List toggle, Recently Viewed, Related Products, Frequently Bought Together, and recommendation surfaces.
+- Customers can subscribe to price drop and back-in-stock alerts.
+- Reviews are limited to verified buyers.
+- Product Q&A is available on product detail pages.
 
-## 2. Cart & Checkout
+## 2. Cart and Checkout
 
-- Persistent cart (`localStorage`, v2 schema), per-item selection
-- **Admin-controlled shipping tiers** — restricted tiers are hidden when a cart item disallows them
-- **Wallet redemption** at checkout (GHS credit applied to total)
-- **Free-shipping override** (admin/manual)
-- **Fragile packaging dialog** for fragile items
-- **Paystack** payment in GHS, with verify-payment edge function
-- **Customs duty estimator** page
+- Cart is persistent and supports per-item selection.
+- Shipping options are admin-controlled and filtered by product restrictions.
+- Wallet credit can be redeemed at checkout.
+- Free-shipping overrides are supported.
+- Fragile-item packaging flow is supported.
+- Paystack payments are verified server-side.
+- Customs duty estimation is available.
+- Checkout recovery data is stored locally for reminder and resume flows.
 
-## 3. Orders & Fulfillment
+## 3. Orders and Fulfillment
 
-- **Unified order workflow** — 14 distinct manual statuses, admin-driven
-- **MyOrders** redesigned card UI: Details / Buy Again / Confirm Delivery
-- **Customer self-service**: Confirm Payment, Confirm Delivery
-- **Order tracking** with Leaflet/OSM map
-- **Realtime + push + in-app notifications** on status changes
-- **Admin Receipts**: PDF generation with QR codes and itemized lists
-- **Refund workflow** — manual, only for `Delivered` orders
+- Order lifecycle is driven by manual admin statuses.
+- Customers can confirm payment and confirm delivery.
+- Tracking supports status history plus map-based delivery context.
+- Realtime, push, and in-app notifications are sent on status changes.
+- Admin receipts include QR verification and itemized totals.
+- Refunds are handled manually for delivered orders.
+- Proof-of-delivery and fulfillment handoff details are captured in the admin flow.
 
 ## 4. Admin Console
 
-- **Dashboard** with analytics (Recharts) + CSV export
-- **Orders**: bulk status transitions, internal admin notes
-  - **Mobile**: swipe-to-update-status (framer-motion drag) with **haptic feedback** (`navigator.vibrate`)
-  - **First-time swipe hint overlay** (dismissed permanently via `localStorage`)
-- **Message Templates**: reusable status-update notes (ready to wire into the orders status dialog picker)
-- **Products / Categories / Bundles / Variants** management (products are **archived, never deleted**)
-- **Stock Management** — low-stock alerts + bulk CSV updates
-- **Shipping rules** (per-product overrides)
-- **Promotions / Group Buys / Loyalty / Referrals**
-- **Wallet** — admin credits customers, transactions logged + customer notified
-- **Reviews / Q&A / Support / Refunds / Notifications / Users / Settings**
-- **Customer leaderboard**
+- Dashboard includes analytics and CSV export.
+- Orders support bulk actions, notes, fulfillment updates, and refund processing.
+- Mobile admin order cards support swipe-based status updates with haptics.
+- Swipe hint overlay is stored once per device with local storage.
+- Message templates exist as a standalone admin page and can now be inserted directly into order status notes.
+- Products, categories, bundles, variants, stock, shipping, promotions, loyalty, referrals, wallets, users, reviews, support, refunds, notifications, and settings are all managed from admin.
 
 ## 5. Group Buy System
 
-- Minimum participants + deadlines + tiered discounts
-- Join / Start dialogs, participant list, share sheet
+- Group buys support participant minimums, deadlines, and discount tiers.
+- Customers can start, join, share, and monitor group buys.
 
-## 6. Customer Account (Profile)
+## 6. Customer Account
 
-- Profile + addresses
-- **Wallet tab** — balance + full transaction history
-- Push notification settings
-- 2FA (TOTP) setup, manage, verify, backup recovery codes
-- Active session management
-- Loyalty points + referrals
-- Order history
+- Profile and address management are included.
+- Wallet balance and transaction history are available.
+- Push notification preferences are configurable.
+- Two-factor auth includes setup, verification, recovery codes, and management.
+- Session management is exposed in the UI.
+- Loyalty points, referrals, and order history are available in profile flows.
 
-## 7. Authentication & Security
+## 7. Authentication and Security
 
-- Email/password + **Google OAuth** (via Lovable Cloud managed OAuth — `@lovable.dev/cloud-auth-js`)
-- Email verification required (no auto-confirm)
-- Password reset + resend verification
-- Remember-me (sessionStorage flag)
-- **2FA** with backup codes
-- Session management UI
-- Roles in dedicated `user_roles` table + `manager_permissions` (no role-on-profile escalation)
-- Friendly OAuth error messages (`access_blocked`, `redirect_uri_mismatch`, cancelled, etc.)
+- Email/password auth and Google OAuth are supported through Supabase.
+- Email verification is required.
+- Password reset and resend verification flows are included.
+- Remember-me behavior differentiates between session and persistent login.
+- Roles are stored in dedicated role tables rather than on mutable profile fields.
+- OAuth failures surface clearer user-facing error states.
 
-## 8. Support & Engagement
+## 8. Support and Engagement
 
-- **Help Center** — categorized FAQs + contact form
-- **Real-time support chat** widget (Supabase Realtime)
-- **Abandoned cart reminder**
-- **Welcome modal** for new visitors
-- **Cookie consent**
-- **Maintenance mode** wrapper
+- Help center includes FAQs and contact flows.
+- Realtime support chat is available.
+- Abandoned-cart reminders and checkout recovery flows are supported.
+- Welcome modal, cookie consent, and maintenance mode are present.
 
-## 9. PWA & Mobile
+## 9. PWA and Mobile
 
-- Installable PWA, iOS-friendly manifest, service worker for push (`sw-push.js`)
-- **Mobile bottom tab bar** with blur, iOS safe-area, haptics
-- Apple HIG-aligned visual polish
+- The app is installable as a PWA.
+- Push support is wired through the service worker.
+- Mobile navigation includes safe-area handling and haptic polish.
 
-## 10. Branding & SEO
+## 10. Branding and SEO
 
-- Brand: **Ihsan — Premium E-Commerce**, _Global Shopping Made Simple_
-- Favicon + OG metadata
-- Dark mode toggle (next-themes)
-- WhatsApp + social sharing
-- Semantic HTML, lazy-loaded routes (React.lazy + Suspense)
+- Branding centers on Ihsan and the Global Shopping Made Simple tagline.
+- Favicon, OG metadata, and semantic HTML are in place.
+- Dark mode is supported.
+- Social sharing and lazy-loaded routes are implemented.
 
 ---
 
-## Backend (Lovable Cloud)
+## Backend
 
-**Tables (high level):** products, product_variants, categories, bundles, orders, order_items, shipping_options, product_shipping_rules, reviews, qa_questions, group_buys, group_buy_participants, promotions, loyalty_points, referrals, wallet_transactions, notifications, support_threads, support_messages, message_templates, refund_requests, user_roles, manager_permissions, profiles, addresses, sessions, push_subscriptions, store_settings, feature_flags, audit_logs.
+**Core tables:** products, product_variants, categories, bundles, orders, order_items, shipping_options, product_shipping_rules, reviews, qa_questions, group_buys, group_buy_participants, promotions, loyalty_points, referrals, wallet_transactions, notifications, support_threads, support_messages, message_templates, refund_requests, user_roles, manager_permissions, profiles, addresses, sessions, push_subscriptions, store_settings, feature_flags, and audit_logs.
 
 **Edge functions:**
-- `get-paystack-key` — secure key delivery
-- `verify-paystack-payment` — server-side verification
+
+- `get-paystack-key`
+- `verify-paystack-payment`
 - `process-referral-reward`
 - `send-push-notification`
+- `send-transactional-email`
+- `send-checkout-recovery-reminders`
 - `check-birthdays`
-
-**RLS:** Permissive policies + `has_role(user_id, role)` SECURITY DEFINER for admin checks.
-**Realtime:** enabled for orders, notifications, support messages.
 
 ---
 
 ## Recent Work Completed
 
-- ✅ Review flow end-to-end (verified-buyer only, instant on product + admin Reviews tab)
-- ✅ Admin **Message Templates** page (CRUD)
-- ✅ **MyOrders** redesigned cards (Details / Buy Again / Confirm Delivery)
-- ✅ **Checkout**: wallet redemption, free-shipping override, fragile packaging dialog
-- ✅ **Profile → Wallet** tab (balance + transactions)
-- ✅ **AdminOrders mobile**: framer-motion swipe-to-update + haptic feedback
-- ✅ **Swipe hint overlay** (one-time, localStorage-dismissed)
-- ✅ **Google sign-in** moved to Lovable Cloud managed OAuth
-- ✅ Friendly OAuth error states on Auth page
+- Review flow is wired end-to-end for verified buyers.
+- Admin message templates support CRUD and direct insertion inside Admin Orders.
+- My Orders card UX has been redesigned.
+- Checkout supports wallet redemption, free-shipping override, and fragile packaging flow.
+- Profile exposes wallet balance and transaction history.
+- Admin Orders mobile interactions support swipe-to-update and haptics.
+- OAuth error handling is friendlier for Google sign-in failures.
+- Local quality gates now include build, lint, and Vitest coverage entry points.
 
-## Known Follow-ups
+## Remaining Environment Checks
 
-- Wire the message-templates **picker** into the AdminOrders status-update dialog
-- Verify Google OAuth redirect URI in Lovable Cloud → Users → Auth Settings (resolves "Access blocked")
-- End-to-end mobile checkout test with a live Paystack test payment
+- Verify Google OAuth settings in Supabase for every deployed app URL. The frontend redirects Google auth back to `${window.location.origin}/auth`.
+- Run a real mobile checkout against Paystack from a deployed environment with a seeded cart, a customer account, and valid payment credentials.
+
+These remaining items are deployment validations, not open code tasks inside the repo.
