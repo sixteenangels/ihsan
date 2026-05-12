@@ -419,6 +419,14 @@ export default function MyOrders() {
     );
   };
 
+  const getOrderItemImage = (item: OrderItem) => {
+    return (
+      (item.product_id ? productImages[item.product_id] : null) ||
+      (item.product_variant_id ? productImages[item.product_variant_id] : null) ||
+      null
+    );
+  };
+
   const toggleOrderExpansion = (orderId: string) => {
     setDetailsOrderId(detailsOrderId === orderId ? null : orderId);
   };
@@ -684,6 +692,8 @@ export default function MyOrders() {
                   const isExpanded = detailsOrderId === order.id;
                   const isCancelled = isCancelledStatus(order.status);
                   const checkpoints = getCheckpointsForOrder(order, shippingClassNames);
+                  const primaryItem = order.order_items[0];
+                  const primaryImage = primaryItem ? getOrderItemImage(primaryItem) : null;
                   return (
                     <Card key={order.id} className="overflow-hidden">
                       <CardContent className="p-0">
@@ -691,12 +701,12 @@ export default function MyOrders() {
                         <div className="p-4 bg-muted/50 border-b border-border">
                           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                             <div className="flex min-w-0 flex-1 items-center gap-3">
-                              {order.order_items[0] && (
+                              {primaryItem && (
                                 <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 border border-border bg-muted">
-                                  {productImages[order.order_items[0].product_id || order.order_items[0].product_variant_id || ''] ? (
+                                  {primaryImage ? (
                                     <img
-                                      src={productImages[order.order_items[0].product_id || order.order_items[0].product_variant_id || '']}
-                                      alt={order.order_items[0].product_name}
+                                      src={primaryImage}
+                                      alt={primaryItem.product_name}
                                       className="w-full h-full object-cover"
                                     />
                                   ) : (
@@ -814,57 +824,49 @@ export default function MyOrders() {
                               </div>
                             )}
 
-                            {/* Vertical Timeline with Time | Status | Note */}
+                            {/* Vertical Tracking Map */}
                             {!isCancelled && (
                               <div className="space-y-0">
-                                <h4 className="text-sm font-semibold text-foreground mb-3">Status Updates</h4>
-                                <div className="overflow-x-auto">
-                                  <table className="w-full text-xs">
-                                    <thead>
-                                      <tr className="border-b border-border">
-                                        <th className="text-left py-1.5 pr-3 text-muted-foreground font-medium w-28">Time</th>
-                                        <th className="text-left py-1.5 pr-3 text-muted-foreground font-medium w-32">Status</th>
-                                        <th className="text-left py-1.5 text-muted-foreground font-medium">Info</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {order.order_tracking.length > 0 ? (
-                                        order.order_tracking.map((track, index) => (
-                                          <tr key={track.id} className="border-b border-border/50">
-                                            <td className="py-2 pr-3 text-muted-foreground align-top whitespace-nowrap">
-                                              {format(new Date(track.created_at), 'MMM d h:mm a')}
-                                            </td>
-                                            <td className="py-2 pr-3 align-top">
-                                              <span className={`font-medium ${index === order.order_tracking.length - 1 ? 'text-primary' : 'text-foreground'}`}>
-                                                {statusConfig[track.status]?.label || track.status}
-                                              </span>
-                                            </td>
-                                            <td className="py-2 text-muted-foreground align-top">
+                                <h4 className="text-sm font-semibold text-foreground mb-3">Vertical Tracking Map</h4>
+                                <div className="space-y-0">
+                                  {(order.order_tracking.length > 0 ? order.order_tracking : [{
+                                    id: `fallback-${order.id}`,
+                                    status: order.status,
+                                    location_name: '',
+                                    notes: getAutoNote(order.status, order.order_items),
+                                    created_at: order.created_at,
+                                  }]).map((track, index, entries) => {
+                                    const isLatest = index === entries.length - 1;
+
+                                    return (
+                                      <div key={track.id} className="flex gap-3">
+                                        <div className="flex flex-col items-center">
+                                          <div className={`h-3 w-3 rounded-full ${isLatest ? 'bg-primary' : 'bg-muted-foreground/30'}`} />
+                                          {index < entries.length - 1 && (
+                                            <div className="my-1 min-h-8 w-0.5 flex-1 bg-muted-foreground/20" />
+                                          )}
+                                        </div>
+                                        <div className="min-w-0 flex-1 pb-4">
+                                          <div className={`rounded-lg border p-3 ${isLatest ? 'border-primary/30 bg-primary/5' : 'border-border bg-muted/20'}`}>
+                                            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                                              <p className={`text-sm font-medium ${isLatest ? 'text-primary' : 'text-foreground'}`}>
+                                                {statusConfig[track.status]?.label || track.status.replaceAll('_', ' ')}
+                                              </p>
+                                              <p className="text-xs text-muted-foreground">
+                                                {format(new Date(track.created_at), 'MMM d h:mm a')}
+                                              </p>
+                                            </div>
+                                            <p className="mt-1 text-xs text-muted-foreground">
                                               {track.notes || getAutoNote(track.status, order.order_items)}
-                                              {track.location_name && (
-                                                <span className="block text-[10px] text-muted-foreground/60 mt-0.5">{track.location_name}</span>
-                                              )}
-                                            </td>
-                                          </tr>
-                                        ))
-                                      ) : (
-                                        // Show current status as a single entry
-                                        <tr className="border-b border-border/50">
-                                          <td className="py-2 pr-3 text-muted-foreground whitespace-nowrap">
-                                            {format(new Date(order.created_at), 'MMM d h:mm a')}
-                                          </td>
-                                          <td className="py-2 pr-3">
-                                            <span className="font-medium text-primary">
-                                              {statusConfig[order.status]?.label || order.status}
-                                            </span>
-                                          </td>
-                                          <td className="py-2 text-muted-foreground">
-                                            {getAutoNote(order.status, order.order_items)}
-                                          </td>
-                                        </tr>
-                                      )}
-                                    </tbody>
-                                  </table>
+                                            </p>
+                                            {track.location_name && (
+                                              <p className="mt-1 text-[11px] text-muted-foreground/70">{track.location_name}</p>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                                 <div className="flex flex-wrap gap-2 mt-3">
                                   <OrderInvoice order={order} />
@@ -976,31 +978,35 @@ export default function MyOrders() {
 
                             {/* Order Items with images */}
                             <div className="space-y-2">
-                              {order.order_items.map((item) => (
-                                <div key={item.id} className="flex items-start gap-3 rounded-lg bg-muted/30 p-3">
-                                  <div className="w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 border border-border bg-muted">
-                                    {productImages[item.product_id || item.product_variant_id || ''] ? (
-                                      <img
-                                        src={productImages[item.product_id || item.product_variant_id || '']}
-                                        alt={item.product_name}
-                                        className="w-full h-full object-cover"
-                                      />
-                                    ) : (
-                                      <div className="w-full h-full flex items-center justify-center">
-                                        <Package className="h-5 w-5 text-muted-foreground" />
-                                      </div>
-                                    )}
+                              {order.order_items.map((item) => {
+                                const imageUrl = getOrderItemImage(item);
+
+                                return (
+                                  <div key={item.id} className="flex items-start gap-3 rounded-lg bg-muted/30 p-3">
+                                    <div className="w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 border border-border bg-muted">
+                                      {imageUrl ? (
+                                        <img
+                                          src={imageUrl}
+                                          alt={item.product_name}
+                                          className="w-full h-full object-cover"
+                                        />
+                                      ) : (
+                                        <div className="w-full h-full flex items-center justify-center">
+                                          <Package className="h-5 w-5 text-muted-foreground" />
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-sm font-medium text-foreground truncate">{item.product_name}</p>
+                                      {item.variant_details && (
+                                        <p className="text-xs text-primary">{item.variant_details}</p>
+                                      )}
+                                      <p className="text-xs text-muted-foreground">Qty: {item.quantity}</p>
+                                    </div>
+                                    <p className="mt-1 text-sm font-semibold text-primary sm:self-center">{formatPrice(item.total_price)}</p>
                                   </div>
-                                  <div className="min-w-0 flex-1">
-                                    <p className="text-sm font-medium text-foreground truncate">{item.product_name}</p>
-                                    {item.variant_details && (
-                                      <p className="text-xs text-primary">{item.variant_details}</p>
-                                    )}
-                                    <p className="text-xs text-muted-foreground">Qty: {item.quantity}</p>
-                                  </div>
-                                  <p className="mt-1 text-sm font-semibold text-primary sm:self-center">{formatPrice(item.total_price)}</p>
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
 
                             {/* Delivery Info */}

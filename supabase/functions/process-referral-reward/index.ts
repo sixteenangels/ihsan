@@ -19,6 +19,8 @@ Deno.serve(async (req) => {
       });
     }
 
+    const normalizedReferralCode = String(referral_code).trim().toUpperCase();
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
@@ -27,7 +29,7 @@ Deno.serve(async (req) => {
     const { data: codeData, error: codeError } = await supabase
       .from('referral_codes')
       .select('*')
-      .eq('code', referral_code)
+      .ilike('code', normalizedReferralCode)
       .maybeSingle();
 
     if (codeError || !codeData) {
@@ -49,27 +51,34 @@ Deno.serve(async (req) => {
     const { data: existingTracking } = await supabase
       .from('referral_tracking')
       .select('id')
-      .eq('referrer_id', codeData.user_id)
       .eq('referred_user_id', referred_user_id)
       .maybeSingle();
 
     if (existingTracking) {
-      return new Response(JSON.stringify({ message: 'Already tracked' }), {
+      return new Response(JSON.stringify({ message: 'Already tracked', tracked: true }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     // Track the referral
-    await supabase.from('referral_tracking').insert({
+    const { error: trackingError } = await supabase.from('referral_tracking').insert({
       referrer_id: codeData.user_id,
       referred_user_id,
     });
 
+    if (trackingError) {
+      throw trackingError;
+    }
+
     // Increment total_referrals
-    await supabase
+    const { error: codeUpdateError } = await supabase
       .from('referral_codes')
       .update({ total_referrals: (codeData.total_referrals || 0) + 1 })
       .eq('id', codeData.id);
+
+    if (codeUpdateError) {
+      throw codeUpdateError;
+    }
 
     // Check if referral programme is enabled
     const { data: enabledSetting } = await supabase
@@ -104,7 +113,7 @@ Deno.serve(async (req) => {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + expiryDays);
 
-    await supabase.from('coupons').insert({
+    const { error: couponError } = await supabase.from('coupons').insert({
       code: couponCode,
       type: 'percentage',
       value: discountPercent,
@@ -114,22 +123,34 @@ Deno.serve(async (req) => {
       expires_at: expiresAt.toISOString(),
     });
 
+    if (couponError) {
+      throw couponError;
+    }
+
     // Notify referrer
-    await supabase.from('notifications').insert({
+    const { error: notificationError } = await supabase.from('notifications').insert({
       user_id: codeData.user_id,
-      title: '🎉 Referral Reward!',
+      title: 'Referral Reward',
       message: `Someone signed up with your referral code! Use ${couponCode} for ${discountPercent}% off your next order. Valid for ${expiryDays} days.`,
       type: 'promotion',
       data: { coupon_code: couponCode },
     });
 
+    if (notificationError) {
+      throw notificationError;
+    }
+
     // Award loyalty points to referrer
-    await supabase.from('loyalty_points').insert({
+    const { error: loyaltyError } = await supabase.from('loyalty_points').insert({
       user_id: codeData.user_id,
       points: 50,
       type: 'earn',
-      description: 'Referral reward — 50 points',
+      description: 'Referral reward - 50 points',
     });
+
+    if (loyaltyError) {
+      throw loyaltyError;
+    }
 
     return new Response(
       JSON.stringify({ success: true, coupon_code: couponCode }),

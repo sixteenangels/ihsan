@@ -336,12 +336,12 @@ export function AdminPromotions() {
   }
 
   return (
-    <div>
-      <h1 className="text-3xl font-bold font-serif text-foreground mb-8">Promotions</h1>
+    <div className="space-y-6 pb-24 md:pb-0">
+      <h1 className="text-2xl font-bold font-serif text-foreground md:text-3xl">Promotions</h1>
 
       {/* Coupons */}
-      <Card className="mb-8">
-        <CardHeader className="flex flex-row items-center justify-between">
+      <Card>
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle className="flex items-center gap-2">
             <Tag className="h-5 w-5" />
             Coupons
@@ -461,13 +461,13 @@ export function AdminPromotions() {
         <CardContent>
           <div className="space-y-3">
             {coupons?.map((coupon) => (
-              <div key={coupon.id} className="flex items-center justify-between p-4 bg-muted rounded-lg">
-                <div className="flex items-center gap-4">
+              <div key={coupon.id} className="flex flex-col gap-4 p-4 bg-muted rounded-lg sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex min-w-0 items-start gap-4">
                   <div className="p-2 rounded-lg bg-primary/10 text-primary">
                     {coupon.type === 'percentage' ? <Percent className="h-5 w-5" /> : <DollarSign className="h-5 w-5" />}
                   </div>
-                  <div>
-                    <p className="font-bold text-foreground">{coupon.code}</p>
+                  <div className="min-w-0">
+                    <p className="break-all font-bold text-foreground">{coupon.code}</p>
                     <p className="text-sm text-muted-foreground">
                       {coupon.type === 'percentage' ? `${coupon.value}% off` : `${formatPrice(Number(coupon.value))} off`}
                       {coupon.min_order_amount ? ` (min ${formatPrice(Number(coupon.min_order_amount))})` : ''}
@@ -492,7 +492,7 @@ export function AdminPromotions() {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center justify-end gap-3 sm:justify-start">
                   <Badge variant={coupon.is_active ? 'default' : 'secondary'}>
                     {coupon.is_active ? 'Active' : 'Inactive'}
                   </Badge>
@@ -514,7 +514,7 @@ export function AdminPromotions() {
       </Card>
 
       {/* Flash Deals */}
-      <Card className="mb-8">
+      <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Zap className="h-5 w-5 text-destructive" />
@@ -528,12 +528,12 @@ export function AdminPromotions() {
           <div className="space-y-3">
             {flashDealProducts?.map((product) => (
               <div key={product.id} className="p-4 bg-muted rounded-lg space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
                     <p className="font-medium text-foreground">{product.name}</p>
                     <p className="text-sm text-muted-foreground">{formatPrice(Number(product.base_price))}</p>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-end gap-3 sm:justify-start">
                     {product.is_flash_deal && (
                       <Badge className="bg-destructive text-destructive-foreground">
                         <Zap className="h-3 w-3 mr-1" />
@@ -556,7 +556,7 @@ export function AdminPromotions() {
                   </div>
                 </div>
                 {product.is_flash_deal && (
-                  <div className="flex items-end gap-2 pl-1">
+                  <div className="flex flex-col gap-2 pl-1 sm:flex-row sm:items-end">
                     <div className="flex-1 space-y-1">
                       <Label className="text-xs">Flash Deal Ends At</Label>
                       <Input

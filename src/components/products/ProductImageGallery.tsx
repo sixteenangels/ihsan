@@ -78,6 +78,41 @@ export function ProductImageGallery({ images, productName }: ProductImageGallery
     swipeStart.current = null;
   };
 
+  const handleSwipeEnd = (x: number, y: number) => {
+    if (!swipeStart.current || displayImages.length <= 1) return;
+
+    const deltaX = x - swipeStart.current.x;
+    const deltaY = y - swipeStart.current.y;
+    const elapsed = Date.now() - swipeStart.current.time;
+    const isHorizontalSwipe = Math.abs(deltaX) > 45 && Math.abs(deltaX) > Math.abs(deltaY) * 1.25;
+
+    if (isHorizontalSwipe && elapsed < 800) {
+      if (deltaX > 0) {
+        goToPrevious();
+      } else {
+        goToNext();
+      }
+    }
+
+    swipeStart.current = null;
+  };
+
+  const handleMainImagePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (displayImages.length <= 1 || event.pointerType === 'mouse') return;
+    if ((event.target as HTMLElement).closest('button')) return;
+
+    swipeStart.current = {
+      x: event.clientX,
+      y: event.clientY,
+      time: Date.now(),
+    };
+  };
+
+  const handleMainImagePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === 'mouse') return;
+    handleSwipeEnd(event.clientX, event.clientY);
+  };
+
   const handleMouseDown = (e: React.MouseEvent) => {
     if (zoomLevel > 1) {
       setIsDragging(true);
@@ -136,8 +171,15 @@ export function ProductImageGallery({ images, productName }: ProductImageGallery
       <div
         className="relative aspect-square touch-pan-y overflow-hidden rounded-xl bg-card border border-border group"
         onTouchStart={handleMainImageTouchStart}
-        onTouchEnd={handleMainImageTouchEnd}
+        onTouchEnd={(event) => {
+          handleMainImageTouchEnd(event);
+        }}
         onTouchCancel={() => {
+          swipeStart.current = null;
+        }}
+        onPointerDown={handleMainImagePointerDown}
+        onPointerUp={handleMainImagePointerUp}
+        onPointerCancel={() => {
           swipeStart.current = null;
         }}
       >

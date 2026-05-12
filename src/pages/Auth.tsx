@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from 'react';
+﻿import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Header } from '@/components/layout/Header';
@@ -48,6 +48,43 @@ export default function Auth() {
   const [rememberMe, setRememberMe] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  const getPendingReferralCode = useCallback(() => {
+    let storedRef: string | null = null;
+
+    try {
+      storedRef = localStorage.getItem(PENDING_REFERRAL_CODE_KEY);
+    } catch {
+      storedRef = null;
+    }
+
+    return normalizeReferralCode(searchParams.get('ref')) || normalizeReferralCode(storedRef);
+  }, [searchParams]);
+
+  const processReferralForUser = useCallback(async (referralCode: string, userId: string) => {
+    const processedKey = `${PROCESSED_REFERRAL_PREFIX}:${userId}:${referralCode}`;
+
+    try {
+      if (localStorage.getItem(processedKey)) return;
+    } catch {
+      // Storage can be unavailable in private contexts; the server call is idempotent.
+    }
+
+    const { error } = await supabase.functions.invoke('process-referral-reward', {
+      body: { referral_code: referralCode, referred_user_id: userId },
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    try {
+      localStorage.setItem(processedKey, 'true');
+      localStorage.removeItem(PENDING_REFERRAL_CODE_KEY);
+    } catch {
+      // Referral was processed; failing to update local storage should not block the user.
+    }
+  }, []);
+
   useEffect(() => {
     const url = new URL(window.location.href);
     const hashParams = new URLSearchParams(url.hash.startsWith('#') ? url.hash.slice(1) : url.hash);
@@ -96,43 +133,19 @@ export default function Auth() {
   useEffect(() => {
     if (!user || referralProcessed.current) return;
 
-    let storedRef: string | null = null;
-    try {
-      storedRef = localStorage.getItem(PENDING_REFERRAL_CODE_KEY);
-    } catch {
-      storedRef = null;
-    }
-
-    const ref = normalizeReferralCode(searchParams.get('ref')) || normalizeReferralCode(storedRef);
+    const ref = getPendingReferralCode();
     if (!ref) return;
-
-    const processedKey = `${PROCESSED_REFERRAL_PREFIX}:${user.id}:${ref}`;
-    try {
-      if (localStorage.getItem(processedKey)) return;
-    } catch {
-      // If storage is unavailable, still try to process the referral once for this session.
-    }
 
     referralProcessed.current = true;
     void (async () => {
-      const { error } = await supabase.functions.invoke('process-referral-reward', {
-        body: { referral_code: ref, referred_user_id: user.id },
-      });
-
-      if (error) {
+      try {
+        await processReferralForUser(ref, user.id);
+      } catch (error) {
         referralProcessed.current = false;
         console.error('Referral processing error:', error);
-        return;
-      }
-
-      try {
-        localStorage.setItem(processedKey, 'true');
-        localStorage.removeItem(PENDING_REFERRAL_CODE_KEY);
-      } catch {
-        // Referral was processed; failing to update local storage should not block the user.
       }
     })();
-  }, [user, searchParams]);
+  }, [user, getPendingReferralCode, processReferralForUser]);
 
   // Redirect if already logged in (unless resetting password)
   useEffect(() => {
@@ -225,8 +238,15 @@ export default function Auth() {
     
     if (!validateSignup()) return;
     
+    const pendingReferralCode = getPendingReferralCode();
+
     setIsLoading(true);
-    const { error } = await signUp(signupEmail, signupPassword, signupName);
+    const { error, userId } = await signUp(
+      signupEmail,
+      signupPassword,
+      signupName,
+      pendingReferralCode,
+    );
     setIsLoading(false);
     
     if (error) {
@@ -236,6 +256,12 @@ export default function Auth() {
         toast.error(error.message);
       }
     } else {
+      if (pendingReferralCode && userId) {
+        void processReferralForUser(pendingReferralCode, userId).catch((referralError) => {
+          console.error('Referral signup processing error:', referralError);
+        });
+      }
+
       // Check if email confirmation is required
       setPendingVerificationEmail(signupEmail);
       setShowVerificationSent(true);

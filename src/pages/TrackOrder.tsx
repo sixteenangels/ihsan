@@ -20,10 +20,13 @@ import { Progress } from '@/components/ui/progress';
 interface OrderTrackingItem {
   id: string;
   product_name: string;
+  product_id: string | null;
+  product_variant_id: string | null;
   variant_details: string | null;
   quantity: number;
   unit_price: number;
   total_price: number;
+  image_url?: string | null;
 }
 
 interface OrderTrackingPoint {
@@ -231,13 +234,16 @@ function OrderProgressPanel({ order }: { order: TrackedOrder }) {
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="overflow-x-auto pb-2">
-          <div className="min-w-[620px] space-y-3">
+          <div className="min-w-full space-y-3">
             <Progress value={progressValue} className="h-2" />
-            <div className="flex justify-between gap-2">
+            <div
+              className="grid gap-2"
+              style={{ gridTemplateColumns: `repeat(${checkpoints.length}, minmax(4.5rem, 1fr))` }}
+            >
               {checkpoints.map((checkpoint) => {
                 const state = getCheckpointState(status, checkpoint.key, checkpoints);
                 return (
-                  <div key={checkpoint.key} className="flex flex-1 flex-col items-center text-center">
+                  <div key={checkpoint.key} className="flex min-w-0 flex-col items-center text-center">
                     <div
                       className={`mb-2 flex h-7 w-7 items-center justify-center rounded-full border ${
                         state === 'done'
@@ -350,6 +356,8 @@ export default function TrackOrder() {
           order_items (
             id,
             product_name,
+            product_id,
+            product_variant_id,
             variant_details,
             quantity,
             unit_price,
@@ -388,10 +396,73 @@ export default function TrackOrder() {
         .eq('order_id', data.id)
         .maybeSingle();
 
+      const orderItems = (data.order_items || []) as OrderTrackingItem[];
+      const directProductIds = [
+        ...new Set(
+          orderItems
+            .map((item) => item.product_id)
+            .filter((productId): productId is string => Boolean(productId)),
+        ),
+      ];
+      const variantIds = [
+        ...new Set(
+          orderItems
+            .map((item) => item.product_variant_id)
+            .filter((variantId): variantId is string => Boolean(variantId)),
+        ),
+      ];
+
+      let variantProductMap = new Map<string, string>();
+      if (variantIds.length > 0) {
+        const { data: variants } = await supabase
+          .from('product_variants')
+          .select('id, product_id')
+          .in('id', variantIds);
+
+        variantProductMap = new Map(
+          (variants || []).map((variant) => [variant.id, variant.product_id]),
+        );
+      }
+
+      const imageProductIds = [
+        ...new Set([
+          ...directProductIds,
+          ...variantIds
+            .map((variantId) => variantProductMap.get(variantId))
+            .filter((productId): productId is string => Boolean(productId)),
+        ]),
+      ];
+
+      const productImageMap = new Map<string, string>();
+      if (imageProductIds.length > 0) {
+        const { data: images } = await supabase
+          .from('product_images')
+          .select('product_id, image_url, order_index')
+          .in('product_id', imageProductIds)
+          .order('order_index', { ascending: true });
+
+        (images || []).forEach((image) => {
+          if (!productImageMap.has(image.product_id)) {
+            productImageMap.set(image.product_id, image.image_url);
+          }
+        });
+      }
+
+      const orderItemsWithImages = orderItems.map((item) => {
+        const resolvedProductId =
+          item.product_id ||
+          (item.product_variant_id ? variantProductMap.get(item.product_variant_id) || null : null);
+
+        return {
+          ...item,
+          image_url: resolvedProductId ? productImageMap.get(resolvedProductId) || null : null,
+        };
+      });
+
       return {
         ...data,
         shipping_address: (data.shipping_address as unknown as TrackingShippingAddress | null) ?? null,
-        order_items: (data.order_items || []) as OrderTrackingItem[],
+        order_items: orderItemsWithImages,
         order_tracking: (data.order_tracking || []) as OrderTrackingPoint[],
         shipping_classes: (data.shipping_classes as ShippingClassSummary | null) ?? null,
         receipt: receipt || null,
@@ -549,16 +620,34 @@ export default function TrackOrder() {
                 <div className="space-y-4">
                   {order.order_items.map((item) => (
                     <div key={item.id} className="rounded-lg bg-muted/30 p-3">
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                        <p className="font-medium">{item.product_name}</p>
-                        <div className="sm:text-right">
-                          <p className="font-medium">{formatPrice(Number(item.total_price))}</p>
+                      <div className="flex gap-3">
+                        <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg border border-border bg-muted">
+                          {item.image_url ? (
+                            <img
+                              src={item.image_url}
+                              alt={item.product_name}
+                              className="h-full w-full object-cover"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center">
+                              <Package className="h-5 w-5 text-muted-foreground" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <p className="font-medium">{item.product_name}</p>
+                            <div className="sm:text-right">
+                              <p className="font-medium">{formatPrice(Number(item.total_price))}</p>
+                            </div>
+                          </div>
+                          {item.variant_details && (
+                            <p className="mt-1 text-sm font-medium text-primary">{item.variant_details}</p>
+                          )}
+                          <p className="mt-1 text-sm text-muted-foreground">Qty: {item.quantity}</p>
                         </div>
                       </div>
-                      {item.variant_details && (
-                        <p className="mt-1 text-sm font-medium text-primary">{item.variant_details}</p>
-                      )}
-                      <p className="mt-1 text-sm text-muted-foreground">Qty: {item.quantity}</p>
                     </div>
                   ))}
                   <Separator />

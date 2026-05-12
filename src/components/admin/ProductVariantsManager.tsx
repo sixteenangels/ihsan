@@ -242,7 +242,7 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
                   placeholder="e.g., Black"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Use one colour when stock differs by colour. Add Blue or White as separate rows.
+                  Enter one colour like Black, then add all available sizes in the next field.
                 </p>
               </div>
               <div className="space-y-2">
@@ -355,6 +355,7 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
                 disabled={!currentVariant.size && !currentVariant.color}
               >
                 {editingIndex !== null ? 'Update' : 'Add'} Variant
+                {editingIndex === null && draftCombinations.length > 1 ? `s (${draftCombinations.length})` : ''}
               </Button>
             </div>
           </CardContent>

@@ -121,7 +121,7 @@ export default function Admin() {
   };
 
   return (
-    <div className="flex h-screen min-h-screen overflow-hidden bg-background">
+    <div className="min-h-dvh bg-background md:flex md:h-screen md:overflow-hidden">
       {/* Sidebar */}
       <aside className="hidden h-screen w-64 border-r border-border bg-card md:flex md:flex-col">
         <div className="p-6">
@@ -222,7 +222,7 @@ export default function Admin() {
       {/* Main Content */}
       <main
         ref={mainContentRef}
-        className="min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-auto px-3 pb-8 pt-20 sm:px-4 md:p-8"
+        className="min-w-0 px-3 pb-24 pt-20 sm:px-4 md:min-h-0 md:flex-1 md:overflow-x-auto md:overflow-y-auto md:p-8"
       >
         <div className="mx-auto w-full max-w-full">
           <Routes>

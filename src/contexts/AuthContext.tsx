@@ -9,7 +9,12 @@ interface AuthContextType {
   isAdmin: boolean;
   userRole: string;
   managerPermissions: string[];
-  signUp: (email: string, password: string, name: string) => Promise<{ error: Error | null }>;
+  signUp: (
+    email: string,
+    password: string,
+    name: string,
+    referralCode?: string | null,
+  ) => Promise<{ error: Error | null; userId: string | null }>;
   signIn: (email: string, password: string, rememberMe?: boolean) => Promise<{ error: Error | null }>;
   signInWithGoogle: () => Promise<{ error: Error | null }>;
   resetPassword: (email: string) => Promise<{ error: Error | null }>;
@@ -126,19 +131,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signUp = async (email: string, password: string, name: string) => {
+  const signUp = async (email: string, password: string, name: string, referralCode?: string | null) => {
     const redirectUrl = getOAuthRedirectUrl();
     
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         emailRedirectTo: redirectUrl,
-        data: { name },
+        data: {
+          name,
+          ...(referralCode ? { referral_code: referralCode } : {}),
+        },
       },
     });
 
-    return { error: error as Error | null };
+    return { error: error as Error | null, userId: data.user?.id || null };
   };
 
   const signIn = async (email: string, password: string, rememberMe: boolean = false) => {

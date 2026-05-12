@@ -15,6 +15,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import { format } from 'date-fns';
 import {
   Dialog,
   DialogContent,
@@ -149,6 +150,27 @@ function ReferralTab() {
               <p className="font-medium text-foreground mb-2">
                 Total Referrals: {referralCode.total_referrals || referrals.length}
               </p>
+              <div className="space-y-2">
+                {isLoading ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading referral activity
+                  </div>
+                ) : referrals.length > 0 ? (
+                  referrals.slice(0, 5).map((referral, index) => (
+                    <div key={referral.id} className="rounded-lg border border-border bg-muted/40 p-3">
+                      <p className="text-sm font-medium text-foreground">Referral #{index + 1}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Joined {format(new Date(referral.created_at), 'MMM d, yyyy')}
+                      </p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    New signups using your link will appear here after their account is created.
+                  </p>
+                )}
+              </div>
             </div>
           </>
         )}

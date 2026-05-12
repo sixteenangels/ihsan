@@ -1346,6 +1346,22 @@ export default function Checkout() {
                       </div>
                     )}
                     {shippingClasses.map((shipping) => {
+                      const shippingBreakdown = selectedItems.map((item) => {
+                        const unitShippingPrice = shipping.product_prices[item.product.id] ?? 0;
+                        const isFreeShipping =
+                          productMeta[item.product.id]?.is_free_shipping ||
+                          item.product.isFreeShippingEligible;
+
+                        return {
+                          id: item.id,
+                          name: item.product.name,
+                          quantity: item.quantity,
+                          unitShippingPrice,
+                          total: isFreeShipping ? 0 : unitShippingPrice * item.quantity,
+                          isFreeShipping,
+                        };
+                      });
+
                       return (
                         <div
                           key={shipping.id}
@@ -1375,6 +1391,16 @@ export default function Checkout() {
                                 <p className="text-xs text-muted-foreground">
                                   Priced per selected item quantity.
                                 </p>
+                                <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                                  {shippingBreakdown.slice(0, 3).map((line) => (
+                                    <p key={line.id}>
+                                      {line.name} x {line.quantity}: {line.isFreeShipping ? 'Free' : formatPrice(line.total)}
+                                    </p>
+                                  ))}
+                                  {shippingBreakdown.length > 3 && (
+                                    <p>+ {shippingBreakdown.length - 3} more item{shippingBreakdown.length - 3 === 1 ? '' : 's'}</p>
+                                  )}
+                                </div>
                               </div>
                             </div>
                             <p className="pl-8 text-sm font-semibold text-foreground sm:pl-0">
