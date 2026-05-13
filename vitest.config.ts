@@ -13,7 +13,7 @@ export default defineConfig({
     exclude: ['.codex-run/**', 'node_modules/**', 'dist/**'],
     environmentOptions: {
       jsdom: {
-        url: 'https://ajynscan.test',
+        url: 'https://ajyn.test',
       },
     },
     clearMocks: true,

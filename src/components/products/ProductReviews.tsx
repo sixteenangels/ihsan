@@ -395,7 +395,7 @@ export function ProductReviews({ productId, productName }: ProductReviewsProps) 
                             onClick={() => { setReviewImage(null); setImagePreview(null); }}
                             className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs"
                           >
-                            Ã—
+                            Ãƒâ€”
                           </button>
                         </div>
                       )}
@@ -493,7 +493,7 @@ export function ProductReviews({ productId, productName }: ProductReviewsProps) 
                     {review.admin_response && (
                       <div className="mt-3 p-3 bg-primary/5 rounded-lg border-l-2 border-primary">
                         <div className="flex items-center gap-2 mb-1">
-                          <Badge variant="secondary" className="text-xs">AJYN scan Team</Badge>
+                          <Badge variant="secondary" className="text-xs">AJYN Team</Badge>
                           {review.admin_response_at && (
                             <span className="text-xs text-muted-foreground">
                               {new Date(review.admin_response_at).toLocaleDateString()}

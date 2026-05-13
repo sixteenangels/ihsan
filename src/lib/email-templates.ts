@@ -25,11 +25,11 @@ export function buildSupportReplyEmailHtml(input: {
   summary?: string | null;
 }) {
   return `
-    <div style="font-family:Segoe UI,sans-serif;max-width:680px;margin:0 auto;padding:24px;color:#1E1E1E;background:#FCF8F3;">
-      <h1 style="font-size:24px;margin:0 0 16px;color:#1E1E1E;">${BRAND_SUPPORT_NAME}</h1>
+    <div style="font-family:Segoe UI,sans-serif;max-width:680px;margin:0 auto;padding:24px;color:#111827;">
+      <h1 style="font-size:24px;margin:0 0 16px;">${BRAND_SUPPORT_NAME}</h1>
       <p>Hello ${escapeHtml(input.customerName || 'there')},</p>
       <p>We have an update on your support request: <strong>${escapeHtml(input.subject)}</strong>.</p>
-      <div style="padding:16px;border:1px solid #D8CABC;border-radius:12px;background:#F7F0E9;margin:16px 0;white-space:pre-wrap;">${escapeHtml(input.reply)}</div>
+      <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;background:#f9fafb;margin:16px 0;white-space:pre-wrap;">${escapeHtml(input.reply)}</div>
       ${input.summary ? `<p><strong>Resolution summary:</strong> ${escapeHtml(input.summary)}</p>` : ''}
       <p>If you need anything else, simply reply to this email or contact us again through the Help Center.</p>
       <p>Thank you,<br />${BRAND_SUPPORT_NAME}</p>
@@ -72,11 +72,11 @@ export function buildOrderStatusEmailHtml(input: {
   note?: string | null;
 }) {
   return `
-    <div style="font-family:Segoe UI,sans-serif;max-width:680px;margin:0 auto;padding:24px;color:#1E1E1E;background:#FCF8F3;">
-      <h1 style="font-size:24px;margin:0 0 16px;color:#1E1E1E;">Your ${BRAND_NAME} order is now ${escapeHtml(input.statusLabel)}</h1>
+    <div style="font-family:Segoe UI,sans-serif;max-width:680px;margin:0 auto;padding:24px;color:#111827;">
+      <h1 style="font-size:24px;margin:0 0 16px;">Your ${BRAND_NAME} order is now ${escapeHtml(input.statusLabel)}</h1>
       <p>Hello ${escapeHtml(input.customerName || 'there')},</p>
       <p>Order <strong>${escapeHtml(input.orderNumber)}</strong> has a new status.</p>
-      <div style="padding:16px;border:1px solid #D8CABC;border-radius:12px;background:#F7F0E9;margin:16px 0;">
+      <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;background:#f9fafb;margin:16px 0;">
         <p style="margin:0 0 8px;"><strong>Status:</strong> ${escapeHtml(input.statusLabel)}</p>
         <p style="margin:0;white-space:pre-wrap;">${escapeHtml(input.message)}</p>
       </div>

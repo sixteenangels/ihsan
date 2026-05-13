@@ -82,12 +82,12 @@ export function BackupRecoveryCodes({ codes: initialCodes, onComplete, showAsSet
   };
 
   const downloadCodes = () => {
-    const codesText = `AJYN scan Backup Recovery Codes\n${'='.repeat(30)}\n\nKeep these codes safe. Each code can only be used once.\n\n${codes.join('\n')}\n\nGenerated: ${new Date().toLocaleString()}`;
+    const codesText = `AJYN Backup Recovery Codes\n${'='.repeat(30)}\n\nKeep these codes safe. Each code can only be used once.\n\n${codes.join('\n')}\n\nGenerated: ${new Date().toLocaleString()}`;
     const blob = new Blob([codesText], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'ajyn-scan-backup-codes.txt';
+    a.download = 'ajyn-backup-codes.txt';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

@@ -1,4 +1,4 @@
-# AJYN scan
+# AJYN
 
 Premium e-commerce storefront for curated cross-border shopping, built with React, Vite, TypeScript, Tailwind, and Supabase.
 

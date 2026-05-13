@@ -222,7 +222,7 @@ export default function ProductDetail() {
 
   const handleShareWhatsApp = () => {
     if (!product) return;
-    const text = `Check out ${product.name} on AJYN scan! ${formatPrice(product.base_price)} - ${window.location.href}`;
+    const text = `Check out ${product.name} on AJYN! ${formatPrice(product.base_price)} - ${window.location.href}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
   };
 

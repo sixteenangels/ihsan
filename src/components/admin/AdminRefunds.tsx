@@ -174,7 +174,7 @@ export function AdminRefunds() {
             orderId: request.order_id,
             referenceKey: `refund:${request.id}:wallet-credit`,
             notificationTitle: 'Wallet Refund Received',
-            notificationMessage: `${formatPrice(walletCredit)} has been credited to your AJYN scan wallet for order ${request.orders?.order_number || request.order_id}.`,
+            notificationMessage: `${formatPrice(walletCredit)} has been credited to your AJYN wallet for order ${request.orders?.order_number || request.order_id}.`,
           });
         }
 
@@ -190,7 +190,7 @@ export function AdminRefunds() {
         await supabase.from('order_tracking').insert({
           order_id: request.order_id,
           status: 'refunded',
-          location_name: 'AJYN scan Support Desk',
+          location_name: 'AJYN Support Desk',
           notes: refundTrackingNote,
         });
       }

@@ -1,13 +1,13 @@
-export const BRAND_NAME = 'AJYN scan';
+export const BRAND_NAME = 'AJYN';
 export const BRAND_SHORT_NAME = 'AJYN';
 export const BRAND_TAGLINE = 'Global Shopping Made Simple';
 export const BRAND_SUPPORT_NAME = `${BRAND_NAME} Support`;
 export const BRAND_ADMIN_NAME = `${BRAND_NAME} Admin`;
 export const BRAND_TEAM_NAME = `${BRAND_NAME} Team`;
 export const BRAND_SUPPORT_DESK = `${BRAND_NAME} Support Desk`;
-export const BRAND_REFERRAL_PREFIX = 'AJYN-SCAN';
-export const BRAND_DOWNLOAD_SLUG = 'ajyn-scan';
-export const BRAND_TEST_ORIGIN = 'https://ajynscan.test';
+export const BRAND_REFERRAL_PREFIX = 'AJYN';
+export const BRAND_DOWNLOAD_SLUG = 'ajyn';
+export const BRAND_TEST_ORIGIN = 'https://ajyn.test';
 
 export const STORAGE_KEYS = {
   cart: 'ajyn_scan_cart_v1',

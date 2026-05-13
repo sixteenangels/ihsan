@@ -33,7 +33,7 @@ function buildEmail(snapshot: RecoverySnapshot, profile?: ProfileRow) {
   const checkoutUrl = `${appUrl}${snapshot.checkout_path || '/checkout'}`
 
   return {
-    subject: 'Your AJYN scan checkout is waiting',
+    subject: 'Your AJYN checkout is waiting',
     text: `Hi${name}, your cart has ${snapshot.item_count} item(s) worth ${formatGhs(snapshot.subtotal)}. Continue checkout: ${checkoutUrl}`,
     html: `
       <div style="font-family:Arial,sans-serif;line-height:1.5;color:#111827">

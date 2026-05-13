@@ -83,13 +83,13 @@ export function WelcomeModal() {
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-2xl font-serif">
-            {step === 1 && 'Welcome to AJYN scan!'}
+            {step === 1 && 'Welcome to AJYN!'}
             {step === 2 && 'What interests you?'}
             {step === 3 && 'Stay updated'}
           </DialogTitle>
           <DialogDescription>
             {step === 1 && 'Let us personalize your experience. Where are you located?'}
-            {step === 2 && 'Select categories you love â€” we\'ll show you the best deals.'}
+            {step === 2 && 'Select categories you love Ã¢â‚¬â€ we\'ll show you the best deals.'}
             {step === 3 && 'Get notified about deals, order updates, and more.'}
           </DialogDescription>
         </DialogHeader>

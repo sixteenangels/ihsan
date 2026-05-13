@@ -1,4 +1,4 @@
-# AJYN scan - Premium E-Commerce Platform
+# AJYN - Premium E-Commerce Platform
 
 **Tagline:** Global Shopping Made Simple  
 **Stack:** React 18 + Vite + TypeScript + Tailwind + Supabase + Paystack + Framer Motion + PWA  
@@ -85,7 +85,7 @@
 
 ## 10. Branding and SEO
 
-- Branding centers on AJYN scan and the Global Shopping Made Simple tagline.
+- Branding centers on AJYN and the Global Shopping Made Simple tagline.
 - Favicon, OG metadata, and semantic HTML are in place.
 - Dark mode is supported.
 - Social sharing and lazy-loaded routes are implemented.

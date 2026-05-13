@@ -11,10 +11,10 @@ import {
 describe('receipt utilities', () => {
   it('builds receipt URLs from the current browser origin', () => {
     expect(buildReceiptQrPayload('REC 001', 'ORD/1')).toBe(
-      'https://ajynscan.test/receipt/REC%20001?order=ORD%2F1',
+      'https://ajyn.test/receipt/REC%20001?order=ORD%2F1',
     );
     expect(buildReceiptVerificationUrl('REC 001')).toBe(
-      'https://ajynscan.test/receipt/REC%20001?order=REC%20001',
+      'https://ajyn.test/receipt/REC%20001?order=REC%20001',
     );
     expect(buildReceiptQrUrl('hello world')).toContain('data=hello%20world');
   });

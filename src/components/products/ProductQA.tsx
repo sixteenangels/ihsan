@@ -153,7 +153,7 @@ export function ProductQA({ productId }: ProductQAProps) {
                 {q.answer && (
                   <div className="ml-11 p-3 bg-primary/5 rounded-lg border-l-2 border-primary">
                     <div className="flex items-center gap-2 mb-1">
-                      <Badge variant="secondary" className="text-xs">AJYN scan Team</Badge>
+                      <Badge variant="secondary" className="text-xs">AJYN Team</Badge>
                       {q.answered_at && (
                         <span className="text-xs text-muted-foreground">
                           {new Date(q.answered_at).toLocaleDateString()}
