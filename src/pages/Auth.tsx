@@ -13,12 +13,20 @@ import { toast } from 'sonner';
 import { Loader2, Mail, Lock, User, ArrowLeft, RefreshCw } from 'lucide-react';
 import { z } from 'zod';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  BRAND_NAME,
+  STORAGE_KEYS,
+  getStoredItem,
+  removeStoredItems,
+} from '@/lib/brand';
 
 const emailSchema = z.string().email('Please enter a valid email address');
 const passwordSchema = z.string().min(6, 'Password must be at least 6 characters');
 const nameSchema = z.string().min(2, 'Name must be at least 2 characters');
-const PENDING_REFERRAL_CODE_KEY = 'ihsan_pending_referral_code';
-const PROCESSED_REFERRAL_PREFIX = 'ihsan_processed_referral';
+const PENDING_REFERRAL_CODE_KEY = STORAGE_KEYS.pendingReferralCode;
+const PENDING_REFERRAL_LEGACY_KEYS = STORAGE_KEYS.pendingReferralCodeLegacy;
+const PROCESSED_REFERRAL_PREFIX = STORAGE_KEYS.processedReferralPrefix;
+const PROCESSED_REFERRAL_LEGACY_PREFIXES = STORAGE_KEYS.processedReferralPrefixLegacy;
 
 function normalizeReferralCode(referralCode: string | null) {
   const normalized = referralCode?.trim().toUpperCase();
@@ -52,7 +60,10 @@ export default function Auth() {
     let storedRef: string | null = null;
 
     try {
-      storedRef = localStorage.getItem(PENDING_REFERRAL_CODE_KEY);
+      storedRef = getStoredItem(
+        localStorage,
+        [PENDING_REFERRAL_CODE_KEY, ...PENDING_REFERRAL_LEGACY_KEYS],
+      )?.value || null;
     } catch {
       storedRef = null;
     }
@@ -62,9 +73,15 @@ export default function Auth() {
 
   const processReferralForUser = useCallback(async (referralCode: string, userId: string) => {
     const processedKey = `${PROCESSED_REFERRAL_PREFIX}:${userId}:${referralCode}`;
+    const processedKeys = [
+      processedKey,
+      ...PROCESSED_REFERRAL_LEGACY_PREFIXES.map(
+        (legacyPrefix) => `${legacyPrefix}:${userId}:${referralCode}`,
+      ),
+    ];
 
     try {
-      if (localStorage.getItem(processedKey)) return;
+      if (getStoredItem(localStorage, processedKeys)) return;
     } catch {
       // Storage can be unavailable in private contexts; the server call is idempotent.
     }
@@ -79,7 +96,8 @@ export default function Auth() {
 
     try {
       localStorage.setItem(processedKey, 'true');
-      localStorage.removeItem(PENDING_REFERRAL_CODE_KEY);
+      removeStoredItems(localStorage, [PENDING_REFERRAL_CODE_KEY, ...PENDING_REFERRAL_LEGACY_KEYS]);
+      removeStoredItems(localStorage, processedKeys.slice(1));
     } catch {
       // Referral was processed; failing to update local storage should not block the user.
     }
@@ -115,6 +133,7 @@ export default function Auth() {
 
     try {
       localStorage.setItem(PENDING_REFERRAL_CODE_KEY, ref);
+      removeStoredItems(localStorage, PENDING_REFERRAL_LEGACY_KEYS);
     } catch (error) {
       console.warn('Could not store referral code for later processing:', error);
     }
@@ -568,7 +587,7 @@ export default function Auth() {
         <div className="mx-auto max-w-md">
           <Card className="border-border">
             <CardHeader className="space-y-2 px-5 text-center sm:px-6">
-              <CardTitle className="text-2xl font-serif">Welcome to Ihsan</CardTitle>
+              <CardTitle className="text-2xl font-serif">Welcome to {BRAND_NAME}</CardTitle>
               <CardDescription>
                 Sign in to your account or create a new one
               </CardDescription>

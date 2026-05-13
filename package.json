@@ -11,7 +11,12 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "playwright:install": "playwright install chromium",
+    "test:e2e": "npm run build && playwright test",
+    "test:e2e:mobile": "npm run build && playwright test --project=mobile-chromium",
+    "test:e2e:headed": "npm run build && playwright test --headed",
+    "test:e2e:live": "playwright test tests/e2e/live-auth.spec.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -74,6 +79,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@playwright/test": "^1.55.0",
     "@eslint/js": "^9.32.0",
     "@tailwindcss/typography": "^0.5.16",
     "@types/node": "^22.16.5",

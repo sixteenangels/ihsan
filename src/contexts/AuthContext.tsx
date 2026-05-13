@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { STORAGE_KEYS, getStoredItem, removeStoredItems } from '@/lib/brand';
 
 interface AuthContextType {
   user: User | null;
@@ -24,12 +25,14 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-const TEMP_SESSION_KEY = 'ihsan_temp_session';
-const SESSION_MODE_KEY = 'ihsan_session_mode';
+const TEMP_SESSION_KEY = STORAGE_KEYS.tempSession;
+const TEMP_SESSION_LEGACY_KEYS = STORAGE_KEYS.tempSessionLegacy;
+const SESSION_MODE_KEY = STORAGE_KEYS.sessionMode;
+const SESSION_MODE_LEGACY_KEYS = STORAGE_KEYS.sessionModeLegacy;
 
 function clearStoredSessionPreference() {
-  sessionStorage.removeItem(TEMP_SESSION_KEY);
-  localStorage.removeItem(SESSION_MODE_KEY);
+  removeStoredItems(sessionStorage, [TEMP_SESSION_KEY, ...TEMP_SESSION_LEGACY_KEYS]);
+  removeStoredItems(localStorage, [SESSION_MODE_KEY, ...SESSION_MODE_LEGACY_KEYS]);
 }
 
 function getOAuthRedirectUrl() {
@@ -76,8 +79,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
 
     void supabase.auth.getSession().then(async ({ data: { session } }) => {
-      const sessionMode = localStorage.getItem(SESSION_MODE_KEY);
-      const hasTempSession = sessionStorage.getItem(TEMP_SESSION_KEY) === 'true';
+      const sessionMode = getStoredItem(localStorage, [SESSION_MODE_KEY, ...SESSION_MODE_LEGACY_KEYS])?.value;
+      const hasTempSession =
+        getStoredItem(sessionStorage, [TEMP_SESSION_KEY, ...TEMP_SESSION_LEGACY_KEYS])?.value === 'true';
 
       if (session?.user && sessionMode === 'session' && !hasTempSession) {
         await supabase.auth.signOut();
@@ -155,9 +159,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!error && !rememberMe) {
       sessionStorage.setItem(TEMP_SESSION_KEY, 'true');
       localStorage.setItem(SESSION_MODE_KEY, 'session');
+      removeStoredItems(sessionStorage, TEMP_SESSION_LEGACY_KEYS);
+      removeStoredItems(localStorage, SESSION_MODE_LEGACY_KEYS);
     } else if (!error && rememberMe) {
       sessionStorage.removeItem(TEMP_SESSION_KEY);
       localStorage.setItem(SESSION_MODE_KEY, 'persistent');
+      removeStoredItems(sessionStorage, TEMP_SESSION_LEGACY_KEYS);
+      removeStoredItems(localStorage, SESSION_MODE_LEGACY_KEYS);
     }
 
     return { error: error as Error | null };

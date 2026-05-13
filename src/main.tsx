@@ -1,8 +1,10 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
+import { STORAGE_KEYS, getStoredItem, removeStoredItems } from "@/lib/brand";
 
-const BUILD_ID_STORAGE_KEY = "ihsan-app-build-id";
+const BUILD_ID_STORAGE_KEY = STORAGE_KEYS.buildId;
+const LEGACY_BUILD_ID_STORAGE_KEYS = STORAGE_KEYS.buildIdLegacy;
 const STALE_CACHE_PREFIXES = ["supabase-cache", "workbox", "vite-plugin-pwa"];
 
 async function cleanupLegacyPushWorkers() {
@@ -30,8 +32,12 @@ async function cleanupCachesForNewBuild() {
     return false;
   }
 
-  const previousBuildId = localStorage.getItem(BUILD_ID_STORAGE_KEY);
+  const previousBuildId = getStoredItem(
+    localStorage,
+    [BUILD_ID_STORAGE_KEY, ...LEGACY_BUILD_ID_STORAGE_KEYS],
+  )?.value;
   localStorage.setItem(BUILD_ID_STORAGE_KEY, __APP_BUILD_ID__);
+  removeStoredItems(localStorage, LEGACY_BUILD_ID_STORAGE_KEYS);
 
   if (!previousBuildId || previousBuildId === __APP_BUILD_ID__) {
     return false;

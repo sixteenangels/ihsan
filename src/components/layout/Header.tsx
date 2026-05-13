@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { NotificationBell } from './NotificationBell';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { BrandMark } from '@/components/brand/BrandMark';
 
 export function Header() {
   const { totalItems } = useCart();
@@ -61,7 +62,7 @@ export function Header() {
       <div className="container flex h-14 items-center justify-between gap-2 px-4 sm:h-16 sm:px-6">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2">
-          <span className="text-xl font-bold font-serif text-primary sm:text-2xl">Ihsan</span>
+          <BrandMark size="sm" />
         </Link>
 
         {/* Desktop Navigation */}

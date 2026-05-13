@@ -1,4 +1,5 @@
 import { format } from 'date-fns';
+import { BRAND_NAME } from '@/lib/brand';
 
 interface ReceiptItem {
   productName: string;
@@ -85,31 +86,31 @@ export function buildReceiptHtml(receipt: PrintableReceipt) {
     <meta charset="utf-8" />
     <title>Receipt ${escapeHtml(receipt.receiptNumber)}</title>
     <style>
-      body { font-family: "Segoe UI", sans-serif; color: #111827; padding: 32px; max-width: 840px; margin: 0 auto; }
-      .header { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; border-bottom: 2px solid #111827; padding-bottom: 20px; margin-bottom: 24px; }
-      .brand { font-size: 28px; font-weight: 700; }
+      body { font-family: "Segoe UI", sans-serif; color: #1E1E1E; background: #FCF8F3; padding: 32px; max-width: 840px; margin: 0 auto; }
+      .header { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; border-bottom: 2px solid #1E1E1E; padding-bottom: 20px; margin-bottom: 24px; }
+      .brand { font-size: 28px; font-weight: 700; letter-spacing: 0.12em; }
       .meta { text-align: right; }
       .meta p, .details p { margin: 4px 0; }
       .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
-      .card { border: 1px solid #e5e7eb; border-radius: 14px; padding: 16px; }
-      .label { color: #6b7280; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+      .card { border: 1px solid #D8CABC; background: #FFF9F3; border-radius: 14px; padding: 16px; }
+      .label { color: #9A5122; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
       table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
-      th { text-align: left; padding: 12px; background: #f9fafb; border-bottom: 1px solid #e5e7eb; font-size: 12px; text-transform: uppercase; color: #6b7280; }
-      td { padding: 12px; border-bottom: 1px solid #f3f4f6; vertical-align: top; }
+      th { text-align: left; padding: 12px; background: #E7DED4; border-bottom: 1px solid #D8CABC; font-size: 12px; text-transform: uppercase; color: #1E1E1E; }
+      td { padding: 12px; border-bottom: 1px solid #EFE5DA; vertical-align: top; }
       td.right, th.right { text-align: right; }
       .totals { margin-left: auto; width: 320px; }
       .totals-row { display: flex; justify-content: space-between; padding: 8px 0; }
-      .totals-row.total { border-top: 2px solid #111827; font-weight: 700; font-size: 18px; margin-top: 8px; padding-top: 12px; }
+      .totals-row.total { border-top: 2px solid #1E1E1E; font-weight: 700; font-size: 18px; margin-top: 8px; padding-top: 12px; }
       .qr { text-align: center; }
       .qr img { width: 180px; height: 180px; }
-      .link { word-break: break-all; font-size: 12px; color: #2563eb; }
-      .footer { margin-top: 32px; border-top: 1px solid #e5e7eb; padding-top: 20px; font-size: 12px; color: #6b7280; text-align: center; }
+      .link { word-break: break-all; font-size: 12px; color: #9A5122; }
+      .footer { margin-top: 32px; border-top: 1px solid #D8CABC; padding-top: 20px; font-size: 12px; color: #5D5751; text-align: center; }
     </style>
   </head>
   <body>
     <div class="header">
       <div>
-        <div class="brand">Ihsan</div>
+        <div class="brand">${BRAND_NAME}</div>
         <p>Official order receipt</p>
       </div>
       <div class="meta">
@@ -196,7 +197,7 @@ export function buildReceiptHtml(receipt: PrintableReceipt) {
     </div>
 
     <div class="footer">
-      Thank you for shopping with Ihsan. Keep this receipt for your records.
+      Thank you for shopping with ${BRAND_NAME}. Keep this receipt for your records.
     </div>
   </body>
 </html>`;

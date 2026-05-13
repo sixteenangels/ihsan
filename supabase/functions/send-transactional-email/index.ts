@@ -141,7 +141,7 @@ Deno.serve(async (req) => {
     if (outboxError) throw outboxError
 
     const resendApiKey = Deno.env.get('RESEND_API_KEY')
-    const fromEmail = Deno.env.get('FROM_EMAIL') || Deno.env.get('GMAIL_FROM_EMAIL') || 'Ihsan <no-reply@ihsan.app>'
+    const fromEmail = Deno.env.get('FROM_EMAIL') || Deno.env.get('GMAIL_FROM_EMAIL') || 'AJYN scan <no-reply@ajynscan.app>'
     const providerPreference = (Deno.env.get('EMAIL_PROVIDER_PREFERENCE') || 'resend_first').toLowerCase()
     const gmailConfigured = Boolean(Deno.env.get('GMAIL_SMTP_USER') && Deno.env.get('GMAIL_SMTP_PASS'))
     const resendConfigured = Boolean(resendApiKey)

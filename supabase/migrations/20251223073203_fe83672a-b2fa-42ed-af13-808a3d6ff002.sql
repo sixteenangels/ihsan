@@ -1,5 +1,5 @@
 -- =============================================
--- IHSAN E-COMMERCE DATABASE SCHEMA
+-- AJYN SCAN E-COMMERCE DATABASE SCHEMA
 -- =============================================
 
 -- Create app_role enum for user roles

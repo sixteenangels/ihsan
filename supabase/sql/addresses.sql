@@ -1,4 +1,4 @@
--- Addresses table setup for Ihsan app
+-- Addresses table setup for AJYN scan app
 -- Safe to run in Supabase SQL Editor against a fresh project.
 
 CREATE TABLE IF NOT EXISTS public.addresses (

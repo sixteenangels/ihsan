@@ -1,4 +1,4 @@
-# Ihsan
+# AJYN scan
 
 Premium e-commerce storefront for curated cross-border shopping, built with React, Vite, TypeScript, Tailwind, and Supabase.
 
@@ -26,6 +26,11 @@ Premium e-commerce storefront for curated cross-border shopping, built with Reac
 - `npm run lint` runs ESLint across the repo.
 - `npm run test` runs the Vitest suite.
 - `npm run test:coverage` runs the Vitest suite with V8 coverage.
+- `npm run playwright:install` installs the Chromium browser used by Playwright.
+- `npm run test:e2e` builds the app and runs the local Playwright smoke suite.
+- `npm run test:e2e:mobile` builds the app and runs the mobile Chromium smoke suite.
+- `npm run test:e2e:headed` runs the same Playwright smoke suite with a visible browser.
+- `npm run test:e2e:live` runs the opt-in deployed auth smoke check when `PLAYWRIGHT_LIVE_BASE_URL` is set.
 - `npm run preview` serves the production build locally.
 
 ## Notes

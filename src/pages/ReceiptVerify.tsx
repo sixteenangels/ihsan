@@ -145,7 +145,7 @@ export default function ReceiptVerify() {
                 <div>
                   <div className="flex items-center gap-2 text-primary">
                     <BadgeCheck className="h-5 w-5" />
-                    <span className="font-semibold">Verified Ihsan receipt</span>
+                    <span className="font-semibold">Verified AJYN scan receipt</span>
                   </div>
                   <p className="mt-1 text-sm text-muted-foreground">
                     Order {printableReceipt.orderNumber} for {printableReceipt.customerName}.

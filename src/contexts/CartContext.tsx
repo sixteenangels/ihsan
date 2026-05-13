@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
 import { useAuth } from '@/contexts/AuthContext';
+import { STORAGE_KEYS, getStoredItem, removeStoredItems } from '@/lib/brand';
 import { CartItem, Product, ProductVariant, ShippingOption } from '@/types';
 
 type CartSyncState = 'local' | 'syncing' | 'synced' | 'error';
@@ -98,7 +99,8 @@ type ShippingRuleRow = Pick<
   } | null;
 };
 
-const STORAGE_KEY = 'ihsan_cart_v2';
+const STORAGE_KEY = STORAGE_KEYS.cart;
+const LEGACY_STORAGE_KEYS = STORAGE_KEYS.cartLegacy;
 const PLACEHOLDER_IMAGE = '/placeholder.svg';
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -401,12 +403,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const { user, isLoading: authLoading } = useAuth();
   const [items, setItems] = useState<CartItem[]>(() => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) {
+      const storedCart = getStoredItem(localStorage, [STORAGE_KEY, ...LEGACY_STORAGE_KEYS]);
+      if (!storedCart) {
         return [];
       }
 
-      return mergeCartItems(JSON.parse(raw) as CartItem[]);
+      return mergeCartItems(JSON.parse(storedCart.value) as CartItem[]);
     } catch {
       return [];
     }
@@ -426,6 +428,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+      removeStoredItems(localStorage, LEGACY_STORAGE_KEYS);
     } catch {
       // ignore quota errors
     }

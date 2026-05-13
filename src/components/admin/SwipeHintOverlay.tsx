@@ -3,8 +3,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, ArrowRight, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { STORAGE_KEYS, getStoredItem, removeStoredItems } from '@/lib/brand';
 
-const STORAGE_KEY = 'ihsan_admin_swipe_hint_dismissed';
+const STORAGE_KEY = STORAGE_KEYS.adminSwipeHintDismissed;
+const LEGACY_STORAGE_KEYS = STORAGE_KEYS.adminSwipeHintDismissedLegacy;
 
 export function SwipeHintOverlay() {
   const isMobile = useIsMobile();
@@ -12,13 +14,14 @@ export function SwipeHintOverlay() {
 
   useEffect(() => {
     if (!isMobile) return;
-    if (localStorage.getItem(STORAGE_KEY) === '1') return;
+    if (getStoredItem(localStorage, [STORAGE_KEY, ...LEGACY_STORAGE_KEYS])?.value === '1') return;
     const t = setTimeout(() => setShow(true), 400);
     return () => clearTimeout(t);
   }, [isMobile]);
 
   const dismiss = () => {
     localStorage.setItem(STORAGE_KEY, '1');
+    removeStoredItems(localStorage, LEGACY_STORAGE_KEYS);
     setShow(false);
   };
 

@@ -378,7 +378,7 @@ export function AdminOrders() {
         () => {
           queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
           setNewOrderAlert(true);
-          toast.success('🛍️ New order received!', { duration: 5000 });
+          toast.success('ðŸ›ï¸ New order received!', { duration: 5000 });
         }
       )
       .on(
@@ -630,7 +630,7 @@ export function AdminOrders() {
       };
 
       const trackingNote = customNote
-        ? (autoNotes[status] ? `${autoNotes[status]} — ${customNote}` : customNote)
+        ? (autoNotes[status] ? `${autoNotes[status]} â€” ${customNote}` : customNote)
         : (autoNotes[status] || '');
 
       await supabase.from('order_tracking').insert({
@@ -1113,7 +1113,7 @@ export function AdminOrders() {
           orderId: order.id,
           referenceKey: `order-refund:${order.id}:${order.refund_request?.id || 'manual'}:wallet-credit`,
           notificationTitle: 'Wallet Refund Received',
-          notificationMessage: `${formatPrice(walletCredit)} has been credited to your Ihsan wallet for order ${order.order_number}.`,
+          notificationMessage: `${formatPrice(walletCredit)} has been credited to your AJYN scan wallet for order ${order.order_number}.`,
         });
       }
 
@@ -1147,7 +1147,7 @@ export function AdminOrders() {
       const { error: trackingError } = await supabase.from('order_tracking').insert({
         order_id: order.id,
         status: 'refunded',
-        location_name: 'Ihsan Support Desk',
+        location_name: 'AJYN scan Support Desk',
         notes: refundTrackingNoteParts.join(' '),
       });
 
@@ -1518,8 +1518,8 @@ export function AdminOrders() {
                 return (
                 <SwipeableOrderCard
                   key={order.id}
-                  rightLabel={nextStatus ? `→ ${STATUS_LABELS[nextStatus]}` : 'No next status'}
-                  leftLabel={prevStatus ? `${STATUS_LABELS[prevStatus]} ←` : 'No previous status'}
+                  rightLabel={nextStatus ? `â†’ ${STATUS_LABELS[nextStatus]}` : 'No next status'}
+                  leftLabel={prevStatus ? `${STATUS_LABELS[prevStatus]} â†` : 'No previous status'}
                   onSwipeRight={
                     nextStatus
                       ? () =>
@@ -1801,8 +1801,8 @@ export function AdminOrders() {
                           <p className="text-sm font-medium text-foreground">Fulfillment</p>
                           <p className="text-xs text-muted-foreground">
                             Stage: {(order.fulfillment_stage || 'new').replaceAll('_', ' ')}
-                            {order.courier_name ? ` • ${order.courier_name}` : ''}
-                            {order.courier_tracking_number ? ` • ${order.courier_tracking_number}` : ''}
+                            {order.courier_name ? ` â€¢ ${order.courier_name}` : ''}
+                            {order.courier_tracking_number ? ` â€¢ ${order.courier_tracking_number}` : ''}
                           </p>
                         </div>
                         <Button
@@ -1864,7 +1864,7 @@ export function AdminOrders() {
                             <SelectTrigger className="w-full sm:w-52 text-sm">
                               <div className="flex items-center gap-2">
                                 <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
-                                <SelectValue placeholder="Insert template…" />
+                                <SelectValue placeholder="Insert templateâ€¦" />
                               </div>
                             </SelectTrigger>
                             <SelectContent className="bg-popover z-50 max-h-72">
@@ -2177,7 +2177,7 @@ export function AdminOrders() {
                                   fullNotes += ` Tracking: ${trackingLocation.courierTrackingNumber}`;
                                 }
                                 if (trackingLocation.deliveryFee) {
-                                  fullNotes += ` | Delivery fee: ₵${trackingLocation.deliveryFee}`;
+                                  fullNotes += ` | Delivery fee: â‚µ${trackingLocation.deliveryFee}`;
                                 }
                                 addTrackingMutation.mutate({
                                   orderId: order.id,

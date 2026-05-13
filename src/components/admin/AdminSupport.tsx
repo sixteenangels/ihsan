@@ -381,7 +381,7 @@ export function AdminSupport() {
             requestId,
             customerName: request.name,
             customerEmail: request.email,
-            subject: category || request.category || 'your Ihsan support request',
+            subject: category || request.category || 'your AJYN scan support request',
             reply: publicReply || resolutionSummary || internalNotes,
             summary: resolutionSummary,
           });
@@ -548,7 +548,7 @@ export function AdminSupport() {
                               {conv.status}
                             </span>
                             <span className="text-xs text-muted-foreground">
-                              • {format(new Date(conv.updated_at), 'MMM d, h:mm a')}
+                              â€¢ {format(new Date(conv.updated_at), 'MMM d, h:mm a')}
                             </span>
                           </div>
                         </div>
@@ -788,7 +788,7 @@ export function AdminSupport() {
                           type="button"
                           className="text-sm text-primary underline-offset-4 hover:underline"
                           onClick={() => {
-                            window.location.href = `mailto:${request.email}?subject=${encodeURIComponent('Ihsan Support')}`;
+                            window.location.href = `mailto:${request.email}?subject=${encodeURIComponent('AJYN scan Support')}`;
                           }}
                         >
                           {request.email}
@@ -1024,7 +1024,7 @@ export function AdminSupport() {
                           requestId: request.id,
                           customerName: request.name,
                           customerEmail: request.email,
-                          subject: request.category || 'your Ihsan support request',
+                          subject: request.category || 'your AJYN scan support request',
                           reply: draftReply || draftSummary || draftNotes,
                           summary: draftSummary,
                         })}

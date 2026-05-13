@@ -103,7 +103,7 @@ function ReferralTab() {
 
   const handleShareWhatsApp = () => {
     if (referralLink) {
-      window.open(`https://wa.me/?text=${encodeURIComponent(`Join Ihsan with my referral link: ${referralLink}`)}`, '_blank');
+      window.open(`https://wa.me/?text=${encodeURIComponent(`Join AJYN scan with my referral link: ${referralLink}`)}`, '_blank');
     }
   };
 

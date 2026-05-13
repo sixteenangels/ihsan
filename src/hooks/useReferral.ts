@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { BRAND_REFERRAL_PREFIX } from '@/lib/brand';
 
 export function useReferral() {
   const { user } = useAuth();
@@ -37,7 +38,7 @@ export function useReferral() {
   const generateCode = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error('Not authenticated');
-      const code = `IHSAN-${user.id.substring(0, 8).toUpperCase()}`;
+      const code = `${BRAND_REFERRAL_PREFIX}-${user.id.substring(0, 8).toUpperCase()}`;
       const { error } = await supabase.from('referral_codes').insert({
         user_id: user.id,
         code,

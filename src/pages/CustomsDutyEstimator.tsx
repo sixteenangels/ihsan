@@ -204,7 +204,7 @@ export default function CustomsDutyEstimator() {
               <p className="text-xs text-muted-foreground">
                 This is an estimate only. Actual customs duties may vary based on Ghana Customs Service classification,
                 exchange rates, and additional fees. For high-value shipments, we recommend consulting a customs broker.
-                Ihsan handles all customs clearance for orders placed through our platform.
+                AJYN scan handles all customs clearance for orders placed through our platform.
               </p>
             </div>
           </CardContent>
