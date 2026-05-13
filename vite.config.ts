@@ -102,7 +102,7 @@ export default defineConfig(({ mode }) => {
       mode === "development" && componentTagger(),
       VitePWA({
         registerType: "autoUpdate",
-        includeAssets: ["favicon.png", "robots.txt"],
+        includeAssets: ["favicon.svg", "favicon.png", "favicon-192.png", "favicon-512.png", "favicon.ico", "robots.txt"],
         manifest: {
           name: "AJYN",
           short_name: "AJYN",
@@ -114,13 +114,19 @@ export default defineConfig(({ mode }) => {
           start_url: "/",
           icons: [
             {
-              src: "/favicon.png",
+              src: "/favicon.svg",
+              sizes: "any",
+              type: "image/svg+xml",
+              purpose: "any",
+            },
+            {
+              src: "/favicon-192.png",
               sizes: "192x192",
               type: "image/png",
               purpose: "any maskable",
             },
             {
-              src: "/favicon.png",
+              src: "/favicon-512.png",
               sizes: "512x512",
               type: "image/png",
               purpose: "any maskable",
