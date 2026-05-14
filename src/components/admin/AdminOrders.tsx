@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -12,9 +12,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
-import { Loader2, Eye, MapPin, Package, Calendar, Clock, CreditCard, ShoppingBag, PackageCheck, Truck, Plane, MapPinned, Home, CheckCircle, XCircle, RotateCcw, Search, Download, StickyNote, CheckSquare, BellRing, MessageSquare, Plus, type LucideIcon } from 'lucide-react';
+import { Loader2, Eye, MapPin, Package, Calendar, Clock, CreditCard, ShoppingBag, PackageCheck, Truck, Plane, MapPinned, Home, CheckCircle, XCircle, RotateCcw, Search, Download, StickyNote, CheckSquare, BellRing, MessageSquare, Plus, ChevronDown, type LucideIcon } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { format } from 'date-fns';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -1548,10 +1549,12 @@ export function AdminOrders() {
                   }
                 >
                 <Card>
+                  <Collapsible>
                   <CardHeader className="pb-2">
                     <div className="flex items-center gap-3">
                       <input
                         type="checkbox"
+                        aria-label={`Select order #${order.order_number}`}
                         checked={selectedOrders.has(order.id)}
                         onChange={(e) => {
                           const next = new Set(selectedOrders);
@@ -1561,16 +1564,37 @@ export function AdminOrders() {
                         }}
                         className="h-4 w-4 rounded border-border"
                       />
-                      <div className="flex items-center justify-between flex-1">
-                        <CardTitle className="text-lg font-medium">
-                          Order #{order.order_number}
-                        </CardTitle>
-                        <Badge className={getStatusColor(order.status || 'pending')}>
-                          {STATUS_LABELS[order.status as OrderStatus] || order.status?.replace('_', ' ')}
-                        </Badge>
-                      </div>
+                      <CollapsibleTrigger asChild>
+                        <button
+                          type="button"
+                          className="group flex min-w-0 flex-1 items-center justify-between gap-3 rounded-md px-1 py-1 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="text-lg font-medium text-foreground">
+                                Order #{order.order_number}
+                              </p>
+                              <Badge className={getStatusColor(order.status || 'pending')}>
+                                {STATUS_LABELS[order.status as OrderStatus] || order.status?.replace('_', ' ')}
+                              </Badge>
+                            </div>
+                            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                              <span className="max-w-[12rem] truncate sm:max-w-none">
+                                {order.profiles?.name || 'Unknown customer'}
+                              </span>
+                              <span>{formatPrice(Number(order.total_amount))}</span>
+                              <span>{format(new Date(order.created_at), 'MMM d, yyyy')}</span>
+                              {order.refund_request && (
+                                <span>Refund: {getRefundStatusLabel(order.refund_request.status)}</span>
+                              )}
+                            </div>
+                          </div>
+                          <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+                        </button>
+                      </CollapsibleTrigger>
                     </div>
                   </CardHeader>
+                  <CollapsibleContent>
                   <CardContent>
                     <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-5">
                       <div>
@@ -1624,7 +1648,6 @@ export function AdminOrders() {
                     {!isCancelled && (
                       <div className="mb-4 grid gap-4 rounded-lg border border-border bg-muted/40 p-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(300px,1fr)]">
                         <div className="space-y-3">
-                          <p className="text-sm font-semibold text-foreground">Horizontal Progress</p>
                           <Progress value={getProgressPercentage(order.status || 'pending', checkpoints)} className="h-2.5" />
                           <div className="flex justify-between gap-2">
                             {checkpoints.map((checkpoint) => {
@@ -1663,7 +1686,6 @@ export function AdminOrders() {
                         </div>
 
                         <div className="space-y-3">
-                          <p className="text-sm font-semibold text-foreground">Vertical Mapping</p>
                           <div className="space-y-3">
                             {(order.order_tracking.length > 0 ? [...order.order_tracking].reverse() : [{
                               id: `fallback-${order.id}`,
@@ -2200,6 +2222,8 @@ export function AdminOrders() {
                       </Dialog>
                     </div>
                   </CardContent>
+                  </CollapsibleContent>
+                  </Collapsible>
                 </Card>
                 </SwipeableOrderCard>
                 );
