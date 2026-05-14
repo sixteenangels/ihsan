@@ -1,35 +1,58 @@
+import { useQuery } from '@tanstack/react-query';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { supabase } from '@/integrations/supabase/client';
+import type { Tables } from '@/integrations/supabase/types';
+import { useCurrency } from '@/hooks/useCurrency';
 import { MapPin, Clock, Truck, Plane, Ship } from 'lucide-react';
 
-const deliveryZones = [
-  { region: 'Greater Accra', city: 'Accra, Tema, Kasoa', days: '1-3 days', available: true, type: 'express' },
-  { region: 'Ashanti', city: 'Kumasi, Obuasi', days: '2-4 days', available: true, type: 'standard' },
-  { region: 'Western', city: 'Takoradi, Tarkwa', days: '3-5 days', available: true, type: 'standard' },
-  { region: 'Central', city: 'Cape Coast, Winneba', days: '2-4 days', available: true, type: 'standard' },
-  { region: 'Eastern', city: 'Koforidua, Nkawkaw', days: '2-4 days', available: true, type: 'standard' },
-  { region: 'Volta', city: 'Ho, Keta', days: '3-5 days', available: true, type: 'standard' },
-  { region: 'Northern', city: 'Tamale', days: '5-7 days', available: true, type: 'extended' },
-  { region: 'Upper East', city: 'Bolgatanga', days: '5-8 days', available: true, type: 'extended' },
-  { region: 'Upper West', city: 'Wa', days: '5-8 days', available: true, type: 'extended' },
-  { region: 'Bono', city: 'Sunyani', days: '3-5 days', available: true, type: 'standard' },
-  { region: 'Bono East', city: 'Techiman', days: '3-5 days', available: true, type: 'standard' },
-  { region: 'Ahafo', city: 'Goaso', days: '4-6 days', available: true, type: 'extended' },
-  { region: 'Savannah', city: 'Damongo', days: '6-9 days', available: true, type: 'extended' },
-  { region: 'North East', city: 'Nalerigu', days: '6-9 days', available: true, type: 'extended' },
-  { region: 'Oti', city: 'Dambai', days: '5-7 days', available: true, type: 'extended' },
-  { region: 'Western North', city: 'Sefwi-Wiawso', days: '4-6 days', available: true, type: 'extended' },
-];
+type ShippingType = Tables<'shipping_types'>;
+type ShippingClass = Tables<'shipping_classes'> & {
+  shipping_types: Pick<ShippingType, 'id' | 'name' | 'description'> | null;
+};
 
-const shippingMethods = [
-  { icon: Plane, name: 'Air Express', desc: 'Fastest from origin country to Ghana. 7-14 days international + local delivery.', color: 'text-primary' },
-  { icon: Ship, name: 'Sea Freight', desc: 'Most affordable for heavy/bulk items. 4-8 weeks international + local delivery.', color: 'text-blue-500' },
-  { icon: Truck, name: 'Local Delivery', desc: 'After items arrive in Ghana, we deliver to your door.', color: 'text-green-500' },
-];
+function getShippingIcon(name: string) {
+  const normalized = name.toLowerCase();
+  if (normalized.includes('sea')) return Ship;
+  if (normalized.includes('express')) return Truck;
+  return Plane;
+}
 
 export default function DeliveryZones() {
+  const { formatPrice } = useCurrency();
+  const { data, isLoading } = useQuery({
+    queryKey: ['delivery-zones'],
+    queryFn: async () => {
+      const [{ data: shippingTypes, error: typesError }, { data: shippingClasses, error: classesError }] = await Promise.all([
+        supabase
+          .from('shipping_types')
+          .select('*')
+          .eq('is_active', true)
+          .order('name'),
+        supabase
+          .from('shipping_classes')
+          .select(`
+            *,
+            shipping_types!inner(id, name, description, is_active)
+          `)
+          .eq('is_active', true)
+          .eq('shipping_types.is_active', true)
+          .order('estimated_days_min')
+          .order('name'),
+      ]);
+
+      if (typesError) throw typesError;
+      if (classesError) throw classesError;
+
+      return {
+        shippingTypes: (shippingTypes || []) as ShippingType[],
+        shippingClasses: (shippingClasses || []) as ShippingClass[],
+      };
+    },
+  });
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -38,56 +61,89 @@ export default function DeliveryZones() {
           <MapPin className="h-6 w-6 text-primary" />
           <div>
             <h1 className="text-2xl font-bold font-serif text-foreground sm:text-3xl">Delivery Zones</h1>
-            <p className="text-sm text-muted-foreground sm:text-base">Where we deliver across Ghana and estimated times</p>
+            <p className="text-sm text-muted-foreground sm:text-base">
+              Live delivery options and estimated timelines based on the current shipping setup.
+            </p>
           </div>
         </div>
 
-        {/* Shipping Methods */}
         <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-3">
-          {shippingMethods.map((method) => (
+          {(data?.shippingTypes || []).map((method) => {
+            const Icon = getShippingIcon(method.name);
+            return (
             <Card key={method.name}>
               <CardContent className="pt-6">
-                <method.icon className={`h-8 w-8 ${method.color} mb-3`} />
+                <Icon className="mb-3 h-8 w-8 text-primary" />
                 <h3 className="font-semibold text-foreground mb-1">{method.name}</h3>
-                <p className="text-sm text-muted-foreground">{method.desc}</p>
+                <p className="text-sm text-muted-foreground">
+                  {method.description || 'Available as an active shipping method at checkout.'}
+                </p>
               </CardContent>
             </Card>
-          ))}
+            );
+          })}
+          {!isLoading && (data?.shippingTypes.length || 0) === 0 && (
+            <Card className="md:col-span-3">
+              <CardContent className="pt-6">
+                <p className="text-sm text-muted-foreground">
+                  No shipping methods are active right now. Add or enable them in the admin shipping settings.
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
-        {/* Zones Table */}
         <Card>
           <CardHeader>
-            <CardTitle>All 16 Regions of Ghana</CardTitle>
+            <CardTitle>Active Shipping Classes</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {deliveryZones.map((zone) => (
-                <div key={zone.region} className="flex flex-col gap-3 rounded-lg bg-muted/50 p-3 transition-colors hover:bg-muted sm:flex-row sm:items-center sm:justify-between">
+            {isLoading ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">Loading delivery options...</p>
+            ) : (data?.shippingClasses.length || 0) === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                No active shipping classes are configured yet.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {data?.shippingClasses.map((shippingClass) => (
+                <div
+                  key={shippingClass.id}
+                  className="flex flex-col gap-3 rounded-lg bg-muted/50 p-4 transition-colors hover:bg-muted sm:flex-row sm:items-center sm:justify-between"
+                >
                   <div className="flex-1">
-                    <p className="font-medium text-foreground">{zone.region}</p>
-                    <p className="text-sm text-muted-foreground">{zone.city}</p>
+                    <div className="mb-1 flex flex-wrap items-center gap-2">
+                      <p className="font-medium text-foreground">{shippingClass.name}</p>
+                      <Badge variant="secondary">
+                        {shippingClass.shipping_types?.name || 'Shipping option'}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {shippingClass.description || shippingClass.shipping_types?.description || 'Configured in the admin shipping dashboard.'}
+                    </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-3">
                     <div className="flex items-center gap-1 text-sm text-muted-foreground">
                       <Clock className="h-3.5 w-3.5" />
-                      {zone.days}
+                      {shippingClass.estimated_days_min}-{shippingClass.estimated_days_max} days
                     </div>
-                    <Badge variant={zone.type === 'express' ? 'default' : zone.type === 'standard' ? 'secondary' : 'outline'}>
-                      {zone.type === 'express' ? 'Express' : zone.type === 'standard' ? 'Standard' : 'Extended'}
+                    <Badge variant="outline">
+                      {shippingClass.base_price != null
+                        ? `From ${formatPrice(Number(shippingClass.base_price))}`
+                        : 'Price shown at checkout'}
                     </Badge>
                   </div>
                 </div>
               ))}
-            </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        {/* Info Note */}
         <Card className="mt-6">
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">
-              <strong className="text-foreground">Note:</strong> Delivery times shown are for local delivery within Ghana after items have arrived from the origin country. International shipping times depend on the shipping method chosen at checkout (Air Express or Sea Freight). For remote areas, delivery may take additional 1-2 days.
+              <strong className="text-foreground">Note:</strong> Final delivery availability still depends on the products in your cart and the shipping rules assigned to them. The checkout page shows the exact options available for each order.
             </p>
           </CardContent>
         </Card>

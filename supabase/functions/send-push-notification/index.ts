@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import webpush from 'npm:web-push'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,8 +13,14 @@ interface PushPayload {
   data?: Record<string, unknown>
 }
 
+interface StoredSubscription {
+  id: string
+  endpoint: string
+  p256dh: string
+  auth: string
+}
+
 Deno.serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -21,21 +28,61 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
-    
+
+    const authHeader = req.headers.get('Authorization')
+    const accessToken = authHeader?.replace(/^Bearer\s+/i, '')
+
+    if (!accessToken) {
+      return new Response(
+        JSON.stringify({ error: 'Missing authorization token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
+    }
+
+    const {
+      data: { user: actor },
+      error: actorError,
+    } = await supabase.auth.getUser(accessToken)
+
+    if (actorError || !actor) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid authorization token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
+    }
+
+    const { data: roleRow, error: roleError } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', actor.id)
+      .maybeSingle()
+
+    if (roleError) {
+      console.error('Error checking actor role:', roleError)
+      return new Response(
+        JSON.stringify({ error: 'Could not verify permissions' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
+    }
+
+    const actorRole = roleRow?.role
+    if (actorRole !== 'admin' && actorRole !== 'manager') {
+      return new Response(
+        JSON.stringify({ error: 'Only admins and managers can send push notifications' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
+    }
+
     const { user_id, title, body, data } = await req.json() as PushPayload
 
     if (!user_id || !title || !body) {
       return new Response(
         JSON.stringify({ error: 'Missing required fields: user_id, title, body' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       )
     }
 
-    console.log(`Sending push notification to user ${user_id}: ${title}`)
-
-    // Get all push subscriptions for this user
     const { data: subscriptions, error: subError } = await supabase
       .from('push_subscriptions')
       .select('*')
@@ -45,29 +92,44 @@ Deno.serve(async (req) => {
       console.error('Error fetching subscriptions:', subError)
       return new Response(
         JSON.stringify({ error: 'Failed to fetch subscriptions' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       )
     }
 
-    if (!subscriptions || subscriptions.length === 0) {
-      console.log('No push subscriptions found for user:', user_id)
-      
-      // Still create an in-app notification even if no push subscription
-      await supabase.from('notifications').insert({
-        user_id,
-        title,
-        message: body,
-        type: data?.type || 'general',
-        data,
-      })
-      
+    const storedSubscriptions = (subscriptions || []) as StoredSubscription[]
+    if (storedSubscriptions.length === 0) {
       return new Response(
-        JSON.stringify({ success: true, message: 'No push subscriptions, created in-app notification', sent: 0 }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({
+          success: true,
+          configured: true,
+          message: 'No push subscriptions found for this user',
+          sent: 0,
+          total: 0,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       )
     }
 
-    // Create push notification payload
+    const vapidPublicKey = Deno.env.get('VAPID_PUBLIC_KEY')
+    const vapidPrivateKey = Deno.env.get('VAPID_PRIVATE_KEY')
+    const vapidSubject = Deno.env.get('VAPID_SUBJECT') || 'mailto:support@ajyn.app'
+
+    if (!vapidPublicKey || !vapidPrivateKey) {
+      console.warn('VAPID keys are missing, skipping push delivery')
+      return new Response(
+        JSON.stringify({
+          success: true,
+          configured: false,
+          message: 'Web push is not configured. Add VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY secrets.',
+          sent: 0,
+          total: storedSubscriptions.length,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
+    }
+
+    webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey)
+
     const pushPayload = JSON.stringify({
       title,
       body,
@@ -80,74 +142,66 @@ Deno.serve(async (req) => {
       },
     })
 
-    console.log(`Found ${subscriptions.length} subscriptions, sending notifications...`)
-
-    // Send to all subscriptions
     let sentCount = 0
     const failedSubscriptions: string[] = []
 
-    for (const subscription of subscriptions) {
+    for (const subscription of storedSubscriptions) {
       try {
-        // The subscription data should contain endpoint, p256dh, and auth
-        const endpoint = subscription.endpoint
-        const p256dh = subscription.p256dh
-        const auth = subscription.auth
-
-        if (!endpoint || !p256dh || !auth) {
-          console.log('Invalid subscription data:', subscription.id)
+        if (!subscription.endpoint || !subscription.p256dh || !subscription.auth) {
           continue
         }
 
-        // For now, we log the attempt - full web push requires proper VAPID signing
-        // which needs a proper web-push library or custom implementation
-        console.log(`Would send push to endpoint: ${endpoint.substring(0, 50)}...`)
-        
-        // Note: Full web push implementation requires:
-        // 1. VAPID key pair generation
-        // 2. JWT token signing with ES256
-        // 3. Payload encryption with ECDH + AES-128-GCM
-        // For production, use a web-push compatible library
-        
+        await webpush.sendNotification(
+          {
+            endpoint: subscription.endpoint,
+            keys: {
+              p256dh: subscription.p256dh,
+              auth: subscription.auth,
+            },
+          },
+          pushPayload,
+        )
+
         sentCount++
       } catch (error) {
         console.error('Error sending push to subscription:', subscription.id, error)
+        const statusCode =
+          typeof error === 'object' && error && 'statusCode' in error
+            ? Number((error as { statusCode?: number }).statusCode)
+            : null
+
+        if (statusCode === 404 || statusCode === 410) {
+          failedSubscriptions.push(subscription.id)
+        }
       }
     }
 
-    // Clean up expired subscriptions
     if (failedSubscriptions.length > 0) {
       await supabase
         .from('push_subscriptions')
         .delete()
         .in('id', failedSubscriptions)
-      console.log('Cleaned up', failedSubscriptions.length, 'expired subscriptions')
     }
 
-    // Also create in-app notification
-    await supabase.from('notifications').insert({
-      user_id,
-      title,
-      message: body,
-      type: data?.type || 'general',
-      data,
-    })
-
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        sent: sentCount, 
-        total: subscriptions.length,
+      JSON.stringify({
+        success: true,
+        configured: true,
+        sent: sentCount,
+        total: storedSubscriptions.length,
         cleaned: failedSubscriptions.length,
-        message: 'Push notification queued and in-app notification created'
+        message: sentCount > 0
+          ? 'Push notification sent'
+          : 'No active subscriptions accepted the notification',
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
   } catch (error) {
     console.error('Error in send-push-notification:', error)
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     return new Response(
       JSON.stringify({ error: errorMessage }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
   }
 })

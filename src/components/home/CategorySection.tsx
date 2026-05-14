@@ -39,7 +39,6 @@ export function CategorySection() {
                           categoryName={category.name}
                           icon={category.icon}
                           className="h-5 w-5 text-primary sm:h-6 sm:w-6"
-                          emojiClassName="text-lg sm:text-xl"
                         />
                       </div>
                       <h3 className="line-clamp-2 min-h-[2.5rem] text-sm font-semibold leading-tight text-foreground transition-colors group-hover:text-primary sm:text-sm">

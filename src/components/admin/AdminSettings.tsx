@@ -21,6 +21,8 @@ interface SettingsState {
   supportLocation: string;
   supportHours: string;
   mapProvider: string;
+  mapboxPublicKey: string;
+  vapidPublicKey: string;
   otpEnabled: boolean;
   otpLength: number;
   otpExpiryMinutes: number;
@@ -58,6 +60,8 @@ const DEFAULT_SETTINGS: SettingsState = {
   supportLocation: 'Accra, Ghana',
   supportHours: '9 AM - 6 PM GMT',
   mapProvider: 'openstreetmap',
+  mapboxPublicKey: '',
+  vapidPublicKey: '',
   otpEnabled: true,
   otpLength: 6,
   otpExpiryMinutes: 10,
@@ -140,7 +144,7 @@ export function AdminSettings() {
 
   useEffect(() => {
     if (dbSettings) {
-      setSettings(prev => {
+      setSettings(() => {
         const next: SettingsState = { ...DEFAULT_SETTINGS };
         const mutableSettings = next as Record<keyof SettingsState, SettingsState[keyof SettingsState]>;
         for (const key of Object.keys(next) as (keyof SettingsState)[]) {
@@ -148,6 +152,15 @@ export function AdminSettings() {
             mutableSettings[key] = coerceSettingValue(key, dbSettings[key]) as SettingsState[keyof SettingsState];
           }
         }
+
+        if (dbSettings.mapbox_public_key !== undefined && !next.mapboxPublicKey) {
+          next.mapboxPublicKey = coerceSettingValue('mapboxPublicKey', dbSettings.mapbox_public_key);
+        }
+
+        if (dbSettings.vapid_public_key !== undefined && !next.vapidPublicKey) {
+          next.vapidPublicKey = coerceSettingValue('vapidPublicKey', dbSettings.vapid_public_key);
+        }
+
         return next;
       });
     }
@@ -491,7 +504,15 @@ export function AdminSettings() {
               {settings.mapProvider === 'mapbox' && (
                 <div className="space-y-2">
                   <Label htmlFor="mapbox-key">Mapbox API Key</Label>
-                  <Input id="mapbox-key" type="password" placeholder="pk.xxxxxxxx" />
+                  <Input
+                    id="mapbox-key"
+                    value={settings.mapboxPublicKey}
+                    onChange={(e) => setSettings(prev => ({ ...prev, mapboxPublicKey: e.target.value }))}
+                    placeholder="pk.xxxxxxxx"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Store your public Mapbox token here so the order tracking map can use Mapbox tiles.
+                  </p>
                 </div>
               )}
             </CardContent>
@@ -560,8 +581,20 @@ export function AdminSettings() {
                   <h3 className="font-medium">Security Notice</h3>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  API keys are securely stored and encrypted. They are never exposed in the frontend code.
-                  To update API keys, please use your deployment provider and Supabase project settings.
+                  Private secrets should stay in your deployment provider and Supabase project settings.
+                  Public browser keys like Mapbox and the Web Push public key can be stored here for frontend use.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="vapid-public-key">Web Push Public Key</Label>
+                <Input
+                  id="vapid-public-key"
+                  value={settings.vapidPublicKey}
+                  onChange={(e) => setSettings(prev => ({ ...prev, vapidPublicKey: e.target.value }))}
+                  placeholder="BElongBase64PublicKey..."
+                />
+                <p className="text-xs text-muted-foreground">
+                  This is the public VAPID key used by browsers when customers opt into push notifications.
                 </p>
               </div>
               <div className="space-y-4">
@@ -584,7 +617,26 @@ export function AdminSettings() {
                     <p className="font-medium">Map Service</p>
                     <p className="text-sm text-muted-foreground">For order tracking maps</p>
                   </div>
-                  <Badge variant="secondary">OpenStreetMap</Badge>
+                  {settings.mapProvider === 'mapbox' ? (
+                    settings.mapboxPublicKey ? (
+                      <Badge variant="default" className="bg-green-600">Mapbox Ready</Badge>
+                    ) : (
+                      <Badge variant="destructive">Mapbox Key Missing</Badge>
+                    )
+                  ) : (
+                    <Badge variant="secondary">OpenStreetMap</Badge>
+                  )}
+                </div>
+                <div className="flex items-center justify-between p-4 border border-border rounded-lg">
+                  <div>
+                    <p className="font-medium">Web Push</p>
+                    <p className="text-sm text-muted-foreground">Public browser key for push subscriptions</p>
+                  </div>
+                  {settings.vapidPublicKey ? (
+                    <Badge variant="default" className="bg-green-600">Configured</Badge>
+                  ) : (
+                    <Badge variant="destructive">Missing Public Key</Badge>
+                  )}
                 </div>
               </div>
             </CardContent>

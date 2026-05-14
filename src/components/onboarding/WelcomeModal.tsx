@@ -1,16 +1,18 @@
-import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { useEffect, useState } from 'react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { MapPin, Heart, Bell, Check, ArrowRight } from 'lucide-react';
+import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import type { TablesInsert } from '@/integrations/supabase/types';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { CategoryIconDisplay } from '@/components/categories/CategoryIconDisplay';
+import { cn } from '@/lib/utils';
 
 const INTERESTS = [
   'Electronics', 'Fashion', 'Beauty', 'Home & Kitchen', 'Sports',
@@ -23,6 +25,37 @@ const REGIONS = [
   'Bono East', 'Ahafo', 'Savannah', 'North East', 'Oti', 'Western North',
 ];
 
+interface LegacyPreferences {
+  region?: string;
+  interests?: string[];
+  notifications?: boolean;
+  dealAlertsEnabled?: boolean;
+}
+
+function getShownKey(userId: string) {
+  return `welcome-shown-${userId}`;
+}
+
+function getOnboardedKey(userId: string) {
+  return `onboarded-${userId}`;
+}
+
+function getLegacyPreferencesKey(userId: string) {
+  return `preferences-${userId}`;
+}
+
+function parseLegacyPreferences(rawValue: string | null): LegacyPreferences | null {
+  if (!rawValue) return null;
+
+  try {
+    const parsed = JSON.parse(rawValue) as LegacyPreferences;
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch (error) {
+    console.error('Failed to parse saved welcome preferences:', error);
+    return null;
+  }
+}
+
 export function WelcomeModal() {
   const { user } = useAuth();
   const { isEnabled } = useFeatureFlags();
@@ -30,41 +63,140 @@ export function WelcomeModal() {
   const [step, setStep] = useState(1);
   const [region, setRegion] = useState('');
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-
-  const getShownKey = (userId: string) => `welcome-shown-${userId}`;
+  const [orderUpdatesEnabled, setOrderUpdatesEnabled] = useState(true);
+  const [dealAlertsEnabled, setDealAlertsEnabled] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    if (user) {
-      const hasShown = localStorage.getItem(getShownKey(user.id));
-      if (!hasShown) {
-        const timer = setTimeout(() => {
-          localStorage.setItem(getShownKey(user.id), 'true');
+    if (!user || !isEnabled('welcome_modal')) {
+      setOpen(false);
+      return;
+    }
+
+    let isActive = true;
+    let openTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const loadPreferences = async () => {
+      const shownKey = getShownKey(user.id);
+      const onboardedKey = getOnboardedKey(user.id);
+      const legacyPreferences = parseLegacyPreferences(localStorage.getItem(getLegacyPreferencesKey(user.id)));
+
+      let onboardingCompletedAt: string | null = null;
+
+      try {
+        const { data, error } = await supabase
+          .from('customer_preferences')
+          .select('region, interests, order_updates_enabled, deal_alerts_enabled, onboarding_completed_at')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (error) throw error;
+        if (!isActive) return;
+
+        if (data) {
+          setRegion(data.region ?? '');
+          setSelectedInterests(data.interests ?? []);
+          setOrderUpdatesEnabled(data.order_updates_enabled ?? true);
+          setDealAlertsEnabled(data.deal_alerts_enabled ?? true);
+          onboardingCompletedAt = data.onboarding_completed_at;
+        } else if (legacyPreferences) {
+          setRegion(legacyPreferences.region ?? '');
+          setSelectedInterests(legacyPreferences.interests ?? []);
+          setOrderUpdatesEnabled(legacyPreferences.notifications ?? true);
+          setDealAlertsEnabled(legacyPreferences.dealAlertsEnabled ?? legacyPreferences.notifications ?? true);
+        }
+      } catch (error) {
+        console.error('Failed to load customer preferences:', error);
+
+        if (isActive && legacyPreferences) {
+          setRegion(legacyPreferences.region ?? '');
+          setSelectedInterests(legacyPreferences.interests ?? []);
+          setOrderUpdatesEnabled(legacyPreferences.notifications ?? true);
+          setDealAlertsEnabled(legacyPreferences.dealAlertsEnabled ?? legacyPreferences.notifications ?? true);
+        }
+      }
+
+      if (!isActive) return;
+
+      const hasShown = localStorage.getItem(shownKey) === 'true';
+      const hasCompletedLocalOnboarding = localStorage.getItem(onboardedKey) === 'true';
+      const hasCompletedServerOnboarding = Boolean(onboardingCompletedAt);
+
+      if (!hasShown && !hasCompletedLocalOnboarding && !hasCompletedServerOnboarding) {
+        openTimer = setTimeout(() => {
+          localStorage.setItem(shownKey, 'true');
+          setStep(1);
           setOpen(true);
         }, 1500);
-        return () => clearTimeout(timer);
       }
-    }
-  }, [user]);
+    };
+
+    void loadPreferences();
+
+    return () => {
+      isActive = false;
+      if (openTimer) {
+        clearTimeout(openTimer);
+      }
+    };
+  }, [isEnabled, user]);
+
+  const persistLocalPreferences = () => {
+    if (!user) return;
+
+    localStorage.setItem(getShownKey(user.id), 'true');
+    localStorage.setItem(getOnboardedKey(user.id), 'true');
+    localStorage.setItem(
+      getLegacyPreferencesKey(user.id),
+      JSON.stringify({
+        region,
+        interests: selectedInterests,
+        notifications: orderUpdatesEnabled,
+        dealAlertsEnabled,
+      }),
+    );
+  };
 
   const handleFinish = async () => {
-    if (user) {
-      localStorage.setItem(`onboarded-${user.id}`, 'true');
-      // Save region to profile if set
-      if (region) {
-        await supabase.from('profiles').update({ phone: undefined }).eq('user_id', user.id);
-        // Store preferences in store_settings or localStorage
-        localStorage.setItem(`preferences-${user.id}`, JSON.stringify({ region, interests: selectedInterests, notifications: notificationsEnabled }));
-      }
+    if (!user) {
+      setOpen(false);
+      return;
     }
-    setOpen(false);
+
+    setIsSaving(true);
+
+    const payload: TablesInsert<'customer_preferences'> = {
+      user_id: user.id,
+      region: region || null,
+      interests: selectedInterests,
+      order_updates_enabled: orderUpdatesEnabled,
+      deal_alerts_enabled: dealAlertsEnabled,
+      onboarding_completed_at: new Date().toISOString(),
+    };
+
+    try {
+      const { error } = await supabase
+        .from('customer_preferences')
+        .upsert(payload, { onConflict: 'user_id' });
+
+      if (error) throw error;
+
+      toast.success('Your preferences have been saved.');
+    } catch (error) {
+      console.error('Failed to save onboarding preferences:', error);
+      toast.error('Preferences were saved on this device, but could not be synced yet.');
+    } finally {
+      persistLocalPreferences();
+      setOpen(false);
+      setIsSaving(false);
+    }
   };
 
   const toggleInterest = (interest: string) => {
-    setSelectedInterests(prev =>
+    setSelectedInterests((prev) =>
       prev.includes(interest)
-        ? prev.filter(i => i !== interest)
-        : [...prev, interest]
+        ? prev.filter((item) => item !== interest)
+        : [...prev, interest],
     );
   };
 
@@ -89,19 +221,18 @@ export function WelcomeModal() {
           </DialogTitle>
           <DialogDescription>
             {step === 1 && 'Let us personalize your experience. Where are you located?'}
-            {step === 2 && 'Select categories you love Ã¢â‚¬â€ we\'ll show you the best deals.'}
-            {step === 3 && 'Get notified about deals, order updates, and more.'}
+            {step === 2 && "Select categories you love and we'll show you the best deals."}
+            {step === 3 && 'Choose how you want to hear from us about orders and deals.'}
           </DialogDescription>
         </DialogHeader>
 
         <div className="py-4">
-          {/* Progress Dots */}
-          <div className="flex justify-center gap-2 mb-6">
-            {[1, 2, 3].map(s => (
+          <div className="mb-6 flex justify-center gap-2">
+            {[1, 2, 3].map((currentStep) => (
               <div
-                key={s}
-                className={`w-2.5 h-2.5 rounded-full transition-colors ${
-                  s === step ? 'bg-primary' : s < step ? 'bg-primary/50' : 'bg-muted'
+                key={currentStep}
+                className={`h-2.5 w-2.5 rounded-full transition-colors ${
+                  currentStep === step ? 'bg-primary' : currentStep < step ? 'bg-primary/50' : 'bg-muted'
                 }`}
               />
             ))}
@@ -109,7 +240,7 @@ export function WelcomeModal() {
 
           {step === 1 && (
             <div className="space-y-4">
-              <div className="flex items-center gap-2 mb-4">
+              <div className="mb-4 flex items-center gap-2">
                 <MapPin className="h-5 w-5 text-primary" />
                 <Label>Your Region in Ghana</Label>
               </div>
@@ -118,8 +249,8 @@ export function WelcomeModal() {
                   <SelectValue placeholder="Select your region" />
                 </SelectTrigger>
                 <SelectContent className="max-h-80">
-                  {REGIONS.map(r => (
-                    <SelectItem key={r} value={r}>{r}</SelectItem>
+                  {REGIONS.map((regionName) => (
+                    <SelectItem key={regionName} value={regionName}>{regionName}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -128,25 +259,31 @@ export function WelcomeModal() {
 
           {step === 2 && (
             <div className="space-y-4">
-              <div className="flex items-center gap-2 mb-4">
+              <div className="mb-4 flex items-center gap-2">
                 <Heart className="h-5 w-5 text-primary" />
                 <Label>Pick your interests</Label>
               </div>
               <div className="flex flex-wrap gap-2">
-                {INTERESTS.map(interest => (
-                  <Badge
+                {INTERESTS.map((interest) => (
+                  <button
                     key={interest}
-                    variant={selectedInterests.includes(interest) ? 'default' : 'outline'}
-                    className="cursor-pointer px-3 py-2 text-sm"
+                    type="button"
+                    aria-pressed={selectedInterests.includes(interest)}
+                    className={cn(
+                      'inline-flex items-center rounded-full border px-3 py-2 text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+                      selectedInterests.includes(interest)
+                        ? 'border-transparent bg-primary text-primary-foreground hover:bg-primary/80'
+                        : 'border-border text-foreground hover:bg-muted',
+                    )}
                     onClick={() => toggleInterest(interest)}
                   >
-                    {selectedInterests.includes(interest) && <Check className="h-3 w-3 mr-1" />}
+                    {selectedInterests.includes(interest) && <Check className="mr-1 h-3 w-3" />}
                     <CategoryIconDisplay
                       categoryName={interest}
                       className="mr-1 h-3.5 w-3.5"
                     />
                     {interest}
-                  </Badge>
+                  </button>
                 ))}
               </div>
             </div>
@@ -154,7 +291,7 @@ export function WelcomeModal() {
 
           {step === 3 && (
             <div className="space-y-6">
-              <div className="flex items-center gap-2 mb-4">
+              <div className="mb-4 flex items-center gap-2">
                 <Bell className="h-5 w-5 text-primary" />
                 <Label>Notification Preferences</Label>
               </div>
@@ -164,14 +301,14 @@ export function WelcomeModal() {
                     <p className="font-medium text-foreground">Order Updates</p>
                     <p className="text-sm text-muted-foreground">Get notified when your order status changes</p>
                   </div>
-                  <Switch checked={notificationsEnabled} onCheckedChange={setNotificationsEnabled} />
+                  <Switch checked={orderUpdatesEnabled} onCheckedChange={setOrderUpdatesEnabled} />
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-medium text-foreground">Deal Alerts</p>
-                    <p className="text-sm text-muted-foreground">Flash deals and special offers</p>
+                    <p className="text-sm text-muted-foreground">Flash deals, offers, and limited-time drops</p>
                   </div>
-                  <Switch defaultChecked />
+                  <Switch checked={dealAlertsEnabled} onCheckedChange={setDealAlertsEnabled} />
                 </div>
               </div>
             </div>
@@ -180,17 +317,21 @@ export function WelcomeModal() {
 
         <div className="flex justify-between">
           {step > 1 ? (
-            <Button variant="outline" onClick={() => setStep(s => s - 1)}>Back</Button>
-          ) : (
-            <Button variant="ghost" onClick={handleFinish}>Skip</Button>
-          )}
-          {step < 3 ? (
-            <Button onClick={() => setStep(s => s + 1)}>
-              Next <ArrowRight className="h-4 w-4 ml-1" />
+            <Button variant="outline" onClick={() => setStep((currentStep) => currentStep - 1)} disabled={isSaving}>
+              Back
             </Button>
           ) : (
-            <Button onClick={handleFinish}>
-              <Check className="h-4 w-4 mr-1" /> Get Started
+            <Button variant="ghost" onClick={handleFinish} disabled={isSaving}>
+              Skip
+            </Button>
+          )}
+          {step < 3 ? (
+            <Button onClick={() => setStep((currentStep) => currentStep + 1)} disabled={isSaving}>
+              Next <ArrowRight className="ml-1 h-4 w-4" />
+            </Button>
+          ) : (
+            <Button onClick={handleFinish} disabled={isSaving}>
+              <Check className="mr-1 h-4 w-4" /> Get Started
             </Button>
           )}
         </div>

@@ -44,7 +44,7 @@ export function BrandMark({ className, size = 'md' }: BrandMarkProps) {
         viewBox="0 0 156 48"
         fill="none"
       >
-        <circle cx="38" cy="9" r="5" fill="hsl(var(--primary))" />
+        <circle cx="129.5" cy="43" r="4" fill="hsl(var(--primary))" />
         <path
           d="M4 40L17.25 8H23.25L36.5 40H29.25L26.75 33.35H13.55L11.1 40H4ZM15.75 27.4H24.6L20.15 15.7L15.75 27.4Z"
           fill="currentColor"

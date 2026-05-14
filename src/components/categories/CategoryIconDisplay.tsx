@@ -9,18 +9,15 @@ interface CategoryIconDisplayProps {
   categoryName: string;
   icon?: string | null;
   className?: string;
-  emojiClassName?: string;
 }
 
 export function CategoryIconDisplay({
   categoryName,
   icon,
   className,
-  emojiClassName,
 }: CategoryIconDisplayProps) {
   const iconSource = getCategoryIconSource(icon);
-  const CustomIcon = getCategoryLucideIcon(icon);
-  const iconValue = icon?.trim();
+  const customIcon = getCategoryLucideIcon(icon);
 
   if (iconSource) {
     return (
@@ -33,24 +30,12 @@ export function CategoryIconDisplay({
     );
   }
 
-  if (CustomIcon) {
+  if (customIcon) {
+    const CustomIcon = customIcon;
     return <CustomIcon aria-hidden="true" className={className} />;
   }
 
-  if (iconValue?.startsWith('text:')) {
-    return (
-      <span
-        aria-hidden="true"
-        className={cn(
-          'inline-flex shrink-0 items-center justify-center leading-none',
-          emojiClassName ?? className,
-        )}
-      >
-        {iconValue.slice(5).trim()}
-      </span>
-    );
-  }
-
-  const FallbackIcon = getCategoryIconComponent(categoryName);
+  const fallbackIcon = getCategoryIconComponent(categoryName);
+  const FallbackIcon = fallbackIcon;
   return <FallbackIcon aria-hidden="true" className={className} />;
 }

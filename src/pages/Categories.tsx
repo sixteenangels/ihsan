@@ -100,7 +100,6 @@ export default function Categories() {
                         categoryName={category.name}
                         icon={category.icon}
                         className="h-5 w-5 text-primary"
-                        emojiClassName="text-lg"
                       />
                     </div>
                     <div>

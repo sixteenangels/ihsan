@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Package, ArrowLeft, Search, CheckCircle, Clock, MapPin, PackageCheck, Truck } from 'lucide-react';
+import { Loader2, Package, ArrowLeft, Search, CheckCircle, Clock, Truck } from 'lucide-react';
 import { format } from 'date-fns';
 import { Progress } from '@/components/ui/progress';
 
@@ -210,14 +210,6 @@ function OrderProgressPanel({ order }: { order: TrackedOrder }) {
   const status = order.status || 'pending';
   const checkpoints = getCheckpointsForTrackedOrder(order);
   const progressValue = getProgressPercentage(status, checkpoints);
-  const sortedTracking = [...order.order_tracking].sort(
-    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
-  );
-  const trackingByStatus = new Map<string, OrderTrackingPoint>();
-
-  sortedTracking.forEach((point) => {
-    trackingByStatus.set(point.status, point);
-  });
 
   return (
     <Card>
@@ -266,70 +258,6 @@ function OrderProgressPanel({ order }: { order: TrackedOrder }) {
                 );
               })}
             </div>
-          </div>
-        </div>
-
-        <div>
-          <div className="mb-3 flex items-center gap-2">
-            <MapPin className="h-4 w-4 text-primary" />
-            <h3 className="text-sm font-semibold text-foreground">Vertical Tracking Map</h3>
-          </div>
-          <div className="space-y-0">
-            {checkpoints.map((checkpoint, index) => {
-              const state = getCheckpointState(status, checkpoint.key, checkpoints);
-              const trackingPoint = trackingByStatus.get(checkpoint.key);
-
-              return (
-                <div key={checkpoint.key} className="flex gap-3">
-                  <div className="flex flex-col items-center">
-                    <div
-                      className={`flex h-8 w-8 items-center justify-center rounded-full border ${
-                        state === 'done'
-                          ? 'border-primary bg-primary text-primary-foreground'
-                          : state === 'current'
-                            ? 'border-primary bg-background text-primary ring-4 ring-primary/10'
-                            : 'border-border bg-muted text-muted-foreground'
-                      }`}
-                    >
-                      {state === 'done' ? <CheckCircle className="h-4 w-4" /> : <PackageCheck className="h-4 w-4" />}
-                    </div>
-                    {index < checkpoints.length - 1 && (
-                      <div
-                        className={`min-h-12 w-0.5 flex-1 ${
-                          state === 'done' ? 'bg-primary/70' : 'bg-border'
-                        }`}
-                      />
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1 pb-4">
-                    <div
-                      className={`rounded-xl border p-3 ${
-                        state === 'current'
-                          ? 'border-primary/40 bg-primary/5'
-                          : state === 'done'
-                            ? 'border-primary/20 bg-primary/5'
-                            : 'border-border bg-card'
-                      }`}
-                    >
-                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                        <p className="font-medium text-foreground">{checkpoint.label}</p>
-                        {trackingPoint?.created_at && (
-                          <p className="text-xs text-muted-foreground">
-                            {format(new Date(trackingPoint.created_at), 'MMM d, h:mm a')}
-                          </p>
-                        )}
-                      </div>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {trackingPoint?.notes || trackingPoint?.location_name || checkpoint.detail}
-                      </p>
-                      {trackingPoint?.location_name && trackingPoint.notes && (
-                        <p className="mt-1 text-xs text-primary">{trackingPoint.location_name}</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
           </div>
         </div>
       </CardContent>

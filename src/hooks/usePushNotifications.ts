@@ -24,6 +24,21 @@ interface PushSubscriptionData {
   };
 }
 
+async function getVapidPublicKey() {
+  const { data, error } = await supabase
+    .from('store_settings')
+    .select('key, value')
+    .in('key', ['vapidPublicKey', 'vapid_public_key']);
+
+  if (error) throw error;
+
+  const preferredValue = data?.find((row) => row.key === 'vapidPublicKey')?.value;
+  const legacyValue = data?.find((row) => row.key === 'vapid_public_key')?.value;
+  const resolvedValue = preferredValue ?? legacyValue;
+
+  return typeof resolvedValue === 'string' ? resolvedValue : null;
+}
+
 export function usePushNotifications() {
   const { user } = useAuth();
   const [isSupported, setIsSupported] = useState(false);
@@ -81,13 +96,12 @@ export function usePushNotifications() {
     }
 
     setIsLoading(true);
-    
+
     try {
       // Request permission first
       const hasPermission = permission === 'granted' || await requestPermission();
       if (!hasPermission) {
         toast.error('Please allow notifications to receive order updates');
-        setIsLoading(false);
         return false;
       }
 
@@ -98,21 +112,12 @@ export function usePushNotifications() {
       let subscription = await registration.pushManager.getSubscription();
       
       if (!subscription) {
-        // Get VAPID public key from server (we'll store it in store_settings)
-        const { data: vapidSetting } = await supabase
-          .from('store_settings')
-          .select('value')
-          .eq('key', 'vapid_public_key')
-          .maybeSingle();
+        const vapidPublicKey = await getVapidPublicKey();
 
-        if (!vapidSetting?.value) {
-          // If no VAPID key, show message that push is not configured
-          toast.info('Push notifications are being set up. Please try again later.');
-          setIsLoading(false);
+        if (!vapidPublicKey) {
+          toast.info('Push notifications are not configured yet. Please try again later.');
           return false;
         }
-
-        const vapidPublicKey = vapidSetting.value as string;
 
         subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,
@@ -144,13 +149,13 @@ export function usePushNotifications() {
 
       setIsSubscribed(true);
       toast.success('Push notifications enabled!');
-      setIsLoading(false);
       return true;
     } catch (error) {
       console.error('Error subscribing to push:', error);
       toast.error('Failed to enable push notifications');
-      setIsLoading(false);
       return false;
+    } finally {
+      setIsLoading(false);
     }
   }, [isSupported, user, permission, requestPermission]);
 
@@ -176,13 +181,13 @@ export function usePushNotifications() {
 
       setIsSubscribed(false);
       toast.success('Push notifications disabled');
-      setIsLoading(false);
       return true;
     } catch (error) {
       console.error('Error unsubscribing from push:', error);
       toast.error('Failed to disable push notifications');
-      setIsLoading(false);
       return false;
+    } finally {
+      setIsLoading(false);
     }
   }, [isSupported, user]);
 

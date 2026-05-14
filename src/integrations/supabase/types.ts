@@ -334,6 +334,39 @@ export type Database = {
         }
         Relationships: []
       }
+      customer_preferences: {
+        Row: {
+          created_at: string
+          deal_alerts_enabled: boolean
+          interests: string[]
+          onboarding_completed_at: string | null
+          order_updates_enabled: boolean
+          region: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          deal_alerts_enabled?: boolean
+          interests?: string[]
+          onboarding_completed_at?: string | null
+          order_updates_enabled?: boolean
+          region?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          deal_alerts_enabled?: boolean
+          interests?: string[]
+          onboarding_completed_at?: string | null
+          order_updates_enabled?: boolean
+          region?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       coupons: {
         Row: {
           auto_apply: boolean

@@ -7,6 +7,7 @@ import {
   LayoutGrid,
   List,
   Loader2,
+  Package,
   Search,
   SlidersHorizontal,
   Trash2,
@@ -540,10 +541,11 @@ export default function Products() {
           <div className="flex min-w-max gap-2 pr-4">
             <Badge
               variant={selectedCategory === '' ? 'default' : 'outline'}
-              className="cursor-pointer px-3 py-1.5 text-center text-xs sm:px-4 sm:py-2 sm:text-sm"
+              className="inline-flex cursor-pointer items-center gap-1.5 px-3 py-1.5 text-center text-xs sm:px-4 sm:py-2 sm:text-sm"
               onClick={() => setSelectedCategory('')}
             >
-              🛍️ All
+              <Package className="h-3.5 w-3.5 shrink-0" />
+              All
             </Badge>
             {categories?.map((category) => {
               return (
@@ -567,7 +569,6 @@ export default function Products() {
                     categoryName={category.name}
                     icon={category.icon}
                     className="h-3.5 w-3.5 shrink-0"
-                    emojiClassName="text-sm"
                   />
                   {category.name} ({category.product_count || 0})
                 </Badge>

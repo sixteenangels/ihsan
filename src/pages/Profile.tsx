@@ -61,6 +61,20 @@ interface OrderItem {
   quantity: number;
   unit_price: number;
   total_price: number;
+  product_id: string | null;
+  product_variant_id: string | null;
+  image_url?: string | null;
+}
+
+interface ProductVariantLookupRow {
+  id: string;
+  product_id: string;
+}
+
+interface ProductImageLookupRow {
+  product_id: string;
+  image_url: string;
+  order_index: number | null;
 }
 
 interface Order {
@@ -319,7 +333,74 @@ export default function Profile() {
     if (error) {
       console.error('Error fetching orders:', error);
     } else {
-      setOrders(data || []);
+      const safeOrders = data || [];
+      const orderItems = safeOrders.flatMap((order) => order.order_items || []);
+      const directProductIds = [
+        ...new Set(
+          orderItems
+            .map((item) => item.product_id)
+            .filter((productId): productId is string => Boolean(productId)),
+        ),
+      ];
+      const variantIds = [
+        ...new Set(
+          orderItems
+            .map((item) => item.product_variant_id)
+            .filter((variantId): variantId is string => Boolean(variantId)),
+        ),
+      ];
+
+      let variantProductMap = new Map<string, string>();
+      if (variantIds.length > 0) {
+        const { data: variants } = await supabase
+          .from('product_variants')
+          .select('id, product_id')
+          .in('id', variantIds);
+
+        variantProductMap = new Map(
+          ((variants as ProductVariantLookupRow[] | null) || []).map((variant) => [variant.id, variant.product_id]),
+        );
+      }
+
+      const imageProductIds = [
+        ...new Set([
+          ...directProductIds,
+          ...variantIds
+            .map((variantId) => variantProductMap.get(variantId))
+            .filter((productId): productId is string => Boolean(productId)),
+        ]),
+      ];
+
+      const productImageMap = new Map<string, string>();
+      if (imageProductIds.length > 0) {
+        const { data: images } = await supabase
+          .from('product_images')
+          .select('product_id, image_url, order_index')
+          .in('product_id', imageProductIds)
+          .order('order_index', { ascending: true });
+
+        ((images as ProductImageLookupRow[] | null) || []).forEach((image) => {
+          if (!productImageMap.has(image.product_id)) {
+            productImageMap.set(image.product_id, image.image_url);
+          }
+        });
+      }
+
+      const mappedOrders = safeOrders.map((order) => ({
+        ...order,
+        order_items: (order.order_items || []).map((item) => {
+          const resolvedProductId =
+            item.product_id ||
+            (item.product_variant_id ? variantProductMap.get(item.product_variant_id) || null : null);
+
+          return {
+            ...item,
+            image_url: resolvedProductId ? productImageMap.get(resolvedProductId) || null : null,
+          };
+        }),
+      }));
+
+      setOrders(mappedOrders);
     }
   }, [user]);
 
@@ -788,7 +869,11 @@ export default function Profile() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {orders.map((order) => (
+                    {orders.map((order) => {
+                      const previewItem = order.order_items[0];
+                      const previewImage = previewItem?.image_url;
+
+                      return (
                       <div key={order.id} className="border border-border rounded-lg overflow-hidden">
                         <div className="p-4 bg-muted/50 border-b border-border">
                           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
@@ -813,20 +898,36 @@ export default function Profile() {
                           </div>
                         </div>
                         <div className="p-4">
-                          <div className="space-y-2 mb-4">
-                            {order.order_items.slice(0, 2).map((item) => (
-                              <div key={item.id} className="flex items-center justify-between gap-3 text-sm">
-                                <span className="text-foreground">
-                                  {item.product_name} x {item.quantity}
-                                </span>
-                                <span className="text-muted-foreground">{formatPrice(item.total_price)}</span>
-                              </div>
-                            ))}
-                            {order.order_items.length > 2 && (
-                              <p className="text-sm text-muted-foreground">
-                                +{order.order_items.length - 2} more items
-                              </p>
-                            )}
+                          <div className="mb-4 flex items-start gap-3">
+                            <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg border border-border bg-muted">
+                              {previewImage ? (
+                                <img
+                                  src={previewImage}
+                                  alt={previewItem?.product_name || `Preview for order ${order.order_number}`}
+                                  className="h-full w-full object-cover"
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center">
+                                  <Package className="h-5 w-5 text-muted-foreground" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1 space-y-2">
+                              {order.order_items.slice(0, 2).map((item) => (
+                                <div key={item.id} className="flex items-center justify-between gap-3 text-sm">
+                                  <span className="truncate text-foreground">
+                                    {item.product_name} x {item.quantity}
+                                  </span>
+                                  <span className="shrink-0 text-muted-foreground">{formatPrice(item.total_price)}</span>
+                                </div>
+                              ))}
+                              {order.order_items.length > 2 && (
+                                <p className="text-sm text-muted-foreground">
+                                  +{order.order_items.length - 2} more items
+                                </p>
+                              )}
+                            </div>
                           </div>
                           <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -863,7 +964,8 @@ export default function Profile() {
                           </div>
                         </div>
                       </div>
-                    ))}
+                    );
+                    })}
                   </div>
                 )}
               </CardContent>

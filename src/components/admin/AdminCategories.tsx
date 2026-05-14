@@ -237,7 +237,7 @@ export function AdminCategories() {
                   id="icon"
                   value={form.icon}
                   onChange={(event) => setForm({ ...form, icon: event.target.value })}
-                  placeholder="lucide:Shirt, SVG URL, inline SVG, or text:Sale"
+                  placeholder="svg:flash-deals, lucide:Shirt, SVG URL, or inline SVG"
                 />
 
                 <div className="rounded-xl border border-border bg-muted/20 p-4">
@@ -247,7 +247,6 @@ export function AdminCategories() {
                         categoryName={form.name || 'Category'}
                         icon={form.icon}
                         className="h-6 w-6"
-                        emojiClassName="text-xl"
                       />
                     </div>
                     <div>
@@ -283,7 +282,7 @@ export function AdminCategories() {
 
                 <div className="rounded-lg border border-dashed border-border p-3 text-xs text-muted-foreground">
                   <p>Use an SVG preset token, paste an SVG URL, or inline SVG markup.</p>
-                  <p className="mt-1">Legacy emoji values fall back to a matching SVG automatically.</p>
+                  <p className="mt-1">Legacy emoji values are mapped to matching SVG icons automatically when supported.</p>
                 </div>
               </div>
 
@@ -331,7 +330,6 @@ export function AdminCategories() {
                           categoryName={category.name}
                           icon={category.icon}
                           className="h-6 w-6"
-                          emojiClassName="text-2xl"
                         />
                       </div>
                       <div className="min-w-0 flex-1">
@@ -393,7 +391,6 @@ export function AdminCategories() {
                               categoryName={category.name}
                               icon={category.icon}
                               className="h-5 w-5"
-                              emojiClassName="text-xl"
                             />
                           </div>
                         </TableCell>

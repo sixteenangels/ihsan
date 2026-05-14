@@ -20,9 +20,11 @@ import {
   Smartphone,
   Sofa,
   Sparkles,
+  TrendingUp,
   UtensilsCrossed,
   Watch,
   Wrench,
+  Zap,
 } from 'lucide-react';
 
 const categoryIconComponents = {
@@ -46,18 +48,22 @@ const categoryIconComponents = {
   Smartphone,
   Sofa,
   Sparkles,
+  TrendingUp,
   UtensilsCrossed,
   Watch,
   Wrench,
+  Zap,
 } satisfies Record<string, LucideIcon>;
 
 type CategoryIconName = keyof typeof categoryIconComponents;
 
 export interface CategoryIconPreset {
   label: string;
-  iconName: CategoryIconName;
+  iconName?: CategoryIconName;
   token: string;
   matchers: string[];
+  aliases?: string[];
+  source?: string;
 }
 
 export const categoryIconPresets: CategoryIconPreset[] = [
@@ -75,7 +81,23 @@ export const categoryIconPresets: CategoryIconPreset[] = [
   { label: 'Accessories', iconName: 'Watch', token: 'lucide:Watch', matchers: ['accessories'] },
   { label: 'Jewelry', iconName: 'Gem', token: 'lucide:Gem', matchers: ['jewelry'] },
   { label: 'Shoes', iconName: 'Footprints', token: 'lucide:Footprints', matchers: ['shoes', 'footwear'] },
-  { label: 'Bags', iconName: 'ShoppingBag', token: 'lucide:ShoppingBag', matchers: ['bags', 'offers', 'deals', 'deals & offers', 'trending', 'trending now'] },
+  {
+    label: 'Trending',
+    iconName: 'TrendingUp',
+    token: 'svg:trending-up',
+    source: '/category-icons/trending-up.svg',
+    matchers: ['trending', 'trending now', 'hot picks', 'rising'],
+    aliases: ['\uD83D\uDCC8', 'text:\uD83D\uDCC8'],
+  },
+  {
+    label: 'Flash Deals',
+    iconName: 'Zap',
+    token: 'svg:flash-deals',
+    source: '/category-icons/flash-deals.svg',
+    matchers: ['flash deals', 'deals', 'deals & offers', 'offers', 'sale', 'lightning deals'],
+    aliases: ['\u26A1', '\u26A1\uFE0F', 'text:\u26A1', 'text:\u26A1\uFE0F'],
+  },
+  { label: 'Bags', iconName: 'ShoppingBag', token: 'lucide:ShoppingBag', matchers: ['bags'] },
   { label: 'Automotive', iconName: 'Car', token: 'lucide:Car', matchers: ['automotive', 'auto', 'auto parts'] },
   { label: 'Pets', iconName: 'Dog', token: 'lucide:Dog', matchers: ['pets'] },
   { label: 'Office', iconName: 'Briefcase', token: 'lucide:Briefcase', matchers: ['office', 'business'] },
@@ -104,19 +126,25 @@ function isExternalIconValue(value: string): boolean {
 
 function resolveCategoryIconPreset(value: string | null | undefined): CategoryIconPreset | null {
   const trimmedValue = value?.trim();
-  if (!trimmedValue || isExternalIconValue(trimmedValue) || trimmedValue.startsWith('text:')) {
+  if (!trimmedValue || isExternalIconValue(trimmedValue)) {
     return null;
   }
 
   const normalizedValue = normalizeIconKey(trimmedValue);
 
   for (const preset of categoryIconPresets) {
+    if (preset.aliases?.includes(trimmedValue)) {
+      return preset;
+    }
+
     const presetTokens = [
       preset.token,
       preset.label,
       preset.iconName,
       ...preset.matchers,
-    ].map(normalizeIconKey);
+    ]
+      .filter((token): token is string => Boolean(token))
+      .map(normalizeIconKey);
 
     if (presetTokens.includes(normalizedValue)) {
       return preset;
@@ -132,7 +160,7 @@ export function getCategoryIconName(categoryName: string): CategoryIconName {
 
 export function getCategoryLucideIcon(icon: string | null | undefined): LucideIcon | null {
   const preset = resolveCategoryIconPreset(icon);
-  if (!preset) return null;
+  if (!preset?.iconName) return null;
   return categoryIconComponents[preset.iconName] ?? null;
 }
 
@@ -149,6 +177,9 @@ export function getCategoryIconSource(icon: string | null | undefined): string |
   const value = icon?.trim();
 
   if (!value) return null;
+
+  const presetSource = resolveCategoryIconPreset(value)?.source;
+  if (presetSource) return presetSource;
   if (value.startsWith('data:image/')) return value;
   if (value.startsWith('<svg')) {
     return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(value)}`;

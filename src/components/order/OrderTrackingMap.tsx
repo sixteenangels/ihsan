@@ -5,6 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Package, MapPin, Truck, CheckCircle } from 'lucide-react';
+import { useStoreSettings } from '@/hooks/useStoreSettings';
 
 type LeafletIconDefaultWithGetIconUrl = typeof L.Icon.Default.prototype & {
   _getIconUrl?: unknown;
@@ -69,10 +70,25 @@ function MapBoundsUpdater({ points }: { points: [number, number][] }) {
 }
 
 export function OrderTrackingMap({ trackingPoints, orderStatus, estimatedDelivery }: OrderTrackingMapProps) {
+  const { data: storeSettings } = useStoreSettings();
   const validPoints = trackingPoints.filter(p => p.latitude != null && p.longitude != null);
   const sortedTrackingPoints = [...trackingPoints].sort(
     (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
   );
+  const mapProvider = typeof storeSettings?.mapProvider === 'string' ? storeSettings.mapProvider : 'openstreetmap';
+  const mapboxPublicKey = typeof storeSettings?.mapboxPublicKey === 'string'
+    ? storeSettings.mapboxPublicKey
+    : typeof storeSettings?.mapbox_public_key === 'string'
+      ? storeSettings.mapbox_public_key
+      : '';
+  const useMapbox = mapProvider === 'mapbox' && Boolean(mapboxPublicKey);
+  const tileLayerUrl = useMapbox
+    ? `https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/{z}/{x}/{y}?access_token=${mapboxPublicKey}`
+    : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+  const tileLayerAttribution = useMapbox
+    ? '&copy; <a href="https://www.mapbox.com/about/maps/">Mapbox</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+  const tileLayerProps = useMapbox ? { tileSize: 512, zoomOffset: -1 } : undefined;
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -177,8 +193,9 @@ export function OrderTrackingMap({ trackingPoints, orderStatus, estimatedDeliver
             scrollWheelZoom={false}
           >
             <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution={tileLayerAttribution}
+              url={tileLayerUrl}
+              {...tileLayerProps}
             />
             <MapBoundsUpdater points={coordinates} />
             

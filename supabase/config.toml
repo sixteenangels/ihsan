@@ -9,7 +9,7 @@ additional_redirect_urls = [
 ]
 
 [functions.send-push-notification]
-verify_jwt = false
+verify_jwt = true
 
 [functions.get-paystack-key]
 verify_jwt = false
