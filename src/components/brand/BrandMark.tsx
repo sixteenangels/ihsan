@@ -1,4 +1,4 @@
-import { BRAND_NAME, BRAND_SHORT_NAME } from '@/lib/brand';
+import { BRAND_NAME } from '@/lib/brand';
 import { cn } from '@/lib/utils';
 
 type BrandMarkSize = 'sm' | 'md' | 'lg';
@@ -10,22 +10,19 @@ interface BrandMarkProps {
 
 const sizeClasses: Record<
   BrandMarkSize,
-  { root: string; wordmark: string; dot: string }
+  { root: string; mark: string }
 > = {
   sm: {
-    root: 'gap-1.5',
-    wordmark: 'text-lg sm:text-xl',
-    dot: 'h-1.5 w-1.5',
+    root: 'h-6',
+    mark: 'w-[5.75rem]',
   },
   md: {
-    root: 'gap-2',
-    wordmark: 'text-2xl',
-    dot: 'h-2 w-2',
+    root: 'h-8',
+    mark: 'w-[7.5rem]',
   },
   lg: {
-    root: 'gap-2.5',
-    wordmark: 'text-3xl',
-    dot: 'h-2.5 w-2.5',
+    root: 'h-10',
+    mark: 'w-[9.25rem]',
   },
 };
 
@@ -36,18 +33,35 @@ export function BrandMark({ className, size = 'md' }: BrandMarkProps) {
     <span
       aria-label={BRAND_NAME}
       className={cn(
-        'inline-flex items-end font-medium leading-none text-foreground',
+        'inline-flex items-center text-foreground',
         classes.root,
         className,
       )}
     >
-      <span className={cn('font-serif font-bold uppercase tracking-[0.18em]', classes.wordmark)}>
-        {BRAND_SHORT_NAME}
-      </span>
-      <span
+      <svg
         aria-hidden="true"
-        className={cn('mb-[0.52em] shrink-0 rounded-full bg-primary', classes.dot)}
-      />
+        className={cn('h-full shrink-0 overflow-visible', classes.mark)}
+        viewBox="0 0 156 48"
+        fill="none"
+      >
+        <circle cx="38" cy="9" r="5" fill="hsl(var(--primary))" />
+        <path
+          d="M4 40L17.25 8H23.25L36.5 40H29.25L26.75 33.35H13.55L11.1 40H4ZM15.75 27.4H24.6L20.15 15.7L15.75 27.4Z"
+          fill="currentColor"
+        />
+        <path
+          d="M57.8 8H64.7V29.75C64.7 36.9 59.95 40.8 52.95 40.8C47.8 40.8 43.75 38.75 41.15 35L46.25 31.1C47.8 33.3 49.85 34.45 52.55 34.45C56.1 34.45 57.8 32.65 57.8 29.45V8Z"
+          fill="currentColor"
+        />
+        <path
+          d="M84.5 40V27.1L71.55 8H79.6L88.05 20.8L96.5 8H104.25L91.4 27.1V40H84.5Z"
+          fill="currentColor"
+        />
+        <path
+          d="M114.8 40V8H121.35L137.65 28.25V8H144.55V40H138.55L121.7 19.05V40H114.8Z"
+          fill="currentColor"
+        />
+      </svg>
     </span>
   );
 }

@@ -31,8 +31,15 @@ interface RefundRequestDialogProps {
     order_number: string;
     total_amount: number;
     status: string;
+    created_at?: string;
+    updated_at?: string;
+    customer_confirmed_at?: string | null;
   };
   disabled?: boolean;
+  canRequest?: boolean;
+  disabledReason?: string;
+  triggerLabel?: string;
+  className?: string;
 }
 
 const REFUND_REASONS = [
@@ -44,17 +51,29 @@ const REFUND_REASONS = [
   'Other',
 ] as const;
 
-export function RefundRequestDialog({ order, disabled }: RefundRequestDialogProps) {
+export function RefundRequestDialog({
+  order,
+  disabled,
+  canRequest,
+  disabledReason,
+  triggerLabel = 'Request Refund',
+  className,
+}: RefundRequestDialogProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { formatPrice } = useCurrency();
   const [isOpen, setIsOpen] = useState(false);
   const [reason, setReason] = useState<string>('');
   const [details, setDetails] = useState('');
+  const canRequestRefund = canRequest ?? false;
+  const isDisabled = disabled || !canRequestRefund;
 
   const createRefundMutation = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error('Please sign in to request a refund');
+      if (!canRequestRefund) {
+        throw new Error(disabledReason || 'This order is no longer eligible for a refund request');
+      }
 
       const refundRequest: TablesInsert<'refund_requests'> = {
         order_id: order.id,
@@ -81,19 +100,18 @@ export function RefundRequestDialog({ order, disabled }: RefundRequestDialogProp
     },
   });
 
-  const canRequestRefund = order.status === 'delivered';
-
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button 
           variant="outline" 
           size="sm" 
-          disabled={disabled || !canRequestRefund}
-          className="gap-2"
+          disabled={isDisabled}
+          className={className || 'gap-2'}
+          title={isDisabled ? disabledReason : undefined}
         >
           <RefreshCcw className="h-4 w-4" />
-          Request Refund
+          {triggerLabel}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">

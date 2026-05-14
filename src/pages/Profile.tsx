@@ -93,6 +93,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: LucideI
 
 function ReferralTab() {
   const { referralCode, referralLink, referrals, isLoading, generateCode, isGenerating } = useReferral();
+  const totalReferrals = Math.max(referralCode?.total_referrals ?? 0, referrals.length);
 
   const handleCopyLink = () => {
     if (referralLink) {
@@ -148,7 +149,7 @@ function ReferralTab() {
             )}
             <div>
               <p className="font-medium text-foreground mb-2">
-                Total Referrals: {referralCode.total_referrals || referrals.length}
+                Total Referrals: {totalReferrals}
               </p>
               <div className="space-y-2">
                 {isLoading ? (

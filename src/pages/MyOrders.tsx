@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Package, Truck, MapPin, Clock, CheckCircle, XCircle, Loader, ChevronDown, ChevronUp, Phone, CreditCard, ShoppingBag, PackageCheck, Plane, MapPinned, Ban, Users, Star, MessageSquare, Eye, FileText } from 'lucide-react';
+import { Package, Truck, MapPin, Clock, CheckCircle, XCircle, Loader, Phone, CreditCard, ShoppingBag, PackageCheck, MapPinned, Ban, Users, Star, FileText } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { useAuth } from '@/contexts/AuthContext';
@@ -256,6 +256,35 @@ const FULFILLMENT_STAGE_LABELS: Record<string, string> = {
   awaiting_dispatch: 'Awaiting dispatch',
   dispatched: 'Dispatched to courier',
 };
+
+const REFUND_WINDOW_MS = 48 * 60 * 60 * 1000;
+const REFUND_WINDOW_STATUSES = new Set(['pending', 'payment_received', 'order_placed']);
+
+function getRefundWindowStart(order: Order) {
+  return new Date(order.status === 'order_placed' ? order.updated_at || order.created_at : order.created_at);
+}
+
+function getRefundWindowEnd(order: Order) {
+  return new Date(getRefundWindowStart(order).getTime() + REFUND_WINDOW_MS);
+}
+
+function isDeliveredOrder(order: Order) {
+  return order.status === 'delivered' || Boolean(order.customer_confirmed_at);
+}
+
+function canRequestRefund(order: Order, now = Date.now()) {
+  return (
+    REFUND_WINDOW_STATUSES.has(order.status) &&
+    !isDeliveredOrder(order) &&
+    now < getRefundWindowEnd(order).getTime()
+  );
+}
+
+function getRefundButtonReason(order: Order) {
+  if (isDeliveredOrder(order)) return 'Refund requests close once delivery is confirmed.';
+  if (!REFUND_WINDOW_STATUSES.has(order.status)) return 'Refund requests are only available before the order is confirmed.';
+  return `Refund window closed on ${format(getRefundWindowEnd(order), 'MMM d, yyyy h:mm a')}.`;
+}
 
 export default function MyOrders() {
   const navigate = useNavigate();
@@ -694,15 +723,21 @@ export default function MyOrders() {
                   const checkpoints = getCheckpointsForOrder(order, shippingClassNames);
                   const primaryItem = order.order_items[0];
                   const primaryImage = primaryItem ? getOrderItemImage(primaryItem) : null;
+                  const primaryProductName = primaryItem?.product_name || 'Order item';
+                  const delivered = isDeliveredOrder(order);
+                  const refundOpen = canRequestRefund(order);
+                  const refundReason = refundOpen
+                    ? `Refund available until ${format(getRefundWindowEnd(order), 'MMM d, h:mm a')}`
+                    : getRefundButtonReason(order);
                   return (
-                    <Card key={order.id} className="overflow-hidden">
+                    <Card key={order.id} className="overflow-hidden border-border/70 shadow-sm">
                       <CardContent className="p-0">
                         {/* Order Header (not a button — actions live below) */}
-                        <div className="p-4 bg-muted/50 border-b border-border">
-                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                            <div className="flex min-w-0 flex-1 items-center gap-3">
+                        <div className="border-b border-border bg-background p-3 sm:p-4">
+                          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                            <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
                               {primaryItem && (
-                                <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 border border-border bg-muted">
+                                <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-md border border-border bg-muted sm:h-20 sm:w-20">
                                   {primaryImage ? (
                                     <img
                                       src={primaryImage}
@@ -716,60 +751,55 @@ export default function MyOrders() {
                                   )}
                                 </div>
                               )}
-                              <div className="min-w-0">
-                                <p className="font-semibold text-foreground text-sm truncate">
-                                  {order.order_number}
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-base font-semibold text-foreground sm:text-lg">
+                                  {primaryProductName}
                                 </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {new Date(order.created_at).toLocaleDateString('en-US', {
-                                    month: 'short', day: 'numeric', year: 'numeric',
-                                  })}
-                                  {' - '}{order.order_items.length} item{order.order_items.length > 1 ? 's' : ''}
+                                <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm">
+                                  Order Id: {order.order_number}
+                                </p>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  {order.order_items.length} item{order.order_items.length > 1 ? 's' : ''} - {format(new Date(order.created_at), 'MMM d, yyyy')}
                                 </p>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2 self-start sm:flex-shrink-0">
+                            <div className="flex items-center justify-between gap-3 lg:flex-col lg:items-end">
                               {getStatusBadge(order.status)}
+                              <p className="text-sm font-semibold text-primary">
+                                {formatPrice(order.total_amount)}
+                              </p>
                             </div>
                           </div>
 
-                          <div className="mt-3 flex items-center justify-between">
-                            <p className="font-bold text-primary text-sm">
-                              {formatPrice(order.total_amount)}
-                            </p>
+                          <div className="mt-3 flex flex-wrap items-center gap-2">
                             {order.group_buy_id && (
                               <Badge className="bg-accent/10 text-accent-foreground gap-1 text-xs">
                                 <Users className="h-3 w-3" />
                                 Group Buy
                               </Badge>
                             )}
+                            {!delivered && !refundOpen && REFUND_WINDOW_STATUSES.has(order.status) && (
+                              <Badge variant="outline" className="text-xs">
+                                Refund window closed
+                              </Badge>
+                            )}
                           </div>
 
                           {/* Quick action row, always visible */}
-                          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => toggleOrderExpansion(order.id)}
-                              className="h-auto w-full justify-center px-3 py-2 text-xs leading-tight sm:text-sm"
-                            >
-                              <Eye className="h-3.5 w-3.5 mr-1" />
-                              {isExpanded ? 'Hide' : 'Details'}
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleBuyAgain(order)}
-                              className="h-auto w-full justify-center px-3 py-2 text-xs leading-tight sm:text-sm"
-                            >
-                              <ShoppingBag className="h-3.5 w-3.5 mr-1" />
-                              Buy Again
-                            </Button>
-                            {order.status === 'delivered' ? (
+                          <div className="mt-3 grid grid-cols-3 gap-2">
+                            <RefundRequestDialog
+                              order={order}
+                              canRequest={refundOpen}
+                              disabledReason={refundReason}
+                              triggerLabel="Refund"
+                              className="h-9 w-full gap-1 px-2 text-xs sm:text-sm"
+                            />
+                            {delivered ? (
                               <Button
                                 size="sm"
+                                variant="outline"
                                 onClick={() => setReviewDialogOrder(order)}
-                                className="w-full"
+                                className="h-9 w-full px-2 text-xs sm:text-sm"
                               >
                                 <Star className="h-3.5 w-3.5 mr-1" />
                                 Review
@@ -777,9 +807,29 @@ export default function MyOrders() {
                             ) : (
                               <Button
                                 size="sm"
+                                variant={isExpanded ? 'default' : 'outline'}
+                                onClick={() => toggleOrderExpansion(order.id)}
+                                className="h-9 w-full px-2 text-xs sm:text-sm"
+                              >
+                                <MapPin className="h-3.5 w-3.5 mr-1" />
+                                Track
+                              </Button>
+                            )}
+                            {delivered ? (
+                              <Button
+                                size="sm"
+                                onClick={() => handleBuyAgain(order)}
+                                className="h-9 w-full px-2 text-xs sm:text-sm"
+                              >
+                                <ShoppingBag className="h-3.5 w-3.5 mr-1" />
+                                Buy Again
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
                                 onClick={() => handleConfirmDelivery(order)}
                                 disabled={order.status !== 'out_for_delivery'}
-                                className="h-auto w-full justify-center px-3 py-2 text-xs leading-tight sm:text-sm"
+                                className="h-9 w-full px-2 text-xs sm:text-sm"
                                 title={
                                   order.status !== 'out_for_delivery'
                                     ? 'Available once order is out for delivery'
@@ -878,7 +928,6 @@ export default function MyOrders() {
                                       </Button>
                                     </Link>
                                   )}
-                                  <RefundRequestDialog order={order} />
                                 </div>
                               </div>
                             )}
@@ -1074,12 +1123,6 @@ export default function MyOrders() {
                                   Cancel
                                 </Button>
                               )}
-                              <Link to={`/track-order/${order.id}`}>
-                                <Button variant="outline" size="sm" className="w-full sm:w-auto">
-                                  <MapPin className="h-3.5 w-3.5 mr-1" />
-                                  Track
-                                </Button>
-                              </Link>
                               <OrderIssueDialog
                                 orderId={order.id}
                                 orderNumber={order.order_number}
@@ -1087,30 +1130,6 @@ export default function MyOrders() {
                                 itemNames={order.order_items.map((item) => item.product_name)}
                                 triggerLabel="Issue Center"
                               />
-                              
-                              {/* Buy Again & Review - always visible for delivered */}
-                              {order.status === 'delivered' && (
-                                <>
-                                  <Button
-                                    size="sm"
-                                    variant="default"
-                                    className="w-full sm:w-auto"
-                                    onClick={() => handleBuyAgain(order)}
-                                  >
-                                    <ShoppingBag className="h-3.5 w-3.5 mr-1" />
-                                    Buy Again
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="w-full sm:w-auto"
-                                    onClick={() => setReviewDialogOrder(order)}
-                                  >
-                                    <Star className="h-3.5 w-3.5 mr-1" />
-                                    Leave Review
-                                  </Button>
-                                </>
-                              )}
                             </div>
 
                             {/* Order Summary */}
