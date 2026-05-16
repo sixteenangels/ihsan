@@ -1,29 +1,34 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Package, Truck, MapPin, Clock, CheckCircle, XCircle, Loader, Phone, CreditCard, ShoppingBag, PackageCheck, MapPinned, Ban, Users, Star, FileText } from 'lucide-react';
+import {
+  CheckCircle,
+  Clock,
+  Loader2,
+  MapPinned,
+  Package,
+  ShoppingBag,
+  Truck,
+  Users,
+  XCircle,
+} from 'lucide-react';
+
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
+import { CompactOrderHistoryCard } from '@/components/orders/CompactOrderHistoryCard';
+import { OrderReviewDialog } from '@/components/orders/OrderReviewDialog';
+import { RefundRequestDialog } from '@/components/orders/RefundRequestDialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
-import { useCurrency } from '@/hooks/useCurrency';
+import { supabase } from '@/integrations/supabase/client';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Separator } from '@/components/ui/separator';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { Progress } from '@/components/ui/progress';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { supabase } from '@/integrations/supabase/client';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useCurrency } from '@/hooks/useCurrency';
+import { canRequestRefund, getRefundButtonReason } from '@/lib/orderHistory';
+import { reAddOrderItemsToCart } from '@/lib/reorderOrder';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
-import { OrderInvoice } from '@/components/orders/OrderInvoice';
-import { RefundRequestDialog } from '@/components/orders/RefundRequestDialog';
-import { OrderIssueDialog } from '@/components/support/OrderIssueDialog';
-import type { Product, ProductVariant } from '@/types';
-import type { LucideIcon } from 'lucide-react';
 
 interface OrderItem {
   id: string;
@@ -34,257 +39,68 @@ interface OrderItem {
   total_price: number;
   product_id: string | null;
   product_variant_id: string | null;
-}
-
-interface ShippingAddress {
-  full_name: string;
-  phone?: string;
-  address_line1: string;
-  address_line2?: string;
-  city: string;
-  state?: string;
-  postal_code?: string;
-  country: string;
-}
-
-interface TrackingPoint {
-  id: string;
-  status: string;
-  location_name: string;
-  notes?: string;
-  created_at: string;
-}
-
-interface ReceiptSummary {
-  id: string;
-  receipt_number: string;
-  generated_at: string;
-}
-
-interface ProductVariantLookupRow {
-  id: string;
-  product_id: string;
-  color: string | null;
-  size: string | null;
-  price_override: number | null;
-  stock: number | null;
-}
-
-interface ProductImageRow {
-  image_url: string;
-  order_index: number | null;
-}
-
-interface ProductLookupRow {
-  id: string;
-  name: string;
-  description: string | null;
-  base_price: number;
-  is_group_buy_eligible: boolean | null;
-  is_flash_deal: boolean | null;
-  is_free_shipping: boolean | null;
-  rating: number | null;
-  review_count: number | null;
-  product_images: ProductImageRow[] | null;
-}
-
-interface ReceiptLookupRow {
-  id: string;
-  order_id: string;
-  receipt_number: string;
-  generated_at: string;
+  image_url?: string | null;
 }
 
 interface Order {
   id: string;
   order_number: string;
-  status: string;
+  status: string | null;
   total_amount: number;
-  subtotal: number;
-  shipping_price: number;
-  group_buy_id?: string | null;
   created_at: string;
-  updated_at?: string;
-  estimated_delivery_start: string;
-  estimated_delivery_end: string;
-  shipping_address: ShippingAddress | null;
-  shipping_class_id: string | null;
-  fulfillment_stage?: string | null;
-  fulfillment_checks?: Record<string, boolean> | null;
-  courier_name?: string | null;
-  courier_tracking_number?: string | null;
-  delivery_fee?: number | null;
-  proof_of_delivery_note?: string | null;
-  proof_of_delivery_image_url?: string | null;
-  proof_of_delivery_at?: string | null;
-  proof_of_delivery_recipient_name?: string | null;
-  proof_of_delivery_recipient_phone?: string | null;
-  proof_of_delivery_relationship?: string | null;
-  proof_of_delivery_signature_name?: string | null;
-  proof_of_delivery_verification_code?: string | null;
-  courier_confirmed_at?: string | null;
-  customer_confirmed_at?: string | null;
+  updated_at: string;
+  estimated_delivery_start: string | null;
+  estimated_delivery_end: string | null;
+  courier_tracking_number: string | null;
+  payment_reference: string | null;
+  customer_confirmed_at: string | null;
+  group_buy_id: string | null;
   order_items: OrderItem[];
-  order_tracking: TrackingPoint[];
-  receipt?: ReceiptSummary | null;
+}
+
+interface ProductVariantLookupRow {
+  id: string;
+  product_id: string;
+}
+
+interface ProductImageLookupRow {
+  product_id: string;
+  image_url: string;
+  order_index: number | null;
 }
 
 const CUSTOMER_STATUS_TABS = [
   { value: 'all', label: 'All Orders', icon: Package },
-  { value: 'active', label: 'Active', icon: Truck, statuses: ['pending', 'payment_received', 'order_placed', 'order_processed', 'confirmed', 'processing', 'packed_for_delivery', 'shipped', 'in_transit'] },
-  { value: 'ready', label: 'Ready', icon: MapPinned, statuses: ['in_ghana', 'ready_for_delivery', 'handed_to_courier', 'out_for_delivery'] },
+  {
+    value: 'active',
+    label: 'Active',
+    icon: Truck,
+    statuses: [
+      'pending',
+      'payment_received',
+      'order_placed',
+      'order_processed',
+      'confirmed',
+      'processing',
+      'packed_for_delivery',
+      'shipped',
+      'in_transit',
+    ],
+  },
+  {
+    value: 'ready',
+    label: 'Ready',
+    icon: MapPinned,
+    statuses: ['in_ghana', 'ready_for_delivery', 'handed_to_courier', 'out_for_delivery'],
+  },
   { value: 'completed', label: 'Completed', icon: CheckCircle, statuses: ['delivered'] },
   { value: 'cancelled', label: 'Cancelled', icon: XCircle, statuses: ['cancelled', 'refunded'] },
-];
+] as const;
 
-const statusConfig: Record<string, { label: string; color: string; icon: LucideIcon }> = {
-  pending: { label: 'Pending', color: 'bg-yellow-100 text-yellow-800', icon: Clock },
-  payment_received: { label: 'Payment Received', color: 'bg-green-100 text-green-800', icon: CheckCircle },
-  order_placed: { label: 'Order Placed', color: 'bg-blue-100 text-blue-800', icon: Package },
-  order_processed: { label: 'Order Processed', color: 'bg-blue-100 text-blue-800', icon: PackageCheck },
-  confirmed: { label: 'Confirmed', color: 'bg-blue-100 text-blue-800', icon: CheckCircle },
-  processing: { label: 'Processing', color: 'bg-purple-100 text-purple-800', icon: Loader },
-  packed_for_delivery: { label: 'Packed', color: 'bg-purple-100 text-purple-800', icon: Package },
-  shipped: { label: 'Shipped', color: 'bg-indigo-100 text-indigo-800', icon: Truck },
-  in_transit: { label: 'In Transit', color: 'bg-cyan-100 text-cyan-800', icon: Truck },
-  in_ghana: { label: 'In Ghana', color: 'bg-orange-100 text-orange-800', icon: MapPin },
-  ready_for_delivery: { label: 'Ready for Pickup', color: 'bg-teal-100 text-teal-800', icon: Package },
-  handed_to_courier: { label: 'Handed to Courier', color: 'bg-indigo-100 text-indigo-800', icon: Truck },
-  out_for_delivery: { label: 'Out for Delivery', color: 'bg-cyan-100 text-cyan-800', icon: Truck },
-  delivered: { label: 'Delivered', color: 'bg-green-100 text-green-800', icon: CheckCircle },
-  cancelled: { label: 'Cancelled', color: 'bg-red-100 text-red-800', icon: XCircle },
-  refunded: { label: 'Refunded', color: 'bg-red-100 text-red-800', icon: XCircle },
-};
+const REVIEW_PROMPT_DISMISSED_KEY = 'review_prompt_dismissed';
+const REVIEW_PROMPT_DELAY_MS = 72 * 60 * 60 * 1000;
 
-// Standard (international) order checkpoints
-const STANDARD_CHECKPOINTS = [
-  { key: 'payment_received', label: 'Payment' },
-  { key: 'order_placed', label: 'Ordered' },
-  { key: 'packed_for_delivery', label: 'Packed' },
-  { key: 'in_transit', label: 'In Transit' },
-  { key: 'in_ghana', label: 'In Ghana' },
-  { key: 'ready_for_delivery', label: 'Ready' },
-  { key: 'delivered', label: 'Delivered' },
-];
-
-// Courier (Ready Now / local) order checkpoints
-const COURIER_CHECKPOINTS = [
-  { key: 'payment_received', label: 'Payment' },
-  { key: 'order_processed', label: 'Processed' },
-  { key: 'handed_to_courier', label: 'Courier' },
-  { key: 'out_for_delivery', label: 'Out for Delivery' },
-  { key: 'delivered', label: 'Delivered' },
-];
-
-// Check if shipping class name indicates courier
-const COURIER_SHIPPING_NAME = 'standard courier';
-
-function getCheckpointsForOrder(order: Order, shippingClassNames: Record<string, string>): typeof STANDARD_CHECKPOINTS {
-  const shippingName = order.shipping_class_id ? shippingClassNames[order.shipping_class_id] : '';
-  const isCourier = shippingName?.toLowerCase().includes('courier');
-  // Also check if order uses courier statuses
-  const hasCourierStatus = ['order_processed', 'handed_to_courier'].includes(order.status);
-  return (isCourier || hasCourierStatus) ? COURIER_CHECKPOINTS : STANDARD_CHECKPOINTS;
-}
-
-function getProgressPercentage(status: string, checkpoints: typeof STANDARD_CHECKPOINTS): number {
-  const keys = checkpoints.map(c => c.key);
-  const idx = keys.indexOf(status);
-  if (idx >= 0) return Math.round(((idx + 1) / keys.length) * 100);
-  // Fallback: use standard order
-  const allStatuses = [
-    'pending', 'payment_received', 'order_placed', 'order_processed', 'confirmed', 'processing',
-    'packed_for_delivery', 'shipped', 'in_transit', 'in_ghana',
-    'ready_for_delivery', 'handed_to_courier', 'out_for_delivery', 'delivered',
-  ];
-  const allIdx = allStatuses.indexOf(status);
-  if (allIdx < 0) return 0;
-  // Map to closest checkpoint
-  for (let i = keys.length - 1; i >= 0; i--) {
-    if (allStatuses.indexOf(keys[i]) <= allIdx) {
-      return Math.round(((i + 1) / keys.length) * 100);
-    }
-  }
-  return 0;
-}
-
-function getCheckpointStatus(orderStatus: string, checkpointKey: string, checkpoints: typeof STANDARD_CHECKPOINTS): 'done' | 'current' | 'pending' {
-  const allStatuses = [
-    'pending', 'payment_received', 'order_placed', 'order_processed', 'confirmed', 'processing',
-    'packed_for_delivery', 'shipped', 'in_transit', 'in_ghana',
-    'ready_for_delivery', 'handed_to_courier', 'out_for_delivery', 'delivered',
-  ];
-  const orderIdx = allStatuses.indexOf(orderStatus);
-  const checkIdx = allStatuses.indexOf(checkpointKey);
-  if (checkIdx < 0 || orderIdx < 0) return 'pending';
-  if (orderIdx >= checkIdx) return 'done';
-  // Find the next checkpoint after current order status
-  const keys = checkpoints.map(c => c.key);
-  const currentCpIdx = keys.findIndex(k => allStatuses.indexOf(k) > orderIdx);
-  if (currentCpIdx >= 0 && keys[currentCpIdx] === checkpointKey) return 'current';
-  return 'pending';
-}
-
-// Generate auto notes for tracking entries
-function getAutoNote(status: string, orderItems: OrderItem[]): string {
-  const productName = orderItems[0]?.product_name || 'your order';
-  switch (status) {
-    case 'payment_received': return `We've received your payment for "${productName}". Thank you!`;
-    case 'order_placed': return `Your order for "${productName}" has been placed successfully.`;
-    case 'order_processed': return `Item verified and packed. Preparing for courier pickup.`;
-    case 'confirmed': return `Your order has been confirmed and is being prepared.`;
-    case 'processing': return `Your order is being processed.`;
-    case 'packed_for_delivery': return `Your order has been packed and is ready for shipping.`;
-    case 'shipped': return `Your order has been shipped!`;
-    case 'in_transit': return `Your order is on its way.`;
-    case 'in_ghana': return `Your order has arrived in Ghana!`;
-    case 'ready_for_delivery': return `Your order is ready for pickup/delivery.`;
-    case 'handed_to_courier': return `Courier has picked up your package.`;
-    case 'out_for_delivery': return `Your order is on the way to your location.`;
-    case 'delivered': return `Item received. Enjoy!`;
-    case 'cancelled': return `Your order has been cancelled.`;
-    case 'refunded': return `Your order has been refunded.`;
-    default: return '';
-  }
-}
-
-const FULFILLMENT_STAGE_LABELS: Record<string, string> = {
-  new: 'Queued',
-  picked: 'Picked from inventory',
-  quality_checked: 'Quality checked',
-  packed: 'Packed',
-  awaiting_dispatch: 'Awaiting dispatch',
-  dispatched: 'Dispatched to courier',
-};
-
-const REFUND_WINDOW_MS = 48 * 60 * 60 * 1000;
-const REFUND_WINDOW_STATUSES = new Set(['pending', 'payment_received', 'order_placed']);
-
-function getRefundWindowStart(order: Order) {
-  return new Date(order.status === 'order_placed' ? order.updated_at || order.created_at : order.created_at);
-}
-
-function getRefundWindowEnd(order: Order) {
-  return new Date(getRefundWindowStart(order).getTime() + REFUND_WINDOW_MS);
-}
-
-function isDeliveredOrder(order: Order) {
-  return order.status === 'delivered' || Boolean(order.customer_confirmed_at);
-}
-
-function canRequestRefund(order: Order, now = Date.now()) {
-  return (
-    REFUND_WINDOW_STATUSES.has(order.status) &&
-    !isDeliveredOrder(order) &&
-    now < getRefundWindowEnd(order).getTime()
-  );
-}
-
-function getRefundButtonReason(order: Order) {
-  if (isDeliveredOrder(order)) return 'Refund requests close once delivery is confirmed.';
-  if (!REFUND_WINDOW_STATUSES.has(order.status)) return 'Refund requests are only available before the order is confirmed.';
-  return `Refund window closed on ${format(getRefundWindowEnd(order), 'MMM d, yyyy h:mm a')}.`;
-}
+type ReviewDialogMode = 'manual' | 'prompt' | null;
 
 export default function MyOrders() {
   const navigate = useNavigate();
@@ -294,322 +110,194 @@ export default function MyOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
-  const [detailsOrderId, setDetailsOrderId] = useState<string | null>(null);
-  const [productImages, setProductImages] = useState<Record<string, string>>({});
-  const [shippingClassNames, setShippingClassNames] = useState<Record<string, string>>({});
   const [reviewDialogOrder, setReviewDialogOrder] = useState<Order | null>(null);
-  const [reviewRating, setReviewRating] = useState(5);
-  const [reviewComment, setReviewComment] = useState('');
-  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewDialogMode, setReviewDialogMode] = useState<ReviewDialogMode>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
       toast.error('Please sign in to view your orders');
+      setLoading(false);
       navigate('/auth');
     }
-  }, [user, authLoading, navigate]);
-
-  const fetchShippingClasses = useCallback(async () => {
-    const { data } = await supabase.from('shipping_classes').select('id, name');
-    if (data) {
-      const map: Record<string, string> = {};
-      data.forEach(sc => { map[sc.id] = sc.name; });
-      setShippingClassNames(map);
-    }
-  }, []);
+  }, [authLoading, navigate, user]);
 
   const fetchOrders = useCallback(async () => {
     if (!user) return;
 
+    setLoading(true);
+
     const { data, error } = await supabase
       .from('orders')
       .select(`
-        *,
-        order_items (*),
-        order_tracking (*)
+        id,
+        order_number,
+        status,
+        total_amount,
+        created_at,
+        updated_at,
+        estimated_delivery_start,
+        estimated_delivery_end,
+        courier_tracking_number,
+        payment_reference,
+        customer_confirmed_at,
+        group_buy_id,
+        order_items (*)
       `)
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
     if (error) {
       toast.error('Failed to load orders');
-    } else if (data) {
-      const orderIds = data.map((order) => order.id);
-      const { data: receiptRows } = orderIds.length > 0
-        ? await supabase
-            .from('receipts')
-            .select('id, order_id, receipt_number, generated_at')
-            .in('order_id', orderIds)
-        : { data: [] as ReceiptLookupRow[] };
-
-      const receiptMap = new Map(
-        (receiptRows || []).map((receipt) => [
-          receipt.order_id,
-          {
-            id: receipt.id,
-            receipt_number: receipt.receipt_number,
-            generated_at: receipt.generated_at,
-          } satisfies ReceiptSummary,
-        ]),
-      );
-
-      const mappedOrders = data.map(order => ({
-        ...order,
-        shipping_address: order.shipping_address as unknown as ShippingAddress | null,
-        fulfillment_checks:
-          order.fulfillment_checks && typeof order.fulfillment_checks === 'object'
-            ? (order.fulfillment_checks as Record<string, boolean>)
-            : null,
-        order_tracking: (order.order_tracking || []).sort((a, b) => 
-          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-        ),
-        receipt: receiptMap.get(order.id) || null,
-      }));
-      setOrders(mappedOrders);
-
-      // Fetch product images for order items
-      const productIdsFromItems = data.flatMap((order) =>
-        order.order_items?.map((item) => item.product_id).filter((productId): productId is string => Boolean(productId)) || [],
-      );
-      const variantIds = data.flatMap((order) =>
-        order.order_items?.map((item) => item.product_variant_id).filter((variantId): variantId is string => Boolean(variantId)) || [],
-      );
-      if (productIdsFromItems.length > 0 || variantIds.length > 0) {
-        const uniqueVariantIds = [...new Set(variantIds)];
-        const { data: variants } = uniqueVariantIds.length > 0
-          ? await supabase
-              .from('product_variants')
-              .select('id, product_id')
-              .in('id', uniqueVariantIds)
-          : { data: [] as Pick<ProductVariantLookupRow, 'id' | 'product_id'>[] };
-
-        const linkedVariants = variants || [];
-        const productIds = [...new Set([...productIdsFromItems, ...linkedVariants.map(v => v.product_id)])];
-        if (productIds.length > 0) {
-          const { data: images } = await supabase
-            .from('product_images')
-            .select('product_id, image_url, order_index')
-            .in('product_id', productIds)
-            .order('order_index', { ascending: true });
-          
-          if (images) {
-            const imgMap: Record<string, string> = {};
-            const productImageMap: Record<string, string> = {};
-            for (const img of images) {
-              if (!productImageMap[img.product_id]) {
-                productImageMap[img.product_id] = img.image_url;
-              }
-            }
-            for (const productId of productIds) {
-              if (productImageMap[productId]) {
-                imgMap[productId] = productImageMap[productId];
-              }
-            }
-            for (const variant of linkedVariants) {
-              if (productImageMap[variant.product_id]) {
-                imgMap[variant.id] = productImageMap[variant.product_id];
-              }
-            }
-            setProductImages(imgMap);
-          }
-        }
-      }
+      setLoading(false);
+      return;
     }
+
+    const safeOrders = data || [];
+    const orderItems = safeOrders.flatMap((order) => order.order_items || []);
+    const directProductIds = [
+      ...new Set(
+        orderItems
+          .map((item) => item.product_id)
+          .filter((productId): productId is string => Boolean(productId)),
+      ),
+    ];
+    const variantIds = [
+      ...new Set(
+        orderItems
+          .map((item) => item.product_variant_id)
+          .filter((variantId): variantId is string => Boolean(variantId)),
+      ),
+    ];
+
+    let variantProductMap = new Map<string, string>();
+    if (variantIds.length > 0) {
+      const { data: variants } = await supabase
+        .from('product_variants')
+        .select('id, product_id')
+        .in('id', variantIds);
+
+      variantProductMap = new Map(
+        ((variants as ProductVariantLookupRow[] | null) || []).map((variant) => [variant.id, variant.product_id]),
+      );
+    }
+
+    const imageProductIds = [
+      ...new Set([
+        ...directProductIds,
+        ...variantIds
+          .map((variantId) => variantProductMap.get(variantId))
+          .filter((productId): productId is string => Boolean(productId)),
+      ]),
+    ];
+
+    const productImageMap = new Map<string, string>();
+    if (imageProductIds.length > 0) {
+      const { data: images } = await supabase
+        .from('product_images')
+        .select('product_id, image_url, order_index')
+        .in('product_id', imageProductIds)
+        .order('order_index', { ascending: true });
+
+      ((images as ProductImageLookupRow[] | null) || []).forEach((image) => {
+        if (!productImageMap.has(image.product_id)) {
+          productImageMap.set(image.product_id, image.image_url);
+        }
+      });
+    }
+
+    const mappedOrders: Order[] = safeOrders.map((order) => ({
+      ...order,
+      order_items: (order.order_items || []).map((item) => {
+        const resolvedProductId =
+          item.product_id ||
+          (item.product_variant_id ? variantProductMap.get(item.product_variant_id) || null : null);
+
+        return {
+          ...item,
+          image_url: resolvedProductId ? productImageMap.get(resolvedProductId) || null : null,
+        };
+      }),
+    }));
+
+    setOrders(mappedOrders);
     setLoading(false);
   }, [user]);
 
   useEffect(() => {
     if (user) {
       fetchOrders();
-      fetchShippingClasses();
     }
-  }, [user, fetchOrders, fetchShippingClasses]);
+  }, [fetchOrders, user]);
 
-  const filteredOrders = orders.filter(order => {
+  const filteredOrders = orders.filter((order) => {
     if (activeTab === 'all') return true;
-    const tabConfig = CUSTOMER_STATUS_TABS.find(t => t.value === activeTab);
-    return tabConfig?.statuses?.includes(order.status);
+    const tabConfig = CUSTOMER_STATUS_TABS.find((tab) => tab.value === activeTab);
+    return tabConfig?.statuses?.includes(order.status || '');
   });
 
   const getOrderCountForTab = (tabValue: string) => {
     if (tabValue === 'all') return orders.length;
-    const tabConfig = CUSTOMER_STATUS_TABS.find(t => t.value === tabValue);
-    return orders.filter(o => tabConfig?.statuses?.includes(o.status)).length;
+
+    const tabConfig = CUSTOMER_STATUS_TABS.find((tab) => tab.value === tabValue);
+    return orders.filter((order) => tabConfig?.statuses?.includes(order.status || '')).length;
   };
 
-  const getStatusBadge = (status: string) => {
-    const config = statusConfig[status] || statusConfig.pending;
-    const Icon = config.icon;
-    return (
-      <Badge className={`${config.color} gap-1`}>
-        <Icon className="h-3 w-3" />
-        {config.label}
-      </Badge>
-    );
-  };
-
-  const getOrderItemImage = (item: OrderItem) => {
-    return (
-      (item.product_id ? productImages[item.product_id] : null) ||
-      (item.product_variant_id ? productImages[item.product_variant_id] : null) ||
-      null
-    );
-  };
-
-  const toggleOrderExpansion = (orderId: string) => {
-    setDetailsOrderId(detailsOrderId === orderId ? null : orderId);
+  const handleTrackOrder = (order: Order) => {
+    navigate(`/track-order/${order.id}`);
   };
 
   const handleBuyAgain = async (order: Order) => {
-    // Look up products + variants for each order item, then add to local cart
-    const directProductIds = [...new Set(order.order_items.map((item) => item.product_id).filter((productId): productId is string => Boolean(productId)))];
-    const variantIds = order.order_items
-      .map((item) => item.product_variant_id)
-      .filter((variantId): variantId is string => Boolean(variantId));
-
-    const { data: variantRows } = variantIds.length > 0
-      ? await supabase
-          .from('product_variants')
-          .select('id, product_id, color, size, price_override, stock')
-          .in('id', variantIds)
-      : { data: [] as ProductVariantLookupRow[] };
-
-    const productIds = [...new Set([...directProductIds, ...(variantRows || []).map((variant) => variant.product_id)])];
-    if (productIds.length === 0) {
-      toast.error('Some products are no longer available.');
-      return;
-    }
-
-    const { data: productRows } = await supabase
-      .from('products')
-      .select('id, name, description, base_price, is_group_buy_eligible, is_flash_deal, is_free_shipping, rating, review_count, product_images(image_url, order_index)')
-      .in('id', productIds);
-
-    if (!productRows) return;
-
-    let added = 0;
-    for (const item of order.order_items) {
-      const variant = (variantRows || []).find((v) => v.id === item.product_variant_id);
-      const productRow = (productRows as ProductLookupRow[]).find((p) => p.id === (item.product_id || variant?.product_id));
-      if (!productRow) continue;
-      const images = (productRow.product_images || [])
-        .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
-        .map((i) => i.image_url);
-      const cartProduct: Product = {
-        id: productRow.id,
-        name: productRow.name,
-        description: productRow.description || '',
-        category: '',
-        basePrice: Number(productRow.base_price),
-        images: images.length > 0 ? images : ['https://via.placeholder.com/400'],
-        variants: [],
-        shippingOptions: [],
-        isGroupBuyEligible: !!productRow.is_group_buy_eligible,
-        isFlashDeal: !!productRow.is_flash_deal,
-        isFreeShippingEligible: !!productRow.is_free_shipping,
-        rating: Number(productRow.rating) || 0,
-        reviewCount: productRow.review_count || 0,
-      };
-      if (variant) {
-        const cartVariant: ProductVariant = {
-          id: variant.id,
-          size: variant.size || undefined,
-          color: variant.color || undefined,
-          price: variant.price_override != null ? Number(variant.price_override) : Number(productRow.base_price),
-          stock: variant.stock || 0,
-        };
-        addToCart(cartProduct, cartVariant, item.quantity);
-      } else {
-        addToCart(cartProduct, null, item.quantity);
-      }
-      added++;
-    }
-    if (added > 0) {
+    try {
+      const added = await reAddOrderItemsToCart(order, addToCart);
       toast.success(`Added ${added} item(s) to cart`);
       navigate('/cart');
-    } else {
-      toast.error('Could not re-add items.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not re-add items.');
     }
   };
 
-  const isCancelledStatus = (status: string) => ['cancelled', 'refunded'].includes(status);
-
   const handleConfirmDelivery = async (order: Order) => {
+    if (!user) return;
+
+    const timestamp = new Date().toISOString();
     const { error } = await supabase
       .from('orders')
       .update({
         status: 'delivered',
-        customer_confirmed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        customer_confirmed_at: timestamp,
+        updated_at: timestamp,
       })
       .eq('id', order.id)
-      .eq('user_id', user!.id);
+      .eq('user_id', user.id);
+
     if (error) {
       toast.error('Failed to confirm delivery');
-    } else {
-      await supabase.from('order_tracking').insert({
-        order_id: order.id,
-        status: 'delivered',
-        location_name: 'Delivered',
-        notes: 'Customer confirmed delivery.',
-      });
-      toast.success('Delivery confirmed!');
-      fetchOrders();
-      // Prompt to review
-      setReviewDialogOrder({ ...order, status: 'delivered' });
-    }
-  };
-
-  const handleSubmitReview = async () => {
-    if (!reviewDialogOrder || !user) return;
-    setReviewSubmitting(true);
-    
-    const firstItem = reviewDialogOrder.order_items[0];
-    let productId = firstItem?.product_id || null;
-
-    if (!productId && firstItem?.product_variant_id) {
-      const { data: variant } = await supabase
-        .from('product_variants')
-        .select('product_id')
-        .eq('id', firstItem.product_variant_id)
-        .single();
-
-      productId = variant?.product_id || null;
+      return;
     }
 
-    if (!productId) { setReviewSubmitting(false); toast.error('Could not find product'); return; }
-    
-    const { error } = await supabase.from('reviews').insert({
-      product_id: productId,
-      user_id: user.id,
-      rating: reviewRating,
-      comment: reviewComment || null,
-      is_verified: true,
-      order_id: reviewDialogOrder.id,
+    await supabase.from('order_tracking').insert({
+      order_id: order.id,
+      status: 'delivered',
+      location_name: 'Delivered',
+      notes: 'Customer confirmed delivery.',
     });
-    
-    if (error) {
-      toast.error('Failed to submit review');
-    } else {
-      toast.success('Review submitted! It will appear after approval.');
-    }
-    setReviewSubmitting(false);
-    setReviewDialogOrder(null);
-    setReviewRating(5);
-    setReviewComment('');
+
+    toast.success('Delivery confirmed!');
+    await fetchOrders();
+    setReviewDialogOrder({ ...order, status: 'delivered', customer_confirmed_at: timestamp });
+    setReviewDialogMode('manual');
   };
 
-  // Schedule a review prompt 72 hours after delivery confirmation.
-  // Triggered when the orders list loads — checks for delivered orders without a review.
   useEffect(() => {
-    if (!user || orders.length === 0) return;
+    if (!user || orders.length === 0 || reviewDialogOrder) return;
 
     let cancelled = false;
-    (async () => {
-      const delivered = orders.filter((o) => o.status === 'delivered');
-      if (delivered.length === 0) return;
 
-      const orderIds = delivered.map((o) => o.id);
+    (async () => {
+      const deliveredOrders = orders.filter((order) => order.status === 'delivered');
+      if (deliveredOrders.length === 0) return;
+
+      const orderIds = deliveredOrders.map((order) => order.id);
       const { data: existingReviews } = await supabase
         .from('reviews')
         .select('order_id')
@@ -617,48 +305,63 @@ export default function MyOrders() {
         .eq('user_id', user.id);
 
       if (cancelled) return;
-      const reviewedOrderIds = new Set((existingReviews || []).map((r) => r.order_id));
 
-      const SEVENTY_TWO_HOURS = 72 * 60 * 60 * 1000;
+      const reviewedOrderIds = new Set((existingReviews || []).map((review) => review.order_id));
+      const dismissed: string[] = JSON.parse(localStorage.getItem(REVIEW_PROMPT_DISMISSED_KEY) || '[]');
       const now = Date.now();
-      const dismissedKey = `review_prompt_dismissed`;
-      const dismissed: string[] = JSON.parse(localStorage.getItem(dismissedKey) || '[]');
 
-      // Find first eligible delivered order not yet reviewed and >=72h old
-      const eligible = delivered.find((o) => {
-        if (reviewedOrderIds.has(o.id)) return false;
-        if (dismissed.includes(o.id)) return false;
-        const age = now - new Date(o.updated_at || o.created_at).getTime();
-        return age >= SEVENTY_TWO_HOURS;
+      const eligibleOrder = deliveredOrders.find((order) => {
+        if (reviewedOrderIds.has(order.id)) return false;
+        if (dismissed.includes(order.id)) return false;
+
+        const deliveryAge = now - new Date(order.updated_at || order.created_at).getTime();
+        return deliveryAge >= REVIEW_PROMPT_DELAY_MS;
       });
-      if (eligible && !reviewDialogOrder) {
-        setReviewDialogOrder(eligible);
+
+      if (eligibleOrder) {
+        setReviewDialogOrder(eligibleOrder);
+        setReviewDialogMode('prompt');
       }
     })();
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orders, user]);
 
-  const dismissReviewPrompt = () => {
-    if (reviewDialogOrder) {
-      const key = 'review_prompt_dismissed';
-      const dismissed: string[] = JSON.parse(localStorage.getItem(key) || '[]');
-      if (!dismissed.includes(reviewDialogOrder.id)) {
-        dismissed.push(reviewDialogOrder.id);
-        localStorage.setItem(key, JSON.stringify(dismissed));
-      }
-    }
-    setReviewDialogOrder(null);
-    setReviewRating(5);
-    setReviewComment('');
+    return () => {
+      cancelled = true;
+    };
+  }, [orders, reviewDialogOrder, user]);
+
+  const openManualReview = (order: Order) => {
+    setReviewDialogOrder(order);
+    setReviewDialogMode('manual');
   };
 
-  if (authLoading || loading) {
+  const closeReviewDialog = (open: boolean) => {
+    if (open) return;
+    setReviewDialogOrder(null);
+    setReviewDialogMode(null);
+  };
+
+  const dismissReviewPrompt = () => {
+    if (reviewDialogMode === 'prompt' && reviewDialogOrder) {
+      const dismissed: string[] = JSON.parse(localStorage.getItem(REVIEW_PROMPT_DISMISSED_KEY) || '[]');
+      if (!dismissed.includes(reviewDialogOrder.id)) {
+        dismissed.push(reviewDialogOrder.id);
+        localStorage.setItem(REVIEW_PROMPT_DISMISSED_KEY, JSON.stringify(dismissed));
+      }
+    }
+
+    setReviewDialogOrder(null);
+    setReviewDialogMode(null);
+  };
+
+  if (authLoading || (loading && user)) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
         <main className="container px-4 py-16 pb-24 sm:px-6 md:pb-8">
-          <div className="text-center">Loading orders...</div>
+          <div className="flex items-center justify-center gap-3 text-center text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            Loading orders...
+          </div>
         </main>
         <Footer />
       </div>
@@ -668,17 +371,30 @@ export default function MyOrders() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
+
       <main className="container px-4 py-6 pb-24 sm:px-6 md:py-8 md:pb-8">
-        <h1 className="text-2xl md:text-3xl font-bold font-serif text-foreground mb-6">
-          My Orders
-        </h1>
+        <div className="mb-6 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold font-serif text-foreground md:text-3xl">My Orders</h1>
+            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+              Compact, state-driven order history. Track any order for full delivery, payment, address, and timeline
+              details.
+            </p>
+          </div>
+          <Link to="/products">
+            <Button variant="outline" className="w-full sm:w-auto">
+              Continue Shopping
+            </Button>
+          </Link>
+        </div>
 
         <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
-          <ScrollArea className="mb-6 w-full whitespace-nowrap">
+          <ScrollArea className="mb-5 w-full whitespace-nowrap">
             <TabsList className="inline-flex h-auto gap-1 p-1.5">
               {CUSTOMER_STATUS_TABS.map((tab) => {
                 const Icon = tab.icon;
                 const count = getOrderCountForTab(tab.value);
+
                 return (
                   <TabsTrigger
                     key={tab.value}
@@ -701,14 +417,12 @@ export default function MyOrders() {
             {filteredOrders.length === 0 ? (
               <Card>
                 <CardContent className="py-16 text-center">
-                  <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+                  <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
                     <Package className="h-8 w-8 text-muted-foreground" />
                   </div>
-                  <h3 className="text-lg font-medium text-foreground mb-2">No orders found</h3>
-                  <p className="text-muted-foreground mb-6">
-                    {activeTab === 'all' 
-                      ? "You haven't placed any orders yet."
-                      : `No ${activeTab} orders found.`}
+                  <h3 className="mb-2 text-lg font-medium text-foreground">No orders found</h3>
+                  <p className="mb-6 text-muted-foreground">
+                    {activeTab === 'all' ? "You haven't placed any orders yet." : `No ${activeTab} orders found.`}
                   </p>
                   <Link to="/products">
                     <Button>Start Shopping</Button>
@@ -716,464 +430,40 @@ export default function MyOrders() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {filteredOrders.map((order) => {
-                  const isExpanded = detailsOrderId === order.id;
-                  const isCancelled = isCancelledStatus(order.status);
-                  const checkpoints = getCheckpointsForOrder(order, shippingClassNames);
-                  const primaryItem = order.order_items[0];
-                  const primaryImage = primaryItem ? getOrderItemImage(primaryItem) : null;
-                  const primaryProductName = primaryItem?.product_name || 'Order item';
-                  const delivered = isDeliveredOrder(order);
                   const refundOpen = canRequestRefund(order);
                   const refundReason = refundOpen
-                    ? `Refund available until ${format(getRefundWindowEnd(order), 'MMM d, h:mm a')}`
+                    ? 'Refund available during the 48-hour payment window.'
                     : getRefundButtonReason(order);
+
                   return (
-                    <Card key={order.id} className="overflow-hidden border-border/70 shadow-sm">
-                      <CardContent className="p-0">
-                        {/* Order Header (not a button — actions live below) */}
-                        <div className="border-b border-border bg-background p-3 sm:p-4">
-                          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                            <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
-                              {primaryItem && (
-                                <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-md border border-border bg-muted sm:h-20 sm:w-20">
-                                  {primaryImage ? (
-                                    <img
-                                      src={primaryImage}
-                                      alt={primaryItem.product_name}
-                                      className="w-full h-full object-cover"
-                                    />
-                                  ) : (
-                                    <div className="w-full h-full flex items-center justify-center">
-                                      <Package className="h-5 w-5 text-muted-foreground" />
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate text-base font-semibold text-foreground sm:text-lg">
-                                  {primaryProductName}
-                                </p>
-                                <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm">
-                                  Order Id: {order.order_number}
-                                </p>
-                                <p className="mt-1 text-xs text-muted-foreground">
-                                  {order.order_items.length} item{order.order_items.length > 1 ? 's' : ''} - {format(new Date(order.created_at), 'MMM d, yyyy')}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex items-center justify-between gap-3 lg:flex-col lg:items-end">
-                              {getStatusBadge(order.status)}
-                              <p className="text-sm font-semibold text-primary">
-                                {formatPrice(order.total_amount)}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="mt-3 flex flex-wrap items-center gap-2">
-                            {order.group_buy_id && (
-                              <Badge className="bg-accent/10 text-accent-foreground gap-1 text-xs">
-                                <Users className="h-3 w-3" />
-                                Group Buy
-                              </Badge>
-                            )}
-                            {!delivered && !refundOpen && REFUND_WINDOW_STATUSES.has(order.status) && (
-                              <Badge variant="outline" className="text-xs">
-                                Refund window closed
-                              </Badge>
-                            )}
-                          </div>
-
-                          {/* Quick action row, always visible */}
-                          <div className="mt-3 grid grid-cols-3 gap-2">
-                            <RefundRequestDialog
-                              order={order}
-                              canRequest={refundOpen}
-                              disabledReason={refundReason}
-                              triggerLabel="Refund"
-                              className="h-9 w-full gap-1 px-2 text-xs sm:text-sm"
-                            />
-                            {delivered ? (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => setReviewDialogOrder(order)}
-                                className="h-9 w-full px-2 text-xs sm:text-sm"
-                              >
-                                <Star className="h-3.5 w-3.5 mr-1" />
-                                Review
-                              </Button>
-                            ) : (
-                              <Button
-                                size="sm"
-                                variant={isExpanded ? 'default' : 'outline'}
-                                onClick={() => toggleOrderExpansion(order.id)}
-                                className="h-9 w-full px-2 text-xs sm:text-sm"
-                              >
-                                <MapPin className="h-3.5 w-3.5 mr-1" />
-                                Track
-                              </Button>
-                            )}
-                            {delivered ? (
-                              <Button
-                                size="sm"
-                                onClick={() => handleBuyAgain(order)}
-                                className="h-9 w-full px-2 text-xs sm:text-sm"
-                              >
-                                <ShoppingBag className="h-3.5 w-3.5 mr-1" />
-                                Buy Again
-                              </Button>
-                            ) : (
-                              <Button
-                                size="sm"
-                                onClick={() => handleConfirmDelivery(order)}
-                                disabled={order.status !== 'out_for_delivery'}
-                                className="h-9 w-full px-2 text-xs sm:text-sm"
-                                title={
-                                  order.status !== 'out_for_delivery'
-                                    ? 'Available once order is out for delivery'
-                                    : undefined
-                                }
-                              >
-                                <CheckCircle className="h-3.5 w-3.5 mr-1" />
-                                Confirm Delivery
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Expanded content */}
-                        {isExpanded && (
-                          <div className="p-4 space-y-4">
-                            {/* Horizontal Progress Bar */}
-                            {!isCancelled && (
-                              <div className="space-y-3">
-                                <Progress value={getProgressPercentage(order.status, checkpoints)} className="h-2" />
-                                <div className="flex justify-between">
-                                  {checkpoints.map((cp) => {
-                                    const cpStatus = getCheckpointStatus(order.status, cp.key, checkpoints);
-                                    return (
-                                      <div key={cp.key} className="flex flex-col items-center flex-1">
-                                        <div className={`w-3 h-3 rounded-full mb-1 ${
-                                          cpStatus === 'done' ? 'bg-primary' :
-                                          cpStatus === 'current' ? 'bg-primary/50 ring-2 ring-primary/30' :
-                                          'bg-muted-foreground/20'
-                                        }`} />
-                                        <span className={`text-[10px] text-center leading-tight ${
-                                          cpStatus === 'done' ? 'text-primary font-medium' :
-                                          cpStatus === 'current' ? 'text-foreground' :
-                                          'text-muted-foreground'
-                                        }`}>
-                                          {cp.label}
-                                        </span>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Vertical Tracking Map */}
-                            {!isCancelled && (
-                              <div className="space-y-0">
-                                <h4 className="text-sm font-semibold text-foreground mb-3">Vertical Tracking Map</h4>
-                                <div className="space-y-0">
-                                  {(order.order_tracking.length > 0 ? order.order_tracking : [{
-                                    id: `fallback-${order.id}`,
-                                    status: order.status,
-                                    location_name: '',
-                                    notes: getAutoNote(order.status, order.order_items),
-                                    created_at: order.created_at,
-                                  }]).map((track, index, entries) => {
-                                    const isLatest = index === entries.length - 1;
-
-                                    return (
-                                      <div key={track.id} className="flex gap-3">
-                                        <div className="flex flex-col items-center">
-                                          <div className={`h-3 w-3 rounded-full ${isLatest ? 'bg-primary' : 'bg-muted-foreground/30'}`} />
-                                          {index < entries.length - 1 && (
-                                            <div className="my-1 min-h-8 w-0.5 flex-1 bg-muted-foreground/20" />
-                                          )}
-                                        </div>
-                                        <div className="min-w-0 flex-1 pb-4">
-                                          <div className={`rounded-lg border p-3 ${isLatest ? 'border-primary/30 bg-primary/5' : 'border-border bg-muted/20'}`}>
-                                            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                                              <p className={`text-sm font-medium ${isLatest ? 'text-primary' : 'text-foreground'}`}>
-                                                {statusConfig[track.status]?.label || track.status.replaceAll('_', ' ')}
-                                              </p>
-                                              <p className="text-xs text-muted-foreground">
-                                                {format(new Date(track.created_at), 'MMM d h:mm a')}
-                                              </p>
-                                            </div>
-                                            <p className="mt-1 text-xs text-muted-foreground">
-                                              {track.notes || getAutoNote(track.status, order.order_items)}
-                                            </p>
-                                            {track.location_name && (
-                                              <p className="mt-1 text-[11px] text-muted-foreground/70">{track.location_name}</p>
-                                            )}
-                                          </div>
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                                <div className="flex flex-wrap gap-2 mt-3">
-                                  <OrderInvoice order={order} />
-                                  {order.receipt && (
-                                    <Link to={`/receipt/${order.receipt.receipt_number}`}>
-                                      <Button variant="outline" size="sm">
-                                        <FileText className="h-4 w-4 mr-1" />
-                                        Receipt
-                                      </Button>
-                                    </Link>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-
-                            <div className="grid gap-3 md:grid-cols-2">
-                              <Card className="border-border/60">
-                                <CardContent className="p-4 space-y-2">
-                                  <p className="text-sm font-semibold text-foreground">Fulfillment Progress</p>
-                                  <p className="text-sm text-muted-foreground">
-                                    {FULFILLMENT_STAGE_LABELS[order.fulfillment_stage || 'new'] || 'Queued'}
-                                  </p>
-                                  <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                                    <div className={`rounded-md border px-2 py-1 ${order.fulfillment_checks?.picked ? 'border-primary/40 bg-primary/5 text-primary' : 'border-border'}`}>
-                                      Picked
-                                    </div>
-                                    <div className={`rounded-md border px-2 py-1 ${order.fulfillment_checks?.quality_checked ? 'border-primary/40 bg-primary/5 text-primary' : 'border-border'}`}>
-                                      Quality Check
-                                    </div>
-                                    <div className={`rounded-md border px-2 py-1 ${order.fulfillment_checks?.packed ? 'border-primary/40 bg-primary/5 text-primary' : 'border-border'}`}>
-                                      Packed
-                                    </div>
-                                    <div className={`rounded-md border px-2 py-1 ${order.fulfillment_checks?.awaiting_dispatch ? 'border-primary/40 bg-primary/5 text-primary' : 'border-border'}`}>
-                                      Awaiting Dispatch
-                                    </div>
-                                  </div>
-                                </CardContent>
-                              </Card>
-                              <Card className="border-border/60">
-                                <CardContent className="p-4 space-y-2">
-                                  <p className="text-sm font-semibold text-foreground">Logistics Info</p>
-                                  <p className="text-sm text-muted-foreground">
-                                    Courier: {order.courier_name || 'Assigned in tracking updates'}
-                                  </p>
-                                  {order.courier_tracking_number && (
-                                    <p className="text-sm text-muted-foreground">
-                                      Tracking #: <span className="font-medium text-foreground">{order.courier_tracking_number}</span>
-                                    </p>
-                                  )}
-                                  {order.delivery_fee != null && (
-                                    <p className="text-sm text-muted-foreground">
-                                      Delivery Fee on receipt: <span className="font-medium text-foreground">{formatPrice(Number(order.delivery_fee))}</span>
-                                    </p>
-                                  )}
-                                  {order.proof_of_delivery_at && (
-                                    <p className="text-sm text-muted-foreground">
-                                      Proof recorded {format(new Date(order.proof_of_delivery_at), 'MMM d, yyyy h:mm a')}
-                                    </p>
-                                  )}
-                                  {order.courier_confirmed_at && (
-                                    <p className="text-sm text-muted-foreground">
-                                      Courier handoff confirmed {format(new Date(order.courier_confirmed_at), 'MMM d, yyyy h:mm a')}
-                                    </p>
-                                  )}
-                                  {order.customer_confirmed_at && (
-                                    <p className="text-sm text-muted-foreground">
-                                      Customer confirmed delivery {format(new Date(order.customer_confirmed_at), 'MMM d, yyyy h:mm a')}
-                                    </p>
-                                  )}
-                                  {order.proof_of_delivery_verification_code && (
-                                    <p className="text-sm text-muted-foreground">
-                                      Verification Code: <span className="font-medium text-foreground">{order.proof_of_delivery_verification_code}</span>
-                                    </p>
-                                  )}
-                                  {order.proof_of_delivery_recipient_name && (
-                                    <p className="text-sm text-muted-foreground">
-                                      Received by: <span className="font-medium text-foreground">{order.proof_of_delivery_recipient_name}</span>
-                                      {order.proof_of_delivery_relationship ? ` (${order.proof_of_delivery_relationship})` : ''}
-                                    </p>
-                                  )}
-                                  {order.proof_of_delivery_recipient_phone && (
-                                    <p className="text-sm text-muted-foreground">
-                                      Recipient Phone: <span className="font-medium text-foreground">{order.proof_of_delivery_recipient_phone}</span>
-                                    </p>
-                                  )}
-                                  {order.proof_of_delivery_signature_name && (
-                                    <p className="text-sm text-muted-foreground">
-                                      Signature: <span className="font-medium text-foreground">{order.proof_of_delivery_signature_name}</span>
-                                    </p>
-                                  )}
-                                  {order.proof_of_delivery_note && (
-                                    <p className="rounded-md bg-muted p-2 text-sm text-muted-foreground">
-                                      {order.proof_of_delivery_note}
-                                    </p>
-                                  )}
-                                  {order.proof_of_delivery_image_url && (
-                                    <img
-                                      src={order.proof_of_delivery_image_url}
-                                      alt={`Proof of delivery for ${order.order_number}`}
-                                      className="mt-1 h-24 w-24 rounded-lg object-cover border border-border"
-                                    />
-                                  )}
-                                </CardContent>
-                              </Card>
-                            </div>
-
-                            <Separator />
-
-                            {/* Order Items with images */}
-                            <div className="space-y-2">
-                              {order.order_items.map((item) => {
-                                const imageUrl = getOrderItemImage(item);
-
-                                return (
-                                  <div key={item.id} className="flex items-start gap-3 rounded-lg bg-muted/30 p-3">
-                                    <div className="w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 border border-border bg-muted">
-                                      {imageUrl ? (
-                                        <img
-                                          src={imageUrl}
-                                          alt={item.product_name}
-                                          className="w-full h-full object-cover"
-                                        />
-                                      ) : (
-                                        <div className="w-full h-full flex items-center justify-center">
-                                          <Package className="h-5 w-5 text-muted-foreground" />
-                                        </div>
-                                      )}
-                                    </div>
-                                    <div className="min-w-0 flex-1">
-                                      <p className="text-sm font-medium text-foreground truncate">{item.product_name}</p>
-                                      {item.variant_details && (
-                                        <p className="text-xs text-primary">{item.variant_details}</p>
-                                      )}
-                                      <p className="text-xs text-muted-foreground">Qty: {item.quantity}</p>
-                                    </div>
-                                    <p className="mt-1 text-sm font-semibold text-primary sm:self-center">{formatPrice(item.total_price)}</p>
-                                  </div>
-                                );
-                              })}
-                            </div>
-
-                            {/* Delivery Info */}
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <Truck className="h-3.5 w-3.5" />
-                              {order.estimated_delivery_start && order.estimated_delivery_end ? (
-                                <span>
-                                  Est. delivery: {new Date(order.estimated_delivery_start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                  {' - '}{new Date(order.estimated_delivery_end).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                </span>
-                              ) : (
-                                <span>Delivery date pending</span>
-                              )}
-                            </div>
-
-                            <Separator />
-
-                            {/* Actions - Always visible, not hidden in dropdown */}
-                            <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
-                              {order.status === 'pending' && (
-                                <Button
-                                  size="sm"
-                                  className="w-full sm:w-auto"
-                                  onClick={async () => {
-                                    const { error } = await supabase
-                                      .from('orders')
-                                      .update({ status: 'payment_received', updated_at: new Date().toISOString() })
-                                      .eq('id', order.id)
-                                      .eq('user_id', user!.id);
-                                    if (error) toast.error('Failed to confirm payment');
-                                    else { toast.success('Payment confirmed!'); fetchOrders(); }
-                                  }}
-                                >
-                                  <CreditCard className="h-3.5 w-3.5 mr-1" />
-                                  Confirm Payment
-                                </Button>
-                              )}
-                              {order.status === 'out_for_delivery' && (
-                                <Button
-                                  size="sm"
-                                  className="w-full sm:w-auto"
-                                  onClick={() => handleConfirmDelivery(order)}
-                                >
-                                  <CheckCircle className="h-3.5 w-3.5 mr-1" />
-                                  Confirm Delivery
-                                </Button>
-                              )}
-                              {['pending', 'payment_received', 'order_placed'].includes(order.status) && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="w-full border-destructive/50 text-destructive hover:bg-destructive/10 sm:w-auto"
-                                  onClick={async () => {
-                                    if (!confirm('Are you sure you want to cancel this order?')) return;
-                                    const { error } = await supabase
-                                      .from('orders')
-                                      .update({ status: 'cancelled', updated_at: new Date().toISOString() })
-                                      .eq('id', order.id)
-                                      .eq('user_id', user!.id);
-                                    if (error) toast.error('Failed to cancel order');
-                                    else { toast.success('Order cancelled'); fetchOrders(); }
-                                  }}
-                                >
-                                  <Ban className="h-3.5 w-3.5 mr-1" />
-                                  Cancel
-                                </Button>
-                              )}
-                              <OrderIssueDialog
-                                orderId={order.id}
-                                orderNumber={order.order_number}
-                                orderStatus={order.status}
-                                itemNames={order.order_items.map((item) => item.product_name)}
-                                triggerLabel="Issue Center"
-                              />
-                            </div>
-
-                            {/* Order Summary */}
-                            <div className="p-3 bg-muted/30 rounded-lg text-sm space-y-1">
-                              <div className="flex justify-between">
-                                <span className="text-muted-foreground">Subtotal</span>
-                                <span>{formatPrice(order.subtotal)}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-muted-foreground">Shipping</span>
-                                <span>{formatPrice(order.shipping_price || 0)}</span>
-                              </div>
-                              <Separator className="my-1" />
-                              <div className="flex justify-between font-semibold">
-                                <span>Total</span>
-                                <span className="text-primary">{formatPrice(order.total_amount)}</span>
-                              </div>
-                            </div>
-
-                            {/* Shipping Address */}
-                            {order.shipping_address && (
-                              <div className="p-3 bg-muted/30 rounded-lg">
-                                <h4 className="text-xs font-semibold text-foreground mb-1 flex items-center gap-1">
-                                  <MapPin className="h-3 w-3 text-primary" />
-                                  Shipping Address
-                                </h4>
-                                <div className="text-xs text-muted-foreground space-y-0.5">
-                                  <p className="font-medium text-foreground">{order.shipping_address.full_name}</p>
-                                  <p>{order.shipping_address.address_line1}</p>
-                                  <p>{order.shipping_address.city}{order.shipping_address.state && `, ${order.shipping_address.state}`}</p>
-                                  <p>{order.shipping_address.country}</p>
-                                  {order.shipping_address.phone && (
-                                    <p className="flex items-center gap-1 mt-1">
-                                      <Phone className="h-3 w-3" />
-                                      {order.shipping_address.phone}
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
+                    <CompactOrderHistoryCard
+                      key={order.id}
+                      order={order}
+                      formatPrice={formatPrice}
+                      onTrack={handleTrackOrder}
+                      onConfirmDelivery={handleConfirmDelivery}
+                      onReview={openManualReview}
+                      onBuyAgain={handleBuyAgain}
+                      refundAction={
+                        <RefundRequestDialog
+                          order={order}
+                          canRequest={refundOpen}
+                          disabledReason={refundReason}
+                          triggerLabel="Refund"
+                          className="h-8 w-full px-2 text-[11px] sm:text-xs"
+                        />
+                      }
+                      footerSlot={
+                        order.group_buy_id ? (
+                          <Badge variant="outline" className="rounded-full text-[10px] uppercase tracking-[0.12em]">
+                            <Users className="mr-1 h-3 w-3" />
+                            Group Buy
+                          </Badge>
+                        ) : null
+                      }
+                    />
                   );
                 })}
               </div>
@@ -1181,57 +471,19 @@ export default function MyOrders() {
           </TabsContent>
         </Tabs>
       </main>
+
       <Footer />
 
-      {/* Review Dialog */}
-      <Dialog open={!!reviewDialogOrder} onOpenChange={(open) => !open && setReviewDialogOrder(null)}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto bg-background sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>How was your order?</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Rate your experience with {reviewDialogOrder?.order_items[0]?.product_name || 'this order'}
-            </p>
-            <div className="flex items-center gap-1 justify-center">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <button
-                  key={star}
-                  type="button"
-                  onClick={() => setReviewRating(star)}
-                  className="focus:outline-none"
-                >
-                  <Star
-                    className={`h-8 w-8 cursor-pointer transition-colors ${
-                      star <= reviewRating
-                        ? 'fill-primary text-primary'
-                        : 'text-muted-foreground hover:text-primary'
-                    }`}
-                  />
-                </button>
-              ))}
-            </div>
-            <div>
-              <Label>Comment (optional)</Label>
-              <Textarea
-                value={reviewComment}
-                onChange={(e) => setReviewComment(e.target.value)}
-                placeholder="Share your experience..."
-                className="mt-1"
-                rows={3}
-              />
-            </div>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Button onClick={handleSubmitReview} disabled={reviewSubmitting} className="flex-1">
-                {reviewSubmitting ? 'Submitting...' : 'Submit Review'}
-              </Button>
-              <Button variant="outline" className="w-full sm:w-auto" onClick={() => setReviewDialogOrder(null)}>
-                Later
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <OrderReviewDialog
+        open={!!reviewDialogOrder}
+        order={reviewDialogOrder}
+        onOpenChange={closeReviewDialog}
+        onSubmitted={() => {
+          setReviewDialogOrder(null);
+          setReviewDialogMode(null);
+        }}
+        onLater={dismissReviewPrompt}
+      />
     </div>
   );
 }

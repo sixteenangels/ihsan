@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { User, MapPin, Phone, Mail, Plus, Trash2, Loader2, Edit2, Check, X, Package, Clock, Truck, CheckCircle, XCircle, RefreshCcw, ShoppingBag, Gift, Award, Copy, Cake, Wallet, Bell, Headphones } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { User, MapPin, Phone, Mail, Plus, Trash2, Loader2, Edit2, Check, X, Package, RefreshCcw, ShoppingBag, Gift, Award, Copy, Cake, Wallet, Bell, Headphones, Users } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCart } from '@/contexts/CartContext';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useRefundRequests } from '@/hooks/useRefundRequests';
 import { supabase } from '@/integrations/supabase/client';
@@ -25,6 +25,8 @@ import {
 } from '@/components/ui/dialog';
 import { TwoFactorManage } from '@/components/auth/TwoFactorManage';
 import { SessionManagement } from '@/components/auth/SessionManagement';
+import { CompactOrderHistoryCard } from '@/components/orders/CompactOrderHistoryCard';
+import { OrderReviewDialog } from '@/components/orders/OrderReviewDialog';
 import { RefundRequestDialog } from '@/components/orders/RefundRequestDialog';
 import { useReferral } from '@/hooks/useReferral';
 import { useLoyaltyPoints } from '@/hooks/useLoyaltyPoints';
@@ -32,6 +34,8 @@ import { WalletSection } from '@/components/profile/WalletSection';
 import { AlertsSection } from '@/components/profile/AlertsSection';
 import { PushNotificationSettings } from '@/components/profile/PushNotificationSettings';
 import { SupportCenterSection } from '@/components/profile/SupportCenterSection';
+import { canRequestRefund, getRefundButtonReason } from '@/lib/orderHistory';
+import { reAddOrderItemsToCart } from '@/lib/reorderOrder';
 
 interface Profile {
   name: string | null;
@@ -80,30 +84,18 @@ interface ProductImageLookupRow {
 interface Order {
   id: string;
   order_number: string;
-  status: string;
+  status: string | null;
   total_amount: number;
   created_at: string;
-  estimated_delivery_start: string;
-  estimated_delivery_end: string;
+  updated_at: string;
+  estimated_delivery_start: string | null;
+  estimated_delivery_end: string | null;
+  courier_tracking_number: string | null;
+  payment_reference: string | null;
+  customer_confirmed_at: string | null;
+  group_buy_id: string | null;
   order_items: OrderItem[];
 }
-
-const statusConfig: Record<string, { label: string; color: string; icon: LucideIcon }> = {
-  pending: { label: 'Pending', color: 'bg-yellow-100 text-yellow-800', icon: Clock },
-  payment_received: { label: 'Payment Received', color: 'bg-green-100 text-green-800', icon: CheckCircle },
-  order_placed: { label: 'Order Placed', color: 'bg-blue-100 text-blue-800', icon: ShoppingBag },
-  confirmed: { label: 'Confirmed', color: 'bg-blue-100 text-blue-800', icon: CheckCircle },
-  processing: { label: 'Processing', color: 'bg-purple-100 text-purple-800', icon: Loader2 },
-  packed_for_delivery: { label: 'Packed', color: 'bg-purple-100 text-purple-800', icon: Package },
-  shipped: { label: 'Shipped', color: 'bg-indigo-100 text-indigo-800', icon: Truck },
-  in_transit: { label: 'In Transit', color: 'bg-cyan-100 text-cyan-800', icon: Truck },
-  in_ghana: { label: 'In Ghana', color: 'bg-orange-100 text-orange-800', icon: Package },
-  ready_for_delivery: { label: 'Ready for Delivery', color: 'bg-teal-100 text-teal-800', icon: Package },
-  out_for_delivery: { label: 'Out for Delivery', color: 'bg-cyan-100 text-cyan-800', icon: Truck },
-  delivered: { label: 'Delivered', color: 'bg-green-100 text-green-800', icon: CheckCircle },
-  cancelled: { label: 'Cancelled', color: 'bg-red-100 text-red-800', icon: XCircle },
-  refunded: { label: 'Refunded', color: 'bg-red-100 text-red-800', icon: XCircle },
-};
 
 function ReferralTab() {
   const { referralCode, referralLink, referrals, isLoading, generateCode, isGenerating } = useReferral();
@@ -248,6 +240,7 @@ function LoyaltyTab() {
 export default function Profile() {
   const { user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const { addToCart } = useCart();
   const { formatPrice } = useCurrency();
   const { refundRequests, isLoading: refundsLoading } = useRefundRequests();
   const [profile, setProfile] = useState<Profile>({ name: null, email: null, phone: null, birthday: null });
@@ -259,6 +252,7 @@ export default function Profile() {
   const [addressDialogOpen, setAddressDialogOpen] = useState(false);
   const [editingAddress, setEditingAddress] = useState<Address | null>(null);
   const [activeTab, setActiveTab] = useState('profile');
+  const [reviewDialogOrder, setReviewDialogOrder] = useState<Order | null>(null);
 
   const [addressForm, setAddressForm] = useState({
     label: '',
@@ -323,8 +317,13 @@ export default function Profile() {
         status,
         total_amount,
         created_at,
+        updated_at,
         estimated_delivery_start,
         estimated_delivery_end,
+        courier_tracking_number,
+        payment_reference,
+        customer_confirmed_at,
+        group_buy_id,
         order_items (*)
       `)
       .eq('user_id', user.id)
@@ -508,6 +507,51 @@ export default function Profile() {
       country: 'Ghana',
       is_default: false,
     });
+  };
+
+  const handleTrackOrder = (order: Order) => {
+    navigate(`/track-order/${order.id}`);
+  };
+
+  const handleBuyAgain = async (order: Order) => {
+    try {
+      const added = await reAddOrderItemsToCart(order, addToCart);
+      toast.success(`Added ${added} item(s) to cart`);
+      navigate('/cart');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not re-add items.');
+    }
+  };
+
+  const handleConfirmDelivery = async (order: Order) => {
+    if (!user) return;
+
+    const timestamp = new Date().toISOString();
+    const { error } = await supabase
+      .from('orders')
+      .update({
+        status: 'delivered',
+        customer_confirmed_at: timestamp,
+        updated_at: timestamp,
+      })
+      .eq('id', order.id)
+      .eq('user_id', user.id);
+
+    if (error) {
+      toast.error('Failed to confirm delivery');
+      return;
+    }
+
+    await supabase.from('order_tracking').insert({
+      order_id: order.id,
+      status: 'delivered',
+      location_name: 'Delivered',
+      notes: 'Customer confirmed delivery.',
+    });
+
+    toast.success('Delivery confirmed!');
+    await fetchOrders();
+    setReviewDialogOrder({ ...order, status: 'delivered', customer_confirmed_at: timestamp });
   };
 
   const getStatusBadge = (status: string) => {
@@ -849,11 +893,20 @@ export default function Profile() {
           <TabsContent value="orders">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Package className="h-5 w-5" />
-                  Order History
-                </CardTitle>
-                <CardDescription>View and track your orders</CardDescription>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Package className="h-5 w-5" />
+                      Order History
+                    </CardTitle>
+                    <CardDescription>Compact order cards with full tracking and post-purchase actions.</CardDescription>
+                  </div>
+                  <Link to="/my-orders">
+                    <Button variant="outline" size="sm" className="w-full sm:w-auto">
+                      Open My Orders
+                    </Button>
+                  </Link>
+                </div>
               </CardHeader>
               <CardContent>
                 {orders.length === 0 ? (
@@ -868,103 +921,41 @@ export default function Profile() {
                     </Link>
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {orders.map((order) => {
-                      const previewItem = order.order_items[0];
-                      const previewImage = previewItem?.image_url;
+                      const refundOpen = canRequestRefund(order);
+                      const refundReason = refundOpen
+                        ? 'Refund available during the 48-hour payment window.'
+                        : getRefundButtonReason(order);
 
                       return (
-                      <div key={order.id} className="border border-border rounded-lg overflow-hidden">
-                        <div className="p-4 bg-muted/50 border-b border-border">
-                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                            <div className="flex items-center gap-4">
-                              <div>
-                                <p className="text-sm text-muted-foreground">Order</p>
-                                <p className="font-semibold text-foreground">{order.order_number}</p>
-                              </div>
-                              <div className="hidden sm:block text-muted-foreground">-</div>
-                              <div>
-                                <p className="text-sm text-muted-foreground">Placed</p>
-                                <p className="font-medium text-foreground">
-                                  {new Date(order.created_at).toLocaleDateString('en-US', {
-                                    month: 'short',
-                                    day: 'numeric',
-                                    year: 'numeric',
-                                  })}
-                                </p>
-                              </div>
-                            </div>
-                            {getStatusBadge(order.status)}
-                          </div>
-                        </div>
-                        <div className="p-4">
-                          <div className="mb-4 flex items-start gap-3">
-                            <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg border border-border bg-muted">
-                              {previewImage ? (
-                                <img
-                                  src={previewImage}
-                                  alt={previewItem?.product_name || `Preview for order ${order.order_number}`}
-                                  className="h-full w-full object-cover"
-                                  loading="lazy"
-                                />
-                              ) : (
-                                <div className="flex h-full w-full items-center justify-center">
-                                  <Package className="h-5 w-5 text-muted-foreground" />
-                                </div>
-                              )}
-                            </div>
-                            <div className="min-w-0 flex-1 space-y-2">
-                              {order.order_items.slice(0, 2).map((item) => (
-                                <div key={item.id} className="flex items-center justify-between gap-3 text-sm">
-                                  <span className="truncate text-foreground">
-                                    {item.product_name} x {item.quantity}
-                                  </span>
-                                  <span className="shrink-0 text-muted-foreground">{formatPrice(item.total_price)}</span>
-                                </div>
-                              ))}
-                              {order.order_items.length > 2 && (
-                                <p className="text-sm text-muted-foreground">
-                                  +{order.order_items.length - 2} more items
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              <Truck className="h-4 w-4" />
-                              <span>
-                               {order.estimated_delivery_start && order.estimated_delivery_end ? (
-                                  <>
-                                    Est. delivery:{' '}
-                                    {new Date(order.estimated_delivery_start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                    {' - '}
-                                    {new Date(order.estimated_delivery_end).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                  </>
-                                ) : (
-                                  'Delivery date pending'
-                                )}
-                              </span>
-                            </div>
-                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-                              <Link to={`/track-order/${order.id}`}>
-                                <Button variant="outline" size="sm" className="w-full sm:w-auto">Track Order</Button>
-                              </Link>
-                              {order.status === 'delivered' && (
-                                <RefundRequestDialog
-                                  order={{
-                                    id: order.id,
-                                    order_number: order.order_number,
-                                    total_amount: order.total_amount,
-                                    status: order.status,
-                                  }}
-                                />
-                              )}
-                              <p className="font-semibold text-primary">{formatPrice(order.total_amount)}</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
+                        <CompactOrderHistoryCard
+                          key={order.id}
+                          order={order}
+                          formatPrice={formatPrice}
+                          onTrack={handleTrackOrder}
+                          onConfirmDelivery={handleConfirmDelivery}
+                          onReview={(selectedOrder) => setReviewDialogOrder(selectedOrder)}
+                          onBuyAgain={handleBuyAgain}
+                          refundAction={
+                            <RefundRequestDialog
+                              order={order}
+                              canRequest={refundOpen}
+                              disabledReason={refundReason}
+                              triggerLabel="Refund"
+                              className="h-8 w-full px-2 text-[11px] sm:text-xs"
+                            />
+                          }
+                          footerSlot={
+                            order.group_buy_id ? (
+                              <Badge variant="outline" className="rounded-full text-[10px] uppercase tracking-[0.12em]">
+                                <Users className="mr-1 h-3 w-3" />
+                                Group Buy
+                              </Badge>
+                            ) : null
+                          }
+                        />
+                      );
                     })}
                   </div>
                 )}
@@ -1087,6 +1078,16 @@ export default function Profile() {
         </Tabs>
       </main>
       <Footer />
+      <OrderReviewDialog
+        open={!!reviewDialogOrder}
+        order={reviewDialogOrder}
+        onOpenChange={(open) => {
+          if (!open) {
+            setReviewDialogOrder(null);
+          }
+        }}
+        onSubmitted={() => setReviewDialogOrder(null)}
+      />
     </div>
   );
 }

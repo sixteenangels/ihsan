@@ -1,21 +1,27 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCart } from '@/contexts/CartContext';
 import { useCurrency } from '@/hooks/useCurrency';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { OrderTrackingMap } from '@/components/order/OrderTrackingMap';
+import { OrderReviewDialog } from '@/components/orders/OrderReviewDialog';
+import { RefundRequestDialog } from '@/components/orders/RefundRequestDialog';
 import { OrderIssueDialog } from '@/components/support/OrderIssueDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Package, ArrowLeft, Search, CheckCircle, Clock, Truck } from 'lucide-react';
+import { Loader2, Package, ArrowLeft, Search, CheckCircle, Clock, Truck, RefreshCcw, ShoppingBag, Star } from 'lucide-react';
 import { format } from 'date-fns';
 import { Progress } from '@/components/ui/progress';
+import { toast } from 'sonner';
+import { canRequestRefund, getRefundButtonReason, isDeliveredOrder } from '@/lib/orderHistory';
+import { reAddOrderItemsToCart } from '@/lib/reorderOrder';
 
 interface OrderTrackingItem {
   id: string;
@@ -66,6 +72,8 @@ interface TrackedOrder {
   id: string;
   order_number: string;
   created_at: string;
+  updated_at: string;
+  payment_reference: string | null;
   total_amount: number;
   subtotal: number;
   shipping_price: number | null;
@@ -86,6 +94,8 @@ interface TrackedOrder {
   proof_of_delivery_signature_name: string | null;
   proof_of_delivery_note: string | null;
   proof_of_delivery_image_url: string | null;
+  user_id: string;
+  wallet_credit_used: number | null;
   order_items: OrderTrackingItem[];
   order_tracking: OrderTrackingPoint[];
   shipping_classes: ShippingClassSummary | null;
@@ -170,46 +180,65 @@ function getCheckpointsForTrackedOrder(order: TrackedOrder) {
   return usesCourierFlow ? COURIER_CHECKPOINTS : STANDARD_CHECKPOINTS;
 }
 
-function getProgressPercentage(status: string, checkpoints: TrackingCheckpoint[]) {
-  if (['cancelled', 'refunded'].includes(status)) return 100;
+function getTrackingProgressState(order: TrackedOrder, checkpoints: TrackingCheckpoint[]) {
+  const fallbackStatus = order.status || 'pending';
 
-  const checkpointIndex = checkpoints.findIndex((checkpoint) => checkpoint.key === status);
-  if (checkpointIndex >= 0) {
-    return Math.round(((checkpointIndex + 1) / checkpoints.length) * 100);
+  if (['cancelled', 'refunded'].includes(fallbackStatus)) {
+    return {
+      displayStatus: fallbackStatus,
+      progressValue: 100,
+      completedCheckpointIndex: -1,
+      currentCheckpointIndex: -1,
+    };
   }
 
-  const orderIndex = getStatusIndex(status);
-  if (orderIndex < 0) return 0;
+  const trackedStatuses = order.order_tracking
+    .map((point) => point.status)
+    .filter((status) => getStatusIndex(status) >= 0);
 
-  for (let index = checkpoints.length - 1; index >= 0; index -= 1) {
-    if (getStatusIndex(checkpoints[index].key) <= orderIndex) {
-      return Math.round(((index + 1) / checkpoints.length) * 100);
-    }
-  }
+  const statusCandidates = [fallbackStatus, ...trackedStatuses];
+  const furthestStatus = statusCandidates.reduce((furthest, candidate) => {
+    return getStatusIndex(candidate) > getStatusIndex(furthest) ? candidate : furthest;
+  }, fallbackStatus);
 
-  return 0;
+  const furthestStatusIndex = getStatusIndex(furthestStatus);
+  const completedCheckpointIndex = checkpoints.reduce((furthestIndex, checkpoint, checkpointIndex) => {
+    return getStatusIndex(checkpoint.key) <= furthestStatusIndex ? checkpointIndex : furthestIndex;
+  }, -1);
+
+  const currentCheckpointIndex =
+    completedCheckpointIndex >= checkpoints.length - 1
+      ? completedCheckpointIndex
+      : completedCheckpointIndex + 1;
+
+  const progressValue =
+    completedCheckpointIndex >= 0
+      ? Math.round(((completedCheckpointIndex + 1) / checkpoints.length) * 100)
+      : 0;
+
+  return {
+    displayStatus: furthestStatus,
+    progressValue,
+    completedCheckpointIndex,
+    currentCheckpointIndex,
+  };
 }
 
 function getCheckpointState(
-  currentStatus: string,
-  checkpointKey: string,
-  checkpoints: TrackingCheckpoint[],
+  checkpointIndex: number,
+  completedCheckpointIndex: number,
+  currentCheckpointIndex: number,
 ): 'done' | 'current' | 'pending' {
-  if (['cancelled', 'refunded'].includes(currentStatus)) return 'pending';
-
-  const currentIndex = getStatusIndex(currentStatus);
-  const checkpointIndex = getStatusIndex(checkpointKey);
-  if (currentIndex < 0 || checkpointIndex < 0) return 'pending';
-  if (currentIndex >= checkpointIndex) return 'done';
-
-  const nextCheckpoint = checkpoints.find((checkpoint) => getStatusIndex(checkpoint.key) > currentIndex);
-  return nextCheckpoint?.key === checkpointKey ? 'current' : 'pending';
+  if (completedCheckpointIndex < 0 && checkpointIndex === currentCheckpointIndex) return 'current';
+  if (checkpointIndex <= completedCheckpointIndex) return 'done';
+  if (checkpointIndex === currentCheckpointIndex) return 'current';
+  return 'pending';
 }
 
 function OrderProgressPanel({ order }: { order: TrackedOrder }) {
-  const status = order.status || 'pending';
   const checkpoints = getCheckpointsForTrackedOrder(order);
-  const progressValue = getProgressPercentage(status, checkpoints);
+  const { displayStatus, progressValue, completedCheckpointIndex, currentCheckpointIndex } =
+    getTrackingProgressState(order, checkpoints);
 
   return (
     <Card>
@@ -220,7 +249,7 @@ function OrderProgressPanel({ order }: { order: TrackedOrder }) {
             Order Progress
           </CardTitle>
           <Badge variant="outline" className="w-fit">
-            {formatStatusLabel(status)}
+            {formatStatusLabel(displayStatus)}
           </Badge>
         </div>
       </CardHeader>
@@ -232,8 +261,12 @@ function OrderProgressPanel({ order }: { order: TrackedOrder }) {
               className="grid gap-2"
               style={{ gridTemplateColumns: `repeat(${checkpoints.length}, minmax(4.5rem, 1fr))` }}
             >
-              {checkpoints.map((checkpoint) => {
-                const state = getCheckpointState(status, checkpoint.key, checkpoints);
+              {checkpoints.map((checkpoint, checkpointIndex) => {
+                const state = getCheckpointState(
+                  checkpointIndex,
+                  completedCheckpointIndex,
+                  currentCheckpointIndex,
+                );
                 return (
                   <div key={checkpoint.key} className="flex min-w-0 flex-col items-center text-center">
                     <div
@@ -268,11 +301,14 @@ function OrderProgressPanel({ order }: { order: TrackedOrder }) {
 export default function TrackOrder() {
   const { orderId } = useParams<{ orderId: string }>();
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const { addToCart } = useCart();
   const { formatPrice } = useCurrency();
   const [searchOrderNumber, setSearchOrderNumber] = useState('');
   const [searchedOrderId, setSearchedOrderId] = useState<string | null>(orderId || null);
+  const [reviewDialogOrder, setReviewDialogOrder] = useState<TrackedOrder | null>(null);
 
-  const { data: order, isLoading, error } = useQuery<TrackedOrder | null>({
+  const { data: order, isLoading, error, refetch } = useQuery<TrackedOrder | null>({
     queryKey: ['order-tracking', searchedOrderId],
     queryFn: async () => {
       if (!searchedOrderId) return null;
@@ -391,7 +427,9 @@ export default function TrackOrder() {
         ...data,
         shipping_address: (data.shipping_address as unknown as TrackingShippingAddress | null) ?? null,
         order_items: orderItemsWithImages,
-        order_tracking: (data.order_tracking || []) as OrderTrackingPoint[],
+        order_tracking: [...((data.order_tracking || []) as OrderTrackingPoint[])].sort(
+          (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+        ),
         shipping_classes: (data.shipping_classes as ShippingClassSummary | null) ?? null,
         receipt: receipt || null,
       };
@@ -429,6 +467,59 @@ export default function TrackOrder() {
   const getEstimatedDelivery = () => {
     if (!order?.estimated_delivery_start || !order?.estimated_delivery_end) return undefined;
     return `${format(new Date(order.estimated_delivery_start), 'MMM d')} - ${format(new Date(order.estimated_delivery_end), 'MMM d, yyyy')}`;
+  };
+
+  const canManageOrder = Boolean(user && order?.user_id === user.id);
+  const delivered = order ? isDeliveredOrder(order) : false;
+  const refundOpen = order ? canRequestRefund(order) : false;
+  const refundReason = order ? getRefundButtonReason(order) : undefined;
+
+  const handleBuyAgain = async () => {
+    if (!order) return;
+
+    try {
+      const added = await reAddOrderItemsToCart(order, addToCart);
+      toast.success(`Added ${added} item(s) to cart`);
+      navigate('/cart');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not re-add items.');
+    }
+  };
+
+  const handleConfirmDelivery = async () => {
+    if (!order || !user) return;
+
+    const timestamp = new Date().toISOString();
+    const { error: updateError } = await supabase
+      .from('orders')
+      .update({
+        status: 'delivered',
+        customer_confirmed_at: timestamp,
+        updated_at: timestamp,
+      })
+      .eq('id', order.id)
+      .eq('user_id', user.id);
+
+    if (updateError) {
+      toast.error('Failed to confirm delivery');
+      return;
+    }
+
+    await supabase.from('order_tracking').insert({
+      order_id: order.id,
+      status: 'delivered',
+      location_name: 'Delivered',
+      notes: 'Customer confirmed delivery.',
+    });
+
+    toast.success('Delivery confirmed!');
+    await refetch();
+    setReviewDialogOrder({
+      ...order,
+      status: 'delivered',
+      customer_confirmed_at: timestamp,
+      updated_at: timestamp,
+    });
   };
 
   return (
@@ -518,7 +609,55 @@ export default function TrackOrder() {
                     <p className="font-medium">{order.order_items.length} items</p>
                   </div>
                 </div>
+                {(order.payment_reference || Number(order.wallet_credit_used || 0) > 0) && (
+                  <div className="mt-4 grid gap-3 rounded-2xl border border-border/60 bg-muted/30 p-4 text-sm md:grid-cols-2">
+                    {order.payment_reference && (
+                      <div>
+                        <p className="text-muted-foreground">Payment Reference</p>
+                        <p className="font-medium text-foreground">{order.payment_reference}</p>
+                      </div>
+                    )}
+                    {Number(order.wallet_credit_used || 0) > 0 && (
+                      <div>
+                        <p className="text-muted-foreground">Wallet Credit Used</p>
+                        <p className="font-medium text-foreground">
+                          {formatPrice(Number(order.wallet_credit_used))}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div className="mt-4 flex flex-wrap gap-2">
+                  {canManageOrder && !delivered && (
+                    <RefundRequestDialog
+                      order={order}
+                      canRequest={refundOpen}
+                      disabledReason={refundReason}
+                      triggerLabel="Refund"
+                    />
+                  )}
+                  {canManageOrder && delivered && (
+                    <>
+                      <Button variant="outline" onClick={() => setReviewDialogOrder(order)}>
+                        <Star className="mr-2 h-4 w-4" />
+                        Review
+                      </Button>
+                      <Button onClick={handleBuyAgain}>
+                        <ShoppingBag className="mr-2 h-4 w-4" />
+                        Buy Again
+                      </Button>
+                    </>
+                  )}
+                  {canManageOrder && !delivered && (
+                    <Button
+                      variant={order.status === 'out_for_delivery' ? 'default' : 'outline'}
+                      onClick={handleConfirmDelivery}
+                      disabled={order.status !== 'out_for_delivery'}
+                    >
+                      <CheckCircle className="mr-2 h-4 w-4" />
+                      Confirm Delivery
+                    </Button>
+                  )}
                   <OrderIssueDialog
                     orderId={order.id}
                     orderNumber={order.order_number}
@@ -733,6 +872,16 @@ export default function TrackOrder() {
         )}
       </main>
       <Footer />
+      <OrderReviewDialog
+        open={!!reviewDialogOrder}
+        order={reviewDialogOrder}
+        onOpenChange={(open) => {
+          if (!open) {
+            setReviewDialogOrder(null);
+          }
+        }}
+        onSubmitted={() => setReviewDialogOrder(null)}
+      />
     </div>
   );
 }
