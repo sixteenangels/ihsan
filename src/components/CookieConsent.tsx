@@ -3,17 +3,26 @@ import { Button } from '@/components/ui/button';
 import { Cookie } from 'lucide-react';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 
-export function CookieConsent() {
+interface CookieConsentProps {
+  suppressed?: boolean;
+}
+
+export function CookieConsent({ suppressed = false }: CookieConsentProps) {
   const { isEnabled } = useFeatureFlags();
   const [show, setShow] = useState(false);
 
   useEffect(() => {
+    if (suppressed) {
+      setShow(false);
+      return;
+    }
+
     const consent = localStorage.getItem('cookie-consent');
     if (!consent) {
       const timer = setTimeout(() => setShow(true), 2000);
       return () => clearTimeout(timer);
     }
-  }, []);
+  }, [suppressed]);
 
   const handleAccept = () => {
     localStorage.setItem('cookie-consent', 'accepted');
@@ -25,7 +34,7 @@ export function CookieConsent() {
     setShow(false);
   };
 
-  if (!show || !isEnabled('cookie_consent')) return null;
+  if (suppressed || !show || !isEnabled('cookie_consent')) return null;
 
   return (
     <div className="fixed bottom-20 md:bottom-4 left-4 right-4 md:left-auto md:right-4 md:max-w-md z-[60] animate-in slide-in-from-bottom">

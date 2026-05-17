@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Star, Truck, Users, Zap, Ship, Plane, Package, ShoppingCart, ArrowLeft, Loader2, Share2, Copy, Link as LinkIcon } from 'lucide-react';
+import { Star, Truck, Users, Zap, Ship, Plane, Package, ShoppingCart, ArrowLeft, Loader2, Share2, Copy, Link as LinkIcon, Clock3, ShieldCheck } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { useProduct, ProductWithDetails } from '@/hooks/useProducts';
@@ -32,6 +32,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 // Convert DB product to legacy Product type for cart
 function toCartProduct(product: ProductWithDetails): Product {
@@ -111,6 +112,7 @@ export default function ProductDetail() {
   const { addToCart } = useCart();
   const { formatPrice } = useCurrency();
   const { addProduct } = useRecentlyViewed();
+  const isMobile = useIsMobile();
 
   const [selectedVariants, setSelectedVariants] = useState<SelectedVariant[]>([]);
   const [selectedShipping, setSelectedShipping] = useState<ShippingRule | null>(null);
@@ -175,6 +177,7 @@ export default function ProductDetail() {
       ? [selectedVariants[0].color, selectedVariants[0].size].filter(Boolean).join(' / ')
       : null;
   const highlightedShipping = selectedShipping || availableShipping[0] || null;
+  const selectedItemCount = selectedVariants.reduce((sum, variant) => sum + variant.quantity, 0);
 
   const handleAddToCart = () => {
     if (!product) return;
@@ -213,6 +216,46 @@ export default function ProductDetail() {
     });
     toast.success(`Added ${selectedVariants.length} item(s) to cart`);
     setSelectedVariants([]);
+  };
+
+  const handleBuyNow = () => {
+    if (!product) return;
+    const cartProduct = toCartProduct(product);
+
+    if (selectedVariants.length === 0) {
+      addToCart(cartProduct, null, 1, 'only');
+      trackRecommendationEvent({
+        productId: product.id,
+        userId: user?.id,
+        eventType: 'cart_add',
+        source: 'buy_now',
+      });
+    } else {
+      selectedVariants.forEach((variant, index) => {
+        const cartVariant: ProductVariant = {
+          id: variant.id,
+          size: variant.size || undefined,
+          color: variant.color || undefined,
+          price: variant.price,
+          stock: variant.stock || 0,
+        };
+        addToCart(
+          cartProduct,
+          cartVariant,
+          variant.quantity,
+          index === 0 ? 'only' : 'include',
+        );
+      });
+      trackRecommendationEvent({
+        productId: product.id,
+        userId: user?.id,
+        eventType: 'cart_add',
+        source: 'buy_now',
+        weight: selectedVariants.reduce((sum, variant) => sum + variant.quantity, 0),
+      });
+    }
+
+    navigate('/checkout');
   };
 
   const handleCopyLink = () => {
@@ -276,11 +319,33 @@ export default function ProductDetail() {
   const groupBuySavings = product.group_buy_price != null && product.base_price > 0
     ? Math.max(0, Math.round(((product.base_price - product.group_buy_price) / product.base_price) * 100))
     : 0;
+  const purchaseDisplayPrice = selectedVariants.length > 0 ? totalPrice : product.base_price;
+  const selectedVariantPreview = selectedVariants.length > 0
+    ? selectedVariants
+        .slice(0, 2)
+        .map((variant) => [variant.color, variant.size].filter(Boolean).join(' / ') || 'Standard')
+        .join(', ')
+    : product.variants.length > 0
+      ? 'Choose variants now or finish selection at checkout.'
+      : 'Standard configuration ready to order.';
+  const shippingEtaLabel = highlightedShipping?.shipping_class
+    ? `${highlightedShipping.shipping_class.estimated_days_min}-${highlightedShipping.shipping_class.estimated_days_max} days`
+    : 'Shipping set at checkout';
+  const purchaseSupportNote = selectedVariants.length > 0
+    ? `${selectedItemCount} item${selectedItemCount === 1 ? '' : 's'} selected across ${selectedVariants.length} option${selectedVariants.length === 1 ? '' : 's'}.`
+    : product.variants.length > 0
+      ? 'Pick exact colours and sizes now for an exact total, or add first and confirm at checkout.'
+      : 'Ready to add straight to cart with the current price and shipping options.';
+  const stockStatusLabel = hasAnyStock
+    ? `${totalAvailableStock} available now`
+    : expectedRestockDateLabel
+      ? `Expected restock ${expectedRestockDateLabel}`
+      : 'Restock alerts available';
 
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="container px-4 py-6 pb-24 sm:px-6 md:py-8 md:pb-8">
+      <main className="container px-4 py-6 pb-32 sm:px-6 md:py-8 md:pb-8">
         <Link to="/products" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary mb-6">
           <ArrowLeft className="h-4 w-4 mr-1" />
           Back to Products
@@ -474,58 +539,66 @@ export default function ProductDetail() {
             <Separator />
 
             <div className="space-y-4">
-              {selectedVariants.length > 0 && (
-                <div className="p-4 rounded-lg bg-card border border-border">
-                  <p className="text-sm text-muted-foreground mb-2">{selectedVariants.length} variant(s) selected</p>
-                  <p className="text-2xl font-bold text-primary">Total: {formatPrice(totalPrice)}</p>
-                </div>
-              )}
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <Button size="lg" className="flex-1" variant="outline" onClick={handleAddToCart}>
-                  <ShoppingCart className="h-5 w-5 mr-2" />
-                  Add to Cart
-                </Button>
-                <Button size="lg" className="flex-1" onClick={() => {
-                  if (!product) return;
-                  const cartProduct = toCartProduct(product);
-                  if (selectedVariants.length === 0) {
-                    addToCart(cartProduct, null, 1, 'only');
-                    trackRecommendationEvent({
-                      productId: product.id,
-                      userId: user?.id,
-                      eventType: 'cart_add',
-                      source: 'buy_now',
-                    });
-                  } else {
-                    selectedVariants.forEach((variant, index) => {
-                      const cartVariant: ProductVariant = {
-                        id: variant.id,
-                        size: variant.size || undefined,
-                        color: variant.color || undefined,
-                        price: variant.price,
-                        stock: variant.stock || 0,
-                      };
-                      addToCart(
-                        cartProduct,
-                        cartVariant,
-                        variant.quantity,
-                        index === 0 ? 'only' : 'include',
-                      );
-                    });
-                    trackRecommendationEvent({
-                      productId: product.id,
-                      userId: user?.id,
-                      eventType: 'cart_add',
-                      source: 'buy_now',
-                      weight: selectedVariants.reduce((sum, variant) => sum + variant.quantity, 0),
-                    });
-                  }
-                  navigate('/checkout');
-                }}>
-                  <Zap className="h-5 w-5 mr-2" />
-                  Buy Now
-                </Button>
-              </div>
+              <Card className="overflow-hidden border-primary/20 bg-gradient-to-br from-card via-card to-primary/5 shadow-sm">
+                <CardContent className="p-4 sm:p-5">
+                  <div className="flex flex-col gap-5">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="text-xs font-medium uppercase tracking-[0.22em] text-primary/80">
+                          Purchase Snapshot
+                        </p>
+                        <p className="mt-2 text-3xl font-bold text-primary">
+                          {formatPrice(purchaseDisplayPrice)}
+                        </p>
+                        <p className="mt-2 text-sm text-muted-foreground">{purchaseSupportNote}</p>
+                        <p className="mt-2 text-sm font-medium text-foreground">
+                          {selectedVariantPreview}
+                          {selectedVariants.length > 2 ? ` +${selectedVariants.length - 2} more` : ''}
+                        </p>
+                      </div>
+
+                      <div className="hidden w-full max-w-xs flex-col gap-3 sm:flex">
+                        <Button size="lg" className="w-full" variant="outline" onClick={handleAddToCart}>
+                          <ShoppingCart className="h-5 w-5 mr-2" />
+                          Add to Cart
+                        </Button>
+                        <Button size="lg" className="w-full" onClick={handleBuyNow}>
+                          <Zap className="h-5 w-5 mr-2" />
+                          Buy Now
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <div className="rounded-2xl border border-border/70 bg-background/70 p-3">
+                        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Selected</p>
+                        <p className="mt-1 font-semibold text-foreground">
+                          {selectedVariants.length > 0
+                            ? `${selectedItemCount} item${selectedItemCount === 1 ? '' : 's'}`
+                            : product.variants.length > 0
+                              ? 'Pending choice'
+                              : 'Ready now'}
+                        </p>
+                      </div>
+                      <div className="rounded-2xl border border-border/70 bg-background/70 p-3">
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Clock3 className="h-4 w-4" />
+                          <p className="text-xs uppercase tracking-[0.18em]">Delivery</p>
+                        </div>
+                        <p className="mt-1 font-semibold text-foreground">{shippingEtaLabel}</p>
+                      </div>
+                      <div className="rounded-2xl border border-border/70 bg-background/70 p-3">
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <ShieldCheck className="h-4 w-4" />
+                          <p className="text-xs uppercase tracking-[0.18em]">Confidence</p>
+                        </div>
+                        <p className="mt-1 font-semibold text-foreground">{stockStatusLabel}</p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
               <div className="flex flex-wrap gap-2">
                 <PriceDropAlert
                   productId={product.id}
@@ -571,6 +644,38 @@ export default function ProductDetail() {
           <ProductReviews productId={product.id} productName={product.name} />
         </div>
       </main>
+
+      {isMobile && (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 px-4 pt-3 shadow-2xl backdrop-blur supports-[backdrop-filter]:bg-background/90">
+          <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)]">
+            <div className="min-w-0">
+              <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Ready to buy</p>
+              <p className="text-lg font-semibold text-foreground">
+                {formatPrice(purchaseDisplayPrice)}
+              </p>
+              <p className="truncate text-xs text-muted-foreground">
+                {selectedVariants.length > 0
+                  ? `${selectedItemCount} selected`
+                  : product.variants.length > 0
+                    ? 'Choose now or at checkout'
+                    : 'Standard configuration'}
+                {' · '}
+                {shippingEtaLabel}
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <Button size="sm" variant="outline" onClick={handleAddToCart}>
+                <ShoppingCart className="mr-1 h-4 w-4" />
+                Add
+              </Button>
+              <Button size="sm" onClick={handleBuyNow}>
+                <Zap className="mr-1 h-4 w-4" />
+                Buy
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
       <Footer />
     </div>
   );

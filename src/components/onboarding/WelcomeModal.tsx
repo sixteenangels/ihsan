@@ -56,7 +56,11 @@ function parseLegacyPreferences(rawValue: string | null): LegacyPreferences | nu
   }
 }
 
-export function WelcomeModal() {
+interface WelcomeModalProps {
+  suppressed?: boolean;
+}
+
+export function WelcomeModal({ suppressed = false }: WelcomeModalProps) {
   const { user } = useAuth();
   const { isEnabled } = useFeatureFlags();
   const [open, setOpen] = useState(false);
@@ -68,6 +72,11 @@ export function WelcomeModal() {
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
+    if (suppressed) {
+      setOpen(false);
+      return;
+    }
+
     if (!user || !isEnabled('welcome_modal')) {
       setOpen(false);
       return;
@@ -139,7 +148,7 @@ export function WelcomeModal() {
         clearTimeout(openTimer);
       }
     };
-  }, [isEnabled, user]);
+  }, [isEnabled, suppressed, user]);
 
   const persistLocalPreferences = () => {
     if (!user) return;
@@ -200,7 +209,7 @@ export function WelcomeModal() {
     );
   };
 
-  if (!user || !isEnabled('welcome_modal')) return null;
+  if (suppressed || !user || !isEnabled('welcome_modal')) return null;
 
   return (
     <Dialog

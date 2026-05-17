@@ -6,7 +6,15 @@ import { ShoppingCart, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 
-export function AbandonedCartReminder() {
+interface AbandonedCartReminderProps {
+  suppressed?: boolean;
+  onVisibilityChange?: (visible: boolean) => void;
+}
+
+export function AbandonedCartReminder({
+  suppressed = false,
+  onVisibilityChange,
+}: AbandonedCartReminderProps) {
   const { isEnabled } = useFeatureFlags();
   const { totalItems } = useCart();
   const { user } = useAuth();
@@ -14,18 +22,32 @@ export function AbandonedCartReminder() {
   const [show, setShow] = useState(false);
 
   useEffect(() => {
+    if (suppressed) {
+      setShow(false);
+      return;
+    }
+
     if (totalItems > 0 && user && !dismissed) {
       const timer = setTimeout(() => setShow(true), 30000); // Show after 30s
       return () => clearTimeout(timer);
     }
     setShow(false);
-  }, [totalItems, user, dismissed]);
+  }, [dismissed, suppressed, totalItems, user]);
 
-  if (!show || !isEnabled('abandoned_cart')) return null;
+  useEffect(() => {
+    const isVisible = show && !suppressed && isEnabled('abandoned_cart');
+    onVisibilityChange?.(isVisible);
+
+    return () => {
+      onVisibilityChange?.(false);
+    };
+  }, [isEnabled, onVisibilityChange, show, suppressed]);
+
+  if (!show || suppressed || !isEnabled('abandoned_cart')) return null;
 
   return (
-    <div className="fixed bottom-20 md:bottom-6 left-4 right-4 md:left-auto md:right-6 md:w-80 z-40 animate-in slide-in-from-bottom-4">
-      <div className="bg-card border border-border rounded-lg shadow-lg p-4">
+    <div className="fixed left-4 right-4 bottom-[5.15rem] z-40 animate-in slide-in-from-bottom-4 md:bottom-6 md:left-auto md:right-6 md:w-80">
+      <div className="rounded-2xl border border-border bg-card/95 p-4 shadow-xl backdrop-blur-xl">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-full bg-primary/10">

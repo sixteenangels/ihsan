@@ -16,7 +16,7 @@ import { WelcomeModal } from "@/components/onboarding/WelcomeModal";
 import { MaintenanceMode } from "@/components/MaintenanceMode";
 import { missingSupabaseEnvVars, supabaseConfigError } from "@/integrations/supabase/client";
 import { ThemeProvider } from "next-themes";
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 
 // Lazy load all pages for code splitting
@@ -90,6 +90,18 @@ function SupabaseConfigScreen() {
 function AppRouterContent() {
   const location = useLocation();
   const isAdminRoute = location.pathname.startsWith("/admin");
+  const isCheckoutRoute = location.pathname === "/checkout";
+  const isFocusRoute =
+    isCheckoutRoute ||
+    location.pathname.startsWith("/product/") ||
+    location.pathname.startsWith("/track-order") ||
+    location.pathname.startsWith("/order-confirmation") ||
+    location.pathname === "/auth";
+  const [isCompareBarVisible, setIsCompareBarVisible] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isCartReminderVisible, setIsCartReminderVisible] = useState(false);
+
+  const liveChatBottomOffset = isCompareBarVisible ? 96 : isCartReminderVisible ? 112 : 0;
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -98,6 +110,14 @@ function AppRouterContent() {
 
     return () => window.cancelAnimationFrame(frame);
   }, [location.pathname]);
+
+  useEffect(() => {
+    if (isFocusRoute) {
+      setIsCompareBarVisible(false);
+      setIsChatOpen(false);
+      setIsCartReminderVisible(false);
+    }
+  }, [isFocusRoute]);
 
   return (
     <MaintenanceMode>
@@ -130,12 +150,24 @@ function AppRouterContent() {
       </Suspense>
       {!isAdminRoute && (
         <>
-          <CompareBar />
-          <MobileNavBar />
-          <LiveChatWidget />
-          <AbandonedCartReminder />
-          <WelcomeModal />
-          <CookieConsent />
+          {!isFocusRoute && (
+            <CompareBar onVisibilityChange={setIsCompareBarVisible} />
+          )}
+          {!isFocusRoute && <MobileNavBar />}
+          {!isFocusRoute && (
+            <LiveChatWidget
+              mobileBottomOffset={liveChatBottomOffset}
+              onOpenChange={setIsChatOpen}
+            />
+          )}
+          {!isFocusRoute && (
+            <AbandonedCartReminder
+              suppressed={isChatOpen || isCompareBarVisible}
+              onVisibilityChange={setIsCartReminderVisible}
+            />
+          )}
+          <WelcomeModal suppressed={isFocusRoute} />
+          <CookieConsent suppressed={isFocusRoute} />
         </>
       )}
     </MaintenanceMode>

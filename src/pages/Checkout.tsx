@@ -7,6 +7,7 @@ import { isVariantPlaceholder, useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCurrency } from '@/hooks/useCurrency';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
@@ -14,6 +15,12 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 import {
   Select,
   SelectContent,
@@ -35,6 +42,7 @@ import {
   saveCheckoutRecoverySnapshot,
 } from '@/lib/checkoutRecovery';
 import { trackRecommendationEvent } from '@/lib/recommendationEvents';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface Address {
   id: string;
@@ -157,6 +165,7 @@ export default function Checkout() {
     clearSelectedItems,
   } = useCart();
   const { formatPrice, currency } = useCurrency();
+  const isMobile = useIsMobile();
   
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string>('');
@@ -536,6 +545,7 @@ export default function Checkout() {
   };
 
   const selectedShipping = shippingClasses.find(s => s.id === selectedShippingId);
+  const selectedAddressDetails = addresses.find((address) => address.id === selectedAddressId);
   const rawShippingCost = selectedShipping?.base_price || 0;
 
   useEffect(() => {
@@ -666,6 +676,7 @@ export default function Checkout() {
   const subtotalAfterLoyalty = Math.max(0, subtotalBeforeCredits - loyaltyDiscount);
   const walletApplied = useWalletCredit ? Math.min(walletBalance, subtotalAfterLoyalty) : 0;
   const total = Math.max(0, subtotalAfterLoyalty - walletApplied);
+  const itemCount = selectedItems.reduce((sum, item) => sum + item.quantity, 0);
 
   const handleApplyCoupon = async () => {
     if (!couponCode.trim()) {
@@ -763,6 +774,60 @@ export default function Checkout() {
   const unresolvedVariantItems = selectedItems.filter((item) =>
     isVariantPlaceholder(item.variant.id) && (productVariantOptions[item.product.id] || []).length > 0
   );
+  const showSavingsSection = true;
+  const accordionDefaultSections = [
+    'items',
+    unresolvedVariantItems.length > 0 ? 'variants' : null,
+    hasFragile ? 'packaging' : null,
+  ].filter((value): value is string => Boolean(value));
+  const checkoutSteps = [
+    {
+      id: 'address',
+      label: 'Address',
+      complete: !!selectedAddressId,
+      detail: selectedAddressDetails
+        ? `${selectedAddressDetails.city}, ${selectedAddressDetails.country}`
+        : 'Choose where the order should go.',
+    },
+    {
+      id: 'shipping',
+      label: 'Shipping',
+      complete: !!selectedShippingId,
+      detail: selectedShipping
+        ? `${selectedShipping.name} · ${formatPrice(shippingCost)}`
+        : 'Pick the delivery speed and method.',
+    },
+    {
+      id: 'review',
+      label: 'Review & Pay',
+      complete: !!selectedAddressId && !!selectedShippingId && unresolvedVariantItems.length === 0,
+      detail:
+        unresolvedVariantItems.length > 0
+          ? 'Choose variants before payment.'
+          : total <= 0
+            ? 'Your order is fully covered.'
+            : 'Review the total and complete payment.',
+    },
+  ];
+  const completedCheckoutSteps = checkoutSteps.filter((step) => step.complete).length;
+  const isPaymentDisabled =
+    isProcessing || !selectedAddressId || !selectedShippingId || unresolvedVariantItems.length > 0;
+  const requiresPayment = total > 0;
+  const paymentButtonText = isProcessing
+    ? 'Processing...'
+    : !requiresPayment
+      ? 'Place Order'
+      : 'Pay with Paystack';
+  const paymentSupportText = !requiresPayment
+    ? 'Covered fully by wallet and loyalty credits'
+    : 'Secure payment powered by Paystack';
+  const mobileCheckoutHint = unresolvedVariantItems.length > 0
+    ? 'Choose variants to unlock payment.'
+    : !selectedAddressId
+      ? 'Select a delivery address to continue.'
+      : !selectedShippingId
+        ? 'Choose a shipping method to continue.'
+        : paymentSupportText;
 
   const handleShippingSelection = (id: string) => {
     const shipping = shippingClasses.find((shippingClass) => shippingClass.id === id);
@@ -1174,7 +1239,7 @@ export default function Checkout() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="container px-4 py-6 pb-24 sm:px-6 md:py-8 md:pb-8">
+      <main className="container px-4 py-6 pb-36 sm:px-6 md:py-8 md:pb-8">
         <Link
           to="/cart"
           className="inline-flex items-center text-sm text-muted-foreground hover:text-primary mb-6"
@@ -1187,12 +1252,69 @@ export default function Checkout() {
           Checkout
         </h1>
 
+        <Card className="mb-6 overflow-hidden border-primary/15 bg-gradient-to-br from-primary/5 via-card to-card shadow-sm">
+          <CardContent className="p-4 sm:p-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-[0.28em] text-primary/80">
+                  Checkout Progress
+                </p>
+                <h2 className="mt-2 text-lg font-semibold text-foreground sm:text-xl">
+                  Finish delivery details and review before payment
+                </h2>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {itemCount} item{itemCount === 1 ? '' : 's'} across {selectedItems.length}{' '}
+                  line{selectedItems.length === 1 ? '' : 's'} selected for this order.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="secondary">{completedCheckoutSteps}/3 ready</Badge>
+                {selectedShipping && <Badge variant="outline">{selectedShipping.name}</Badge>}
+                {allFreeShipping && <Badge variant="outline">Free shipping unlocked</Badge>}
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-3 md:grid-cols-3">
+              {checkoutSteps.map((step, index) => (
+                <div
+                  key={step.id}
+                  className={`rounded-2xl border p-4 transition-colors ${
+                    step.complete
+                      ? 'border-primary/30 bg-primary/5'
+                      : 'border-border bg-background/80'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${
+                        step.complete
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted text-muted-foreground'
+                      }`}
+                    >
+                      {step.complete ? <Check className="h-4 w-4" /> : index + 1}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">{step.label}</p>
+                      <p className="text-xs text-muted-foreground">{step.detail}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
         <div className="grid gap-6 lg:grid-cols-3 lg:gap-8">
           <div className="lg:col-span-2 space-y-6">
             {/* Delivery Address */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
+                  <Badge variant="outline" className="mr-1">
+                    Step 1
+                  </Badge>
                   <MapPin className="h-5 w-5 text-primary" />
                   Delivery Address
                 </CardTitle>
@@ -1333,6 +1455,9 @@ export default function Checkout() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
+                  <Badge variant="outline" className="mr-1">
+                    Step 2
+                  </Badge>
                   <Package className="h-5 w-5 text-primary" />
                   Shipping Method
                 </CardTitle>
@@ -1415,299 +1540,351 @@ export default function Checkout() {
               </CardContent>
             </Card>
 
-            {/* Fragile Packaging */}
-            {hasFragile && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Shield className="h-5 w-5 text-primary" />
-                    Packaging for Fragile Items
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <RadioGroup
-                    value={packagingChoice}
-                    onValueChange={(v) => {
-                      if (v === 'standard') {
-                        setShowStandardWarning(true);
-                      } else {
-                        setPackagingChoice('reinforced');
-                      }
-                    }}
-                  >
-                    <div className="space-y-3">
-                      {allowsReinforcedPackaging && (
-                      <div
-                        className={`p-4 rounded-lg border cursor-pointer transition-all ${
-                          packagingChoice === 'reinforced' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
-                        }`}
-                        onClick={() => setPackagingChoice('reinforced')}
-                      >
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                          <div className="flex items-start gap-3 sm:items-center">
-                            <RadioGroupItem value="reinforced" id="pack-reinforced" />
-                            <div>
-                              <p className="font-medium text-foreground">Reinforced Protection</p>
-                              <p className="text-sm text-muted-foreground">
-                                Extra cushioning and protection for fragile items.
-                              </p>
-                            </div>
-                          </div>
-                          <p className="pl-8 text-sm font-semibold text-foreground sm:pl-0">
-                            +{formatPrice(reinforcedPackagingCost || globalReinforcedCost)}
-                          </p>
-                        </div>
-                      </div>
-                      )}
-                      {allowsStandardPackaging && (
-                      <div
-                        className={`p-4 rounded-lg border cursor-pointer transition-all ${
-                          packagingChoice === 'standard' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
-                        }`}
-                        onClick={() => setShowStandardWarning(true)}
-                      >
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                          <div className="flex items-start gap-3 sm:items-center">
-                            <RadioGroupItem value="standard" id="pack-standard" />
-                            <div>
-                              <p className="font-medium text-foreground">Standard Packaging</p>
-                              <p className="text-sm text-muted-foreground">
-                                Factory packaging only - no extra protection.
-                              </p>
-                            </div>
-                          </div>
-                          <p className="pl-8 text-sm font-semibold text-foreground sm:pl-0">Free</p>
-                        </div>
-                      </div>
-                      )}
-                    </div>
-                  </RadioGroup>
-                </CardContent>
-              </Card>
-            )}
-
-            {totalPoints > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Tag className="h-5 w-5 text-primary" />
-                    Loyalty Points
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <label className="flex items-start gap-3 cursor-pointer">
-                    <Checkbox
-                      checked={useLoyaltyCredit}
-                      onCheckedChange={(checked) => {
-                        const enabled = !!checked;
-                        setUseLoyaltyCredit(enabled);
-                        if (enabled && !loyaltyPointsToRedeem) {
-                          setLoyaltyPointsToRedeem(String(maxRedeemablePoints));
-                        }
-                      }}
-                      className="mt-1"
-                    />
-                    <div>
-                      <p className="font-medium text-foreground">
-                        Redeem loyalty points ({totalPoints.toLocaleString()} available)
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {loyaltyMinRedeemPoints} point minimum. {formatPrice(loyaltyRate)} per point.
-                      </p>
-                    </div>
-                  </label>
-
-                  {useLoyaltyCredit && (
-                    <div className="space-y-2">
-                      <Label htmlFor="loyalty-points">Points to redeem</Label>
-                      <Input
-                        id="loyalty-points"
-                        type="number"
-                        min={loyaltyMinRedeemPoints}
-                        max={maxRedeemablePoints}
-                        step="1"
-                        value={loyaltyPointsToRedeem}
-                        onChange={(event) => setLoyaltyPointsToRedeem(event.target.value)}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Up to {maxRedeemablePoints.toLocaleString()} points can be used on this order.
-                      </p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Wallet credit */}
-            {walletBalance > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Wallet className="h-5 w-5 text-primary" />
-                    Wallet Credit
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <label className="flex items-start gap-3 cursor-pointer">
-                    <Checkbox
-                      checked={useWalletCredit}
-                      onCheckedChange={(c) => setUseWalletCredit(!!c)}
-                      className="mt-1"
-                    />
-                    <div>
-                      <p className="font-medium text-foreground">
-                        Use wallet credit ({formatPrice(walletBalance)} available)
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        Apply your store credit toward this order. Cannot be withdrawn.
-                      </p>
-                    </div>
-                  </label>
-                </CardContent>
-              </Card>
-            )}
-
-            {unresolvedVariantItems.length > 0 && (
-              <Card className="border-amber-500/40 bg-amber-500/5">
-                <CardHeader>
-                  <CardTitle className="text-base">Choose Variants Before Payment</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {unresolvedVariantItems.map((item) => {
-                    const variantOptions = productVariantOptions[item.product.id] || [];
-                    const groupedVariantOptions = groupVariantOptionsByColor(variantOptions);
-
-                    return (
-                      <div key={item.id} className="space-y-2">
-                        <div>
-                          <p className="font-medium text-foreground">{item.product.name}</p>
-                          <p className="text-sm text-muted-foreground">Quantity: {item.quantity}</p>
-                        </div>
-                        <Select
-                          value=""
-                          onValueChange={(variantId) => {
-                            const variant = variantOptions.find((option) => option.id === variantId);
-                            if (!variant) return;
-
-                            updateVariant(item.id, {
-                              id: variant.id,
-                              color: variant.color || undefined,
-                              size: variant.size || undefined,
-                              price: variant.price_override ?? item.product.basePrice,
-                              stock: variant.stock || 0,
-                            });
-                          }}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select colour and size" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Object.entries(groupedVariantOptions).map(([color, options]) => (
-                              <SelectGroup key={color}>
-                                <SelectLabel>{color}</SelectLabel>
-                                {options.map((variant) => {
-                                  const stock = variant.stock || 0;
-                                  const label = variant.size || 'Default size';
-
-                                  return (
-                                    <SelectItem key={variant.id} value={variant.id} disabled={stock <= 0}>
-                                      {label} - {stock > 0 ? `${stock} in stock` : 'Out of stock'}
-                                    </SelectItem>
-                                  );
-                                })}
-                              </SelectGroup>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    );
-                  })}
-                </CardContent>
-              </Card>
-            )}
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Order Items ({selectedItems.length})</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {selectedItems.map((item) => (
-                    <div key={item.id} className="flex items-start gap-3 rounded-lg bg-muted/30 p-3">
-                      <div className="h-16 w-16 rounded-lg overflow-hidden flex-shrink-0">
-                        <img
-                          src={item.product.images[0]}
-                          alt={item.product.name}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <h4 className="font-medium text-foreground line-clamp-1">{item.product.name}</h4>
-                        <p className="text-sm text-muted-foreground">
-                          {[item.variant.color, item.variant.size].filter(Boolean).join(' - ') || 'Standard option'} x {item.quantity}
+            <Accordion type="multiple" defaultValue={accordionDefaultSections} className="space-y-3">
+              {hasFragile && (
+                <AccordionItem value="packaging" className="overflow-hidden rounded-2xl border bg-card px-4">
+                  <AccordionTrigger className="py-4 hover:no-underline">
+                    <div className="flex items-center gap-3 text-left">
+                      <Shield className="h-5 w-5 text-primary" />
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">
+                          Packaging for fragile items
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Choose the protection level before payment.
                         </p>
                       </div>
-                      <p className="mt-1 self-end text-sm font-medium text-foreground sm:hidden">
-                        {formatPrice(item.variant.price * item.quantity)}
-                      </p>
-                      <p className="hidden font-medium text-foreground sm:block">
-                        {formatPrice(item.variant.price * item.quantity)}
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="pb-4">
+                    <RadioGroup
+                      value={packagingChoice}
+                      onValueChange={(value) => {
+                        if (value === 'standard') {
+                          setShowStandardWarning(true);
+                        } else {
+                          setPackagingChoice('reinforced');
+                        }
+                      }}
+                    >
+                      <div className="space-y-3">
+                        {allowsReinforcedPackaging && (
+                          <div
+                            className={`cursor-pointer rounded-lg border p-4 transition-all ${
+                              packagingChoice === 'reinforced'
+                                ? 'border-primary bg-primary/5'
+                                : 'border-border hover:border-primary/50'
+                            }`}
+                            onClick={() => setPackagingChoice('reinforced')}
+                          >
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                              <div className="flex items-start gap-3 sm:items-center">
+                                <RadioGroupItem value="reinforced" id="pack-reinforced" />
+                                <div>
+                                  <p className="font-medium text-foreground">Reinforced Protection</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    Extra cushioning and protection for fragile items.
+                                  </p>
+                                </div>
+                              </div>
+                              <p className="pl-8 text-sm font-semibold text-foreground sm:pl-0">
+                                +{formatPrice(reinforcedPackagingCost || globalReinforcedCost)}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                        {allowsStandardPackaging && (
+                          <div
+                            className={`cursor-pointer rounded-lg border p-4 transition-all ${
+                              packagingChoice === 'standard'
+                                ? 'border-primary bg-primary/5'
+                                : 'border-border hover:border-primary/50'
+                            }`}
+                            onClick={() => setShowStandardWarning(true)}
+                          >
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                              <div className="flex items-start gap-3 sm:items-center">
+                                <RadioGroupItem value="standard" id="pack-standard" />
+                                <div>
+                                  <p className="font-medium text-foreground">Standard Packaging</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    Factory packaging only with no extra transit protection.
+                                  </p>
+                                </div>
+                              </div>
+                              <p className="pl-8 text-sm font-semibold text-foreground sm:pl-0">
+                                Free
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </RadioGroup>
+                  </AccordionContent>
+                </AccordionItem>
+              )}
+
+              {showSavingsSection && (
+                <AccordionItem value="savings" className="overflow-hidden rounded-2xl border bg-card px-4">
+                  <AccordionTrigger className="py-4 hover:no-underline">
+                    <div className="flex items-center gap-3 text-left">
+                      <Tag className="h-5 w-5 text-primary" />
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">Savings and credits</p>
+                        <p className="text-xs text-muted-foreground">
+                          Apply coupons, loyalty points, and wallet credit without expanding the full summary.
+                        </p>
+                      </div>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="space-y-5 pb-4">
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-2">
+                        <Tag className="h-4 w-4" />
+                        Coupon Code
+                      </Label>
+                      {appliedCoupon ? (
+                        <div className="flex items-center justify-between rounded-lg border border-primary/20 bg-primary/10 p-3">
+                          <div>
+                            <p className="font-medium text-foreground">{appliedCoupon.code}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {appliedCoupon.type === 'percentage'
+                                ? `${appliedCoupon.value}% off`
+                                : `${formatPrice(appliedCoupon.value)} off`}
+                            </p>
+                          </div>
+                          <Button variant="ghost" size="icon" onClick={removeCoupon}>
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                          <Input
+                            placeholder="Enter code"
+                            value={couponCode}
+                            onChange={(event) => setCouponCode(event.target.value.toUpperCase())}
+                            className="flex-1"
+                          />
+                          <Button
+                            variant="outline"
+                            onClick={handleApplyCoupon}
+                            disabled={isApplyingCoupon}
+                            className="w-full sm:w-auto"
+                          >
+                            {isApplyingCoupon ? 'Applying...' : 'Apply'}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+
+                    {totalPoints > 0 && (
+                      <div className="space-y-4 rounded-2xl border border-border/70 bg-muted/20 p-4">
+                        <label className="flex cursor-pointer items-start gap-3">
+                          <Checkbox
+                            checked={useLoyaltyCredit}
+                            onCheckedChange={(checked) => {
+                              const enabled = !!checked;
+                              setUseLoyaltyCredit(enabled);
+                              if (enabled && !loyaltyPointsToRedeem) {
+                                setLoyaltyPointsToRedeem(String(maxRedeemablePoints));
+                              }
+                            }}
+                            className="mt-1"
+                          />
+                          <div>
+                            <p className="font-medium text-foreground">
+                              Redeem loyalty points ({totalPoints.toLocaleString()} available)
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {loyaltyMinRedeemPoints} point minimum. {formatPrice(loyaltyRate)} per point.
+                            </p>
+                          </div>
+                        </label>
+
+                        {useLoyaltyCredit && (
+                          <div className="space-y-2">
+                            <Label htmlFor="loyalty-points">Points to redeem</Label>
+                            <Input
+                              id="loyalty-points"
+                              type="number"
+                              min={loyaltyMinRedeemPoints}
+                              max={maxRedeemablePoints}
+                              step="1"
+                              value={loyaltyPointsToRedeem}
+                              onChange={(event) => setLoyaltyPointsToRedeem(event.target.value)}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Up to {maxRedeemablePoints.toLocaleString()} points can be used on this order.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {walletBalance > 0 && (
+                      <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
+                        <label className="flex cursor-pointer items-start gap-3">
+                          <Checkbox
+                            checked={useWalletCredit}
+                            onCheckedChange={(checked) => setUseWalletCredit(!!checked)}
+                            className="mt-1"
+                          />
+                          <div>
+                            <p className="font-medium text-foreground">
+                              Use wallet credit ({formatPrice(walletBalance)} available)
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              Apply your store credit toward this order. Cannot be withdrawn.
+                            </p>
+                          </div>
+                        </label>
+                      </div>
+                    )}
+                  </AccordionContent>
+                </AccordionItem>
+              )}
+
+              {unresolvedVariantItems.length > 0 && (
+                <AccordionItem
+                  value="variants"
+                  className="overflow-hidden rounded-2xl border border-amber-500/40 bg-amber-500/5 px-4"
+                >
+                  <AccordionTrigger className="py-4 hover:no-underline">
+                    <div className="text-left">
+                      <p className="text-sm font-semibold text-foreground">Choose variants before payment</p>
+                      <p className="text-xs text-muted-foreground">
+                        Resolve the remaining product options so the order can be paid for.
                       </p>
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                  </AccordionTrigger>
+                  <AccordionContent className="space-y-4 pb-4">
+                    {unresolvedVariantItems.map((item) => {
+                      const variantOptions = productVariantOptions[item.product.id] || [];
+                      const groupedVariantOptions = groupVariantOptionsByColor(variantOptions);
+
+                      return (
+                        <div key={item.id} className="space-y-2">
+                          <div>
+                            <p className="font-medium text-foreground">{item.product.name}</p>
+                            <p className="text-sm text-muted-foreground">Quantity: {item.quantity}</p>
+                          </div>
+                          <Select
+                            value=""
+                            onValueChange={(variantId) => {
+                              const variant = variantOptions.find((option) => option.id === variantId);
+                              if (!variant) return;
+
+                              updateVariant(item.id, {
+                                id: variant.id,
+                                color: variant.color || undefined,
+                                size: variant.size || undefined,
+                                price: variant.price_override ?? item.product.basePrice,
+                                stock: variant.stock || 0,
+                              });
+                            }}
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Select colour and size" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {Object.entries(groupedVariantOptions).map(([color, options]) => (
+                                <SelectGroup key={color}>
+                                  <SelectLabel>{color}</SelectLabel>
+                                  {options.map((variant) => {
+                                    const stock = variant.stock || 0;
+                                    const label = variant.size || 'Default size';
+
+                                    return (
+                                      <SelectItem key={variant.id} value={variant.id} disabled={stock <= 0}>
+                                        {label} - {stock > 0 ? `${stock} in stock` : 'Out of stock'}
+                                      </SelectItem>
+                                    );
+                                  })}
+                                </SelectGroup>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      );
+                    })}
+                  </AccordionContent>
+                </AccordionItem>
+              )}
+
+              <AccordionItem value="items" className="overflow-hidden rounded-2xl border bg-card px-4">
+                <AccordionTrigger className="py-4 hover:no-underline">
+                  <div className="text-left">
+                    <p className="text-sm font-semibold text-foreground">
+                      Order items ({selectedItems.length})
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Review what is in this shipment without stretching the page.
+                    </p>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="pb-4">
+                  <div className="space-y-3">
+                    {selectedItems.map((item) => (
+                      <div key={item.id} className="flex items-start gap-3 rounded-lg bg-muted/30 p-3">
+                        <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg">
+                          <img
+                            src={item.product.images[0]}
+                            alt={item.product.name}
+                            className="h-full w-full object-cover"
+                          />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h4 className="line-clamp-1 font-medium text-foreground">{item.product.name}</h4>
+                          <p className="text-sm text-muted-foreground">
+                            {[item.variant.color, item.variant.size].filter(Boolean).join(' - ') || 'Standard option'} x {item.quantity}
+                          </p>
+                        </div>
+                        <p className="mt-1 self-end text-sm font-medium text-foreground sm:hidden">
+                          {formatPrice(item.variant.price * item.quantity)}
+                        </p>
+                        <p className="hidden font-medium text-foreground sm:block">
+                          {formatPrice(item.variant.price * item.quantity)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           </div>
 
           {/* Order Summary */}
           <div className="lg:col-span-1">
             <Card className="lg:sticky lg:top-24">
               <CardHeader>
-                <CardTitle>Order Summary</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <Badge variant="outline">Step 3</Badge>
+                  Order Summary
+                </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Coupon Code */}
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-2">
-                    <Tag className="h-4 w-4" />
-                    Coupon Code
-                  </Label>
-                  {appliedCoupon ? (
-                    <div className="flex items-center justify-between p-3 rounded-lg bg-primary/10 border border-primary/20">
-                      <div>
-                        <p className="font-medium text-foreground">{appliedCoupon.code}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {appliedCoupon.type === 'percentage' 
-                            ? `${appliedCoupon.value}% off` 
-                            : `${formatPrice(appliedCoupon.value)} off`}
-                        </p>
-                      </div>
-                      <Button variant="ghost" size="icon" onClick={removeCoupon}>
-                        <X className="h-4 w-4" />
-                      </Button>
+                <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">At a glance</p>
+                      <p className="text-xs text-muted-foreground">
+                        {itemCount} item{itemCount === 1 ? '' : 's'} • {selectedItems.length} line
+                        {selectedItems.length === 1 ? '' : 's'}
+                      </p>
                     </div>
-                  ) : (
-                    <div className="flex flex-col gap-2 sm:flex-row">
-                      <Input
-                        placeholder="Enter code"
-                        value={couponCode}
-                        onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                        className="flex-1"
-                      />
-                      <Button 
-                        variant="outline" 
-                        onClick={handleApplyCoupon}
-                        disabled={isApplyingCoupon}
-                        className="w-full sm:w-auto"
-                      >
-                        {isApplyingCoupon ? 'Applying...' : 'Apply'}
-                      </Button>
+                    <Badge variant="secondary">{completedCheckoutSteps}/3 ready</Badge>
+                  </div>
+                  {appliedCoupon && (
+                    <div className="mt-3 rounded-xl border border-primary/20 bg-primary/10 px-3 py-2 text-sm">
+                      <p className="font-medium text-foreground">{appliedCoupon.code} applied</p>
+                      <p className="text-xs text-muted-foreground">
+                        {appliedCoupon.type === 'percentage'
+                          ? `${appliedCoupon.value}% discount`
+                          : `${formatPrice(appliedCoupon.value)} discount`}
+                      </p>
                     </div>
                   )}
                 </div>
-
-                <Separator />
 
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
@@ -1751,36 +1928,66 @@ export default function Checkout() {
                   </div>
                 </div>
 
-                <Button
-                  className="w-full"
-                  size="lg"
-                  onClick={handlePaystackPayment}
-                  disabled={isProcessing || !selectedAddressId || !selectedShippingId || unresolvedVariantItems.length > 0}
-                >
-                  {isProcessing ? (
-                    'Processing...'
-                  ) : total <= 0 ? (
-                    <>
-                      <Check className="h-4 w-4 mr-2" />
-                      Place Order
-                    </>
-                  ) : (
-                    <>
-                      <CreditCard className="h-4 w-4 mr-2" />
-                      Pay with Paystack
-                    </>
-                  )}
-                </Button>
+                {!isMobile && (
+                  <>
+                    <Button
+                      className="w-full"
+                      size="lg"
+                      onClick={handlePaystackPayment}
+                      disabled={isPaymentDisabled}
+                    >
+                      {isProcessing ? 'Processing...' : (
+                        <>
+                          {requiresPayment ? (
+                            <CreditCard className="h-4 w-4 mr-2" />
+                          ) : (
+                            <Check className="h-4 w-4 mr-2" />
+                          )}
+                          {paymentButtonText}
+                        </>
+                      )}
+                    </Button>
 
-                <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-                  <Check className="h-3 w-3" />
-                  {total <= 0 ? 'Covered fully by wallet and loyalty credits' : 'Secure payment powered by Paystack'}
-                </div>
+                    <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                      <Check className="h-3 w-3" />
+                      {paymentSupportText}
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
           </div>
         </div>
       </main>
+
+      {isMobile && (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 px-4 pt-3 shadow-2xl backdrop-blur supports-[backdrop-filter]:bg-background/90">
+          <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)]">
+            <div className="min-w-0">
+              <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Ready to pay</p>
+              <p className="text-lg font-semibold text-foreground">{formatPrice(total)}</p>
+              <p className="truncate text-xs text-muted-foreground">{mobileCheckoutHint}</p>
+            </div>
+            <Button
+              className="min-w-[10rem]"
+              size="lg"
+              onClick={handlePaystackPayment}
+              disabled={isPaymentDisabled}
+            >
+              {isProcessing ? 'Processing...' : (
+                <>
+                  {requiresPayment ? (
+                    <CreditCard className="h-4 w-4 mr-2" />
+                  ) : (
+                    <Check className="h-4 w-4 mr-2" />
+                  )}
+                  {paymentButtonText}
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Payment Recovery Dialog */}
       <Dialog open={showPaymentRecovery} onOpenChange={setShowPaymentRecovery}>

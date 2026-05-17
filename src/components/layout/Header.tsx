@@ -1,5 +1,5 @@
-import { Link, useNavigate } from 'react-router-dom';
-import { ShoppingCart, Search, Menu, User, X, LogOut, Settings, Package, Heart } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { ShoppingCart, Search, Menu, User, LogOut, Settings, Package, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useCart } from '@/contexts/CartContext';
@@ -22,7 +22,7 @@ export function Header() {
   const { totalItems } = useCart();
   const { user, isAdmin, signOut } = useAuth();
   const navigate = useNavigate();
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const location = useLocation();
   const [searchQuery, setSearchQuery] = useState('');
   const { isEnabled } = useFeatureFlags();
 
@@ -44,18 +44,16 @@ export function Header() {
     if (searchQuery.trim()) {
       navigate(`/products?q=${encodeURIComponent(searchQuery.trim())}`);
       setSearchQuery('');
-      setIsSearchOpen(false);
     }
   };
 
-  const handleMobileSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    const form = e.target as HTMLFormElement;
-    const input = form.querySelector('input') as HTMLInputElement;
-    if (input?.value.trim()) {
-      navigate(`/products?q=${encodeURIComponent(input.value.trim())}`);
-    }
-  };
+  const showSearchSurface =
+    !location.pathname.startsWith('/admin') &&
+    !location.pathname.startsWith('/product/') &&
+    !location.pathname.startsWith('/track-order') &&
+    !location.pathname.startsWith('/order-confirmation') &&
+    location.pathname !== '/checkout' &&
+    location.pathname !== '/auth';
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
@@ -89,35 +87,20 @@ export function Header() {
         {/* Right Side Actions */}
         <div className="flex items-center gap-1 sm:gap-2">
           {/* Search */}
-          <div className="hidden sm:flex items-center">
-            {isSearchOpen ? (
-              <form onSubmit={handleSearch} className="flex items-center gap-2 animate-in slide-in-from-right">
+          {showSearchSurface && (
+            <form onSubmit={handleSearch} className="hidden md:flex items-center gap-2">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="Search products..."
-                  className="w-48 lg:w-64"
-                  autoFocus
+                  placeholder="Search products, brands, or categories"
+                  aria-label="Search products, brands, or categories"
+                  className="w-56 rounded-full border-border/70 bg-background pl-10 lg:w-72"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  type="button"
-                  onClick={() => setIsSearchOpen(false)}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </form>
-            ) : (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setIsSearchOpen(true)}
-              >
-                <Search className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
+              </div>
+            </form>
+          )}
 
           {/* Notifications */}
           <NotificationBell />
@@ -210,9 +193,6 @@ export function Header() {
                   </Link>
                 )}
                 <div className="border-t border-border pt-4 mt-4">
-                  <form onSubmit={handleMobileSearch}>
-                    <Input placeholder="Search products..." className="mb-4 h-11" />
-                  </form>
                   {user ? (
                     <div className="space-y-2">
                       <p className="text-sm text-muted-foreground truncate">
@@ -237,6 +217,23 @@ export function Header() {
           </Sheet>
         </div>
       </div>
+
+      {showSearchSurface && (
+        <div className="border-t border-border/60 px-4 py-3 md:hidden sm:px-6">
+          <form onSubmit={handleSearch}>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search products, brands, or categories"
+                aria-label="Search products, brands, or categories"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-11 rounded-full border-border/70 bg-background pl-10"
+              />
+            </div>
+          </form>
+        </div>
+      )}
     </header>
   );
 }

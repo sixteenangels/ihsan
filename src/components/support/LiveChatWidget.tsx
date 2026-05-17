@@ -10,6 +10,7 @@ import { MessageCircle, X, Send, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useDocumentVisibility } from '@/hooks/useDocumentVisibility';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface Message {
   id: string;
@@ -19,7 +20,15 @@ interface Message {
   created_at: string;
 }
 
-export function LiveChatWidget() {
+interface LiveChatWidgetProps {
+  mobileBottomOffset?: number;
+  onOpenChange?: (open: boolean) => void;
+}
+
+export function LiveChatWidget({
+  mobileBottomOffset = 0,
+  onOpenChange,
+}: LiveChatWidgetProps) {
   const { user } = useAuth();
   const { isEnabled } = useFeatureFlags();
   const [isOpen, setIsOpen] = useState(false);
@@ -30,6 +39,7 @@ export function LiveChatWidget() {
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isDocumentVisible = useDocumentVisibility();
+  const isMobile = useIsMobile();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -133,6 +143,14 @@ export function LiveChatWidget() {
     }
   }, [conversationId, isDocumentVisible, isOpen, loadMessages]);
 
+  useEffect(() => {
+    onOpenChange?.(isOpen);
+
+    return () => {
+      onOpenChange?.(false);
+    };
+  }, [isOpen, onOpenChange]);
+
   const sendMessage = async () => {
     if (!newMessage.trim() || !conversationId || !user) return;
 
@@ -178,15 +196,23 @@ export function LiveChatWidget() {
     return null;
   }
 
+  const buttonStyle = isMobile
+    ? { bottom: `calc(env(safe-area-inset-bottom, 0px) + ${80 + mobileBottomOffset}px)` }
+    : undefined;
+  const windowStyle = isMobile
+    ? { bottom: `calc(env(safe-area-inset-bottom, 0px) + ${136 + mobileBottomOffset}px)` }
+    : undefined;
+
   return (
     <>
       {/* Chat Button */}
       <Button
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          'fixed bottom-20 right-4 md:bottom-6 z-50 h-14 w-14 rounded-full shadow-lg',
+          'fixed bottom-20 right-4 z-50 h-12 w-12 rounded-full shadow-lg md:bottom-6 md:h-14 md:w-14',
           isOpen && 'bg-destructive hover:bg-destructive/90'
         )}
+        style={buttonStyle}
         size="icon"
       >
         {isOpen ? <X className="h-6 w-6" /> : <MessageCircle className="h-6 w-6" />}
@@ -194,7 +220,10 @@ export function LiveChatWidget() {
 
       {/* Chat Window */}
       {isOpen && (
-        <Card className="fixed bottom-36 right-4 md:bottom-24 z-50 w-[calc(100%-2rem)] max-w-sm shadow-2xl animate-in slide-in-from-bottom-4">
+        <Card
+          className="fixed bottom-36 right-4 z-50 w-[min(calc(100%-2rem),22rem)] shadow-2xl animate-in slide-in-from-bottom-4 md:bottom-24"
+          style={windowStyle}
+        >
           <CardHeader className="pb-3 bg-primary text-primary-foreground rounded-t-lg">
             <CardTitle className="text-lg flex items-center gap-2">
               <MessageCircle className="h-5 w-5" />
