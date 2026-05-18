@@ -80,7 +80,7 @@ const STATUS_STYLES: Record<
   cancelled: { badgeClassName: 'bg-rose-500/10 text-rose-700 border-rose-500/20 dark:text-rose-300', icon: XCircle },
 };
 
-const actionButtonClassName = 'h-8 gap-1.5 rounded-md px-2 text-[11px] font-medium sm:text-xs';
+const actionButtonClassName = 'h-8 min-w-0 gap-1.5 rounded-md px-2 text-[11px] font-medium sm:text-xs';
 
 export function CompactOrderHistoryCard({
   order,
@@ -104,11 +104,11 @@ export function CompactOrderHistoryCard({
   return (
     <Card
       className={cn(
-        'overflow-hidden border-border/70 bg-card shadow-sm transition-shadow hover:shadow-md',
+        'overflow-hidden rounded-2xl border-border/70 bg-card shadow-sm transition-shadow hover:shadow-md sm:rounded-3xl',
         className,
       )}
     >
-      <CardContent className="p-3">
+      <CardContent className="p-3 sm:p-4">
         <div className="flex items-start gap-3">
           <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-border/70 bg-muted sm:h-14 sm:w-14">
             {primaryItem?.image_url ? (
@@ -177,6 +177,16 @@ export function CompactOrderHistoryCard({
             {footerSlot ? <div className="mt-2 flex flex-wrap gap-2">{footerSlot}</div> : null}
 
             <div className="mt-3 grid grid-cols-3 gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onTrack(order)}
+                className={actionButtonClassName}
+              >
+                <Search className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">Track</span>
+              </Button>
+
               {delivered ? (
                 <Button
                   variant="outline"
@@ -185,27 +195,17 @@ export function CompactOrderHistoryCard({
                   className={actionButtonClassName}
                   disabled={!onReview}
                 >
-                  <Star className="h-3.5 w-3.5" />
-                  Review
+                  <Star className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">Review</span>
                 </Button>
               ) : (
                 refundAction || (
                   <Button variant="outline" size="sm" disabled className={actionButtonClassName}>
-                    <RefreshCcw className="h-3.5 w-3.5" />
-                    {refundOpen ? 'Refund' : 'Refund Locked'}
+                    <RefreshCcw className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">{refundOpen ? 'Refund' : 'Locked'}</span>
                   </Button>
                 )
               )}
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onTrack(order)}
-                className={actionButtonClassName}
-              >
-                <Search className="h-3.5 w-3.5" />
-                Track
-              </Button>
 
               {delivered ? (
                 <Button
@@ -214,8 +214,8 @@ export function CompactOrderHistoryCard({
                   className={actionButtonClassName}
                   disabled={!onBuyAgain}
                 >
-                  <ShoppingBag className="h-3.5 w-3.5" />
-                  Buy Again
+                  <ShoppingBag className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">Buy Again</span>
                 </Button>
               ) : (
                 <Button
@@ -233,8 +233,8 @@ export function CompactOrderHistoryCard({
                       : undefined
                   }
                 >
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                  <span className="sm:hidden">Confirm</span>
+                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate sm:hidden">Confirm</span>
                   <span className="hidden sm:inline">Confirm Delivery</span>
                 </Button>
               )}

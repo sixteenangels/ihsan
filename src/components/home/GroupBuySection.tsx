@@ -132,50 +132,6 @@ export function GroupBuySection() {
           </div>
         )}
 
-        {/* How it works */}
-        <div className="mt-10 rounded-2xl border border-border/70 bg-card p-4 shadow-sm sm:mt-12 sm:p-8">
-          <h3 className="mb-6 text-center text-lg font-bold text-foreground sm:text-xl">
-            How Group Buys Work
-          </h3>
-          <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-4">
-            <div className="text-center">
-              <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-primary text-lg font-bold text-primary-foreground sm:h-12 sm:w-12 sm:text-xl">
-                1
-              </div>
-              <h4 className="font-semibold text-foreground mb-1">Join a Group</h4>
-              <p className="text-sm text-muted-foreground">
-                Find a product and join the group buy
-              </p>
-            </div>
-            <div className="text-center">
-              <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-primary text-lg font-bold text-primary-foreground sm:h-12 sm:w-12 sm:text-xl">
-                2
-              </div>
-              <h4 className="font-semibold text-foreground mb-1">Share & Invite</h4>
-              <p className="text-sm text-muted-foreground">
-                Invite friends to unlock bigger discounts
-              </p>
-            </div>
-            <div className="text-center">
-              <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-primary text-lg font-bold text-primary-foreground sm:h-12 sm:w-12 sm:text-xl">
-                3
-              </div>
-              <h4 className="font-semibold text-foreground mb-1">Goal Reached</h4>
-              <p className="text-sm text-muted-foreground">
-                When the group fills, the deal goes through
-              </p>
-            </div>
-            <div className="text-center">
-              <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-primary text-lg font-bold text-primary-foreground sm:h-12 sm:w-12 sm:text-xl">
-                4
-              </div>
-              <h4 className="font-semibold text-foreground mb-1">Save Together</h4>
-              <p className="text-sm text-muted-foreground">
-                Everyone gets the discounted price
-              </p>
-            </div>
-          </div>
-        </div>
       </div>
     </section>
   );
