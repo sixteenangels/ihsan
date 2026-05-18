@@ -11,7 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
@@ -121,7 +121,6 @@ function ReferralTab() {
           <Gift className="h-5 w-5" />
           Refer a Friend
         </CardTitle>
-        <CardDescription>Share your referral link and earn rewards when friends join</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6 px-5 sm:px-6">
         {!referralCode ? (
@@ -197,7 +196,6 @@ function LoyaltyTab() {
           <Award className="h-5 w-5" />
           Loyalty Points
         </CardTitle>
-        <CardDescription>Earn points with every purchase</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6 px-5 sm:px-6">
         <div className="rounded-2xl bg-primary/5 p-5 text-center sm:p-6">
@@ -630,7 +628,6 @@ export default function Profile() {
                     <User className="h-5 w-5" />
                     Personal Information
                   </CardTitle>
-                  <CardDescription>Manage your personal details</CardDescription>
                 </div>
                 {!editingProfile ? (
                   <Button variant="outline" size="sm" onClick={() => setEditingProfile(true)} className="self-start sm:self-auto">
@@ -721,7 +718,6 @@ export default function Profile() {
                     <MapPin className="h-5 w-5" />
                     Saved Addresses
                   </CardTitle>
-                  <CardDescription>Manage your delivery addresses</CardDescription>
                 </div>
                 <Dialog open={addressDialogOpen} onOpenChange={(open) => {
                   setAddressDialogOpen(open);
@@ -899,9 +895,6 @@ export default function Profile() {
                   <Package className="h-5 w-5" />
                   Order History
                 </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Compact order cards with tracking and post-purchase actions.
-                </p>
               </div>
               <Link to="/my-orders">
                 <Button variant="outline" size="sm" className="w-full sm:w-auto">
@@ -987,7 +980,6 @@ export default function Profile() {
                   <RefreshCcw className="h-5 w-5" />
                   Refunds & Returns
                 </CardTitle>
-                <CardDescription>View your refund requests and returns</CardDescription>
               </CardHeader>
               <CardContent>
                 {refundsLoading ? (

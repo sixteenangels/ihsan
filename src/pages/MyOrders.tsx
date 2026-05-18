@@ -376,10 +376,6 @@ export default function MyOrders() {
         <div className="mb-6 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
           <div>
             <h1 className="text-2xl font-bold font-serif text-foreground md:text-3xl">My Orders</h1>
-            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-              Compact, state-driven order history. Track any order for full delivery, payment, address, and timeline
-              details.
-            </p>
           </div>
           <Link to="/products">
             <Button variant="outline" className="w-full sm:w-auto">

@@ -591,9 +591,6 @@ export default function Auth() {
                 <span>Welcome to</span>
                 <BrandMark size="sm" />
               </CardTitle>
-              <CardDescription>
-                Sign in to your account or create a new one
-              </CardDescription>
             </CardHeader>
             <CardContent className="px-5 sm:px-6">
               <Tabs defaultValue="login" className="w-full">
