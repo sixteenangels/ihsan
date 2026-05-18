@@ -56,7 +56,7 @@ export default function DeliveryZones() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="container max-w-5xl px-4 py-6 pb-24 sm:px-6 md:py-8 md:pb-8">
+      <main className="container max-w-5xl px-3 py-6 pb-28 sm:px-6 md:py-8 md:pb-8">
         <div className="mb-8 flex items-start gap-3 sm:items-center">
           <MapPin className="h-6 w-6 text-primary" />
           <div>
@@ -67,11 +67,11 @@ export default function DeliveryZones() {
           </div>
         </div>
 
-        <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="mb-8 grid grid-cols-1 gap-3 md:grid-cols-3 md:gap-4">
           {(data?.shippingTypes || []).map((method) => {
             const Icon = getShippingIcon(method.name);
             return (
-            <Card key={method.name}>
+            <Card key={method.name} className="rounded-2xl border-border/70 shadow-sm">
               <CardContent className="pt-6">
                 <Icon className="mb-3 h-8 w-8 text-primary" />
                 <h3 className="font-semibold text-foreground mb-1">{method.name}</h3>
@@ -93,7 +93,7 @@ export default function DeliveryZones() {
           )}
         </div>
 
-        <Card>
+        <Card className="rounded-2xl border-border/70 shadow-sm">
           <CardHeader>
             <CardTitle>Active Shipping Classes</CardTitle>
           </CardHeader>
@@ -109,7 +109,7 @@ export default function DeliveryZones() {
                 {data?.shippingClasses.map((shippingClass) => (
                 <div
                   key={shippingClass.id}
-                  className="flex flex-col gap-3 rounded-lg bg-muted/50 p-4 transition-colors hover:bg-muted sm:flex-row sm:items-center sm:justify-between"
+                  className="flex flex-col gap-3 rounded-2xl bg-muted/50 p-3.5 transition-colors hover:bg-muted sm:flex-row sm:items-center sm:justify-between sm:p-4"
                 >
                   <div className="flex-1">
                     <div className="mb-1 flex flex-wrap items-center gap-2">
@@ -140,7 +140,7 @@ export default function DeliveryZones() {
           </CardContent>
         </Card>
 
-        <Card className="mt-6">
+        <Card className="mt-6 rounded-2xl border-border/70 shadow-sm">
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">
               <strong className="text-foreground">Note:</strong> Final delivery availability still depends on the products in your cart and the shipping rules assigned to them. The checkout page shows the exact options available for each order.

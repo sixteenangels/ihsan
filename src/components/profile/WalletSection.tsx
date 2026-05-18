@@ -60,15 +60,15 @@ export function WalletSection() {
   });
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="rounded-2xl border-border/70 shadow-sm">
+      <CardHeader className="px-5 sm:px-6">
         <CardTitle className="flex items-center gap-2">
           <Wallet className="h-5 w-5 text-primary" />
           My Wallet
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
+      <CardContent className="space-y-4 px-5 sm:px-6">
+        <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4">
           <p className="text-xs text-muted-foreground">Available Balance</p>
           <p className="text-3xl font-bold text-primary">{formatPrice(balance)}</p>
           <p className="text-xs text-muted-foreground mt-1">
@@ -76,12 +76,12 @@ export function WalletSection() {
           </p>
         </div>
 
-        <div className="space-y-2 rounded-lg border border-dashed border-border p-4">
+        <div className="space-y-2 rounded-2xl border border-dashed border-border/70 p-3.5 sm:p-4">
           <div className="flex items-center gap-2">
             <Gift className="h-4 w-4 text-primary" />
             <h4 className="text-sm font-semibold">Redeem Gift Card</h4>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <Input
               placeholder="Enter gift card code"
               value={giftCardCode}
@@ -109,7 +109,7 @@ export function WalletSection() {
           ) : (
             <div className="space-y-2 max-h-[400px] overflow-y-auto">
               {(txs || []).map((t) => (
-                <div key={t.id} className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg">
+              <div key={t.id} className="flex items-start gap-3 rounded-2xl bg-muted/30 p-3">
                   {t.type === 'credit' ? (
                     <ArrowDownCircle className="h-5 w-5 text-green-600 mt-0.5" />
                   ) : (

@@ -56,8 +56,8 @@ export function FeaturedProducts() {
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
 
   return (
-    <section className="bg-card py-12 sm:py-16">
-      <div className="container px-4 sm:px-6">
+    <section className="bg-card py-10 sm:py-16">
+      <div className="container px-3 sm:px-6">
         <div className="mb-8 flex flex-col gap-4 sm:mb-10 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="mb-2 text-2xl font-bold font-serif text-foreground sm:text-3xl">
@@ -75,11 +75,11 @@ export function FeaturedProducts() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4">
           {isLoading
             ? Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="rounded-lg border border-border bg-background p-4">
-                  <Skeleton className="aspect-square w-full rounded-lg mb-4" />
+                <div key={i} className="rounded-2xl border border-border/70 bg-background p-4">
+                  <Skeleton className="mb-4 aspect-square w-full rounded-2xl" />
                   <Skeleton className="h-4 w-20 mb-2" />
                   <Skeleton className="h-5 w-full mb-2" />
                   <Skeleton className="h-6 w-24" />

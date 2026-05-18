@@ -98,7 +98,7 @@ export default function ReceiptVerify() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="container py-8 pb-24 md:pb-8">
+      <main className="container px-3 py-6 pb-28 sm:px-6 md:py-8 md:pb-8">
         <Link to="/" className="mb-6 inline-flex items-center text-sm text-muted-foreground hover:text-primary">
           <ArrowLeft className="mr-1 h-4 w-4" />
           Back to Home
@@ -113,11 +113,11 @@ export default function ReceiptVerify() {
           </div>
           {printableReceipt && (
             <div className="flex flex-wrap gap-2">
-              <Button variant="outline" onClick={() => downloadReceipt(printableReceipt)}>
+              <Button variant="outline" className="rounded-xl" onClick={() => downloadReceipt(printableReceipt)}>
                 <Download className="mr-2 h-4 w-4" />
                 Download Receipt
               </Button>
-              <Button onClick={() => printReceipt(printableReceipt)}>
+              <Button className="rounded-xl" onClick={() => printReceipt(printableReceipt)}>
                 <Printer className="mr-2 h-4 w-4" />
                 Print
               </Button>
@@ -130,7 +130,7 @@ export default function ReceiptVerify() {
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : error || !printableReceipt ? (
-          <Card>
+          <Card className="rounded-2xl border-border/70 shadow-sm">
             <CardContent className="py-16 text-center">
               <h2 className="text-xl font-semibold text-foreground">Receipt not found</h2>
               <p className="mt-2 text-muted-foreground">
@@ -140,7 +140,7 @@ export default function ReceiptVerify() {
           </Card>
         ) : (
           <div className="space-y-6">
-            <Card className="border-primary/20 bg-primary/5">
+            <Card className="rounded-2xl border-primary/20 bg-primary/5 shadow-sm">
               <CardContent className="flex flex-col gap-3 p-5 md:flex-row md:items-center md:justify-between">
                 <div>
                   <div className="flex items-center gap-2 text-primary">
@@ -157,7 +157,7 @@ export default function ReceiptVerify() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="rounded-2xl border-border/70 shadow-sm">
               <CardHeader>
                 <CardTitle>Receipt Preview</CardTitle>
               </CardHeader>
@@ -165,7 +165,7 @@ export default function ReceiptVerify() {
                 <iframe
                   title={`Receipt ${printableReceipt.receiptNumber}`}
                   srcDoc={buildReceiptHtml(printableReceipt)}
-                  className="h-[75vh] w-full rounded-xl border border-border bg-background"
+                  className="h-[70vh] w-full rounded-xl border border-border bg-background"
                 />
               </CardContent>
             </Card>

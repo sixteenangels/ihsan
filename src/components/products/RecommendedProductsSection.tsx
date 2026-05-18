@@ -152,7 +152,7 @@ export function RecommendedProductsSection({
           <Loader2 className="h-6 w-6 animate-spin text-primary" />
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
           {recommendations.map((product) => (
             <div
               key={product.id}

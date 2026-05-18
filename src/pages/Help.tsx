@@ -54,11 +54,11 @@ const faqs = [
     questions: [
       {
         q: 'What payment methods do you accept?',
-        a: 'We accept mobile money payments through Paystack, including MTN Mobile Money, Vodafone Cash, and AirtelTigo Money. All transactions are secure and encrypted.'
+        a: 'We accept secure online payments, including supported mobile money options at checkout. Available payment methods may vary by order.'
       },
       {
         q: 'Is my payment information secure?',
-        a: 'Yes! We use Paystack, a PCI-DSS compliant payment processor. Your payment details are never stored on our servers and all transactions are encrypted.'
+        a: 'Yes. Your payment details are processed securely, never stored on our servers, and protected with encryption during checkout.'
       },
       {
         q: 'Why was my payment declined?',
@@ -256,10 +256,10 @@ export default function Help() {
     <div className="min-h-screen bg-background">
       <Header />
       
-      <main className="container px-4 py-6 pb-24 sm:px-6 md:py-8 md:pb-8">
+      <main className="container px-3 py-6 pb-28 sm:px-6 md:py-8 md:pb-8">
         {/* Hero Section */}
-        <div className="mb-10 text-center md:mb-12">
-          <h1 className="mb-4 text-3xl font-bold font-serif md:text-4xl">
+        <div className="mb-8 text-center md:mb-12">
+          <h1 className="mb-4 text-2xl font-bold font-serif md:text-4xl">
             How Can We Help?
           </h1>
           <p className="mx-auto max-w-2xl text-sm text-muted-foreground sm:text-base">
@@ -268,8 +268,8 @@ export default function Help() {
         </div>
 
         {/* Quick Contact Cards */}
-        <div className="mb-10 grid grid-cols-1 gap-4 md:mb-12 md:grid-cols-3">
-          <Card className="text-center transition-shadow hover:shadow-lg">
+        <div className="mb-10 grid grid-cols-1 gap-3 md:mb-12 md:grid-cols-3 md:gap-4">
+          <Card className="rounded-2xl border-border/70 text-center shadow-sm transition-shadow hover:shadow-md">
             <CardHeader className="pb-2">
               <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
                 <MessageCircle className="h-6 w-6 text-primary" />
@@ -287,7 +287,7 @@ export default function Help() {
             </CardContent>
           </Card>
 
-          <Card className="text-center transition-shadow hover:shadow-lg">
+          <Card className="rounded-2xl border-border/70 text-center shadow-sm transition-shadow hover:shadow-md">
             <CardHeader className="pb-2">
               <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
                 <Mail className="h-6 w-6 text-primary" />
@@ -305,7 +305,7 @@ export default function Help() {
             </CardContent>
           </Card>
 
-          <Card className="text-center transition-shadow hover:shadow-lg">
+          <Card className="rounded-2xl border-border/70 text-center shadow-sm transition-shadow hover:shadow-md">
             <CardHeader className="pb-2">
               <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
                 <Phone className="h-6 w-6 text-primary" />
@@ -332,7 +332,7 @@ export default function Help() {
           
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6">
             {faqs.map((category) => (
-              <Card key={category.category}>
+              <Card key={category.category} className="rounded-2xl border-border/70 shadow-sm">
                 <CardHeader className="pb-2">
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
@@ -365,7 +365,7 @@ export default function Help() {
         </div>
 
         {/* Contact Form */}
-        <Card className="mx-auto max-w-2xl">
+        <Card className="mx-auto max-w-2xl rounded-2xl border-border/70 shadow-sm">
           <CardHeader className="px-5 sm:px-6">
             <CardTitle>Still Need Help?</CardTitle>
             <CardDescription>
@@ -377,7 +377,7 @@ export default function Help() {
           <CardContent className="px-5 sm:px-6">
             <form onSubmit={handleSubmit} className="space-y-4">
               {!user && (
-                <div className="rounded-lg border border-dashed border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+                <div className="rounded-2xl border border-dashed border-border/70 bg-muted/40 p-3 text-sm text-muted-foreground">
                   You can send a guest request here. Sign in if you want the full tracked support chat experience.
                 </div>
               )}

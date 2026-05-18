@@ -4,7 +4,6 @@ import { HeroSection } from '@/components/home/HeroSection';
 import { CategorySection } from '@/components/home/CategorySection';
 import { FeaturedProducts } from '@/components/home/FeaturedProducts';
 import { GroupBuySection } from '@/components/home/GroupBuySection';
-import { TrustJourneySection } from '@/components/home/TrustJourneySection';
 import { RecentlyViewedProducts } from '@/components/products/RecentlyViewedProducts';
 import { ResumeCheckoutBanner } from '@/components/checkout/ResumeCheckoutBanner';
 
@@ -17,7 +16,6 @@ const Index = () => {
         <div className="container px-4 pt-6 sm:px-6">
           <ResumeCheckoutBanner />
         </div>
-        <TrustJourneySection />
         <CategorySection />
         <FeaturedProducts />
         <div className="container px-4 sm:px-6">

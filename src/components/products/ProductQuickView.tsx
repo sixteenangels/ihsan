@@ -250,10 +250,10 @@ export function ProductQuickView({ product, open, onOpenChange }: ProductQuickVi
               </p>
             )}
 
-            {/* Color Selection */}
+            {/* Variant Selection */}
             {colors.length > 0 && (
               <div className="mb-4">
-                <p className="text-sm font-medium mb-2">Color</p>
+                <p className="text-sm font-medium mb-2">Variant</p>
                 <div className="flex gap-2 flex-wrap">
                   {colors.map(color => {
                     const isSelected = selectedColor === color;
@@ -271,7 +271,7 @@ export function ProductQuickView({ product, open, onOpenChange }: ProductQuickVi
                             ? 'border-primary bg-primary/10 text-primary' 
                             : 'border-border hover:border-primary'
                         }`}
-                        title={`${availableSizes} available size${availableSizes === 1 ? '' : 's'}`}
+                        title={`${color} variant - ${availableSizes} available size${availableSizes === 1 ? '' : 's'}`}
                       >
                         {color}
                       </button>
@@ -285,7 +285,7 @@ export function ProductQuickView({ product, open, onOpenChange }: ProductQuickVi
             {sizes.length > 0 && (
               <div className="mb-4">
                 <p className="text-sm font-medium mb-2">
-                  Size{selectedColor ? ` for ${selectedColor}` : ''}
+                  Size{selectedColor ? ` for ${selectedColor} variant` : ''}
                 </p>
                 <div className="flex gap-2 flex-wrap">
                   {sizesForSelectedColor.map(size => {

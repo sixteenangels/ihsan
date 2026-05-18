@@ -241,10 +241,10 @@ function OrderProgressPanel({ order }: { order: TrackedOrder }) {
     getTrackingProgressState(order, checkpoints);
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="rounded-2xl border-border/70 shadow-sm">
+      <CardHeader className="px-5 sm:px-6">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
             <Truck className="h-5 w-5 text-primary" />
             Order Progress
           </CardTitle>
@@ -253,7 +253,7 @@ function OrderProgressPanel({ order }: { order: TrackedOrder }) {
           </Badge>
         </div>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-6 px-5 sm:px-6">
         <div className="overflow-x-auto pb-2">
           <div className="min-w-full space-y-3">
             <Progress value={progressValue} className="h-2" />
@@ -343,9 +343,10 @@ export default function TrackOrder() {
           )
         `);
 
-      // Check if it's a UUID or order number
-      if (searchedOrderId.startsWith('IHS-')) {
-        query = query.eq('order_number', searchedOrderId);
+      // Check if it's a UUID or an Ajyn order number. Keep IHS for legacy receipts.
+      const normalizedSearchOrderId = searchedOrderId.trim().toUpperCase();
+      if (/^(AJYN|IHS)-/.test(normalizedSearchOrderId)) {
+        query = query.eq('order_number', normalizedSearchOrderId);
       } else {
         query = query.eq('id', searchedOrderId);
       }
@@ -525,7 +526,7 @@ export default function TrackOrder() {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="container mx-auto flex-1 max-w-4xl px-4 py-6 pb-24 sm:px-6 md:py-8 md:pb-8">
+      <main className="container mx-auto flex-1 max-w-4xl px-3 py-5 pb-28 sm:px-6 md:py-8 md:pb-8">
         <Link to="/" className="mb-6 inline-flex items-center text-sm text-muted-foreground hover:text-foreground sm:text-base">
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Home
@@ -534,16 +535,16 @@ export default function TrackOrder() {
         <h1 className="mb-6 text-2xl font-bold font-serif sm:text-3xl">Track Your Order</h1>
 
         {/* Search Form */}
-        <Card className="mb-6">
-          <CardContent className="pt-6">
+        <Card className="mb-5 rounded-2xl border-border/70 shadow-sm sm:mb-6">
+          <CardContent className="p-3.5 sm:p-6">
             <form onSubmit={handleSearch} className="flex flex-col gap-2 sm:flex-row">
               <Input
-                placeholder="Enter order number (e.g., IHS-20251226-XXXXXXXX)"
+                placeholder="Enter order number (e.g., AJYN-20260517-XXXXXXXX)"
                 value={searchOrderNumber}
                 onChange={(e) => setSearchOrderNumber(e.target.value)}
-                className="flex-1"
+                className="h-11 flex-1 rounded-xl"
               />
-              <Button type="submit" className="w-full sm:w-auto">
+              <Button type="submit" className="h-11 w-full rounded-xl sm:w-auto">
                 <Search className="h-4 w-4 mr-2" />
                 Track
               </Button>
@@ -558,7 +559,7 @@ export default function TrackOrder() {
         )}
 
         {error && (
-          <Card>
+          <Card className="rounded-2xl border-border/70 shadow-sm">
             <CardContent className="flex flex-col items-center justify-center py-16 text-center">
               <Package className="h-12 w-12 text-muted-foreground mb-4" />
               <h2 className="text-lg font-semibold mb-2">Order Not Found</h2>
@@ -572,7 +573,7 @@ export default function TrackOrder() {
         {order && (
           <div className="space-y-6">
             {/* Order Summary */}
-            <Card>
+            <Card className="rounded-2xl border-border/70 shadow-sm">
               <CardHeader>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <CardTitle className="break-all text-lg sm:text-xl">Order {order.order_number}</CardTitle>
@@ -679,16 +680,16 @@ export default function TrackOrder() {
             />
 
             {/* Order Items */}
-            <Card>
+            <Card className="rounded-2xl border-border/70 shadow-sm">
               <CardHeader>
                 <CardTitle>Order Items</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   {order.order_items.map((item) => (
-                    <div key={item.id} className="rounded-lg bg-muted/30 p-3">
+                    <div key={item.id} className="rounded-2xl bg-muted/30 p-3">
                       <div className="flex gap-3">
-                        <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg border border-border bg-muted">
+                        <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl border border-border bg-muted">
                           {item.image_url ? (
                             <img
                               src={item.image_url}
@@ -737,7 +738,7 @@ export default function TrackOrder() {
 
             {/* Shipping Address */}
             {order.shipping_address && (
-              <Card>
+              <Card className="rounded-2xl border-border/70 shadow-sm">
                 <CardHeader>
                   <CardTitle>Shipping Address</CardTitle>
                 </CardHeader>
@@ -758,7 +759,7 @@ export default function TrackOrder() {
               </Card>
             )}
 
-            <Card>
+            <Card className="rounded-2xl border-border/70 shadow-sm">
               <CardHeader>
                 <CardTitle>Logistics Details</CardTitle>
               </CardHeader>
@@ -831,7 +832,7 @@ export default function TrackOrder() {
                   </p>
                 )}
                 {order.proof_of_delivery_note && (
-                  <div className="rounded-lg bg-muted p-3 text-muted-foreground">
+                  <div className="rounded-2xl bg-muted p-3 text-muted-foreground">
                     {order.proof_of_delivery_note}
                   </div>
                 )}
@@ -839,7 +840,7 @@ export default function TrackOrder() {
                   <img
                     src={order.proof_of_delivery_image_url}
                     alt={`Proof of delivery for ${order.order_number}`}
-                    className="h-28 w-full max-w-[8rem] rounded-lg border border-border object-cover"
+                    className="h-28 w-full max-w-[8rem] rounded-2xl border border-border object-cover"
                   />
                 )}
               </CardContent>
@@ -848,7 +849,7 @@ export default function TrackOrder() {
         )}
 
         {!order && !isLoading && !error && searchedOrderId && (
-          <Card>
+          <Card className="rounded-2xl border-border/70 shadow-sm">
             <CardContent className="flex flex-col items-center justify-center py-16 text-center">
               <Package className="h-12 w-12 text-muted-foreground mb-4" />
               <h2 className="text-lg font-semibold mb-2">Order Not Found</h2>
@@ -860,7 +861,7 @@ export default function TrackOrder() {
         )}
 
         {!searchedOrderId && (
-          <Card>
+          <Card className="rounded-2xl border-border/70 shadow-sm">
             <CardContent className="flex flex-col items-center justify-center py-16 text-center">
               <Package className="h-12 w-12 text-muted-foreground mb-4" />
               <h2 className="text-lg font-semibold mb-2">Enter Your Order Number</h2>

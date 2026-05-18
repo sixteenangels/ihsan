@@ -62,25 +62,25 @@ const STATUS_STYLES: Record<
   string,
   { badgeClassName: string; icon: typeof Clock3 }
 > = {
-  pending: { badgeClassName: 'bg-amber-500/10 text-amber-700 border-amber-500/20', icon: Clock3 },
-  payment_received: { badgeClassName: 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20', icon: CheckCircle2 },
-  order_placed: { badgeClassName: 'bg-blue-500/10 text-blue-700 border-blue-500/20', icon: Package },
-  order_processed: { badgeClassName: 'bg-blue-500/10 text-blue-700 border-blue-500/20', icon: Package },
-  confirmed: { badgeClassName: 'bg-sky-500/10 text-sky-700 border-sky-500/20', icon: CheckCircle2 },
-  processing: { badgeClassName: 'bg-violet-500/10 text-violet-700 border-violet-500/20', icon: Clock3 },
-  packed_for_delivery: { badgeClassName: 'bg-fuchsia-500/10 text-fuchsia-700 border-fuchsia-500/20', icon: Package },
-  shipped: { badgeClassName: 'bg-indigo-500/10 text-indigo-700 border-indigo-500/20', icon: Truck },
-  in_transit: { badgeClassName: 'bg-cyan-500/10 text-cyan-700 border-cyan-500/20', icon: Truck },
-  in_ghana: { badgeClassName: 'bg-orange-500/10 text-orange-700 border-orange-500/20', icon: Truck },
-  ready_for_delivery: { badgeClassName: 'bg-teal-500/10 text-teal-700 border-teal-500/20', icon: Truck },
-  handed_to_courier: { badgeClassName: 'bg-indigo-500/10 text-indigo-700 border-indigo-500/20', icon: Truck },
-  out_for_delivery: { badgeClassName: 'bg-cyan-500/10 text-cyan-700 border-cyan-500/20', icon: Truck },
-  delivered: { badgeClassName: 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20', icon: CheckCircle2 },
-  refunded: { badgeClassName: 'bg-rose-500/10 text-rose-700 border-rose-500/20', icon: XCircle },
-  cancelled: { badgeClassName: 'bg-rose-500/10 text-rose-700 border-rose-500/20', icon: XCircle },
+  pending: { badgeClassName: 'bg-amber-500/10 text-amber-700 border-amber-500/20 dark:text-amber-300', icon: Clock3 },
+  payment_received: { badgeClassName: 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20 dark:text-emerald-300', icon: CheckCircle2 },
+  order_placed: { badgeClassName: 'bg-blue-500/10 text-blue-700 border-blue-500/20 dark:text-blue-300', icon: Package },
+  order_processed: { badgeClassName: 'bg-blue-500/10 text-blue-700 border-blue-500/20 dark:text-blue-300', icon: Package },
+  confirmed: { badgeClassName: 'bg-sky-500/10 text-sky-700 border-sky-500/20 dark:text-sky-300', icon: CheckCircle2 },
+  processing: { badgeClassName: 'bg-violet-500/10 text-violet-700 border-violet-500/20 dark:text-violet-300', icon: Clock3 },
+  packed_for_delivery: { badgeClassName: 'bg-fuchsia-500/10 text-fuchsia-700 border-fuchsia-500/20 dark:text-fuchsia-300', icon: Package },
+  shipped: { badgeClassName: 'bg-indigo-500/10 text-indigo-700 border-indigo-500/20 dark:text-indigo-300', icon: Truck },
+  in_transit: { badgeClassName: 'bg-cyan-500/10 text-cyan-700 border-cyan-500/20 dark:text-cyan-300', icon: Truck },
+  in_ghana: { badgeClassName: 'bg-orange-500/10 text-orange-700 border-orange-500/20 dark:text-orange-300', icon: Truck },
+  ready_for_delivery: { badgeClassName: 'bg-teal-500/10 text-teal-700 border-teal-500/20 dark:text-teal-300', icon: Truck },
+  handed_to_courier: { badgeClassName: 'bg-indigo-500/10 text-indigo-700 border-indigo-500/20 dark:text-indigo-300', icon: Truck },
+  out_for_delivery: { badgeClassName: 'bg-cyan-500/10 text-cyan-700 border-cyan-500/20 dark:text-cyan-300', icon: Truck },
+  delivered: { badgeClassName: 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20 dark:text-emerald-300', icon: CheckCircle2 },
+  refunded: { badgeClassName: 'bg-rose-500/10 text-rose-700 border-rose-500/20 dark:text-rose-300', icon: XCircle },
+  cancelled: { badgeClassName: 'bg-rose-500/10 text-rose-700 border-rose-500/20 dark:text-rose-300', icon: XCircle },
 };
 
-const actionButtonClassName = 'h-8 rounded-md px-2 text-[11px] font-medium sm:text-xs';
+const actionButtonClassName = 'h-8 gap-1.5 rounded-md px-2 text-[11px] font-medium sm:text-xs';
 
 export function CompactOrderHistoryCard({
   order,
@@ -104,13 +104,13 @@ export function CompactOrderHistoryCard({
   return (
     <Card
       className={cn(
-        'overflow-hidden border-border/60 bg-gradient-to-br from-card via-card to-muted/20 shadow-[0_18px_36px_-30px_hsl(var(--foreground)/0.55)]',
+        'overflow-hidden border-border/70 bg-card shadow-sm transition-shadow hover:shadow-md',
         className,
       )}
     >
-      <CardContent className="p-3 sm:p-3.5">
+      <CardContent className="p-3">
         <div className="flex items-start gap-3">
-          <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-border/70 bg-muted sm:h-16 sm:w-16">
+          <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-border/70 bg-muted sm:h-14 sm:w-14">
             {primaryItem?.image_url ? (
               <img
                 src={primaryItem.image_url}
@@ -177,16 +177,6 @@ export function CompactOrderHistoryCard({
             {footerSlot ? <div className="mt-2 flex flex-wrap gap-2">{footerSlot}</div> : null}
 
             <div className="mt-3 grid grid-cols-3 gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onTrack(order)}
-                className={actionButtonClassName}
-              >
-                <Search className="h-3.5 w-3.5" />
-                Track
-              </Button>
-
               {delivered ? (
                 <Button
                   variant="outline"
@@ -207,6 +197,16 @@ export function CompactOrderHistoryCard({
                 )
               )}
 
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onTrack(order)}
+                className={actionButtonClassName}
+              >
+                <Search className="h-3.5 w-3.5" />
+                Track
+              </Button>
+
               {delivered ? (
                 <Button
                   size="sm"
@@ -222,7 +222,10 @@ export function CompactOrderHistoryCard({
                   size="sm"
                   variant={canConfirmDelivery ? 'default' : 'outline'}
                   onClick={() => onConfirmDelivery?.(order)}
-                  className={actionButtonClassName}
+                  className={cn(
+                    actionButtonClassName,
+                    canConfirmDelivery && 'bg-emerald-600 text-white hover:bg-emerald-700',
+                  )}
                   disabled={!onConfirmDelivery || !canConfirmDelivery}
                   title={
                     !canConfirmDelivery

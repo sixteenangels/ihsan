@@ -125,7 +125,7 @@ export default function OrderConfirmation() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="container px-4 py-10 pb-24 sm:px-6 sm:py-16 md:pb-8">
+      <main className="container px-3 py-10 pb-28 sm:px-6 sm:py-16 md:pb-8">
         <div className="mx-auto max-w-2xl text-center">
           <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-green-100">
             <Check className="h-10 w-10 text-green-600" />
@@ -136,8 +136,8 @@ export default function OrderConfirmation() {
             Thank you for your order. We&apos;ve received your payment and will process your order shortly.
           </p>
 
-          <Card className="mb-8 text-left">
-            <CardContent className="space-y-6 p-5 sm:p-6">
+          <Card className="mb-6 rounded-2xl border-border/70 text-left shadow-sm sm:mb-8">
+            <CardContent className="space-y-5 p-4 sm:space-y-6 sm:p-6">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Order Number</p>
@@ -186,8 +186,8 @@ export default function OrderConfirmation() {
             </CardContent>
           </Card>
 
-          <Card className="mb-8">
-            <CardContent className="p-6">
+          <Card className="mb-6 rounded-2xl border-border/70 shadow-sm sm:mb-8">
+            <CardContent className="p-4 sm:p-6">
               <h3 className="mb-3 flex items-center justify-center gap-2 font-semibold text-foreground">
                 <Share2 className="h-5 w-5" />
                 Share your order
@@ -206,16 +206,16 @@ export default function OrderConfirmation() {
 
           <div className="flex flex-col justify-center gap-3 sm:flex-row sm:gap-4">
             <Link to={`/track-order/${order.id}`}>
-              <Button size="lg" className="w-full sm:w-auto">
+              <Button size="lg" className="w-full rounded-xl sm:w-auto">
                 <Package className="mr-2 h-4 w-4" />
                 Track Order
               </Button>
             </Link>
             <Link to="/my-orders">
-              <Button variant="outline" size="lg" className="w-full sm:w-auto">View All Orders</Button>
+              <Button variant="outline" size="lg" className="w-full rounded-xl sm:w-auto">View All Orders</Button>
             </Link>
             <Link to="/products">
-              <Button variant="ghost" size="lg" className="w-full sm:w-auto">Continue Shopping</Button>
+              <Button variant="ghost" size="lg" className="w-full rounded-xl sm:w-auto">Continue Shopping</Button>
             </Link>
           </div>
 

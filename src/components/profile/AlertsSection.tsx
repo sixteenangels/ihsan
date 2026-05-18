@@ -152,15 +152,15 @@ export function AlertsSection() {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
+      <Card className="rounded-2xl border-border/70 shadow-sm">
+        <CardHeader className="px-5 sm:px-6">
           <CardTitle className="flex items-center gap-2">
             <Search className="h-5 w-5 text-primary" />
             Saved Searches
           </CardTitle>
           <CardDescription>Reuse the product filters you want to come back to later.</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-5 sm:px-6">
           {savedSearchesLoading ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -175,7 +175,7 @@ export function AlertsSection() {
               {savedSearches.map((savedSearch) => (
                 <div
                   key={savedSearch.id}
-                  className="flex flex-col gap-3 rounded-xl border border-border p-4 sm:flex-row sm:items-center sm:justify-between"
+                  className="flex flex-col gap-3 rounded-2xl border border-border/70 bg-background/70 p-3.5 sm:flex-row sm:items-center sm:justify-between sm:p-4"
                 >
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
@@ -214,8 +214,8 @@ export function AlertsSection() {
       </Card>
 
       {isEnabled('price_drop_alerts') && (
-        <Card>
-          <CardHeader>
+        <Card className="rounded-2xl border-border/70 shadow-sm">
+          <CardHeader className="px-5 sm:px-6">
             <CardTitle className="flex items-center gap-2">
               <Bell className="h-5 w-5 text-primary" />
               Price Drop Alerts
@@ -224,7 +224,7 @@ export function AlertsSection() {
               Keep your alerts broad or set a target price for each product.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-5 sm:px-6">
             {priceAlertsLoading ? (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -244,7 +244,7 @@ export function AlertsSection() {
                   return (
                     <div
                       key={alert.id}
-                      className="flex flex-col gap-4 rounded-xl border border-border p-4"
+                      className="flex flex-col gap-4 rounded-2xl border border-border/70 bg-background/70 p-3.5 sm:p-4"
                     >
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div className="space-y-1">
@@ -332,8 +332,8 @@ export function AlertsSection() {
         </Card>
       )}
 
-      <Card>
-        <CardHeader>
+      <Card className="rounded-2xl border-border/70 shadow-sm">
+        <CardHeader className="px-5 sm:px-6">
           <CardTitle className="flex items-center gap-2">
             <BellRing className="h-5 w-5 text-primary" />
             Restock Alerts
@@ -342,7 +342,7 @@ export function AlertsSection() {
             Track the products and variants you asked us to notify you about.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-5 sm:px-6">
           {stockAlertsLoading ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -357,7 +357,7 @@ export function AlertsSection() {
               {stockAlerts.map((alert) => (
                 <div
                   key={alert.id}
-                  className="flex flex-col gap-3 rounded-xl border border-border p-4 sm:flex-row sm:items-center sm:justify-between"
+                  className="flex flex-col gap-3 rounded-2xl border border-border/70 bg-background/70 p-3.5 sm:flex-row sm:items-center sm:justify-between sm:p-4"
                 >
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">

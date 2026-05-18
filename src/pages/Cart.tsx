@@ -74,7 +74,7 @@ export default function Cart() {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <main className="container px-4 py-12 pb-24 sm:px-6 md:py-16 md:pb-8">
+        <main className="container px-3 py-12 pb-28 sm:px-6 md:py-16 md:pb-8">
           <div className="mx-auto max-w-md text-center">
             <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full border border-border bg-card p-6">
               <ShoppingBag className="h-12 w-12 text-muted-foreground" />
@@ -98,7 +98,7 @@ export default function Cart() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="container px-4 py-6 pb-24 sm:px-6 md:py-8 md:pb-8">
+      <main className="container px-3 py-6 pb-28 sm:px-6 md:py-8 md:pb-8">
         <Link
           to="/products"
           className="inline-flex items-center text-sm text-muted-foreground hover:text-primary mb-6"
@@ -139,8 +139,8 @@ export default function Cart() {
         <div className="grid gap-6 lg:grid-cols-3 lg:gap-8">
           <div className="lg:col-span-2 space-y-4">
             {items.map((item) => (
-              <Card key={item.id} className="overflow-hidden">
-                <CardContent className="p-4">
+              <Card key={item.id} className="overflow-hidden rounded-2xl border-border/70 bg-card shadow-sm">
+                <CardContent className="p-3 sm:p-4">
                   <div className="flex gap-3 sm:gap-4">
                     <div className="pt-1">
                       <Checkbox
@@ -149,7 +149,7 @@ export default function Cart() {
                         aria-label={`Select ${item.product.name}`}
                       />
                     </div>
-                    <div className="h-20 w-20 overflow-hidden rounded-lg flex-shrink-0 sm:h-24 sm:w-24">
+                    <div className="h-[4.5rem] w-[4.5rem] flex-shrink-0 overflow-hidden rounded-xl bg-muted sm:h-24 sm:w-24">
                       <img
                         src={item.product.images[0]}
                         alt={item.product.name}
@@ -159,10 +159,10 @@ export default function Cart() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <h3 className="line-clamp-2 font-semibold text-foreground">
+                          <h3 className="line-clamp-2 text-sm font-semibold leading-tight text-foreground sm:text-base">
                             {item.product.name}
                           </h3>
-                          <p className="text-sm text-muted-foreground">
+                          <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
                             {isVariantPlaceholder(item.variant.id)
                               ? 'Variant will be selected at checkout'
                               : [item.variant.color, item.variant.size].filter(Boolean).join(' - ') || 'Standard option'}
@@ -171,13 +171,13 @@ export default function Cart() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="text-muted-foreground hover:text-destructive"
+                          className="h-8 w-8 shrink-0 rounded-full text-muted-foreground hover:text-destructive"
                           onClick={() => removeFromCart(item.id)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
-                      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="mt-3 flex items-center justify-between gap-3">
                         <div className="flex items-center gap-2">
                           <Button
                             size="icon"
@@ -199,7 +199,7 @@ export default function Cart() {
                             <Plus className="h-3 w-3" />
                           </Button>
                         </div>
-                        <p className="text-base font-semibold text-primary sm:text-right">
+                        <p className="text-sm font-semibold text-primary sm:text-base">
                           {formatPrice(item.variant.price * item.quantity)}
                         </p>
                       </div>
@@ -230,7 +230,7 @@ export default function Cart() {
           </div>
 
           <div className="lg:col-span-1">
-            <Card className="lg:sticky lg:top-24">
+            <Card className="rounded-2xl border-border/70 bg-card shadow-sm lg:sticky lg:top-24">
               <CardHeader>
                 <CardTitle>Order Summary</CardTitle>
               </CardHeader>
@@ -256,7 +256,7 @@ export default function Cart() {
                 </div>
 
                 <Button
-                  className="w-full"
+                  className="h-11 w-full rounded-xl"
                   size="lg"
                   onClick={handleCheckout}
                 >

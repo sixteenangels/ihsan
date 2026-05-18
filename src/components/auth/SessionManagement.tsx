@@ -192,8 +192,8 @@ export function SessionManagement() {
   if (!user) return null;
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="rounded-2xl border-border/70 shadow-sm">
+      <CardHeader className="px-5 sm:px-6">
         <CardTitle className="flex items-center gap-2">
           <Shield className="h-5 w-5" />
           Active Sessions
@@ -202,7 +202,7 @@ export function SessionManagement() {
           Manage your active login sessions across devices. You can revoke access to any session you don't recognize.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 px-5 sm:px-6">
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -213,12 +213,12 @@ export function SessionManagement() {
               {sessions.map((session) => (
                 <div
                   key={session.id}
-                  className={`flex items-start justify-between p-4 rounded-lg border ${
+                  className={`flex flex-col gap-3 rounded-2xl border p-3.5 sm:flex-row sm:items-start sm:justify-between sm:p-4 ${
                     session.is_current ? 'border-primary bg-primary/5' : 'border-border'
                   }`}
                 >
                   <div className="flex items-start gap-3">
-                    <div className="p-2 rounded-lg bg-muted">
+                    <div className="rounded-xl bg-muted p-2">
                       {getDeviceIcon(session.os, session.device_info)}
                     </div>
                     <div className="space-y-1">
@@ -234,7 +234,7 @@ export function SessionManagement() {
                       </div>
                       <p className="text-sm text-muted-foreground">
                         {session.os || 'Unknown OS'}
-                        {session.device_info && ` • ${session.device_info}`}
+                        {session.device_info && ` - ${session.device_info}`}
                       </p>
                       {session.location && (
                         <p className="text-sm text-muted-foreground flex items-center gap-1">

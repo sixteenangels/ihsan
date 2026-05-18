@@ -8,14 +8,19 @@ import { Label } from '@/components/ui/label';
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
 import { toast } from 'sonner';
 import { Users, Loader2, Check, UserMinus, CreditCard } from 'lucide-react';
 import { useCurrency } from '@/hooks/useCurrency';
 import { getErrorMessage } from '@/lib/errors';
 import { loadPaystack, type PaystackTransactionResponse } from '@/lib/paystack';
+import {
+  buildGroupBuyVariantSelections,
+  getGroupBuySelectionsTotalAmount,
+  getGroupBuySelectionsTotalQuantity,
+  getGroupBuyVariantLabel,
+  getGroupBuyVariantUnitPrice,
+  withGroupBuySelectionsInShippingAddress,
+} from '@/lib/groupBuySelections';
 
 interface JoinGroupBuyDialogProps {
   inviteCode?: string | null;
@@ -47,12 +52,11 @@ export function JoinGroupBuyDialog({ groupBuy, inviteCode }: JoinGroupBuyDialogP
   const { formatPrice } = useCurrency();
   const [isOpen, setIsOpen] = useState(false);
   const [quantity, setQuantity] = useState('1');
-  const [selectedVariantId, setSelectedVariantId] = useState<string>('');
+  const [variantQuantities, setVariantQuantities] = useState<Record<string, string>>({});
   const [step, setStep] = useState<'select' | 'payment'>('select');
   const [payingWithPaystack, setPayingWithPaystack] = useState(false);
   const callbackFiredRef = useRef(false);
 
-  // Fetch product variants
   const { data: variants } = useQuery({
     queryKey: ['product-variants', groupBuy.product_id],
     queryFn: async () => {
@@ -66,7 +70,6 @@ export function JoinGroupBuyDialog({ groupBuy, inviteCode }: JoinGroupBuyDialogP
     },
   });
 
-  // Check if user already joined
   const { data: existingParticipation } = useQuery({
     queryKey: ['group-buy-participation', groupBuy.id, user?.id],
     queryFn: async () => {
@@ -82,7 +85,6 @@ export function JoinGroupBuyDialog({ groupBuy, inviteCode }: JoinGroupBuyDialogP
     enabled: !!user,
   });
 
-  // Fetch user's default address
   const { data: defaultAddress } = useQuery({
     queryKey: ['default-address', user?.id],
     queryFn: async () => {
@@ -123,23 +125,58 @@ export function JoinGroupBuyDialog({ groupBuy, inviteCode }: JoinGroupBuyDialogP
     : groupBuy.product
       ? groupBuy.product.base_price * (1 - ((activeTier?.discount_percentage ?? groupBuy.discount_percentage) || 0) / 100)
       : 0;
-
-  const selectedVariant = variants?.find((v) => v.id === selectedVariantId);
-  const unitPrice = selectedVariant?.price_override != null && groupBuy.product
-    ? activeTier?.group_price != null || groupBuy.group_price != null
-      ? Number(activeTier?.group_price ?? groupBuy.group_price)
-      : Number(selectedVariant.price_override) * (1 - ((activeTier?.discount_percentage ?? groupBuy.discount_percentage) || 0) / 100)
-    : discountedPrice;
   const normalizedQuantity = Math.max(1, Number.parseInt(quantity || '1', 10) || 1);
-  const totalAmount = unitPrice * normalizedQuantity;
+  const variantSelections = hasVariants
+    ? buildGroupBuyVariantSelections({
+        quantitiesByVariantId: variantQuantities,
+        variants: variants || [],
+        basePrice: Number(groupBuy.product?.base_price || 0),
+        groupPrice: activeTier?.group_price ?? groupBuy.group_price,
+        discountPercentage: activeTier?.discount_percentage ?? groupBuy.discount_percentage,
+      })
+    : [];
+  const totalSelectedQuantity = hasVariants
+    ? getGroupBuySelectionsTotalQuantity(variantSelections)
+    : normalizedQuantity;
+  const totalAmount = hasVariants
+    ? getGroupBuySelectionsTotalAmount(variantSelections)
+    : discountedPrice * normalizedQuantity;
+  const primaryVariantId = variantSelections[0]?.variantId ?? null;
+  const averageUnitPrice = totalSelectedQuantity > 0
+    ? totalAmount / totalSelectedQuantity
+    : discountedPrice;
+
+  const resetForm = () => {
+    setQuantity('1');
+    setVariantQuantities({});
+    setStep('select');
+    setPayingWithPaystack(false);
+  };
+
+  const handleVariantQuantityChange = (variantId: string, nextValue: string) => {
+    setVariantQuantities((current) => ({
+      ...current,
+      [variantId]: nextValue,
+    }));
+  };
 
   const handlePaystackPayment = async () => {
     if (!user) return;
+
+    if (hasVariants && totalSelectedQuantity <= 0) {
+      toast.error('Choose at least one variant to continue');
+      return;
+    }
+
+    if (!hasVariants && normalizedQuantity <= 0) {
+      toast.error('Choose a valid quantity to continue');
+      return;
+    }
+
     setPayingWithPaystack(true);
 
     try {
       const paystack = await loadPaystack();
-      // Get Paystack key
       const { data: keyData, error: keyError } = await supabase.functions.invoke('get-paystack-key');
       if (keyError || !keyData?.publicKey) {
         throw new Error('Failed to initialize payment');
@@ -170,8 +207,9 @@ export function JoinGroupBuyDialog({ groupBuy, inviteCode }: JoinGroupBuyDialogP
           type: 'group_buy',
           group_buy_id: groupBuy.id,
           user_id: user.id,
-          quantity: normalizedQuantity,
-          variant_id: selectedVariantId || null,
+          quantity: totalSelectedQuantity,
+          variant_id: primaryVariantId,
+          variant_selections: variantSelections,
         },
         callback: async (response: PaystackTransactionResponse) => {
           callbackFiredRef.current = true;
@@ -207,25 +245,25 @@ export function JoinGroupBuyDialog({ groupBuy, inviteCode }: JoinGroupBuyDialogP
       );
 
       if (verificationError) {
-        toast.error('Payment verification failed. Contact support with ref: ' + paymentRef);
+        toast.error(`Payment verification failed. Contact support with ref: ${paymentRef}`);
         setPayingWithPaystack(false);
         return;
       }
 
       if (!verification?.verified) {
-        toast.error('Payment could not be verified. If you were charged, contact support with ref: ' + paymentRef);
+        toast.error(`Payment could not be verified. If you were charged, contact support with ref: ${paymentRef}`);
         setPayingWithPaystack(false);
         return;
       }
 
       if (verification.amount !== expectedAmount) {
-        toast.error('Payment amount mismatch. Contact support with ref: ' + paymentRef);
+        toast.error(`Payment amount mismatch. Contact support with ref: ${paymentRef}`);
         setPayingWithPaystack(false);
         return;
       }
 
       if (verification.currency !== 'GHS') {
-        toast.error('Payment currency mismatch. Contact support with ref: ' + paymentRef);
+        toast.error(`Payment currency mismatch. Contact support with ref: ${paymentRef}`);
         setPayingWithPaystack(false);
         return;
       }
@@ -254,8 +292,7 @@ export function JoinGroupBuyDialog({ groupBuy, inviteCode }: JoinGroupBuyDialogP
       queryClient.invalidateQueries({ queryKey: ['group-buy-detail'] });
       toast.success('You are already in this group buy.');
       setIsOpen(false);
-      setStep('select');
-      setPayingWithPaystack(false);
+      resetForm();
       return;
     }
 
@@ -274,17 +311,17 @@ export function JoinGroupBuyDialog({ groupBuy, inviteCode }: JoinGroupBuyDialogP
       .insert({
         group_buy_id: groupBuy.id,
         user_id: user.id,
-        quantity: normalizedQuantity,
-        variant_id: selectedVariantId || null,
+        quantity: totalSelectedQuantity,
+        variant_id: primaryVariantId,
         payment_reference: paymentRef,
         payment_status: 'paid',
-        shipping_address: addressData,
+        shipping_address: withGroupBuySelectionsInShippingAddress(addressData, variantSelections),
         invite_code: invite?.invite_code || null,
         referred_by_user_id:
           invite?.inviter_user_id && invite.inviter_user_id !== user.id
             ? invite.inviter_user_id
             : null,
-        unit_price_at_join: unitPrice,
+        unit_price_at_join: averageUnitPrice,
         tier_label_at_join: activeTier?.label || null,
       });
 
@@ -296,7 +333,7 @@ export function JoinGroupBuyDialog({ groupBuy, inviteCode }: JoinGroupBuyDialogP
         queryClient.invalidateQueries({ queryKey: ['my-group-buys'] });
         queryClient.invalidateQueries({ queryKey: ['group-buy-detail'] });
         setIsOpen(false);
-        setStep('select');
+        resetForm();
       } else {
         toast.error(error.message || 'Failed to join');
       }
@@ -307,8 +344,9 @@ export function JoinGroupBuyDialog({ groupBuy, inviteCode }: JoinGroupBuyDialogP
       queryClient.invalidateQueries({ queryKey: ['group-buy-detail'] });
       toast.success('Successfully joined the group buy!');
       setIsOpen(false);
-      setStep('select');
+      resetForm();
     }
+
     setPayingWithPaystack(false);
   };
 
@@ -347,110 +385,134 @@ export function JoinGroupBuyDialog({ groupBuy, inviteCode }: JoinGroupBuyDialogP
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) setStep('select'); }}>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        setIsOpen(open);
+        if (!open) {
+          resetForm();
+        }
+      }}
+    >
       <DialogTrigger asChild>
         {hasJoined ? (
-          <Button variant="outline" className="w-full gap-2">
+          <Button variant="outline" className="h-11 w-full gap-2 rounded-xl">
             <Check className="h-4 w-4" /> Joined
           </Button>
         ) : (
-          <Button className="w-full gap-2">
+          <Button className="h-11 w-full gap-2 rounded-xl">
             <Users className="h-4 w-4" /> Join Group Buy
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="rounded-2xl sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{hasJoined ? 'Your Participation' : 'Join Group Buy'}</DialogTitle>
           <DialogDescription>{groupBuy.product?.name}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          {/* Price Info */}
-          <div className="p-4 rounded-lg bg-accent/10 border border-accent/20">
-            <div className="flex justify-between items-center mb-2">
+          <div className="rounded-2xl border border-accent/20 bg-accent/10 p-4">
+            <div className="mb-2 flex items-center justify-between">
               <span className="text-muted-foreground">Original:</span>
-              <span className="line-through text-muted-foreground">{formatPrice(groupBuy.product?.base_price || 0)}</span>
+              <span className="text-muted-foreground line-through">{formatPrice(groupBuy.product?.base_price || 0)}</span>
             </div>
-            <div className="flex justify-between items-center">
+            <div className="flex items-center justify-between">
               <span className="font-medium">{activeTier ? activeTier.label : 'Group Price'}:</span>
               <span className="text-xl font-bold text-primary">{formatPrice(discountedPrice)}</span>
             </div>
           </div>
 
-          {/* Progress */}
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Participants</span>
               <span className="font-medium">{groupBuy.current_participants || 0} / {groupBuy.min_participants}</span>
             </div>
-            <div className="w-full bg-muted rounded-full h-2">
-              <div className="bg-primary h-2 rounded-full transition-all" style={{ width: `${Math.min(100, ((groupBuy.current_participants || 0) / groupBuy.min_participants) * 100)}%` }} />
+            <div className="h-2 w-full rounded-full bg-muted">
+              <div className="h-2 rounded-full bg-primary transition-all" style={{ width: `${Math.min(100, ((groupBuy.current_participants || 0) / groupBuy.min_participants) * 100)}%` }} />
             </div>
             {participantsNeeded > 0 ? (
               <p className="text-xs text-muted-foreground">{participantsNeeded} more needed</p>
             ) : (
-              <p className="text-xs text-primary font-medium">🎉 Goal reached!</p>
+              <p className="text-xs font-medium text-primary">Goal reached!</p>
             )}
           </div>
 
           {hasJoined ? (
-            <div className="space-y-4 pt-4 border-t">
-              <div className="p-4 rounded-lg bg-primary/10">
-                <p className="font-medium text-primary flex items-center gap-2">
+            <div className="space-y-4 border-t pt-4">
+              <div className="rounded-2xl bg-primary/10 p-4">
+                <p className="flex items-center gap-2 font-medium text-primary">
                   <Check className="h-4 w-4" /> You've joined this group buy
                 </p>
-                <p className="text-sm text-muted-foreground mt-1">Qty: {existingParticipation.quantity}</p>
-                {existingParticipation.payment_status === 'paid' && (
-                  <p className="text-sm text-green-600 mt-1">✓ Payment confirmed</p>
-                )}
+                <p className="mt-1 text-sm text-muted-foreground">Qty: {existingParticipation.quantity}</p>
+                {existingParticipation.payment_status === 'paid' ? (
+                  <p className="mt-1 text-sm text-green-600">Payment confirmed</p>
+                ) : null}
               </div>
-              <Button variant="destructive" className="w-full" onClick={() => leaveMutation.mutate()} disabled={leaveMutation.isPending}>
-                {leaveMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <UserMinus className="h-4 w-4 mr-2" />}
+              <Button variant="destructive" className="h-11 w-full rounded-xl" onClick={() => leaveMutation.mutate()} disabled={leaveMutation.isPending}>
+                {leaveMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserMinus className="mr-2 h-4 w-4" />}
                 Leave Group Buy
               </Button>
             </div>
           ) : step === 'select' ? (
             <>
-              {/* Variant Selection */}
-              {variants && variants.length > 0 && (
+              {variants && variants.length > 0 ? (
+                <div className="space-y-3">
+                  <Label>Choose Variant Quantities</Label>
+                  <div className="space-y-2">
+                    {variants.map((variant) => {
+                      const variantUnitPrice = getGroupBuyVariantUnitPrice({
+                        variant,
+                        basePrice: Number(groupBuy.product?.base_price || 0),
+                        groupPrice: activeTier?.group_price ?? groupBuy.group_price,
+                        discountPercentage: activeTier?.discount_percentage ?? groupBuy.discount_percentage,
+                      });
+
+                      return (
+                        <div key={variant.id} className="flex items-center gap-3 rounded-2xl border border-border/70 bg-background/70 p-3">
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium">{getGroupBuyVariantLabel(variant)}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatPrice(variantUnitPrice)}
+                              {variant.stock !== null && variant.stock <= 5 ? ` - ${variant.stock} left` : ''}
+                            </p>
+                          </div>
+                          <Input
+                            className="h-10 w-20 rounded-xl"
+                            type="number"
+                            min="0"
+                            max={variant.stock != null ? String(Math.max(0, variant.stock)) : undefined}
+                            value={variantQuantities[variant.id] ?? ''}
+                            onChange={(event) => handleVariantQuantityChange(variant.id, event.target.value)}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Choose one or more variants for this payment.
+                  </p>
+                </div>
+              ) : (
                 <div className="space-y-2">
-                  <Label>Select Variant</Label>
-                  <Select value={selectedVariantId} onValueChange={setSelectedVariantId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choose a variant" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {variants.map((v) => (
-                        <SelectItem key={v.id} value={v.id}>
-                          {[v.color, v.size].filter(Boolean).join(' • ') || v.sku || 'Default'}{' '}
-                          {v.price_override ? `— ${formatPrice(Number(v.price_override))}` : ''}
-                          {v.stock !== null && v.stock <= 5 ? ` (${v.stock} left)` : ''}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="join-qty">Quantity</Label>
+                  <Input id="join-qty" type="number" min="1" max="10" value={quantity} onChange={(event) => setQuantity(event.target.value)} />
                 </div>
               )}
 
-              <div className="space-y-2">
-                <Label htmlFor="join-qty">Quantity</Label>
-                <Input id="join-qty" type="number" min="1" max="10" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
-              </div>
-
-              {/* Address preview */}
-              {defaultAddress && (
-                <div className="p-3 rounded-lg bg-muted/50 text-sm">
+              {defaultAddress ? (
+                <div className="rounded-2xl bg-muted/50 p-3 text-sm">
                   <p className="font-medium text-foreground">Shipping to:</p>
                   <p className="text-muted-foreground">{defaultAddress.full_name}, {defaultAddress.city}</p>
                 </div>
-              )}
+              ) : null}
 
-              <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
-                <div className="flex justify-between items-center">
+              <div className="rounded-2xl border border-primary/20 bg-primary/5 p-3">
+                <div className="flex items-center justify-between">
                   <span className="font-medium">Total to pay:</span>
                   <span className="text-xl font-bold text-primary">{formatPrice(totalAmount)}</span>
                 </div>
+                <p className="mt-1 text-xs text-muted-foreground">Total items: {totalSelectedQuantity}</p>
                 {activeTier ? (
                   <p className="mt-1 text-xs text-muted-foreground">
                     This join uses tier: {activeTier.label}
@@ -463,37 +525,45 @@ export function JoinGroupBuyDialog({ groupBuy, inviteCode }: JoinGroupBuyDialogP
                 ) : null}
               </div>
 
-              <div className="flex gap-2 pt-2">
-                <Button variant="outline" className="flex-1" onClick={() => setIsOpen(false)}>Cancel</Button>
+              <div className="flex flex-col gap-2 pt-2 sm:flex-row">
+                <Button variant="outline" className="h-11 flex-1 rounded-xl" onClick={() => setIsOpen(false)}>Cancel</Button>
                 <Button
-                  className="flex-1"
-                  disabled={hasVariants && !selectedVariantId}
+                  className="h-11 flex-1 rounded-xl"
+                  disabled={hasVariants ? totalSelectedQuantity <= 0 : normalizedQuantity <= 0}
                   onClick={() => setStep('payment')}
                 >
-                  <CreditCard className="h-4 w-4 mr-2" /> Proceed to Pay
+                  <CreditCard className="mr-2 h-4 w-4" /> Proceed to Pay
                 </Button>
               </div>
             </>
           ) : (
             <div className="space-y-4">
-              <div className="p-4 rounded-lg bg-muted/50 border">
-                <h4 className="font-medium mb-2">Order Summary</h4>
-                <div className="text-sm space-y-1">
-                  {selectedVariant && <p>Variant: {[selectedVariant.color, selectedVariant.size].filter(Boolean).join(' • ')}</p>}
-                  <p>Quantity: {quantity}</p>
+              <div className="rounded-2xl border border-border/70 bg-muted/50 p-4">
+                <h4 className="mb-2 font-medium">Order Summary</h4>
+                <div className="space-y-1 text-sm">
+                  {hasVariants ? (
+                    variantSelections.map((selection) => (
+                      <p key={selection.variantId}>
+                        {selection.label}: {selection.quantity}
+                      </p>
+                    ))
+                  ) : (
+                    <p>Quantity: {quantity}</p>
+                  )}
+                  {hasVariants ? <p>Total items: {totalSelectedQuantity}</p> : null}
                   <p className="font-bold text-primary">Total: {formatPrice(totalAmount)}</p>
                 </div>
               </div>
 
-              <Button className="w-full" onClick={handlePaystackPayment} disabled={payingWithPaystack}>
+              <Button className="h-11 w-full rounded-xl" onClick={handlePaystackPayment} disabled={payingWithPaystack}>
                 {payingWithPaystack ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
-                  <CreditCard className="h-4 w-4 mr-2" />
+                  <CreditCard className="mr-2 h-4 w-4" />
                 )}
-                Pay {formatPrice(totalAmount)} with Paystack
+                Pay Now
               </Button>
-              <Button variant="outline" className="w-full" onClick={() => setStep('select')}>
+              <Button variant="outline" className="h-11 w-full rounded-xl" onClick={() => setStep('select')}>
                 Back
               </Button>
             </div>

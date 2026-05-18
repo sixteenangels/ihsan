@@ -115,15 +115,15 @@ function ReferralTab() {
   };
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="rounded-2xl border-border/70 shadow-sm">
+      <CardHeader className="px-5 sm:px-6">
         <CardTitle className="flex items-center gap-2">
           <Gift className="h-5 w-5" />
           Refer a Friend
         </CardTitle>
         <CardDescription>Share your referral link and earn rewards when friends join</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-6 px-5 sm:px-6">
         {!referralCode ? (
           <div className="text-center py-8">
             <Gift className="h-12 w-12 text-primary mx-auto mb-4" />
@@ -135,7 +135,7 @@ function ReferralTab() {
           </div>
         ) : (
           <>
-            <div className="p-4 bg-muted rounded-lg">
+            <div className="rounded-2xl bg-muted p-4">
               <p className="text-sm text-muted-foreground mb-2">Your Referral Code</p>
               <p className="text-2xl font-bold text-primary">{referralCode.code}</p>
             </div>
@@ -165,7 +165,7 @@ function ReferralTab() {
                   </div>
                 ) : referrals.length > 0 ? (
                   referrals.slice(0, 5).map((referral, index) => (
-                    <div key={referral.id} className="rounded-lg border border-border bg-muted/40 p-3">
+                    <div key={referral.id} className="rounded-2xl border border-border/70 bg-muted/40 p-3">
                       <p className="text-sm font-medium text-foreground">Referral #{index + 1}</p>
                       <p className="text-xs text-muted-foreground">
                         Joined {format(new Date(referral.created_at), 'MMM d, yyyy')}
@@ -191,16 +191,16 @@ function LoyaltyTab() {
   const { formatPrice } = useCurrency();
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="rounded-2xl border-border/70 shadow-sm">
+      <CardHeader className="px-5 sm:px-6">
         <CardTitle className="flex items-center gap-2">
           <Award className="h-5 w-5" />
           Loyalty Points
         </CardTitle>
         <CardDescription>Earn points with every purchase</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="p-6 bg-primary/5 rounded-lg text-center">
+      <CardContent className="space-y-6 px-5 sm:px-6">
+        <div className="rounded-2xl bg-primary/5 p-5 text-center sm:p-6">
           <p className="text-sm text-muted-foreground mb-1">Your Balance</p>
           <p className="text-4xl font-bold text-primary">{totalPoints}</p>
           <p className="text-sm text-muted-foreground mt-1">points</p>
@@ -218,7 +218,7 @@ function LoyaltyTab() {
           <div className="space-y-3">
             <h4 className="font-medium text-foreground">Recent Activity</h4>
             {pointsHistory.slice(0, 10).map((entry) => (
-              <div key={entry.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+              <div key={entry.id} className="flex items-center justify-between rounded-2xl bg-muted/50 p-3">
                 <div>
                   <p className="text-sm font-medium text-foreground">{entry.description}</p>
                   <p className="text-xs text-muted-foreground">
@@ -576,52 +576,54 @@ export default function Profile() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="container max-w-4xl px-4 py-6 pb-24 sm:px-6 md:py-8 md:pb-8">
+      <main className="container max-w-4xl px-3 py-6 pb-28 sm:px-6 md:py-8 md:pb-8">
         <h1 className="mb-6 text-2xl font-bold font-serif text-foreground md:mb-8 md:text-3xl">My Account</h1>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="mb-6 grid h-auto w-full grid-cols-2 gap-2 rounded-2xl bg-muted/70 p-2 sm:grid-cols-3 md:mb-8 lg:grid-cols-5 xl:grid-cols-9">
-            <TabsTrigger value="profile" className="flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs sm:text-sm">
-              <User className="h-4 w-4" />
-              <span>Profile</span>
-            </TabsTrigger>
-            <TabsTrigger value="addresses" className="flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs sm:text-sm">
-              <MapPin className="h-4 w-4" />
-              <span>Addresses</span>
-            </TabsTrigger>
-            <TabsTrigger value="orders" className="flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs sm:text-sm">
-              <Package className="h-4 w-4" />
-              <span>Orders</span>
-            </TabsTrigger>
-            <TabsTrigger value="wallet" className="flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs sm:text-sm">
-              <Wallet className="h-4 w-4" />
-              <span>Wallet</span>
-            </TabsTrigger>
-            <TabsTrigger value="alerts" className="flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs sm:text-sm">
-              <Bell className="h-4 w-4" />
-              <span>Alerts</span>
-            </TabsTrigger>
-            <TabsTrigger value="support" className="flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs sm:text-sm">
-              <Headphones className="h-4 w-4" />
-              <span>Support</span>
-            </TabsTrigger>
-            <TabsTrigger value="refunds" className="flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs sm:text-sm">
-              <RefreshCcw className="h-4 w-4" />
-              <span>Refunds</span>
-            </TabsTrigger>
-            <TabsTrigger value="referral" className="flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs sm:text-sm">
-              <Gift className="h-4 w-4" />
-              <span>Referral</span>
-            </TabsTrigger>
-            <TabsTrigger value="loyalty" className="flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs sm:text-sm">
-              <Award className="h-4 w-4" />
-              <span>Points</span>
-            </TabsTrigger>
-          </TabsList>
+          <div className="mobile-scroll-pills -mx-1 mb-6 overflow-x-auto px-1 md:mb-8">
+            <TabsList className="inline-flex h-auto min-w-max gap-1 rounded-2xl bg-muted/70 p-1.5">
+              <TabsTrigger value="profile" className="flex min-h-10 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs sm:text-sm">
+                <User className="h-4 w-4" />
+                <span>Profile</span>
+              </TabsTrigger>
+              <TabsTrigger value="addresses" className="flex min-h-10 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs sm:text-sm">
+                <MapPin className="h-4 w-4" />
+                <span>Addresses</span>
+              </TabsTrigger>
+              <TabsTrigger value="orders" className="flex min-h-10 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs sm:text-sm">
+                <Package className="h-4 w-4" />
+                <span>Orders</span>
+              </TabsTrigger>
+              <TabsTrigger value="wallet" className="flex min-h-10 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs sm:text-sm">
+                <Wallet className="h-4 w-4" />
+                <span>Wallet</span>
+              </TabsTrigger>
+              <TabsTrigger value="alerts" className="flex min-h-10 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs sm:text-sm">
+                <Bell className="h-4 w-4" />
+                <span>Alerts</span>
+              </TabsTrigger>
+              <TabsTrigger value="support" className="flex min-h-10 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs sm:text-sm">
+                <Headphones className="h-4 w-4" />
+                <span>Support</span>
+              </TabsTrigger>
+              <TabsTrigger value="refunds" className="flex min-h-10 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs sm:text-sm">
+                <RefreshCcw className="h-4 w-4" />
+                <span>Refunds</span>
+              </TabsTrigger>
+              <TabsTrigger value="referral" className="flex min-h-10 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs sm:text-sm">
+                <Gift className="h-4 w-4" />
+                <span>Referral</span>
+              </TabsTrigger>
+              <TabsTrigger value="loyalty" className="flex min-h-10 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs sm:text-sm">
+                <Award className="h-4 w-4" />
+                <span>Points</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* Profile Tab */}
           <TabsContent value="profile" className="space-y-6">
-            <Card>
+            <Card className="rounded-2xl border-border/70 shadow-sm">
               <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <CardTitle className="flex items-center gap-2">
@@ -712,7 +714,7 @@ export default function Profile() {
 
           {/* Addresses Tab */}
           <TabsContent value="addresses">
-            <Card>
+            <Card className="rounded-2xl border-border/70 shadow-sm">
               <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <CardTitle className="flex items-center gap-2">
@@ -846,7 +848,7 @@ export default function Profile() {
                     {addresses.map((address) => (
                       <div
                         key={address.id}
-                        className="flex flex-col gap-4 rounded-lg border border-border p-4 sm:flex-row sm:items-start sm:justify-between"
+                        className="flex flex-col gap-4 rounded-2xl border border-border/70 bg-background/70 p-3.5 sm:flex-row sm:items-start sm:justify-between sm:p-4"
                       >
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
@@ -890,77 +892,76 @@ export default function Profile() {
           </TabsContent>
 
           {/* Orders Tab */}
-          <TabsContent value="orders">
-            <Card>
-              <CardHeader>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <Package className="h-5 w-5" />
-                      Order History
-                    </CardTitle>
-                    <CardDescription>Compact order cards with full tracking and post-purchase actions.</CardDescription>
-                  </div>
-                  <Link to="/my-orders">
-                    <Button variant="outline" size="sm" className="w-full sm:w-auto">
-                      Open My Orders
-                    </Button>
-                  </Link>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {orders.length === 0 ? (
-                  <div className="text-center py-12">
-                    <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
-                      <ShoppingBag className="h-8 w-8 text-muted-foreground" />
-                    </div>
-                    <h3 className="text-lg font-medium text-foreground mb-2">No orders yet</h3>
-                    <p className="text-muted-foreground mb-6">Start shopping to see your orders here</p>
-                    <Link to="/products">
-                      <Button className="w-full sm:w-auto">Browse Products</Button>
-                    </Link>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {orders.map((order) => {
-                      const refundOpen = canRequestRefund(order);
-                      const refundReason = refundOpen
-                        ? 'Refund available during the 48-hour payment window.'
-                        : getRefundButtonReason(order);
+          <TabsContent value="orders" className="space-y-4">
+            <div className="flex flex-col gap-3 px-1 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="flex items-center gap-2 font-serif text-2xl font-bold leading-tight text-foreground">
+                  <Package className="h-5 w-5" />
+                  Order History
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Compact order cards with tracking and post-purchase actions.
+                </p>
+              </div>
+              <Link to="/my-orders">
+                <Button variant="outline" size="sm" className="w-full sm:w-auto">
+                  Open My Orders
+                </Button>
+              </Link>
+            </div>
 
-                      return (
-                        <CompactOrderHistoryCard
-                          key={order.id}
-                          order={order}
-                          formatPrice={formatPrice}
-                          onTrack={handleTrackOrder}
-                          onConfirmDelivery={handleConfirmDelivery}
-                          onReview={(selectedOrder) => setReviewDialogOrder(selectedOrder)}
-                          onBuyAgain={handleBuyAgain}
-                          refundAction={
-                            <RefundRequestDialog
-                              order={order}
-                              canRequest={refundOpen}
-                              disabledReason={refundReason}
-                              triggerLabel="Refund"
-                              className="h-8 w-full px-2 text-[11px] sm:text-xs"
-                            />
-                          }
-                          footerSlot={
-                            order.group_buy_id ? (
-                              <Badge variant="outline" className="rounded-full text-[10px] uppercase tracking-[0.12em]">
-                                <Users className="mr-1 h-3 w-3" />
-                                Group Buy
-                              </Badge>
-                            ) : null
-                          }
-                        />
-                      );
-                    })}
+            {orders.length === 0 ? (
+              <Card className="rounded-2xl border-border/70 shadow-sm">
+                <CardContent className="py-12 text-center">
+                  <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+                    <ShoppingBag className="h-8 w-8 text-muted-foreground" />
                   </div>
-                )}
-              </CardContent>
-            </Card>
+                  <h3 className="mb-2 text-lg font-medium text-foreground">No orders yet</h3>
+                  <p className="mb-6 text-muted-foreground">Start shopping to see your orders here</p>
+                  <Link to="/products">
+                    <Button className="w-full sm:w-auto">Browse Products</Button>
+                  </Link>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-3">
+                {orders.map((order) => {
+                  const refundOpen = canRequestRefund(order);
+                  const refundReason = refundOpen
+                    ? 'Refund available during the 48-hour payment window.'
+                    : getRefundButtonReason(order);
+
+                  return (
+                    <CompactOrderHistoryCard
+                      key={order.id}
+                      order={order}
+                      formatPrice={formatPrice}
+                      onTrack={handleTrackOrder}
+                      onConfirmDelivery={handleConfirmDelivery}
+                      onReview={(selectedOrder) => setReviewDialogOrder(selectedOrder)}
+                      onBuyAgain={handleBuyAgain}
+                      refundAction={
+                        <RefundRequestDialog
+                          order={order}
+                          canRequest={refundOpen}
+                          disabledReason={refundReason}
+                          triggerLabel="Refund"
+                          className="h-8 w-full px-2 text-[11px] sm:text-xs"
+                        />
+                      }
+                      footerSlot={
+                        order.group_buy_id ? (
+                          <Badge variant="outline" className="rounded-full text-[10px] uppercase tracking-[0.12em]">
+                            <Users className="mr-1 h-3 w-3" />
+                            Group Buy
+                          </Badge>
+                        ) : null
+                      }
+                    />
+                  );
+                })}
+              </div>
+            )}
           </TabsContent>
 
           {/* Wallet Tab */}
@@ -980,7 +981,7 @@ export default function Profile() {
 
           {/* Refunds Tab */}
           <TabsContent value="refunds">
-            <Card>
+            <Card className="rounded-2xl border-border/70 shadow-sm">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <RefreshCcw className="h-5 w-5" />
@@ -1006,8 +1007,8 @@ export default function Profile() {
                 ) : (
                   <div className="space-y-4">
                     {refundRequests.map((request) => (
-                      <div key={request.id} className="border border-border rounded-lg p-4">
-                        <div className="flex items-center justify-between mb-3">
+                      <div key={request.id} className="rounded-2xl border border-border/70 bg-background/70 p-3.5 sm:p-4">
+                        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                           <div>
                             <p className="font-medium text-foreground">
                               Order {request.order?.order_number || 'Unknown'}
@@ -1052,7 +1053,7 @@ export default function Profile() {
                             </span>
                           </p>
                           {request.admin_notes && (
-                            <div className="mt-2 p-3 rounded-lg bg-muted">
+                            <div className="mt-2 rounded-2xl bg-muted p-3">
                               <p className="text-xs text-muted-foreground mb-1">Admin response:</p>
                               <p className="text-foreground">{request.admin_notes}</p>
                             </div>

@@ -65,34 +65,34 @@ export default function GroupBuys() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="container px-4 py-6 pb-24 sm:px-6 md:py-8 md:pb-8">
-        <div className="mb-10 text-center sm:mb-12">
+      <main className="container px-3 py-6 pb-28 sm:px-6 md:py-8 md:pb-8">
+        <div className="mb-8 text-center sm:mb-12">
           <div className="mb-4 inline-flex rounded-2xl bg-primary/10 p-3 sm:p-4">
-            <Users className="h-10 w-10 text-primary sm:h-12 sm:w-12" />
+            <Users className="h-8 w-8 text-primary sm:h-12 sm:w-12" />
           </div>
-          <h1 className="mb-3 text-3xl font-bold font-serif text-foreground sm:text-4xl">Group Buys</h1>
-          <p className="mx-auto max-w-2xl text-base text-muted-foreground sm:text-lg">
+          <h1 className="mb-3 text-2xl font-bold font-serif text-foreground sm:text-4xl">Group Buys</h1>
+          <p className="mx-auto max-w-2xl text-sm text-muted-foreground sm:text-lg">
             Join other shoppers to unlock fixed group pricing on products you already want.
           </p>
         </div>
 
-        <div className="mx-auto mb-8 grid max-w-2xl grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
+        <div className="mx-auto mb-8 grid max-w-2xl grid-cols-3 gap-2 sm:gap-4">
           <div className="rounded-xl border border-border bg-card p-4 text-center">
-            <p className="text-2xl font-bold text-primary sm:text-3xl">{activeGroupBuys.length}</p>
-            <p className="text-sm text-muted-foreground">Active Groups</p>
+            <p className="text-xl font-bold text-primary sm:text-3xl">{activeGroupBuys.length}</p>
+            <p className="text-[11px] text-muted-foreground sm:text-sm">Active</p>
           </div>
           <div className="rounded-xl border border-border bg-card p-4 text-center">
-            <p className="text-2xl font-bold text-primary sm:text-3xl">{totalParticipants}</p>
-            <p className="text-sm text-muted-foreground">Participants</p>
+            <p className="text-xl font-bold text-primary sm:text-3xl">{totalParticipants}</p>
+            <p className="text-[11px] text-muted-foreground sm:text-sm">Joined</p>
           </div>
           <div className="rounded-xl border border-border bg-card p-4 text-center">
-            <p className="text-2xl font-bold text-primary sm:text-3xl">Up to {maxSavings}%</p>
-            <p className="text-sm text-muted-foreground">Potential Savings</p>
+            <p className="text-xl font-bold text-primary sm:text-3xl">{maxSavings}%</p>
+            <p className="text-[11px] text-muted-foreground sm:text-sm">Savings</p>
           </div>
         </div>
 
         <Tabs defaultValue="active" className="mb-8">
-          <TabsList className="mb-6 grid h-auto w-full grid-cols-1 gap-2 p-1 sm:inline-flex sm:w-auto sm:grid-cols-none">
+          <TabsList className={`mb-6 grid h-auto w-full gap-2 rounded-2xl p-1 sm:inline-flex sm:w-auto sm:grid-cols-none ${user ? 'grid-cols-2' : 'grid-cols-1'}`}>
             <TabsTrigger value="active">Active Group Buys</TabsTrigger>
             {user ? (
               <TabsTrigger value="mine">
@@ -106,7 +106,7 @@ export default function GroupBuys() {
 
           <TabsContent value="active">
             {activeGroupBuys.length > 0 ? (
-              <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid grid-cols-1 gap-3 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {activeGroupBuys.map((groupBuy) => (
                   <GroupBuyCard key={groupBuy.id} groupBuy={groupBuy} />
                 ))}
@@ -149,10 +149,10 @@ export default function GroupBuys() {
 
                     return (
                       <Link key={participation.id} to={`/group-buy/${groupBuy.id}`}>
-                        <Card className="hover:shadow-md transition-shadow">
+                        <Card className="rounded-2xl border-border/70 transition-shadow hover:shadow-md">
                           <CardContent className="p-4">
                             <div className="flex flex-col gap-4 sm:flex-row">
-                              <div className="h-20 w-full overflow-hidden rounded-lg bg-muted sm:w-20 sm:flex-shrink-0">
+                              <div className="h-20 w-full overflow-hidden rounded-xl bg-muted sm:w-20 sm:flex-shrink-0">
                                 <img
                                   src={groupBuy.product.images[0] || '/placeholder.svg'}
                                   alt={groupBuy.product.name}

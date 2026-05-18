@@ -15,8 +15,8 @@ export function PushNotificationSettings() {
 
   if (!isSupported) {
     return (
-      <Card>
-        <CardHeader>
+      <Card className="rounded-2xl border-border/70 shadow-sm">
+        <CardHeader className="px-5 sm:px-6">
           <CardTitle className="flex items-center gap-2">
             <Smartphone className="h-5 w-5" />
             Push Notifications
@@ -31,8 +31,8 @@ export function PushNotificationSettings() {
   }
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="rounded-2xl border-border/70 shadow-sm">
+      <CardHeader className="px-5 sm:px-6">
         <CardTitle className="flex items-center gap-2">
           {isSubscribed ? (
             <Bell className="h-5 w-5 text-primary" />
@@ -45,8 +45,8 @@ export function PushNotificationSettings() {
           Get instant notifications on your device when your order status changes
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <div className="flex items-center justify-between">
+      <CardContent className="px-5 sm:px-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
             <p className="text-sm font-medium">
               {isSubscribed ? 'Notifications Enabled' : 'Notifications Disabled'}

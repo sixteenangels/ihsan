@@ -85,39 +85,40 @@ export function ProductQA({ productId }: ProductQAProps) {
   if (!isEnabled('qa')) return null;
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
+    <Card className="rounded-2xl border-border/70 shadow-sm">
+      <CardHeader className="px-5 sm:px-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
             <MessageCircle className="h-5 w-5" />
             Questions & Answers
           </CardTitle>
           {user && !showForm && (
-            <Button variant="outline" size="sm" onClick={() => setShowForm(true)}>
+            <Button variant="outline" size="sm" className="h-10 rounded-xl" onClick={() => setShowForm(true)}>
               Ask a Question
             </Button>
           )}
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 px-5 sm:px-6">
         {showForm && (
-          <div className="p-4 border border-border rounded-lg space-y-3">
+          <div className="space-y-3 rounded-2xl border border-border/70 bg-muted/30 p-3.5 sm:p-4">
             <Textarea
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
               placeholder="Ask a question about this product..."
               rows={3}
             />
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <Button
                 size="sm"
+                className="h-10 rounded-xl"
                 onClick={() => askMutation.mutate()}
                 disabled={!question.trim() || askMutation.isPending}
               >
                 {askMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Send className="h-4 w-4 mr-1" />}
                 Submit
               </Button>
-              <Button variant="outline" size="sm" onClick={() => setShowForm(false)}>Cancel</Button>
+              <Button variant="outline" size="sm" className="h-10 rounded-xl" onClick={() => setShowForm(false)}>Cancel</Button>
             </div>
           </div>
         )}
@@ -133,7 +134,7 @@ export function ProductQA({ productId }: ProductQAProps) {
         ) : (
           <div className="space-y-4">
             {questions.map((q) => (
-              <div key={q.id} className="border border-border rounded-lg p-4 space-y-3">
+              <div key={q.id} className="space-y-3 rounded-2xl border border-border/70 bg-background/70 p-3.5 sm:p-4">
                 <div className="flex items-start gap-3">
                   <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                     <User className="h-4 w-4 text-primary" />
@@ -151,7 +152,7 @@ export function ProductQA({ productId }: ProductQAProps) {
                   </div>
                 </div>
                 {q.answer && (
-                  <div className="ml-11 p-3 bg-primary/5 rounded-lg border-l-2 border-primary">
+                  <div className="ml-0 rounded-2xl border border-primary/15 bg-primary/5 p-3 sm:ml-11">
                     <div className="flex items-center gap-2 mb-1">
                       <Badge variant="secondary" className="text-xs">AJYN Team</Badge>
                       {q.answered_at && (

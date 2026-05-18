@@ -146,7 +146,7 @@ export function VariantSelector({
             <div
               key={variant.id}
               className={cn(
-                'flex items-center justify-between p-4 rounded-lg border transition-all cursor-pointer',
+                'flex cursor-pointer items-center justify-between rounded-2xl border p-3.5 transition-all sm:p-4',
                 isSelected
                   ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
                   : 'border-border hover:border-primary/50',
@@ -162,7 +162,7 @@ export function VariantSelector({
                   <Button
                     size="icon"
                     variant="outline"
-                    className="h-8 w-8"
+                    className="h-8 w-8 rounded-xl"
                     onClick={(event) => {
                       event.stopPropagation();
                       onQuantityChange(variant.id, Math.max(1, quantity - 1));
@@ -174,7 +174,7 @@ export function VariantSelector({
                   <Button
                     size="icon"
                     variant="outline"
-                    className="h-8 w-8"
+                    className="h-8 w-8 rounded-xl"
                     onClick={(event) => {
                       event.stopPropagation();
                       onQuantityChange(variant.id, quantity + 1);
@@ -196,7 +196,7 @@ export function VariantSelector({
       {uniqueColors.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h4 className="font-medium text-foreground">Colour</h4>
+            <h4 className="font-medium text-foreground">Variant</h4>
             {selectedColor && (
               <span className="text-sm text-muted-foreground capitalize">{selectedColor}</span>
             )}
@@ -221,7 +221,7 @@ export function VariantSelector({
                       ? 'border-primary bg-primary/5 text-primary ring-2 ring-primary/20'
                       : 'border-border hover:border-primary/50',
                   )}
-                  title={`${color} - ${availableSizeCount} available size${availableSizeCount === 1 ? '' : 's'}`}
+                  title={`${color} variant - ${availableSizeCount} available size${availableSizeCount === 1 ? '' : 's'}`}
                 >
                   <span
                     className="flex h-7 w-7 items-center justify-center rounded-full border border-border"
@@ -251,7 +251,7 @@ export function VariantSelector({
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="font-medium text-foreground">
-              Size{selectedColor ? ` for ${selectedColor}` : ''}
+              Size{selectedColor ? ` for ${selectedColor} variant` : ''}
             </h4>
             <span className="text-xs text-muted-foreground">
               {sizesForSelectedColor.length} option{sizesForSelectedColor.length === 1 ? '' : 's'}
@@ -269,7 +269,7 @@ export function VariantSelector({
                   onClick={() => setSelectedSize(size)}
                   disabled={!isAvailable}
                   className={cn(
-                    'rounded-lg border px-4 py-2 text-sm font-medium transition-all',
+                    'rounded-xl border px-4 py-2 text-sm font-medium transition-all',
                     isSelected
                       ? 'border-primary bg-primary text-primary-foreground'
                       : isAvailable
@@ -286,7 +286,7 @@ export function VariantSelector({
       )}
 
       {currentVariant && (
-        <div className="p-4 rounded-lg bg-muted/50 border border-border space-y-3">
+        <div className="space-y-3 rounded-2xl border border-border/70 bg-muted/50 p-3.5 sm:p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-2xl font-bold text-primary">{formatPrice(currentVariant.price)}</p>
@@ -313,7 +313,7 @@ export function VariantSelector({
                 <Button
                   size="icon"
                   variant="outline"
-                  className="h-8 w-8"
+                  className="h-8 w-8 rounded-xl"
                   onClick={() =>
                     onQuantityChange(currentVariant.id, Math.max(1, getSelectedQuantity(currentVariant.id) - 1))
                   }
@@ -324,7 +324,7 @@ export function VariantSelector({
                 <Button
                   size="icon"
                   variant="outline"
-                  className="h-8 w-8"
+                  className="h-8 w-8 rounded-xl"
                   onClick={() => onQuantityChange(currentVariant.id, getSelectedQuantity(currentVariant.id) + 1)}
                 >
                   <Plus className="h-3 w-3" />
@@ -334,7 +334,7 @@ export function VariantSelector({
           ) : null}
 
           <Button
-            className="w-full"
+            className="h-11 w-full rounded-xl"
             onClick={() => onVariantToggle(currentVariant)}
             disabled={getVariantStock(currentVariant) === 0}
           >
@@ -344,13 +344,13 @@ export function VariantSelector({
       )}
 
       {selectedVariants.length > 0 && (
-        <div className="p-4 rounded-lg border border-primary/20 bg-primary/5 space-y-2">
+        <div className="space-y-2 rounded-2xl border border-primary/20 bg-primary/5 p-3.5 sm:p-4">
           <h4 className="font-medium text-foreground">{selectedVariants.length} variant(s) selected</h4>
           <div className="space-y-1">
             {selectedVariants.map((variant) => (
               <div key={variant.id} className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">
-                  {variant.color || 'Default'}
+                  {variant.color || 'Default variant'}
                   {variant.size && ` - ${variant.size}`} x {variant.quantity}
                 </span>
                 <span className="font-medium text-foreground">

@@ -160,7 +160,7 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
     });
 
     if (uniqueGeneratedVariants.length === 0) {
-      toast.error('Those colour and size combinations already exist.');
+      toast.error('Those variant and size combinations already exist.');
       return;
     }
 
@@ -206,7 +206,7 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
 
   const groupedVariants = variants.reduce<Record<string, Array<{ variant: VariantData; index: number }>>>(
     (groups, variant, index) => {
-      const colorKey = variant.color.trim() || 'No colour';
+      const colorKey = variant.color.trim() || 'No variant';
       if (!groups[colorKey]) {
         groups[colorKey] = [];
       }
@@ -234,7 +234,7 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
           <CardContent className="pt-4 space-y-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="variant-color">Colour</Label>
+                <Label htmlFor="variant-color">Variant</Label>
                 <Input
                   id="variant-color"
                   value={currentVariant.color}
@@ -242,7 +242,7 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
                   placeholder="e.g., Black"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Enter one colour like Black, then add all available sizes in the next field.
+                  Enter one variant option like Black, then add all available sizes in the next field.
                 </p>
               </div>
               <div className="space-y-2">
@@ -254,7 +254,7 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
                   placeholder="e.g., S, M, L, XL"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Commas create separate variants that customers select under this colour.
+                  Commas create separate size options that customers select under this variant.
                 </p>
               </div>
             </div>
@@ -300,7 +300,7 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
                   <div>
                     <p className="text-sm font-medium text-foreground">Inventory rows to create</p>
                     <p className="text-xs text-muted-foreground">
-                      Set stock for each colour and size before saving.
+                      Set stock for each variant and size before saving.
                     </p>
                   </div>
                   <Badge variant="secondary">
@@ -315,7 +315,7 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
                     >
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium text-foreground">
-                          {combination.color || 'Default colour'}
+                          {combination.color || 'Default variant'}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           Size: {combination.size || 'Default size'}
@@ -368,7 +368,7 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
             <div key={color} className="rounded-lg border border-border bg-muted/20 p-3">
               <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="font-medium text-foreground">Colour: {color}</p>
+                  <p className="font-medium text-foreground">Variant: {color}</p>
                   <p className="text-xs text-muted-foreground">
                     {entries.length} size option{entries.length === 1 ? '' : 's'} in inventory
                   </p>
@@ -420,7 +420,7 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
 
       {variants.length === 0 && !showForm && (
         <p className="text-sm text-muted-foreground">
-          No variants added. Add a colour, comma-separated sizes, and stock to create selectable inventory.
+          No variants added. Add a variant, comma-separated sizes, and stock to create selectable inventory.
         </p>
       )}
     </div>

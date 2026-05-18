@@ -43,7 +43,7 @@ export function GroupBuyCard({ groupBuy }: GroupBuyCardProps) {
   };
 
   return (
-    <Card className="overflow-hidden hover:shadow-lg transition-all duration-300 border-border bg-card">
+    <Card className="overflow-hidden rounded-2xl border-border/70 bg-card shadow-sm transition-all duration-300 hover:shadow-md">
       <Link to={`/group-buy/${groupBuy.id}`}>
         <div className="relative aspect-[4/3] overflow-hidden">
           <img
@@ -52,13 +52,13 @@ export function GroupBuyCard({ groupBuy }: GroupBuyCardProps) {
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 to-transparent" />
-          <Badge className="absolute top-3 left-3 bg-accent text-accent-foreground text-lg px-3 py-1">
+          <Badge className="absolute left-2 top-2 bg-accent px-2.5 py-1 text-xs text-accent-foreground sm:left-3 sm:top-3 sm:text-lg">
             {effectiveDiscount}% OFF
           </Badge>
           <Button
             variant="ghost"
             size="icon"
-            className="absolute top-3 right-3 bg-background/50 hover:bg-background/80"
+            className="absolute right-2 top-2 h-9 w-9 rounded-full bg-background/70 shadow-sm backdrop-blur hover:bg-background/90 sm:right-3 sm:top-3"
             onClick={handleShare}
           >
             <Share2 className="h-4 w-4" />
@@ -70,7 +70,7 @@ export function GroupBuyCard({ groupBuy }: GroupBuyCardProps) {
           </div>
         </div>
       </Link>
-      <CardContent className="p-4">
+      <CardContent className="p-3.5 sm:p-4">
         <div className="flex items-center justify-between mb-3">
           <div>
             <p className="text-sm text-muted-foreground line-through">

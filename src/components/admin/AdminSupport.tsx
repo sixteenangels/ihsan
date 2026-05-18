@@ -548,7 +548,7 @@ export function AdminSupport() {
                               {conv.status}
                             </span>
                             <span className="text-xs text-muted-foreground">
-                              Ã¢â‚¬Â¢ {format(new Date(conv.updated_at), 'MMM d, h:mm a')}
+                              - {format(new Date(conv.updated_at), 'MMM d, h:mm a')}
                             </span>
                           </div>
                         </div>

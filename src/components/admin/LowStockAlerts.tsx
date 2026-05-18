@@ -222,8 +222,8 @@ export function LowStockAlerts() {
                       </p>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <span>SKU: {variant.sku || variant.products?.item_code || 'N/A'}</span>
-                        {variant.size && <span>• Size: {variant.size}</span>}
-                        {variant.color && <span>• Color: {variant.color}</span>}
+                        {variant.size && <span>- Size: {variant.size}</span>}
+                        {variant.color && <span>- Variant: {variant.color}</span>}
                       </div>
                     </div>
                     <div className="flex items-center gap-3">

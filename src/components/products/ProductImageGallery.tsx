@@ -240,7 +240,7 @@ export function ProductImageGallery({ images, productName }: ProductImageGallery
               key={idx}
               onClick={() => setSelectedIndex(idx)}
               className={cn(
-                'relative w-20 h-20 rounded-lg overflow-hidden border-2 flex-shrink-0 transition-all',
+                'relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl border-2 transition-all',
                 selectedIndex === idx
                   ? 'border-primary ring-2 ring-primary/20'
                   : 'border-border hover:border-primary/50'
@@ -351,7 +351,7 @@ export function ProductImageGallery({ images, productName }: ProductImageGallery
 
             {/* Thumbnail Strip in Zoom View */}
             {displayImages.length > 1 && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 p-2 bg-background/80 backdrop-blur-sm rounded-lg">
+              <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-2 rounded-2xl bg-background/80 p-2 backdrop-blur-sm">
                 {displayImages.map((img, idx) => (
                   <button
                     key={idx}

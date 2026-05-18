@@ -16,6 +16,30 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
 type OrderSummaryRow = Pick<Database['public']['Tables']['orders']['Row'], 'status' | 'total_amount' | 'created_at'>;
+const ADMIN_VISIBLE_ORDER_STATUSES = [
+  'payment_received',
+  'order_placed',
+  'order_processed',
+  'confirmed',
+  'processing',
+  'packed_for_delivery',
+  'shipped',
+  'in_transit',
+  'in_ghana',
+  'ready_for_delivery',
+  'handed_to_courier',
+  'out_for_delivery',
+  'delivered',
+  'cancelled',
+  'refunded',
+] as const;
+const ADMIN_PICK_PACK_ORDER_STATUSES = [
+  'payment_received',
+  'order_placed',
+  'confirmed',
+  'processing',
+  'packed_for_delivery',
+] as const;
 type LowStockVariantRow = {
   id: string;
   stock: number | null;
@@ -158,7 +182,10 @@ export function AdminDashboard() {
   const { data: orders } = useQuery({
     queryKey: ['admin-orders-dashboard'],
     queryFn: async (): Promise<OrderSummaryRow[]> => {
-      const { data } = await supabase.from('orders').select('status, total_amount, created_at');
+      const { data } = await supabase
+        .from('orders')
+        .select('status, total_amount, created_at')
+        .in('status', ADMIN_VISIBLE_ORDER_STATUSES);
       return data || [];
     },
   });
@@ -301,13 +328,7 @@ export function AdminDashboard() {
             quantity
           )
         `)
-        .in('status', [
-          'payment_received',
-          'order_placed',
-          'confirmed',
-          'processing',
-          'packed_for_delivery',
-        ])
+        .in('status', ADMIN_PICK_PACK_ORDER_STATUSES)
         .order('created_at', { ascending: true })
         .limit(8);
 
@@ -427,10 +448,10 @@ export function AdminDashboard() {
   });
 
   const orderStats = useMemo(() => {
-    if (!orders) return { total: 0, pending: 0, delivered: 0, totalRevenue: 0 };
+    if (!orders) return { total: 0, paid: 0, delivered: 0, totalRevenue: 0 };
     return {
       total: orders.length,
-      pending: orders.filter(o => o.status === 'pending').length,
+      paid: orders.filter(o => ['payment_received', 'order_placed', 'confirmed'].includes(o.status || '')).length,
       delivered: orders.filter(o => o.status === 'delivered').length,
       totalRevenue: orders.reduce((sum, o) => sum + Number(o.total_amount), 0),
     };
@@ -675,11 +696,11 @@ export function AdminDashboard() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Pending Orders</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Paid Orders</CardTitle>
             <TrendingUp className="h-5 w-5 text-accent-foreground" />
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-foreground">{orderStats.pending}</p>
+            <p className="text-3xl font-bold text-foreground">{orderStats.paid}</p>
           </CardContent>
         </Card>
         <Card>
@@ -918,7 +939,7 @@ export function AdminDashboard() {
                   <div>
                     <p className="font-medium text-foreground">{item.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {item.supplierName} • {item.supplierSku}
+                      {item.supplierName} - {item.supplierSku}
                     </p>
                   </div>
                   <Badge variant={item.totalStock === 0 ? 'destructive' : 'secondary'}>
@@ -1022,7 +1043,7 @@ export function AdminDashboard() {
                   </p>
                   <p className="text-sm text-muted-foreground">
                     {order.itemCount} item{order.itemCount === 1 ? '' : 's'} to process
-                    {order.itemPreview ? ` • ${order.itemPreview}` : ''}
+                    {order.itemPreview ? ` - ${order.itemPreview}` : ''}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">

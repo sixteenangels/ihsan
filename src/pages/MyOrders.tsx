@@ -357,7 +357,7 @@ export default function MyOrders() {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <main className="container px-4 py-16 pb-24 sm:px-6 md:pb-8">
+        <main className="container px-3 py-16 pb-28 sm:px-6 md:pb-8">
           <div className="flex items-center justify-center gap-3 text-center text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin text-primary" />
             Loading orders...
@@ -372,7 +372,7 @@ export default function MyOrders() {
     <div className="min-h-screen bg-background">
       <Header />
 
-      <main className="container px-4 py-6 pb-24 sm:px-6 md:py-8 md:pb-8">
+      <main className="container px-3 py-6 pb-28 sm:px-6 md:py-8 md:pb-8">
         <div className="mb-6 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
           <div>
             <h1 className="text-2xl font-bold font-serif text-foreground md:text-3xl">My Orders</h1>
@@ -389,7 +389,7 @@ export default function MyOrders() {
         </div>
 
         <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
-          <ScrollArea className="mb-5 w-full whitespace-nowrap">
+          <ScrollArea className="mobile-scroll-pills mb-5 w-full whitespace-nowrap">
             <TabsList className="inline-flex h-auto gap-1 p-1.5">
               {CUSTOMER_STATUS_TABS.map((tab) => {
                 const Icon = tab.icon;
@@ -415,8 +415,8 @@ export default function MyOrders() {
 
           <TabsContent value={activeTab}>
             {filteredOrders.length === 0 ? (
-              <Card>
-                <CardContent className="py-16 text-center">
+              <Card className="rounded-2xl border-border/70 shadow-sm">
+                <CardContent className="px-5 py-16 text-center sm:px-6">
                   <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
                     <Package className="h-8 w-8 text-muted-foreground" />
                   </div>
@@ -425,7 +425,7 @@ export default function MyOrders() {
                     {activeTab === 'all' ? "You haven't placed any orders yet." : `No ${activeTab} orders found.`}
                   </p>
                   <Link to="/products">
-                    <Button>Start Shopping</Button>
+                    <Button className="h-11 rounded-xl">Start Shopping</Button>
                   </Link>
                 </CardContent>
               </Card>

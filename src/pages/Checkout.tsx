@@ -141,7 +141,7 @@ type WalletTransactionInsert = Database['public']['Tables']['wallet_transactions
 
 function groupVariantOptionsByColor(variants: VariantOption[]) {
   return variants.reduce<Record<string, VariantOption[]>>((groups, variant) => {
-    const color = variant.color || 'Default colour';
+    const color = variant.color || 'Default variant';
     if (!groups[color]) {
       groups[color] = [];
     }
@@ -817,10 +817,10 @@ export default function Checkout() {
     ? 'Processing...'
     : !requiresPayment
       ? 'Place Order'
-      : 'Pay with Paystack';
+      : 'Pay Now';
   const paymentSupportText = !requiresPayment
     ? 'Covered fully by wallet and loyalty credits'
-    : 'Secure payment powered by Paystack';
+    : 'Secure encrypted payment';
   const mobileCheckoutHint = unresolvedVariantItems.length > 0
     ? 'Choose variants to unlock payment.'
     : !selectedAddressId
@@ -942,7 +942,7 @@ export default function Checkout() {
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert([{
-          order_number: `IHS-${Date.now()}`,
+          order_number: `AJYN-${Date.now()}`,
           user_id: user?.id as string,
           subtotal: selectedSubtotal,
           shipping_price: shippingCost,
@@ -1016,7 +1016,7 @@ export default function Checkout() {
           order_id: order.id,
           status: 'payment_received',
           location_name: paymentReference ? 'Payment Gateway' : 'Checkout',
-          notes: paymentReference ? 'Payment verified successfully via Paystack.' : 'Order covered by wallet and loyalty credits.',
+          notes: paymentReference ? 'Payment verified successfully.' : 'Order covered by wallet and loyalty credits.',
         });
 
       if (appliedCoupon) {
@@ -1228,7 +1228,7 @@ export default function Checkout() {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <main className="container px-4 py-16 pb-24 sm:px-6 md:pb-8">
+        <main className="container px-3 py-16 pb-28 sm:px-6 md:pb-8">
           <div className="text-center">Loading...</div>
         </main>
         <Footer />
@@ -1239,7 +1239,7 @@ export default function Checkout() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="container px-4 py-6 pb-36 sm:px-6 md:py-8 md:pb-8">
+      <main className="container px-3 py-5 pb-36 sm:px-6 md:py-8 md:pb-8">
         <Link
           to="/cart"
           className="inline-flex items-center text-sm text-muted-foreground hover:text-primary mb-6"
@@ -1252,8 +1252,8 @@ export default function Checkout() {
           Checkout
         </h1>
 
-        <Card className="mb-6 overflow-hidden border-primary/15 bg-gradient-to-br from-primary/5 via-card to-card shadow-sm">
-          <CardContent className="p-4 sm:p-5">
+        <Card className="mb-5 overflow-hidden rounded-2xl border-primary/15 bg-gradient-to-br from-primary/5 via-card to-card shadow-sm sm:mb-6">
+          <CardContent className="p-3.5 sm:p-5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div>
                 <p className="text-xs font-medium uppercase tracking-[0.28em] text-primary/80">
@@ -1275,7 +1275,7 @@ export default function Checkout() {
               </div>
             </div>
 
-            <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <div className="mt-4 grid gap-2.5 md:grid-cols-3">
               {checkoutSteps.map((step, index) => (
                 <div
                   key={step.id}
@@ -1309,7 +1309,7 @@ export default function Checkout() {
         <div className="grid gap-6 lg:grid-cols-3 lg:gap-8">
           <div className="lg:col-span-2 space-y-6">
             {/* Delivery Address */}
-            <Card>
+            <Card className="rounded-2xl border-border/70 shadow-sm">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Badge variant="outline" className="mr-1">
@@ -1326,7 +1326,7 @@ export default function Checkout() {
                       {addresses.map((address) => (
                         <div
                           key={address.id}
-                          className={`p-4 rounded-lg border cursor-pointer transition-all ${
+                          className={`cursor-pointer rounded-2xl border p-3.5 transition-all sm:p-4 ${
                             selectedAddressId === address.id
                               ? 'border-primary bg-primary/5'
                               : 'border-border hover:border-primary/50'
@@ -1366,7 +1366,7 @@ export default function Checkout() {
 
                 <Dialog open={isAddressDialogOpen} onOpenChange={setIsAddressDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button variant="outline" className="mt-4 w-full sm:w-auto">
+                    <Button variant="outline" className="mt-4 h-11 w-full rounded-xl sm:w-auto">
                       <Plus className="h-4 w-4 mr-2" />
                       Add New Address
                     </Button>
@@ -1452,7 +1452,7 @@ export default function Checkout() {
             </Card>
 
             {/* Shipping Method */}
-            <Card>
+            <Card className="rounded-2xl border-border/70 shadow-sm">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Badge variant="outline" className="mr-1">
@@ -1466,7 +1466,7 @@ export default function Checkout() {
                 <RadioGroup value={selectedShippingId} onValueChange={handleShippingSelection}>
                   <div className="space-y-3">
                     {shippingClasses.length === 0 && (
-                      <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
+                      <div className="rounded-2xl border border-dashed border-border/70 bg-muted/30 p-3.5 text-sm text-muted-foreground sm:p-4">
                         No shared shipping method is available for the items you selected.
                       </div>
                     )}
@@ -1490,7 +1490,7 @@ export default function Checkout() {
                       return (
                         <div
                           key={shipping.id}
-                          className={`p-4 rounded-lg border cursor-pointer transition-all ${
+                          className={`cursor-pointer rounded-2xl border p-3.5 transition-all sm:p-4 ${
                             selectedShippingId === shipping.id
                               ? 'border-primary bg-primary/5'
                               : 'border-border hover:border-primary/50'
@@ -1542,7 +1542,7 @@ export default function Checkout() {
 
             <Accordion type="multiple" defaultValue={accordionDefaultSections} className="space-y-3">
               {hasFragile && (
-                <AccordionItem value="packaging" className="overflow-hidden rounded-2xl border bg-card px-4">
+                <AccordionItem value="packaging" className="overflow-hidden rounded-2xl border border-border/70 bg-card px-3 shadow-sm sm:px-4">
                   <AccordionTrigger className="py-4 hover:no-underline">
                     <div className="flex items-center gap-3 text-left">
                       <Shield className="h-5 w-5 text-primary" />
@@ -1570,7 +1570,7 @@ export default function Checkout() {
                       <div className="space-y-3">
                         {allowsReinforcedPackaging && (
                           <div
-                            className={`cursor-pointer rounded-lg border p-4 transition-all ${
+                            className={`cursor-pointer rounded-2xl border p-3.5 transition-all sm:p-4 ${
                               packagingChoice === 'reinforced'
                                 ? 'border-primary bg-primary/5'
                                 : 'border-border hover:border-primary/50'
@@ -1595,7 +1595,7 @@ export default function Checkout() {
                         )}
                         {allowsStandardPackaging && (
                           <div
-                            className={`cursor-pointer rounded-lg border p-4 transition-all ${
+                            className={`cursor-pointer rounded-2xl border p-3.5 transition-all sm:p-4 ${
                               packagingChoice === 'standard'
                                 ? 'border-primary bg-primary/5'
                                 : 'border-border hover:border-primary/50'
@@ -1625,7 +1625,7 @@ export default function Checkout() {
               )}
 
               {showSavingsSection && (
-                <AccordionItem value="savings" className="overflow-hidden rounded-2xl border bg-card px-4">
+                <AccordionItem value="savings" className="overflow-hidden rounded-2xl border border-border/70 bg-card px-3 shadow-sm sm:px-4">
                   <AccordionTrigger className="py-4 hover:no-underline">
                     <div className="flex items-center gap-3 text-left">
                       <Tag className="h-5 w-5 text-primary" />
@@ -1644,7 +1644,7 @@ export default function Checkout() {
                         Coupon Code
                       </Label>
                       {appliedCoupon ? (
-                        <div className="flex items-center justify-between rounded-lg border border-primary/20 bg-primary/10 p-3">
+                        <div className="flex items-center justify-between rounded-2xl border border-primary/20 bg-primary/10 p-3">
                           <div>
                             <p className="font-medium text-foreground">{appliedCoupon.code}</p>
                             <p className="text-sm text-muted-foreground">
@@ -1784,7 +1784,7 @@ export default function Checkout() {
                             }}
                           >
                             <SelectTrigger className="w-full">
-                              <SelectValue placeholder="Select colour and size" />
+                              <SelectValue placeholder="Select variant and size" />
                             </SelectTrigger>
                             <SelectContent>
                               {Object.entries(groupedVariantOptions).map(([color, options]) => (
@@ -1811,7 +1811,7 @@ export default function Checkout() {
                 </AccordionItem>
               )}
 
-              <AccordionItem value="items" className="overflow-hidden rounded-2xl border bg-card px-4">
+              <AccordionItem value="items" className="overflow-hidden rounded-2xl border border-border/70 bg-card px-3 shadow-sm sm:px-4">
                 <AccordionTrigger className="py-4 hover:no-underline">
                   <div className="text-left">
                     <p className="text-sm font-semibold text-foreground">
@@ -1825,8 +1825,8 @@ export default function Checkout() {
                 <AccordionContent className="pb-4">
                   <div className="space-y-3">
                     {selectedItems.map((item) => (
-                      <div key={item.id} className="flex items-start gap-3 rounded-lg bg-muted/30 p-3">
-                        <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg">
+                      <div key={item.id} className="flex items-start gap-3 rounded-2xl bg-muted/30 p-3">
+                        <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl">
                           <img
                             src={item.product.images[0]}
                             alt={item.product.name}
@@ -1855,7 +1855,7 @@ export default function Checkout() {
 
           {/* Order Summary */}
           <div className="lg:col-span-1">
-            <Card className="lg:sticky lg:top-24">
+            <Card className="rounded-2xl border-border/70 shadow-sm lg:sticky lg:top-24">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Badge variant="outline">Step 3</Badge>
@@ -1868,7 +1868,7 @@ export default function Checkout() {
                     <div>
                       <p className="text-sm font-semibold text-foreground">At a glance</p>
                       <p className="text-xs text-muted-foreground">
-                        {itemCount} item{itemCount === 1 ? '' : 's'} • {selectedItems.length} line
+                        {itemCount} item{itemCount === 1 ? '' : 's'} - {selectedItems.length} line
                         {selectedItems.length === 1 ? '' : 's'}
                       </p>
                     </div>
@@ -1961,30 +1961,32 @@ export default function Checkout() {
       </main>
 
       {isMobile && (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 px-4 pt-3 shadow-2xl backdrop-blur supports-[backdrop-filter]:bg-background/90">
-          <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)]">
-            <div className="min-w-0">
+        <div className="fixed inset-x-0 bottom-0 z-40 px-3 pb-2">
+          <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 rounded-[1.35rem] border border-border/80 bg-background/95 px-3 pt-3 shadow-[0_18px_44px_-22px_hsl(var(--foreground)/0.75)] backdrop-blur-xl supports-[backdrop-filter]:bg-background/90">
+            <div className="min-w-0 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)]">
               <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Ready to pay</p>
               <p className="text-lg font-semibold text-foreground">{formatPrice(total)}</p>
               <p className="truncate text-xs text-muted-foreground">{mobileCheckoutHint}</p>
             </div>
-            <Button
-              className="min-w-[10rem]"
-              size="lg"
-              onClick={handlePaystackPayment}
-              disabled={isPaymentDisabled}
-            >
-              {isProcessing ? 'Processing...' : (
-                <>
-                  {requiresPayment ? (
-                    <CreditCard className="h-4 w-4 mr-2" />
-                  ) : (
-                    <Check className="h-4 w-4 mr-2" />
-                  )}
-                  {paymentButtonText}
-                </>
-              )}
-            </Button>
+            <div className="pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)]">
+              <Button
+                className="min-w-[9rem] rounded-xl"
+                size="lg"
+                onClick={handlePaystackPayment}
+                disabled={isPaymentDisabled}
+              >
+                {isProcessing ? 'Processing...' : (
+                  <>
+                    {requiresPayment ? (
+                      <CreditCard className="h-4 w-4 mr-2" />
+                    ) : (
+                      <Check className="h-4 w-4 mr-2" />
+                    )}
+                    {paymentButtonText}
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </div>
       )}

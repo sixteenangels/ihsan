@@ -4,6 +4,10 @@ import type { Json, Tables } from '@/integrations/supabase/types';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, User } from 'lucide-react';
+import {
+  extractGroupBuySelectionsFromShippingAddress,
+  getGroupBuySelectionsTotalQuantity,
+} from '@/lib/groupBuySelections';
 
 interface GroupBuyParticipantListProps {
   groupBuyId: string;
@@ -107,6 +111,7 @@ export function GroupBuyParticipantList({ groupBuyId }: GroupBuyParticipantListP
       <TableBody>
         {participants.map((participant) => {
           const address = readShippingAddress(participant.shipping_address);
+          const selections = extractGroupBuySelectionsFromShippingAddress(participant.shipping_address);
 
           return (
             <TableRow key={participant.id}>
@@ -122,11 +127,19 @@ export function GroupBuyParticipantList({ groupBuyId }: GroupBuyParticipantListP
                 </div>
               </TableCell>
               <TableCell className="text-sm">
-                {participant.variant ? (
+                {selections.length > 0 ? (
+                  <div className="space-y-1">
+                    {selections.map((selection) => (
+                      <p key={selection.variantId}>
+                        {selection.label} x {selection.quantity}
+                      </p>
+                    ))}
+                  </div>
+                ) : participant.variant ? (
                   <span>{[participant.variant.color, participant.variant.size].filter(Boolean).join(' / ') || '-'}</span>
                 ) : '-'}
               </TableCell>
-              <TableCell>{participant.quantity || 1}</TableCell>
+              <TableCell>{selections.length > 0 ? getGroupBuySelectionsTotalQuantity(selections) : participant.quantity || 1}</TableCell>
               <TableCell>{getPaymentBadge(participant.payment_status)}</TableCell>
               <TableCell className="text-xs text-muted-foreground max-w-[100px] truncate">
                 {participant.payment_reference || '-'}

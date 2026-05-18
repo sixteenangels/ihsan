@@ -395,9 +395,9 @@ export default function Auth() {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <main className="container px-4 py-8 pb-24 sm:px-6 md:py-16 md:pb-8">
+        <main className="container px-3 py-8 pb-28 sm:px-6 md:py-16 md:pb-8">
           <div className="mx-auto max-w-md">
-            <Card className="border-border">
+            <Card className="rounded-2xl border-border/70 shadow-sm">
               <CardHeader className="px-5 text-center sm:px-6">
                 <CardTitle className="text-2xl font-serif">Set New Password</CardTitle>
                 <CardDescription>
@@ -436,7 +436,7 @@ export default function Auth() {
                     </div>
                   </div>
                   
-                  <Button type="submit" className="w-full" disabled={isLoading}>
+                  <Button type="submit" className="h-11 w-full rounded-xl" disabled={isLoading}>
                     {isLoading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -461,9 +461,9 @@ export default function Auth() {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <main className="container px-4 py-8 pb-24 sm:px-6 md:py-16 md:pb-8">
+        <main className="container px-3 py-8 pb-28 sm:px-6 md:py-16 md:pb-8">
           <div className="mx-auto max-w-md">
-            <Card className="border-border">
+            <Card className="rounded-2xl border-border/70 shadow-sm">
               <CardHeader className="px-5 text-center sm:px-6">
                 <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
                   <Mail className="h-6 w-6 text-primary" />
@@ -478,10 +478,10 @@ export default function Auth() {
                   Click the link in your email to verify your account. If you don't see it, check your spam folder.
                 </p>
                 
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  className="w-full" 
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-11 w-full rounded-xl"
                   onClick={handleResendVerification}
                   disabled={isResending}
                 >
@@ -498,10 +498,10 @@ export default function Auth() {
                   )}
                 </Button>
                 
-                <Button 
-                  type="button" 
-                  variant="ghost" 
-                  className="w-full" 
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="h-11 w-full rounded-xl"
                   onClick={() => {
                     setShowVerificationSent(false);
                     setPendingVerificationEmail('');
@@ -524,9 +524,9 @@ export default function Auth() {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <main className="container px-4 py-8 pb-24 sm:px-6 md:py-16 md:pb-8">
+        <main className="container px-3 py-8 pb-28 sm:px-6 md:py-16 md:pb-8">
           <div className="mx-auto max-w-md">
-            <Card className="border-border">
+            <Card className="rounded-2xl border-border/70 shadow-sm">
               <CardHeader className="px-5 text-center sm:px-6">
                 <CardTitle className="text-2xl font-serif">Reset Password</CardTitle>
                 <CardDescription>
@@ -550,7 +550,7 @@ export default function Auth() {
                     </div>
                   </div>
                   
-                  <Button type="submit" className="w-full" disabled={isLoading}>
+                  <Button type="submit" className="h-11 w-full rounded-xl" disabled={isLoading}>
                     {isLoading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -561,10 +561,10 @@ export default function Auth() {
                     )}
                   </Button>
                   
-                  <Button 
-                    type="button" 
-                    variant="ghost" 
-                    className="w-full" 
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-11 w-full rounded-xl"
                     onClick={() => setShowForgotPassword(false)}
                   >
                     <ArrowLeft className="mr-2 h-4 w-4" />
@@ -583,11 +583,16 @@ export default function Auth() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="container px-4 py-8 pb-24 sm:px-6 md:py-16 md:pb-8">
+      <main className="container px-3 py-8 pb-28 sm:px-6 md:py-16 md:pb-8">
         <div className="mx-auto max-w-md">
-          <Card className="border-border">
+          <Card className="rounded-2xl border-border/70 shadow-sm">
             <CardHeader className="space-y-2 px-5 text-center sm:px-6">
-              <CardTitle className="text-2xl font-serif">Welcome to {BRAND_NAME}</CardTitle>
+              <CardTitle className="text-2xl font-serif">
+                Welcome to{' '}
+                <span className="auth-brand-word" aria-label={BRAND_NAME}>
+                  A<span className="auth-brand-j">j</span>yn
+                </span>
+              </CardTitle>
               <CardDescription>
                 Sign in to your account or create a new one
               </CardDescription>
@@ -658,7 +663,7 @@ export default function Auth() {
                       </Button>
                     </div>
                     
-                    <Button type="submit" className="w-full" disabled={isLoading}>
+                    <Button type="submit" className="h-11 w-full rounded-xl" disabled={isLoading}>
                       {isLoading ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -678,10 +683,10 @@ export default function Auth() {
                       </div>
                     </div>
                     
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      className="min-h-11 w-full" 
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="min-h-11 w-full rounded-xl"
                       onClick={handleGoogleSignIn}
                       disabled={isGoogleLoading}
                     >
@@ -768,7 +773,7 @@ export default function Auth() {
                       )}
                     </div>
                     
-                    <Button type="submit" className="w-full" disabled={isLoading}>
+                    <Button type="submit" className="h-11 w-full rounded-xl" disabled={isLoading}>
                       {isLoading ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />

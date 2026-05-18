@@ -34,8 +34,8 @@ export function MobileNavBar() {
   }, []);
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-background/80 backdrop-blur-xl border-t border-border safe-area-bottom">
-      <div className="flex items-center justify-around px-3 py-2">
+    <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-50 md:hidden">
+      <div className="pointer-events-auto mx-3 mb-2 flex items-center justify-around rounded-[1.65rem] border border-border/80 bg-background/90 px-2 py-1.5 pb-[calc(env(safe-area-inset-bottom,0px)+0.375rem)] shadow-[0_18px_44px_-22px_hsl(var(--foreground)/0.75)] backdrop-blur-xl">
         {navItems.map((item) => {
           const isActive = location.pathname === item.href;
           const isPressed = pressedItem === item.href;
@@ -49,8 +49,8 @@ export function MobileNavBar() {
               onTouchEnd={handleTouchEnd}
               onTouchCancel={handleTouchEnd}
               className={cn(
-                "relative mx-1 flex h-14 flex-1 flex-col items-center justify-center gap-1 rounded-2xl transition-all duration-150",
-                isActive ? "bg-primary/8 text-primary" : "text-muted-foreground",
+                "relative mx-0.5 flex h-12 flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl transition-all duration-150",
+                isActive ? "bg-primary/12 text-primary shadow-sm" : "text-muted-foreground",
                 isPressed && "scale-90 opacity-70"
               )}
             >
@@ -60,7 +60,7 @@ export function MobileNavBar() {
               )}>
                 <Icon 
                   className={cn(
-                    "h-6 w-6 transition-all duration-200",
+                    "h-5 w-5 transition-all duration-200",
                     isActive && "stroke-[2.5px]",
                     isPressed && "scale-110"
                   )} 
@@ -74,7 +74,7 @@ export function MobileNavBar() {
                 )}
               </div>
               <span className={cn(
-                "text-[11px] font-medium transition-all duration-200",
+                "text-[10px] font-medium transition-all duration-200",
                 isActive && "font-semibold text-primary"
               )}>
                 {item.label}

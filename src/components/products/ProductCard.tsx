@@ -63,10 +63,10 @@ export function ProductCard({ product, onQuickView, viewMode = 'grid' }: Product
   if (viewMode === 'list') {
     return (
       <Link to={`/product/${product.id}`} className="block h-full">
-        <Card className="group h-full overscroll-contain hover:shadow-lg transition-all duration-300 border-border bg-card">
-          <div className="flex flex-col sm:flex-row">
+        <Card className="group h-full overscroll-contain rounded-2xl border-border/70 bg-card shadow-sm transition-all duration-300 hover:shadow-md">
+          <div className="flex">
             {/* Image - horizontal layout */}
-            <div className="relative aspect-[4/3] w-full overflow-hidden sm:aspect-auto sm:w-48 sm:flex-shrink-0">
+            <div className="relative h-28 w-28 shrink-0 overflow-hidden bg-muted sm:h-auto sm:w-48">
               <img
                 src={product.images[0]}
                 alt={product.name}
@@ -88,18 +88,18 @@ export function ProductCard({ product, onQuickView, viewMode = 'grid' }: Product
               </div>
             </div>
             {/* Content */}
-            <CardContent className="flex min-w-0 flex-1 flex-col justify-between p-4 sm:p-4">
+            <CardContent className="flex min-w-0 flex-1 flex-col justify-between p-3 sm:p-4">
               <div>
                 <p className="mb-1 text-xs text-muted-foreground">{product.category}</p>
-                <h3 className="mb-2 line-clamp-2 text-base font-semibold text-foreground transition-colors group-hover:text-primary sm:text-lg">
+                <h3 className="mb-1.5 line-clamp-2 text-sm font-semibold leading-tight text-foreground transition-colors group-hover:text-primary sm:mb-2 sm:text-lg">
                   {product.name}
                 </h3>
-                <p className="mb-3 line-clamp-2 text-sm text-muted-foreground">
+                <p className="mb-2 hidden text-sm text-muted-foreground sm:line-clamp-2">
                   {product.description}
                 </p>
               </div>
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-lg font-bold text-primary sm:text-xl">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-base font-bold text-primary sm:text-xl">
                   {formatPrice(product.basePrice)}
                 </p>
                 <div className="flex items-center justify-between gap-3 sm:justify-end">
@@ -131,8 +131,8 @@ export function ProductCard({ product, onQuickView, viewMode = 'grid' }: Product
   // Grid view - 2 columns on mobile with compact cards
   return (
     <Link to={`/product/${product.id}`} className="block h-full">
-      <Card className="group h-full overscroll-contain border-border bg-card transition-all duration-300 hover:shadow-lg">
-        <div className="relative aspect-square overflow-hidden">
+      <Card className="group h-full overscroll-contain rounded-2xl border-border/70 bg-card shadow-sm transition-all duration-300 hover:shadow-md">
+        <div className="relative aspect-[1/1.04] overflow-hidden bg-muted">
           <img
             src={product.images[0]}
             alt={product.name}
@@ -143,7 +143,7 @@ export function ProductCard({ product, onQuickView, viewMode = 'grid' }: Product
             <Button
               variant="ghost"
               size="icon"
-              className="bg-background/80 hover:bg-background z-10 h-7 w-7 sm:h-8 sm:w-8"
+              className="z-10 h-8 w-8 rounded-full bg-background/90 shadow-sm backdrop-blur hover:bg-background sm:h-8 sm:w-8"
               onClick={handleWishlistClick}
             >
               <Heart className={`h-3.5 w-3.5 ${inWishlist ? 'fill-destructive text-destructive' : 'text-muted-foreground'}`} />
@@ -151,7 +151,7 @@ export function ProductCard({ product, onQuickView, viewMode = 'grid' }: Product
             <Button
               variant="ghost"
               size="icon"
-              className="bg-background/80 hover:bg-background z-10 h-7 w-7 sm:h-8 sm:w-8"
+              className="z-10 h-8 w-8 rounded-full bg-background/90 shadow-sm backdrop-blur hover:bg-background sm:h-8 sm:w-8"
               onClick={handleCompareClick}
             >
               <GitCompare className={`h-3.5 w-3.5 ${inCompare ? 'text-primary' : 'text-muted-foreground'}`} />
@@ -160,7 +160,7 @@ export function ProductCard({ product, onQuickView, viewMode = 'grid' }: Product
               <Button
                 variant="ghost"
                 size="icon"
-                className="bg-background/80 hover:bg-background z-10 h-7 w-7 sm:h-8 sm:w-8"
+                className="z-10 hidden h-8 w-8 rounded-full bg-background/90 shadow-sm backdrop-blur hover:bg-background sm:inline-flex"
                 onClick={handleQuickView}
               >
                 <Eye className="h-3.5 w-3.5 text-muted-foreground" />
@@ -170,34 +170,34 @@ export function ProductCard({ product, onQuickView, viewMode = 'grid' }: Product
           {/* Badges */}
           <div className="absolute top-2 left-2 flex flex-col gap-1">
             {product.isReadyNow && (
-              <Badge className="bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5">
+              <Badge className="max-w-[5rem] truncate bg-primary px-1.5 py-0.5 text-[9px] text-primary-foreground sm:max-w-none sm:text-[10px]">
                 <Clock className="h-2.5 w-2.5 mr-0.5" />
                 Ready
               </Badge>
             )}
             {product.isFlashDeal && (
-              <Badge className="bg-destructive text-destructive-foreground text-[10px] px-1.5 py-0.5">
+              <Badge className="max-w-[5rem] truncate bg-destructive px-1.5 py-0.5 text-[9px] text-destructive-foreground sm:max-w-none sm:text-[10px]">
                 <Zap className="h-2.5 w-2.5 mr-0.5" />
                 Flash
               </Badge>
             )}
             {product.isGroupBuyEligible && (
-              <Badge variant="secondary" className="bg-accent text-accent-foreground text-[10px] px-1.5 py-0.5">
+              <Badge variant="secondary" className="max-w-[5rem] truncate bg-accent px-1.5 py-0.5 text-[9px] text-accent-foreground sm:max-w-none sm:text-[10px]">
                 <Users className="h-2.5 w-2.5 mr-0.5" />
                 Group
               </Badge>
             )}
             {product.isFreeShippingEligible && (
-              <Badge className="bg-secondary text-secondary-foreground text-[10px] px-1.5 py-0.5">
+              <Badge className="hidden bg-secondary px-1.5 py-0.5 text-[10px] text-secondary-foreground sm:inline-flex">
                 <Truck className="h-2.5 w-2.5 mr-0.5" />
                 Free Ship
               </Badge>
             )}
           </div>
         </div>
-        <CardContent className="p-3 sm:p-4">
+        <CardContent className="p-2.5 sm:p-4">
           <p className="mb-1 text-[11px] text-muted-foreground sm:text-xs">{product.category}</p>
-          <h3 className="mb-2 line-clamp-2 min-h-[2.5rem] text-sm font-semibold text-foreground transition-colors group-hover:text-primary sm:text-sm">
+          <h3 className="mb-2 line-clamp-2 min-h-[2.4rem] text-[13px] font-semibold leading-tight text-foreground transition-colors group-hover:text-primary sm:text-sm">
             {product.name}
           </h3>
           <div className="flex items-center justify-between">

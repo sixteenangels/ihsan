@@ -233,27 +233,27 @@ export default function GroupBuyDetail() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="container py-8 pb-24 md:pb-8">
+      <main className="container px-3 py-5 pb-28 sm:px-6 md:py-8 md:pb-8">
         <Link to="/group-buys" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary mb-6">
           <ArrowLeft className="h-4 w-4 mr-1" />
           All Group Buys
         </Link>
 
-        <div className="grid lg:grid-cols-2 gap-8">
+        <div className="grid gap-5 lg:grid-cols-2 lg:gap-8">
           <div>
-            <div className="relative aspect-square rounded-2xl overflow-hidden bg-muted">
+            <div className="relative aspect-square overflow-hidden rounded-2xl bg-muted shadow-sm">
               <img
                 src={groupBuy.product.images[0] || '/placeholder.svg'}
                 alt={groupBuy.product.name}
                 className="w-full h-full object-cover"
               />
               {savingsPercent > 0 ? (
-                <Badge className="absolute top-4 left-4 bg-accent text-accent-foreground text-lg px-4 py-1.5">
+                <Badge className="absolute left-3 top-3 bg-accent px-3 py-1 text-sm text-accent-foreground sm:left-4 sm:top-4 sm:text-lg">
                   {savingsPercent}% OFF
                 </Badge>
               ) : null}
               {isFilled ? (
-                <Badge className="absolute top-4 right-4 bg-green-600 text-white text-lg px-4 py-1.5">
+                <Badge className="absolute right-3 top-3 bg-green-600 px-3 py-1 text-sm text-white sm:right-4 sm:top-4 sm:text-lg">
                   <CheckCircle className="h-4 w-4 mr-1" />
                   FILLED
                 </Badge>
@@ -264,14 +264,14 @@ export default function GroupBuyDetail() {
           <div className="space-y-6">
             <div>
               <p className="text-sm text-muted-foreground">{groupBuy.product.category_name}</p>
-              <h1 className="text-3xl font-bold font-serif text-foreground">
+              <h1 className="text-[1.65rem] font-bold font-serif leading-tight text-foreground sm:text-3xl">
                 {groupBuy.title || groupBuy.product.name}
               </h1>
               <p className="text-muted-foreground mt-2">{groupBuy.product.description}</p>
             </div>
 
-            <Card>
-              <CardContent className="p-6">
+            <Card className="rounded-2xl border-border/70 shadow-sm">
+              <CardContent className="p-4 sm:p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <p className="text-sm text-muted-foreground line-through">
@@ -322,8 +322,8 @@ export default function GroupBuyDetail() {
               </CardContent>
             </Card>
 
-            <Card className="border-primary/15 bg-primary/5">
-              <CardContent className="space-y-4 p-6">
+            <Card className="rounded-2xl border-primary/15 bg-primary/5 shadow-sm">
+              <CardContent className="space-y-4 p-4 sm:p-6">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="text-sm uppercase tracking-[0.18em] text-muted-foreground">
@@ -462,7 +462,7 @@ export default function GroupBuyDetail() {
             )}
 
             <Link to={`/product/${groupBuy.product.id}`}>
-              <Button variant="outline" className="w-full">View Full Product Details</Button>
+              <Button variant="outline" className="h-11 w-full rounded-xl">View Full Product Details</Button>
             </Link>
           </div>
         </div>

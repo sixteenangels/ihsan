@@ -22,7 +22,7 @@ type GiftCardProfile = Pick<Tables<'profiles'>, 'user_id' | 'name' | 'email'>;
 
 function generateGiftCode() {
   const random = Math.random().toString(36).slice(2, 10).toUpperCase();
-  return `IHS-${random}`;
+  return `AJYN-${random}`;
 }
 
 export function AdminGiftCards() {

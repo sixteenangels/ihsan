@@ -119,8 +119,8 @@ export function TwoFactorManage() {
   const hasActive2FA = verifiedFactors.length > 0;
 
   return (
-    <Card className="border-border">
-      <CardHeader>
+    <Card className="rounded-2xl border-border/70 shadow-sm">
+      <CardHeader className="px-5 sm:px-6">
         <div className="flex items-center gap-3">
           {hasActive2FA ? (
             <ShieldCheck className="h-6 w-6 text-primary" />
@@ -137,13 +137,13 @@ export function TwoFactorManage() {
           </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 px-5 sm:px-6">
         {verifiedFactors.length > 0 ? (
           <div className="space-y-4">
             {verifiedFactors.map((factor) => (
               <div 
                 key={factor.id} 
-                className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/50"
+                className="flex flex-col gap-3 rounded-2xl border border-border/70 bg-muted/50 p-3 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="flex items-center gap-3">
                   <Shield className="h-5 w-5 text-primary" />
@@ -190,7 +190,7 @@ export function TwoFactorManage() {
 
             {/* Backup Codes Section */}
             <div 
-              className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/50"
+              className="flex flex-col gap-3 rounded-2xl border border-border/70 bg-muted/50 p-3 sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="flex items-center gap-3">
                 <Key className="h-5 w-5 text-primary" />
@@ -213,7 +213,7 @@ export function TwoFactorManage() {
             </div>
           </div>
         ) : (
-          <Button onClick={() => setShowSetup(true)} className="w-full">
+          <Button onClick={() => setShowSetup(true)} className="h-11 w-full rounded-xl">
             <Shield className="mr-2 h-4 w-4" />
             Enable Two-Factor Authentication
           </Button>

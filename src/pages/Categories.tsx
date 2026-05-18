@@ -77,12 +77,12 @@ export default function Categories() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="container px-4 py-6 pb-24 sm:px-6 md:py-8 md:pb-8">
-        <div className="mb-10 text-center sm:mb-12">
-          <h1 className="mb-3 text-3xl font-bold font-serif text-foreground sm:text-4xl">
+      <main className="container px-3 py-6 pb-28 sm:px-6 md:py-8 md:pb-8">
+        <div className="mb-8 text-center sm:mb-12">
+          <h1 className="mb-3 text-2xl font-bold font-serif text-foreground sm:text-4xl">
             Shop by Category
           </h1>
-          <p className="mx-auto max-w-2xl text-base text-muted-foreground sm:text-lg">
+          <p className="mx-auto max-w-2xl text-sm text-muted-foreground sm:text-lg">
             Browse our curated collection of products from around the world
           </p>
         </div>
@@ -122,7 +122,7 @@ export default function Categories() {
                   {categoryProducts.length > 0 ? (
                     categoryProducts.map((product) => (
                       <Link key={product.id} to={`/product/${product.id}`}>
-                        <Card className="group relative overflow-hidden transition-all hover:shadow-md">
+                        <Card className="group relative overflow-hidden rounded-2xl border-border/70 shadow-sm transition-all hover:shadow-md">
                           <div className="relative aspect-video overflow-hidden">
                             <img
                               src={product.images[0] || '/placeholder.svg'}
@@ -132,7 +132,7 @@ export default function Categories() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="absolute right-2 top-2 z-10 h-8 w-8 bg-background/80 opacity-0 transition-opacity hover:bg-background group-hover:opacity-100"
+                              className="absolute right-2 top-2 z-10 hidden h-8 w-8 rounded-full bg-background/90 shadow-sm transition-opacity hover:bg-background sm:inline-flex"
                               onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
@@ -154,7 +154,7 @@ export default function Categories() {
                       </Link>
                     ))
                   ) : (
-                    <Card className="col-span-full p-8 text-center">
+                      <Card className="col-span-full rounded-2xl p-8 text-center">
                       <p className="text-muted-foreground">Products coming soon</p>
                     </Card>
                   )}

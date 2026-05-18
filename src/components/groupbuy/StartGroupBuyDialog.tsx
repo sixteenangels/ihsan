@@ -13,18 +13,19 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { toast } from 'sonner';
 import { Users, Loader2, CreditCard } from 'lucide-react';
 import { useCurrency } from '@/hooks/useCurrency';
 import { getErrorMessage } from '@/lib/errors';
 import { loadPaystack, type PaystackTransactionResponse } from '@/lib/paystack';
+import {
+  buildGroupBuyVariantSelections,
+  getGroupBuySelectionsTotalAmount,
+  getGroupBuySelectionsTotalQuantity,
+  getGroupBuyVariantLabel,
+  getGroupBuyVariantUnitPrice,
+  withGroupBuySelectionsInShippingAddress,
+} from '@/lib/groupBuySelections';
 
 interface StartGroupBuyDialogProps {
   product: {
@@ -41,8 +42,8 @@ export function StartGroupBuyDialog({ product }: StartGroupBuyDialogProps) {
   const { formatPrice } = useCurrency();
   const [isOpen, setIsOpen] = useState(false);
   const [participantCount, setParticipantCount] = useState('5');
-  const [selectedVariantId, setSelectedVariantId] = useState('');
   const [quantity, setQuantity] = useState('1');
+  const [variantQuantities, setVariantQuantities] = useState<Record<string, string>>({});
   const [step, setStep] = useState<'setup' | 'payment'>('setup');
   const [isPaying, setIsPaying] = useState(false);
   const callbackFiredRef = useRef(false);
@@ -82,13 +83,32 @@ export function StartGroupBuyDialog({ product }: StartGroupBuyDialogProps) {
     : 0;
   const normalizedQuantity = Math.max(1, Number.parseInt(quantity || '1', 10) || 1);
   const normalizedParticipantCount = Math.max(2, Number.parseInt(participantCount || '2', 10) || 2);
-  const totalAmount = offeredUnitPrice * normalizedQuantity;
+  const variantSelections = hasVariants
+    ? buildGroupBuyVariantSelections({
+        quantitiesByVariantId: variantQuantities,
+        variants: variants || [],
+        basePrice: product.base_price,
+        groupPrice: product.group_buy_price,
+        discountPercentage,
+      })
+    : [];
+  const totalSelectedQuantity = hasVariants
+    ? getGroupBuySelectionsTotalQuantity(variantSelections)
+    : normalizedQuantity;
+  const totalAmount = hasVariants
+    ? getGroupBuySelectionsTotalAmount(variantSelections)
+    : offeredUnitPrice * normalizedQuantity;
+  const primaryVariantId = variantSelections[0]?.variantId ?? null;
+  const averageUnitPrice = totalSelectedQuantity > 0
+    ? totalAmount / totalSelectedQuantity
+    : offeredUnitPrice;
 
   const resetForm = () => {
     setParticipantCount('5');
-    setSelectedVariantId('');
     setQuantity('1');
+    setVariantQuantities({});
     setStep('setup');
+    setIsPaying(false);
   };
 
   const handleOpen = (open: boolean) => {
@@ -98,8 +118,26 @@ export function StartGroupBuyDialog({ product }: StartGroupBuyDialogProps) {
     }
   };
 
+  const handleVariantQuantityChange = (variantId: string, nextValue: string) => {
+    setVariantQuantities((current) => ({
+      ...current,
+      [variantId]: nextValue,
+    }));
+  };
+
   const handlePayAndCreate = async () => {
     if (!user) return;
+
+    if (hasVariants && totalSelectedQuantity <= 0) {
+      toast.error('Choose at least one variant to continue');
+      return;
+    }
+
+    if (!hasVariants && normalizedQuantity <= 0) {
+      toast.error('Choose a valid quantity to continue');
+      return;
+    }
+
     setIsPaying(true);
 
     try {
@@ -128,7 +166,14 @@ export function StartGroupBuyDialog({ product }: StartGroupBuyDialogProps) {
         amount: amountInPesewas,
         currency: 'GHS',
         ref: reference,
-        metadata: { type: 'group_buy_start', product_id: product.id, user_id: user.id },
+        metadata: {
+          type: 'group_buy_start',
+          product_id: product.id,
+          user_id: user.id,
+          quantity: totalSelectedQuantity,
+          variant_id: primaryVariantId,
+          variant_selections: variantSelections,
+        },
         callback: async (response: PaystackTransactionResponse) => {
           callbackFiredRef.current = true;
           await verifyAndCreateGroupBuy(response.reference, amountInPesewas);
@@ -208,7 +253,6 @@ export function StartGroupBuyDialog({ product }: StartGroupBuyDialogProps) {
       queryClient.invalidateQueries({ queryKey: ['my-group-buys'] });
       toast.success('Your group buy was already created.');
       setIsOpen(false);
-      setIsPaying(false);
       resetForm();
       return;
     }
@@ -261,12 +305,12 @@ export function StartGroupBuyDialog({ product }: StartGroupBuyDialogProps) {
     const { error: participantError } = await supabase.from('group_buy_participants').insert({
       group_buy_id: gbData.id,
       user_id: user.id,
-      quantity: normalizedQuantity,
-      variant_id: selectedVariantId || null,
+      quantity: totalSelectedQuantity,
+      variant_id: primaryVariantId,
       payment_reference: paymentRef,
       payment_status: 'paid',
-      shipping_address: addressData,
-      unit_price_at_join: offeredUnitPrice,
+      shipping_address: withGroupBuySelectionsInShippingAddress(addressData, variantSelections),
+      unit_price_at_join: averageUnitPrice,
       tier_label_at_join: 'Base group price',
     });
 
@@ -281,14 +325,13 @@ export function StartGroupBuyDialog({ product }: StartGroupBuyDialogProps) {
     queryClient.invalidateQueries({ queryKey: ['my-group-buys'] });
     toast.success('Group buy started! Share it with friends.');
     setIsOpen(false);
-    setIsPaying(false);
     resetForm();
   };
 
   if (!user) {
     return (
       <Button variant="secondary" onClick={() => toast.info('Please sign in to start a group buy')}>
-        <Users className="h-4 w-4 mr-2" /> Start Group Buy
+        <Users className="mr-2 h-4 w-4" /> Start Group Buy
       </Button>
     );
   }
@@ -297,10 +340,10 @@ export function StartGroupBuyDialog({ product }: StartGroupBuyDialogProps) {
     <Dialog open={isOpen} onOpenChange={handleOpen}>
       <DialogTrigger asChild>
         <Button variant="secondary">
-          <Users className="h-4 w-4 mr-2" /> Start Group Buy
+          <Users className="mr-2 h-4 w-4" /> Start Group Buy
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Start a Group Buy</DialogTitle>
           <DialogDescription>Create a shared offer for "{product.name}"</DialogDescription>
@@ -309,12 +352,12 @@ export function StartGroupBuyDialog({ product }: StartGroupBuyDialogProps) {
         <div className="space-y-4 py-4">
           {step === 'setup' ? (
             <>
-              <div className="p-4 rounded-lg bg-accent/10 border border-accent/20">
-                <div className="flex justify-between items-center mb-2">
+              <div className="rounded-2xl border border-accent/20 bg-accent/10 p-4">
+                <div className="mb-2 flex items-center justify-between">
                   <span className="text-muted-foreground">Regular price:</span>
-                  <span className="line-through text-muted-foreground">{formatPrice(product.base_price)}</span>
+                  <span className="text-muted-foreground line-through">{formatPrice(product.base_price)}</span>
                 </div>
-                <div className="flex justify-between items-center">
+                <div className="flex items-center justify-between">
                   <span className="font-medium">Group price:</span>
                   <span className="text-xl font-bold text-primary">{formatPrice(offeredUnitPrice)}</span>
                 </div>
@@ -327,36 +370,64 @@ export function StartGroupBuyDialog({ product }: StartGroupBuyDialogProps) {
                   min="2"
                   max="100"
                   value={participantCount}
-                  onChange={(e) => setParticipantCount(e.target.value)}
+                  onChange={(event) => setParticipantCount(event.target.value)}
                 />
               </div>
 
-              {variants && variants.length > 0 && (
+              {variants && variants.length > 0 ? (
+                <div className="space-y-3">
+                  <Label>Your Variant Quantities</Label>
+                  <div className="space-y-2">
+                    {variants.map((variant) => {
+                      const variantUnitPrice = getGroupBuyVariantUnitPrice({
+                        variant,
+                        basePrice: product.base_price,
+                        groupPrice: product.group_buy_price,
+                        discountPercentage,
+                      });
+
+                      return (
+                        <div key={variant.id} className="flex items-center gap-3 rounded-2xl border border-border/70 bg-background/70 p-3">
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium">{getGroupBuyVariantLabel(variant)}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatPrice(variantUnitPrice)}
+                              {variant.stock != null && variant.stock <= 5 ? ` - ${variant.stock} left` : ''}
+                            </p>
+                          </div>
+                          <Input
+                            className="h-10 w-20 rounded-xl"
+                            type="number"
+                            min="0"
+                            max={variant.stock != null ? String(Math.max(0, variant.stock)) : undefined}
+                            value={variantQuantities[variant.id] ?? ''}
+                            onChange={(event) => handleVariantQuantityChange(variant.id, event.target.value)}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
                 <div className="space-y-2">
-                  <Label>Your Variant</Label>
-                  <Select value={selectedVariantId} onValueChange={setSelectedVariantId}>
-                    <SelectTrigger><SelectValue placeholder="Choose variant" /></SelectTrigger>
-                    <SelectContent>
-                      {variants.map((variant) => (
-                        <SelectItem key={variant.id} value={variant.id}>
-                          {[variant.color, variant.size].filter(Boolean).join(' • ') || variant.sku || 'Default'}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label>Your Quantity</Label>
+                  <Input type="number" min="1" max="10" value={quantity} onChange={(event) => setQuantity(event.target.value)} />
                 </div>
               )}
 
-              <div className="space-y-2">
-                <Label>Your Quantity</Label>
-                <Input type="number" min="1" max="10" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+              <div className="rounded-2xl border border-primary/20 bg-primary/5 p-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium">Your payment:</span>
+                  <span className="text-xl font-bold text-primary">{formatPrice(totalAmount)}</span>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">Total items: {totalSelectedQuantity}</p>
               </div>
 
-              <div className="flex gap-2 pt-4">
-                <Button variant="outline" className="flex-1" onClick={() => setIsOpen(false)}>Cancel</Button>
+              <div className="flex flex-col gap-2 pt-4 sm:flex-row">
+                <Button variant="outline" className="h-11 flex-1 rounded-xl" onClick={() => setIsOpen(false)}>Cancel</Button>
                 <Button
-                  className="flex-1"
-                  disabled={normalizedParticipantCount < 2 || (hasVariants && !selectedVariantId)}
+                  className="h-11 flex-1 rounded-xl"
+                  disabled={normalizedParticipantCount < 2 || (hasVariants ? totalSelectedQuantity <= 0 : normalizedQuantity <= 0)}
                   onClick={() => setStep('payment')}
                 >
                   Next: Pay and Start
@@ -365,18 +436,27 @@ export function StartGroupBuyDialog({ product }: StartGroupBuyDialogProps) {
             </>
           ) : (
             <div className="space-y-4">
-              <div className="p-4 rounded-lg bg-muted/50 border">
-                <h4 className="font-medium mb-2">Summary</h4>
-                <div className="text-sm space-y-1">
+              <div className="rounded-2xl border border-border/70 bg-muted/50 p-4">
+                <h4 className="mb-2 font-medium">Summary</h4>
+                <div className="space-y-1 text-sm">
                   <p>Participants needed: {participantCount}</p>
-                  <p>Your quantity: {quantity}</p>
+                  {hasVariants ? (
+                    variantSelections.map((selection) => (
+                      <p key={selection.variantId}>
+                        {selection.label}: {selection.quantity}
+                      </p>
+                    ))
+                  ) : (
+                    <p>Your quantity: {quantity}</p>
+                  )}
+                  <p>Total items: {totalSelectedQuantity}</p>
                   <p className="font-bold text-primary">Your payment: {formatPrice(totalAmount)}</p>
                 </div>
               </div>
 
-              <Button className="w-full" onClick={handlePayAndCreate} disabled={isPaying}>
-                {isPaying ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CreditCard className="h-4 w-4 mr-2" />}
-                Pay {formatPrice(totalAmount)} and Start Group Buy
+              <Button className="h-11 w-full rounded-xl" onClick={handlePayAndCreate} disabled={isPaying}>
+                {isPaying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
+                Pay Now and Start Group Buy
               </Button>
               <Button variant="outline" className="w-full" onClick={() => setStep('setup')}>Back</Button>
             </div>

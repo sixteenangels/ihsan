@@ -25,6 +25,8 @@ const REGIONS = [
   'Bono East', 'Ahafo', 'Savannah', 'North East', 'Oti', 'Western North',
 ];
 
+let customerPreferencesTableUnavailable = false;
+
 interface LegacyPreferences {
   region?: string;
   interests?: string[];
@@ -56,6 +58,15 @@ function parseLegacyPreferences(rawValue: string | null): LegacyPreferences | nu
   }
 }
 
+function isMissingCustomerPreferencesTable(error: unknown) {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: string }).code === 'PGRST205'
+  );
+}
+
 interface WelcomeModalProps {
   suppressed?: boolean;
 }
@@ -63,6 +74,7 @@ interface WelcomeModalProps {
 export function WelcomeModal({ suppressed = false }: WelcomeModalProps) {
   const { user } = useAuth();
   const { isEnabled } = useFeatureFlags();
+  const isWelcomeModalEnabled = isEnabled('welcome_modal');
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(1);
   const [region, setRegion] = useState('');
@@ -77,7 +89,7 @@ export function WelcomeModal({ suppressed = false }: WelcomeModalProps) {
       return;
     }
 
-    if (!user || !isEnabled('welcome_modal')) {
+    if (!user || !isWelcomeModalEnabled) {
       setOpen(false);
       return;
     }
@@ -93,11 +105,13 @@ export function WelcomeModal({ suppressed = false }: WelcomeModalProps) {
       let onboardingCompletedAt: string | null = null;
 
       try {
-        const { data, error } = await supabase
-          .from('customer_preferences')
-          .select('region, interests, order_updates_enabled, deal_alerts_enabled, onboarding_completed_at')
-          .eq('user_id', user.id)
-          .maybeSingle();
+        const { data, error } = customerPreferencesTableUnavailable
+          ? { data: null, error: null }
+          : await supabase
+              .from('customer_preferences')
+              .select('region, interests, order_updates_enabled, deal_alerts_enabled, onboarding_completed_at')
+              .eq('user_id', user.id)
+              .maybeSingle();
 
         if (error) throw error;
         if (!isActive) return;
@@ -115,7 +129,11 @@ export function WelcomeModal({ suppressed = false }: WelcomeModalProps) {
           setDealAlertsEnabled(legacyPreferences.dealAlertsEnabled ?? legacyPreferences.notifications ?? true);
         }
       } catch (error) {
-        console.error('Failed to load customer preferences:', error);
+        if (isMissingCustomerPreferencesTable(error)) {
+          customerPreferencesTableUnavailable = true;
+        } else {
+          console.error('Failed to load customer preferences:', error);
+        }
 
         if (isActive && legacyPreferences) {
           setRegion(legacyPreferences.region ?? '');
@@ -148,7 +166,7 @@ export function WelcomeModal({ suppressed = false }: WelcomeModalProps) {
         clearTimeout(openTimer);
       }
     };
-  }, [isEnabled, suppressed, user]);
+  }, [isWelcomeModalEnabled, suppressed, user]);
 
   const persistLocalPreferences = () => {
     if (!user) return;
@@ -184,16 +202,27 @@ export function WelcomeModal({ suppressed = false }: WelcomeModalProps) {
     };
 
     try {
-      const { error } = await supabase
-        .from('customer_preferences')
-        .upsert(payload, { onConflict: 'user_id' });
+      const { error } = customerPreferencesTableUnavailable
+        ? { error: null }
+        : await supabase
+            .from('customer_preferences')
+            .upsert(payload, { onConflict: 'user_id' });
 
       if (error) throw error;
 
-      toast.success('Your preferences have been saved.');
+      toast.success(
+        customerPreferencesTableUnavailable
+          ? 'Your preferences have been saved on this device.'
+          : 'Your preferences have been saved.',
+      );
     } catch (error) {
-      console.error('Failed to save onboarding preferences:', error);
-      toast.error('Preferences were saved on this device, but could not be synced yet.');
+      if (isMissingCustomerPreferencesTable(error)) {
+        customerPreferencesTableUnavailable = true;
+        toast.success('Your preferences have been saved on this device.');
+      } else {
+        console.error('Failed to save onboarding preferences:', error);
+        toast.error('Preferences were saved on this device, but could not be synced yet.');
+      }
     } finally {
       persistLocalPreferences();
       setOpen(false);
@@ -209,7 +238,7 @@ export function WelcomeModal({ suppressed = false }: WelcomeModalProps) {
     );
   };
 
-  if (suppressed || !user || !isEnabled('welcome_modal')) return null;
+  if (suppressed || !user || !isWelcomeModalEnabled) return null;
 
   return (
     <Dialog

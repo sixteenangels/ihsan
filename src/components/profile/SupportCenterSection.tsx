@@ -243,8 +243,8 @@ export function SupportCenterSection() {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
+      <Card className="rounded-2xl border-border/70 shadow-sm">
+        <CardHeader className="px-5 sm:px-6">
           <CardTitle className="flex items-center gap-2">
             <Headphones className="h-5 w-5 text-primary" />
             Contact Support
@@ -253,7 +253,7 @@ export function SupportCenterSection() {
             Start a new thread for a fresh issue, or continue an existing conversation below.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 px-5 sm:px-6">
           <div className="grid gap-4 md:grid-cols-[220px_minmax(0,1fr)]">
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">Topic</label>
@@ -263,6 +263,7 @@ export function SupportCenterSection() {
                     key={subject}
                     type="button"
                     size="sm"
+                    className="rounded-xl"
                     variant={newConversationSubject === subject ? 'default' : 'outline'}
                     onClick={() => setNewConversationSubject(subject)}
                   >
@@ -285,6 +286,7 @@ export function SupportCenterSection() {
 
           <div className="flex justify-end">
             <Button
+              className="h-10 w-full rounded-xl sm:w-auto"
               onClick={() => createConversationMutation.mutate()}
               disabled={createConversationMutation.isPending}
             >
@@ -295,8 +297,8 @@ export function SupportCenterSection() {
       </Card>
 
       <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
-        <Card className="min-h-[520px]">
-          <CardHeader>
+        <Card className="min-h-[520px] rounded-2xl border-border/70 shadow-sm">
+          <CardHeader className="px-5 sm:px-6">
             <CardTitle className="flex items-center gap-2">
               <Inbox className="h-5 w-5 text-primary" />
               Your Threads
@@ -304,7 +306,7 @@ export function SupportCenterSection() {
             <CardDescription>Follow open issues and past support conversations.</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
-            <ScrollArea className="h-[420px] px-4 pb-4">
+            <ScrollArea className="h-[420px] px-4 pb-4 sm:px-5">
               {conversationsLoading ? (
                 <div className="flex items-center justify-center py-10">
                   <Loader2 className="h-5 w-5 animate-spin text-primary" />
@@ -321,7 +323,7 @@ export function SupportCenterSection() {
                       type="button"
                       onClick={() => setSelectedConversationId(conversation.id)}
                       className={cn(
-                        'w-full rounded-xl border border-border p-3 text-left transition-colors hover:bg-muted/40',
+                        'w-full rounded-2xl border border-border/70 p-3 text-left transition-colors hover:bg-muted/40',
                         selectedConversationId === conversation.id && 'bg-muted',
                       )}
                     >
@@ -344,8 +346,8 @@ export function SupportCenterSection() {
           </CardContent>
         </Card>
 
-        <Card className="min-h-[520px]">
-          <CardHeader>
+        <Card className="min-h-[520px] rounded-2xl border-border/70 shadow-sm">
+          <CardHeader className="px-5 sm:px-6">
             <CardTitle className="flex items-center gap-2">
               <MessageCircle className="h-5 w-5 text-primary" />
               {selectedConversation?.subject || 'Support Messages'}
@@ -356,8 +358,8 @@ export function SupportCenterSection() {
                 : 'Select a support thread to review messages.'}
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <ScrollArea className="h-[320px] rounded-xl border border-border p-4">
+          <CardContent className="space-y-4 px-5 sm:px-6">
+            <ScrollArea className="h-[320px] rounded-2xl border border-border/70 p-3.5 sm:p-4">
               {selectedConversationId && messagesLoading ? (
                 <div className="flex items-center justify-center py-10">
                   <Loader2 className="h-5 w-5 animate-spin text-primary" />
@@ -379,7 +381,7 @@ export function SupportCenterSection() {
                     >
                       <div
                         className={cn(
-                          'max-w-[85%] rounded-xl px-3 py-2 text-sm',
+                          'max-w-[85%] rounded-2xl px-3 py-2 text-sm',
                           message.is_from_admin
                             ? 'bg-muted text-foreground'
                             : 'bg-primary text-primary-foreground',
@@ -420,6 +422,7 @@ export function SupportCenterSection() {
                   disabled={!selectedConversation || sendReplyMutation.isPending}
                 />
                 <Button
+                  className="rounded-xl"
                   onClick={() => sendReplyMutation.mutate()}
                   disabled={!selectedConversation || !draftReply.trim() || sendReplyMutation.isPending}
                 >
@@ -435,8 +438,8 @@ export function SupportCenterSection() {
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
+      <Card className="rounded-2xl border-border/70 shadow-sm">
+        <CardHeader className="px-5 sm:px-6">
           <CardTitle className="flex items-center gap-2">
             <Clock className="h-5 w-5 text-primary" />
             Request History
@@ -445,7 +448,7 @@ export function SupportCenterSection() {
             Older tracked requests tied directly to your account appear here when available.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-5 sm:px-6">
           {requestsLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-5 w-5 animate-spin text-primary" />

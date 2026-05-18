@@ -281,7 +281,7 @@ export default function ProductDetail() {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <main className="container flex items-center justify-center px-4 py-16 pb-24 sm:px-6 md:pb-8">
+        <main className="container flex items-center justify-center px-3 py-16 pb-28 sm:px-6 md:pb-8">
           <div className="flex min-h-[40vh] items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
@@ -295,7 +295,7 @@ export default function ProductDetail() {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <main className="container px-4 py-12 pb-24 sm:px-6 md:py-16 md:pb-8">
+        <main className="container px-3 py-12 pb-28 sm:px-6 md:py-16 md:pb-8">
           <div className="mx-auto max-w-md text-center">
             <h1 className="mb-4 text-2xl font-bold text-foreground">Product Not Found</h1>
             <p className="mb-6 text-muted-foreground">
@@ -334,7 +334,7 @@ export default function ProductDetail() {
   const purchaseSupportNote = selectedVariants.length > 0
     ? `${selectedItemCount} item${selectedItemCount === 1 ? '' : 's'} selected across ${selectedVariants.length} option${selectedVariants.length === 1 ? '' : 's'}.`
     : product.variants.length > 0
-      ? 'Pick exact colours and sizes now for an exact total, or add first and confirm at checkout.'
+      ? 'Pick exact variants and sizes now for an exact total, or add first and confirm at checkout.'
       : 'Ready to add straight to cart with the current price and shipping options.';
   const stockStatusLabel = hasAnyStock
     ? `${totalAvailableStock} available now`
@@ -345,13 +345,13 @@ export default function ProductDetail() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="container px-4 py-6 pb-32 sm:px-6 md:py-8 md:pb-8">
+      <main className="container px-3 py-5 pb-36 sm:px-6 md:py-8 md:pb-8">
         <Link to="/products" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary mb-6">
           <ArrowLeft className="h-4 w-4 mr-1" />
           Back to Products
         </Link>
 
-        <div className="grid gap-6 lg:grid-cols-2 lg:gap-12">
+        <div className="grid gap-5 lg:grid-cols-2 lg:gap-12">
           <ProductImageGallery images={product.images} productName={product.name} />
 
           <div className="space-y-6">
@@ -398,7 +398,7 @@ export default function ProductDetail() {
 
             {/* Start Group Buy Button */}
             {product.is_group_buy_eligible && (
-              <div className="p-4 rounded-lg bg-accent/10 border border-accent/20">
+              <div className="rounded-2xl border border-accent/20 bg-accent/10 p-3.5 sm:p-4">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="font-medium text-foreground">Start a Group Buy</p>
@@ -412,7 +412,7 @@ export default function ProductDetail() {
             {/* Title & Rating */}
             <div>
               <p className="text-sm text-muted-foreground mb-1">{product.category_name || 'Uncategorized'}</p>
-              <h1 className="mb-2 text-2xl font-bold font-serif text-foreground sm:text-3xl">{product.name}</h1>
+              <h1 className="mb-2 text-[1.65rem] font-bold font-serif leading-tight text-foreground sm:text-3xl">{product.name}</h1>
               <div className="flex items-center gap-2">
                 <div className="flex items-center">
                   <Star className="h-5 w-5 fill-accent-foreground text-accent-foreground" />
@@ -432,10 +432,10 @@ export default function ProductDetail() {
               )}
             </div>
 
-            <p className="text-muted-foreground">{product.description}</p>
+            <p className="text-sm leading-6 text-muted-foreground sm:text-base">{product.description}</p>
 
-            <Card className="border-primary/15 bg-primary/5">
-              <CardContent className="grid gap-4 p-4 md:grid-cols-3">
+            <Card className="rounded-2xl border-primary/15 bg-primary/5 shadow-sm">
+              <CardContent className="grid gap-4 p-3.5 sm:p-4 md:grid-cols-3">
                 <div>
                   <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Availability</p>
                   <p className="mt-1 font-semibold text-foreground">
@@ -504,14 +504,14 @@ export default function ProductDetail() {
                   {availableShipping.map((option) => (
                     <Card
                       key={option.id}
-                      className={`cursor-pointer transition-all hover:border-primary/50 ${
+                      className={`cursor-pointer rounded-2xl border-border/70 shadow-sm transition-all hover:border-primary/50 ${
                         selectedShipping?.id === option.id ? 'border-primary' : ''
                       }`}
                       onClick={() => setSelectedShipping(option)}
                     >
                       <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                          <div className="rounded-xl bg-primary/10 p-2 text-primary">
                             {getShippingIcon(option.shipping_class?.shipping_type?.name)}
                           </div>
                           <div>
@@ -539,7 +539,7 @@ export default function ProductDetail() {
             <Separator />
 
             <div className="space-y-4">
-              <Card className="overflow-hidden border-primary/20 bg-gradient-to-br from-card via-card to-primary/5 shadow-sm">
+              <Card className="overflow-hidden rounded-2xl border-primary/20 bg-gradient-to-br from-card via-card to-primary/5 shadow-sm">
                 <CardContent className="p-4 sm:p-5">
                   <div className="flex flex-col gap-5">
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -633,22 +633,22 @@ export default function ProductDetail() {
         {/* Frequently Bought Together */}
         <FrequentlyBoughtTogether productId={product.id} />
 
-        {/* Recently Viewed */}
-        <RecentlyViewedProducts currentProductId={product.id} />
+        <div className="mt-10 space-y-8 sm:mt-12">
+          <ProductReviews productId={product.id} productName={product.name} />
+          <ProductQA productId={product.id} />
+        </div>
 
         {/* Related Products */}
         <RelatedProducts productId={product.id} categoryId={product.category_id} />
 
-        <div className="mt-12 space-y-8">
-          <ProductQA productId={product.id} />
-          <ProductReviews productId={product.id} productName={product.name} />
-        </div>
+        {/* Recently Viewed */}
+        <RecentlyViewedProducts currentProductId={product.id} />
       </main>
 
       {isMobile && (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 px-4 pt-3 shadow-2xl backdrop-blur supports-[backdrop-filter]:bg-background/90">
-          <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)]">
-            <div className="min-w-0">
+        <div className="fixed inset-x-0 bottom-0 z-40 px-3 pb-2">
+          <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 rounded-[1.35rem] border border-border/80 bg-background/95 px-3 pt-3 shadow-[0_18px_44px_-22px_hsl(var(--foreground)/0.75)] backdrop-blur-xl supports-[backdrop-filter]:bg-background/90">
+            <div className="min-w-0 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)]">
               <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Ready to buy</p>
               <p className="text-lg font-semibold text-foreground">
                 {formatPrice(purchaseDisplayPrice)}
@@ -659,16 +659,16 @@ export default function ProductDetail() {
                   : product.variants.length > 0
                     ? 'Choose now or at checkout'
                     : 'Standard configuration'}
-                {' · '}
+                {' - '}
                 {shippingEtaLabel}
               </p>
             </div>
-            <div className="flex shrink-0 items-center gap-2">
-              <Button size="sm" variant="outline" onClick={handleAddToCart}>
+            <div className="flex shrink-0 items-center gap-2 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)]">
+              <Button size="sm" variant="outline" className="rounded-xl" onClick={handleAddToCart}>
                 <ShoppingCart className="mr-1 h-4 w-4" />
                 Add
               </Button>
-              <Button size="sm" onClick={handleBuyNow}>
+              <Button size="sm" className="rounded-xl" onClick={handleBuyNow}>
                 <Zap className="mr-1 h-4 w-4" />
                 Buy
               </Button>

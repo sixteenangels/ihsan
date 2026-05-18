@@ -273,12 +273,12 @@ export function ProductReviews({ productId, productName }: ProductReviewsProps) 
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Customer Reviews</CardTitle>
+      <Card className="rounded-2xl border-border/70 shadow-sm">
+        <CardHeader className="px-5 sm:px-6">
+          <CardTitle className="text-lg sm:text-xl">Customer Reviews</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid md:grid-cols-2 gap-6">
+        <CardContent className="px-5 sm:px-6">
+          <div className="grid gap-6 md:grid-cols-2">
             {/* Rating Summary */}
             <div className="space-y-4">
               <div className="flex items-center gap-4">
@@ -323,18 +323,18 @@ export function ProductReviews({ productId, productName }: ProductReviewsProps) 
             {/* Write Review */}
             <div>
               {canReview && !showReviewForm && (
-                <div className="text-center p-6 border border-dashed border-border rounded-lg">
+                <div className="rounded-2xl border border-dashed border-border/70 bg-muted/30 p-5 text-center sm:p-6">
                   <p className="text-muted-foreground mb-3">
                     You purchased this product. Share your experience!
                   </p>
-                  <Button onClick={() => setShowReviewForm(true)}>
+                  <Button className="h-10 rounded-xl" onClick={() => setShowReviewForm(true)}>
                     Write a Review
                   </Button>
                 </div>
               )}
 
               {showReviewForm && (
-                <div className="space-y-4 p-4 border border-border rounded-lg">
+                <div className="space-y-4 rounded-2xl border border-border/70 bg-muted/30 p-3.5 sm:p-4">
                   <div>
                     <Label>Your Rating</Label>
                     <div className="flex items-center gap-1 mt-2">
@@ -343,7 +343,7 @@ export function ProductReviews({ productId, productName }: ProductReviewsProps) 
                           key={star}
                           type="button"
                           onClick={() => setNewReview({ ...newReview, rating: star })}
-                          className="focus:outline-none"
+                          className="rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         >
                           <Star
                             className={`h-8 w-8 cursor-pointer transition-colors ${
@@ -378,7 +378,7 @@ export function ProductReviews({ productId, productName }: ProductReviewsProps) 
                   <div>
                     <Label>Add a Photo (optional)</Label>
                     <div className="mt-1 flex items-center gap-3">
-                      <label className="flex items-center gap-2 px-4 py-2 border border-border rounded-md cursor-pointer hover:bg-muted transition-colors">
+                      <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-border px-4 py-2 transition-colors hover:bg-muted">
                         <Camera className="h-4 w-4" />
                         <span className="text-sm">Choose Photo</span>
                         <input
@@ -390,22 +390,22 @@ export function ProductReviews({ productId, productName }: ProductReviewsProps) 
                       </label>
                       {imagePreview && (
                         <div className="relative">
-                          <img src={imagePreview} alt="Preview" className="h-16 w-16 object-cover rounded-md" />
+                          <img src={imagePreview} alt="Preview" className="h-16 w-16 rounded-xl object-cover" />
                           <button
                             onClick={() => { setReviewImage(null); setImagePreview(null); }}
-                            className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs"
+                            className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-xs text-destructive-foreground"
                           >
-                            Ãƒâ€”
+                            x
                           </button>
                         </div>
                       )}
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button onClick={handleSubmitReview} disabled={submitting}>
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <Button className="h-10 rounded-xl" onClick={handleSubmitReview} disabled={submitting}>
                       {submitting ? 'Submitting...' : 'Submit Review'}
                     </Button>
-                    <Button variant="outline" onClick={() => setShowReviewForm(false)}>
+                    <Button variant="outline" className="h-10 rounded-xl" onClick={() => setShowReviewForm(false)}>
                       Cancel
                     </Button>
                   </div>
@@ -413,7 +413,7 @@ export function ProductReviews({ productId, productName }: ProductReviewsProps) 
               )}
 
               {!canReview && !showReviewForm && user && (
-                <div className="text-center p-6 bg-muted/50 rounded-lg">
+                <div className="rounded-2xl bg-muted/50 p-5 text-center sm:p-6">
                   <p className="text-sm text-muted-foreground">
                     Purchase and receive this product to leave a review
                   </p>
@@ -421,7 +421,7 @@ export function ProductReviews({ productId, productName }: ProductReviewsProps) 
               )}
 
               {!user && (
-                <div className="text-center p-6 bg-muted/50 rounded-lg">
+                <div className="rounded-2xl bg-muted/50 p-5 text-center sm:p-6">
                   <p className="text-sm text-muted-foreground">
                     Sign in to write a review
                   </p>
@@ -436,14 +436,14 @@ export function ProductReviews({ productId, productName }: ProductReviewsProps) 
       {reviews.length > 0 ? (
         <div className="space-y-4">
           {reviews.map((review) => (
-            <Card key={review.id}>
-              <CardContent className="p-4">
-                <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+            <Card key={review.id} className="rounded-2xl border-border/70 shadow-sm">
+              <CardContent className="p-3.5 sm:p-4">
+                <div className="flex items-start gap-3 sm:gap-4">
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-muted">
                     <User className="h-5 w-5 text-muted-foreground" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="mb-1 flex flex-wrap items-center gap-2">
                       <span className="font-medium text-foreground">
                         {review.profiles?.name || 'Anonymous'}
                       </span>
@@ -454,7 +454,7 @@ export function ProductReviews({ productId, productName }: ProductReviewsProps) 
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 mb-2">
+                    <div className="mb-2 flex flex-wrap items-center gap-2">
                       <div className="flex items-center gap-0.5">
                         {[1, 2, 3, 4, 5].map((star) => (
                           <Star
@@ -485,13 +485,13 @@ export function ProductReviews({ productId, productName }: ProductReviewsProps) 
                       <img
                         src={review.image_url}
                         alt="Review photo"
-                        className="mt-3 rounded-lg max-h-48 object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                        className="mt-3 max-h-48 cursor-pointer rounded-2xl object-cover transition-opacity hover:opacity-90"
                         onClick={() => window.open(review.image_url!, '_blank')}
                       />
                     )}
                     {/* Admin Response */}
                     {review.admin_response && (
-                      <div className="mt-3 p-3 bg-primary/5 rounded-lg border-l-2 border-primary">
+                      <div className="mt-3 rounded-2xl border border-primary/15 bg-primary/5 p-3">
                         <div className="flex items-center gap-2 mb-1">
                           <Badge variant="secondary" className="text-xs">AJYN Team</Badge>
                           {review.admin_response_at && (
@@ -510,8 +510,8 @@ export function ProductReviews({ productId, productName }: ProductReviewsProps) 
           ))}
         </div>
       ) : (
-        <Card>
-          <CardContent className="py-8 text-center">
+        <Card className="rounded-2xl border-border/70 shadow-sm">
+          <CardContent className="px-5 py-8 text-center sm:px-6">
             <p className="text-muted-foreground">No reviews yet. Be the first to review this product!</p>
           </CardContent>
         </Card>

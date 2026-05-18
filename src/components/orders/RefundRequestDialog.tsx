@@ -114,7 +114,7 @@ export function RefundRequestDialog({
           {triggerLabel}
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="rounded-2xl sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Request Refund</DialogTitle>
           <DialogDescription>
@@ -123,7 +123,7 @@ export function RefundRequestDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          <div className="p-4 rounded-lg bg-muted">
+          <div className="rounded-2xl bg-muted p-4">
             <p className="text-sm text-muted-foreground">Order Total</p>
             <p className="text-xl font-bold text-primary">
               {formatPrice(order.total_amount)}

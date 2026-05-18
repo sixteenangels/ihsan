@@ -536,9 +536,9 @@ export default function Products() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="container overflow-x-hidden px-4 py-5 pb-24 sm:px-6 md:py-8 md:pb-8">
+      <main className="container overflow-x-hidden px-3 py-5 pb-28 sm:px-6 md:py-8 md:pb-8">
         <div className="mb-6 md:mb-8">
-          <div className="rounded-[1.75rem] border border-border bg-gradient-to-br from-card via-card to-primary/5 p-4 shadow-sm sm:p-6">
+          <div className="rounded-[1.5rem] border border-border/70 bg-gradient-to-br from-card via-card to-primary/5 p-3.5 shadow-sm sm:rounded-[1.75rem] sm:p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <p className="text-xs font-medium uppercase tracking-[0.28em] text-primary/80">
@@ -561,6 +561,7 @@ export default function Products() {
                 <Button
                   variant="outline"
                   size="sm"
+                  className="h-9 rounded-full"
                   onClick={openSaveSearchDialog}
                   disabled={saveSavedSearchMutation.isPending || !hasCustomSearchState}
                 >
@@ -592,7 +593,7 @@ export default function Products() {
                 )}
               </div>
 
-              <div className="flex flex-wrap gap-2">
+              <div className="mobile-scroll-pills -mx-1 flex gap-2 overflow-x-auto px-1 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
                 {quickDiscoveryActions.map((action) => {
                   const Icon = action.icon;
                   return (
@@ -600,7 +601,7 @@ export default function Products() {
                       key={action.key}
                       variant={action.active ? 'default' : 'outline'}
                       size="sm"
-                      className="h-12 rounded-2xl px-4"
+                      className="h-10 shrink-0 rounded-full px-3 sm:h-12 sm:rounded-2xl sm:px-4"
                       onClick={action.onClick}
                     >
                       <Icon className="mr-2 h-4 w-4" />
@@ -612,7 +613,7 @@ export default function Products() {
               </div>
             </div>
 
-            <div className="mt-4 rounded-2xl border border-border/70 bg-background/75 p-4">
+            <div className="mt-4 hidden rounded-2xl border border-border/70 bg-background/75 p-4 sm:block">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-sm font-semibold text-foreground">Saved searches</p>
@@ -700,7 +701,7 @@ export default function Products() {
           </div>
         </div>
 
-        <div className="mb-6 overflow-x-auto pb-1">
+        <div className="mobile-scroll-pills mb-6 overflow-x-auto pb-1">
           <div className="flex min-w-max gap-2 pr-4">
             <Badge
               variant={selectedCategory === '' ? 'default' : 'outline'}
@@ -740,11 +741,11 @@ export default function Products() {
           </div>
         </div>
 
-        <div className="sticky top-14 z-30 mb-6 rounded-2xl border border-border bg-background/95 p-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:top-16">
+        <div className="z-30 mb-6 rounded-2xl border border-border/70 bg-background/95 p-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80 md:sticky md:top-16">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
               <p className="text-sm font-semibold text-foreground">Refine your results</p>
-              <p className="text-xs text-muted-foreground">
+              <p className="hidden text-xs text-muted-foreground sm:block">
                 Keep discovery controls visible while you browse.
               </p>
             </div>
@@ -777,7 +778,7 @@ export default function Products() {
               <Button
                 variant={activeFilterCount > 0 ? 'default' : 'outline'}
                 size="sm"
-                className="w-full sm:w-auto"
+                className="h-10 w-full rounded-xl sm:w-auto"
               >
                 <Filter className="mr-2 h-4 w-4" />
                 Filters
@@ -855,11 +856,11 @@ export default function Products() {
           </Sheet>
 
           <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
-            <div className="flex items-center self-start rounded-md border border-border">
+            <div className="flex items-center self-start rounded-xl border border-border">
               <Button
                 variant={viewMode === 'grid' ? 'default' : 'ghost'}
                 size="icon"
-                className="h-9 w-9 rounded-r-none"
+                className="h-10 w-10 rounded-r-none"
                 onClick={() => setViewMode('grid')}
               >
                 <LayoutGrid className="h-4 w-4" />
@@ -867,7 +868,7 @@ export default function Products() {
               <Button
                 variant={viewMode === 'list' ? 'default' : 'ghost'}
                 size="icon"
-                className="h-9 w-9 rounded-l-none"
+                className="h-10 w-10 rounded-l-none"
                 onClick={() => setViewMode('list')}
               >
                 <List className="h-4 w-4" />
@@ -877,7 +878,7 @@ export default function Products() {
             <div className="flex w-full items-center gap-2 sm:w-auto">
               <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
               <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="w-full sm:w-44">
+                <SelectTrigger className="h-10 w-full rounded-xl sm:w-44">
                   <SelectValue placeholder="Sort by" />
                 </SelectTrigger>
                 <SelectContent>
@@ -904,7 +905,7 @@ export default function Products() {
           <div
             className={
               viewMode === 'grid'
-                ? 'grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4'
+                ? 'grid grid-cols-2 gap-2.5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4'
                 : 'flex flex-col gap-3 sm:gap-4'
             }
           >

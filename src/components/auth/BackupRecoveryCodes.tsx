@@ -151,8 +151,8 @@ export function BackupRecoveryCodes({ codes: initialCodes, onComplete, showAsSet
             : 'Each code can only be used once. Generate new codes if you run low.'}
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-2 p-4 bg-muted rounded-lg border border-border">
+      <CardContent className="space-y-4 px-5 sm:px-6">
+        <div className="grid grid-cols-2 gap-2 rounded-2xl border border-border/70 bg-muted p-3.5 sm:p-4">
           {codes.map((code, index) => (
             <code key={index} className="text-sm font-mono text-center py-1">
               {code}
@@ -161,7 +161,7 @@ export function BackupRecoveryCodes({ codes: initialCodes, onComplete, showAsSet
         </div>
 
         <div className="flex gap-2">
-          <Button variant="outline" className="flex-1" onClick={copyAllCodes}>
+          <Button variant="outline" className="h-10 flex-1 rounded-xl" onClick={copyAllCodes}>
             {copied ? (
               <>
                 <Check className="mr-2 h-4 w-4" />

@@ -157,7 +157,7 @@ export function ProductShippingRules({ rules, onRulesChange }: ProductShippingRu
               <div className="flex-1">
                 <p className="text-sm font-medium">{shippingClass.name}</p>
                 <p className="text-xs text-muted-foreground">
-                  {shippingClass.shipping_types?.name || 'Unknown type'} •{' '}
+                  {shippingClass.shipping_types?.name || 'Unknown type'} -{' '}
                   {shippingClass.estimated_days_min}-{shippingClass.estimated_days_max} days
                 </p>
                 {(shippingClass.description || shippingClass.shipping_types?.description) && (

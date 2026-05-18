@@ -112,10 +112,10 @@ export function OrderTrackingMap({ trackingPoints, orderStatus, estimatedDeliver
 
   if (validPoints.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
+      <Card className="rounded-2xl border-border/70 shadow-sm">
+        <CardHeader className="px-5 sm:px-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
               <MapPin className="h-5 w-5" />
               Order Tracking
             </CardTitle>
@@ -125,7 +125,7 @@ export function OrderTrackingMap({ trackingPoints, orderStatus, estimatedDeliver
             </Badge>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-5 sm:px-6">
           {sortedTrackingPoints.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
               <Package className="h-12 w-12 mb-4" />
@@ -170,10 +170,10 @@ export function OrderTrackingMap({ trackingPoints, orderStatus, estimatedDeliver
   const latestPoint = validPoints[validPoints.length - 1];
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
+    <Card className="rounded-2xl border-border/70 shadow-sm">
+      <CardHeader className="px-5 sm:px-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
             <MapPin className="h-5 w-5" />
             Order Tracking
           </CardTitle>
@@ -183,9 +183,9 @@ export function OrderTrackingMap({ trackingPoints, orderStatus, estimatedDeliver
           </Badge>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 px-5 sm:px-6">
         {/* Map */}
-        <div className="h-64 rounded-lg overflow-hidden border border-border">
+        <div className="h-64 overflow-hidden rounded-2xl border border-border/70">
           <MapContainer
             center={center}
             zoom={10}
@@ -239,7 +239,7 @@ export function OrderTrackingMap({ trackingPoints, orderStatus, estimatedDeliver
         </div>
 
         {/* Current Status */}
-        <div className="bg-muted/50 rounded-lg p-4">
+        <div className="rounded-2xl bg-muted/50 p-4">
           <div className="flex items-start gap-3">
             <div className="p-2 bg-primary/10 rounded-full">
               <Truck className="h-5 w-5 text-primary" />

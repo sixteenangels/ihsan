@@ -31,7 +31,7 @@ function GroupBuyCardFromDB({ groupBuy }: { groupBuy: GroupBuyWithProduct }) {
   });
 
   return (
-    <Card className="overflow-hidden hover:shadow-lg transition-all duration-300 border-border bg-card">
+    <Card className="overflow-hidden rounded-2xl border-border/70 bg-card shadow-sm transition-all duration-300 hover:shadow-md">
       <div className="relative aspect-[4/3] overflow-hidden">
         <img
           src={groupBuy.product.images[0] || 'https://via.placeholder.com/400'}
@@ -39,7 +39,7 @@ function GroupBuyCardFromDB({ groupBuy }: { groupBuy: GroupBuyWithProduct }) {
           className="w-full h-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 to-transparent" />
-        <Badge className="absolute top-3 left-3 bg-accent text-accent-foreground text-lg px-3 py-1">
+        <Badge className="absolute left-2 top-2 bg-accent px-2.5 py-1 text-xs text-accent-foreground sm:left-3 sm:top-3 sm:text-lg">
           {savingsPercent}% OFF
         </Badge>
         <div className="absolute bottom-3 left-3 right-3">
@@ -48,7 +48,7 @@ function GroupBuyCardFromDB({ groupBuy }: { groupBuy: GroupBuyWithProduct }) {
           </h3>
         </div>
       </div>
-      <CardContent className="p-4">
+      <CardContent className="p-3.5 sm:p-4">
         <div className="flex items-center justify-between mb-3">
           <div>
             <p className="text-sm text-muted-foreground line-through">
@@ -76,7 +76,7 @@ function GroupBuyCardFromDB({ groupBuy }: { groupBuy: GroupBuyWithProduct }) {
         </div>
 
         <Link to={`/product/${groupBuy.product_id}?groupBuy=${groupBuy.id}`}>
-          <Button className="w-full">Join Group Buy</Button>
+          <Button className="h-10 w-full rounded-xl">Join Group Buy</Button>
         </Link>
       </CardContent>
     </Card>
@@ -87,8 +87,8 @@ export function GroupBuySection() {
   const { data: groupBuys, isLoading } = useGroupBuys();
 
   return (
-    <section className="bg-background py-12 sm:py-16">
-      <div className="container px-4 sm:px-6">
+    <section className="bg-background py-10 sm:py-16">
+      <div className="container px-3 sm:px-6">
         <div className="mb-8 flex flex-col gap-4 sm:mb-10 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3 sm:items-center sm:gap-4">
             <div className="rounded-xl bg-primary/10 p-3">
@@ -109,7 +109,7 @@ export function GroupBuySection() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
           {isLoading
             ? Array.from({ length: 3 }).map((_, i) => (
                 <Card key={i} className="overflow-hidden bg-card">
@@ -133,7 +133,7 @@ export function GroupBuySection() {
         )}
 
         {/* How it works */}
-        <div className="mt-10 rounded-2xl border border-border bg-card p-5 sm:mt-12 sm:p-8">
+        <div className="mt-10 rounded-2xl border border-border/70 bg-card p-4 shadow-sm sm:mt-12 sm:p-8">
           <h3 className="mb-6 text-center text-lg font-bold text-foreground sm:text-xl">
             How Group Buys Work
           </h3>

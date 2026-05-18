@@ -172,17 +172,17 @@ export function TwoFactorSetup({ onComplete, onCancel }: TwoFactorSetupProps) {
   }
 
   return (
-    <Card className="border-border">
-      <CardHeader className="text-center">
+    <Card className="rounded-2xl border-border/70 shadow-sm">
+      <CardHeader className="px-5 text-center sm:px-6">
         <CardTitle className="text-2xl font-serif">Scan QR Code</CardTitle>
         <CardDescription>
           Scan this QR code with your authenticator app
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-6 px-5 sm:px-6">
         {qrCode && (
           <div className="flex justify-center">
-            <div className="bg-background p-4 rounded-lg border border-border">
+            <div className="rounded-2xl border border-border/70 bg-background p-4">
               <img src={qrCode} alt="2FA QR Code" className="w-48 h-48" />
             </div>
           </div>

@@ -15,7 +15,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
-import { Loader2, Eye, MapPin, Package, Calendar, Clock, CreditCard, ShoppingBag, PackageCheck, Truck, Plane, MapPinned, Home, CheckCircle, XCircle, RotateCcw, Search, Download, StickyNote, CheckSquare, BellRing, MessageSquare, Plus, ChevronDown, type LucideIcon } from 'lucide-react';
+import { Loader2, Eye, MapPin, Package, Calendar, CreditCard, ShoppingBag, PackageCheck, Truck, Plane, MapPinned, Home, CheckCircle, XCircle, RotateCcw, Search, Download, StickyNote, CheckSquare, BellRing, MessageSquare, Plus, ChevronDown, type LucideIcon } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { format } from 'date-fns';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -60,6 +60,9 @@ const ORDER_STATUSES = [
 ] as const;
 
 type OrderStatus = typeof ORDER_STATUSES[number];
+const ADMIN_VISIBLE_ORDER_STATUSES: OrderStatus[] = ORDER_STATUSES.filter(
+  (status): status is OrderStatus => status !== 'pending',
+);
 type OrderRow = Database['public']['Tables']['orders']['Row'];
 type OrderItemRow = Database['public']['Tables']['order_items']['Row'];
 type OrderTrackingRow = Database['public']['Tables']['order_tracking']['Row'];
@@ -96,7 +99,6 @@ type AdminOrder = OrderRow & {
 type RefundChannel = 'original_payment' | 'wallet_credit' | 'mixed';
 
 const ORDER_STATUS_OPTIONS: OrderStatus[] = [
-  'pending',
   'payment_received',
   'confirmed',
   'order_placed',
@@ -121,8 +123,7 @@ interface StatusTabConfig {
 }
 
 const STATUS_TABS: StatusTabConfig[] = [
-  { value: 'all', label: 'All Orders', icon: Package, statuses: ORDER_STATUSES as unknown as OrderStatus[] },
-  { value: 'pending', label: 'Pending', icon: Clock, statuses: ['pending'] },
+  { value: 'all', label: 'All Orders', icon: Package, statuses: ADMIN_VISIBLE_ORDER_STATUSES },
   { value: 'payment_received', label: 'Payment Received', icon: CreditCard, statuses: ['payment_received'] },
   { value: 'order_placed', label: 'Order Placed', icon: ShoppingBag, statuses: ['order_placed'] },
   { value: 'packed_for_delivery', label: 'Packed', icon: PackageCheck, statuses: ['packed_for_delivery'] },
@@ -379,7 +380,7 @@ export function AdminOrders() {
         () => {
           queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
           setNewOrderAlert(true);
-          toast.success('Ã°Å¸â€ºÂÃ¯Â¸Â New order received!', { duration: 5000 });
+          toast.success('New order received!', { duration: 5000 });
         }
       )
       .on(
@@ -423,6 +424,7 @@ export function AdminOrders() {
             created_at
           )
         `)
+        .in('status', ADMIN_VISIBLE_ORDER_STATUSES)
         .order('created_at', { ascending: false });
 
       if (ordersError) throw ordersError;
@@ -631,7 +633,7 @@ export function AdminOrders() {
       };
 
       const trackingNote = customNote
-        ? (autoNotes[status] ? `${autoNotes[status]} Ã¢â‚¬â€ ${customNote}` : customNote)
+        ? (autoNotes[status] ? `${autoNotes[status]} - ${customNote}` : customNote)
         : (autoNotes[status] || '');
 
       await supabase.from('order_tracking').insert({
@@ -1823,8 +1825,8 @@ export function AdminOrders() {
                           <p className="text-sm font-medium text-foreground">Fulfillment</p>
                           <p className="text-xs text-muted-foreground">
                             Stage: {(order.fulfillment_stage || 'new').replaceAll('_', ' ')}
-                            {order.courier_name ? ` Ã¢â‚¬Â¢ ${order.courier_name}` : ''}
-                            {order.courier_tracking_number ? ` Ã¢â‚¬Â¢ ${order.courier_tracking_number}` : ''}
+                            {order.courier_name ? ` - ${order.courier_name}` : ''}
+                            {order.courier_tracking_number ? ` - ${order.courier_tracking_number}` : ''}
                           </p>
                         </div>
                         <Button
@@ -1886,7 +1888,7 @@ export function AdminOrders() {
                             <SelectTrigger className="w-full sm:w-52 text-sm">
                               <div className="flex items-center gap-2">
                                 <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
-                                <SelectValue placeholder="Insert templateÃ¢â‚¬Â¦" />
+                                <SelectValue placeholder="Insert template..." />
                               </div>
                             </SelectTrigger>
                             <SelectContent className="bg-popover z-50 max-h-72">
@@ -2199,7 +2201,7 @@ export function AdminOrders() {
                                   fullNotes += ` Tracking: ${trackingLocation.courierTrackingNumber}`;
                                 }
                                 if (trackingLocation.deliveryFee) {
-                                  fullNotes += ` | Delivery fee: Ã¢â€šÂµ${trackingLocation.deliveryFee}`;
+                                  fullNotes += ` | Delivery fee: GHS ${trackingLocation.deliveryFee}`;
                                 }
                                 addTrackingMutation.mutate({
                                   orderId: order.id,

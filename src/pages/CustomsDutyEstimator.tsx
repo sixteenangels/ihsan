@@ -81,7 +81,7 @@ export default function CustomsDutyEstimator() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="container max-w-2xl px-4 py-6 pb-24 sm:px-6 md:py-8 md:pb-8">
+      <main className="container max-w-2xl px-3 py-6 pb-28 sm:px-6 md:py-8 md:pb-8">
         <div className="mb-8 flex items-start gap-3 sm:items-center">
           <Calculator className="h-6 w-6 text-primary" />
           <div>
@@ -90,7 +90,7 @@ export default function CustomsDutyEstimator() {
           </div>
         </div>
 
-        <Card className="mb-6">
+        <Card className="mb-6 rounded-2xl border-border/70 shadow-sm">
           <CardHeader>
             <CardTitle>Enter Product Details</CardTitle>
             <CardDescription>All values should be in Ghana Cedis (GHS)</CardDescription>
@@ -140,7 +140,7 @@ export default function CustomsDutyEstimator() {
                 </Select>
               </div>
             </div>
-            <Button onClick={handleCalculate} disabled={!productValue || !category} className="w-full">
+            <Button onClick={handleCalculate} disabled={!productValue || !category} className="h-11 w-full rounded-xl">
               <Calculator className="mr-2 h-4 w-4" />
               Calculate Estimated Duty
             </Button>
@@ -148,7 +148,7 @@ export default function CustomsDutyEstimator() {
         </Card>
 
         {result && (
-          <Card>
+          <Card className="rounded-2xl border-border/70 shadow-sm">
             <CardHeader>
               <CardTitle className="flex flex-wrap items-center gap-2">
                 Estimated Breakdown
@@ -196,7 +196,7 @@ export default function CustomsDutyEstimator() {
           </Card>
         )}
 
-        <Card className="mt-6">
+        <Card className="mt-6 rounded-2xl border-border/70 shadow-sm">
           <CardContent className="flex gap-3 pt-6">
             <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-yellow-500" />
             <div>

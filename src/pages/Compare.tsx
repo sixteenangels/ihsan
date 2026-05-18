@@ -41,7 +41,7 @@ export default function Compare() {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <Header />
-        <main className="container mx-auto flex-1 px-4 py-6 pb-24 sm:px-6 md:py-8 md:pb-8">
+        <main className="container mx-auto flex-1 px-3 py-6 pb-28 sm:px-6 md:py-8 md:pb-8">
           <div className="py-16 text-center">
             <h1 className="text-2xl font-bold">No Products to Compare</h1>
             <p className="mb-6 text-muted-foreground">Add products to compare them side by side</p>
@@ -58,7 +58,7 @@ export default function Compare() {
               </h2>
               <div className="space-y-3">
                 {history.map((entry) => (
-                  <Card key={entry.id} className="p-4">
+                  <Card key={entry.id} className="rounded-2xl border-border/70 p-4 shadow-sm">
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex-1">
                         <p className="text-sm text-muted-foreground">
@@ -89,7 +89,7 @@ export default function Compare() {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="container mx-auto flex-1 px-4 py-6 pb-24 sm:px-6 md:py-8 md:pb-8">
+      <main className="container mx-auto flex-1 px-3 py-6 pb-28 sm:px-6 md:py-8 md:pb-8">
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-2xl font-bold">Compare Products ({products.length})</h1>
           <Button variant="outline" onClick={clearCompare} className="w-full sm:w-auto">
@@ -101,12 +101,12 @@ export default function Compare() {
           {products.map((product) => {
             const totalStock = product.variants?.reduce((sum, v) => sum + (v.stock || 0), 0) || 0;
             return (
-              <Card key={product.id} className="p-4">
+              <Card key={product.id} className="rounded-2xl border-border/70 p-3.5 shadow-sm sm:p-4">
                 <div className="mb-4 flex items-start gap-3">
                   <img
                     src={product.images?.[0] || '/placeholder.svg'}
                     alt={product.name}
-                    className="h-24 w-24 rounded-lg object-cover"
+                    className="h-20 w-20 rounded-xl object-cover sm:h-24 sm:w-24"
                   />
                   <div className="min-w-0 flex-1">
                     <div className="mb-2 flex items-start justify-between gap-2">
@@ -159,7 +159,7 @@ export default function Compare() {
                     )}
                   </div>
                   <Link to={`/product/${product.id}`}>
-                    <Button className="w-full">View Details</Button>
+                    <Button className="h-11 w-full rounded-xl">View Details</Button>
                   </Link>
                 </div>
               </Card>

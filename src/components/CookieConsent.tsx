@@ -37,8 +37,8 @@ export function CookieConsent({ suppressed = false }: CookieConsentProps) {
   if (suppressed || !show || !isEnabled('cookie_consent')) return null;
 
   return (
-    <div className="fixed bottom-20 md:bottom-4 left-4 right-4 md:left-auto md:right-4 md:max-w-md z-[60] animate-in slide-in-from-bottom">
-      <div className="bg-card border border-border rounded-lg shadow-lg p-4">
+    <div className="fixed bottom-20 left-4 right-4 z-[60] animate-in slide-in-from-bottom md:bottom-4 md:left-auto md:right-4 md:max-w-md">
+      <div className="rounded-2xl border border-border/70 bg-card p-4 shadow-lg">
         <div className="flex items-start gap-3">
           <Cookie className="h-5 w-5 text-primary mt-0.5 shrink-0" />
           <div className="flex-1">
@@ -47,8 +47,8 @@ export function CookieConsent({ suppressed = false }: CookieConsentProps) {
               We use cookies to improve your experience, remember your preferences, and analyze site traffic. By continuing, you agree to our use of cookies.
             </p>
             <div className="flex gap-2">
-              <Button size="sm" onClick={handleAccept}>Accept</Button>
-              <Button size="sm" variant="outline" onClick={handleDecline}>Decline</Button>
+              <Button size="sm" className="rounded-xl" onClick={handleAccept}>Accept</Button>
+              <Button size="sm" variant="outline" className="rounded-xl" onClick={handleDecline}>Decline</Button>
             </div>
           </div>
         </div>

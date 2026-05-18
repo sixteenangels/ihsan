@@ -159,7 +159,7 @@ export default function FlashDeals() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="container px-4 py-6 pb-24 sm:px-6 md:py-8 md:pb-8">
+      <main className="container px-3 py-6 pb-28 sm:px-6 md:py-8 md:pb-8">
         <div className="mb-8 flex items-start gap-3 sm:items-center">
           <div className="rounded-full bg-destructive/10 p-2">
             <Zap className="h-6 w-6 text-destructive" />
@@ -180,7 +180,7 @@ export default function FlashDeals() {
             <p className="text-muted-foreground text-lg">No flash deals right now. Check back soon!</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
             {flashProducts.map((product) => (
               <div key={product.id} className="relative">
                 {product.flash_deal_ends_at ? (

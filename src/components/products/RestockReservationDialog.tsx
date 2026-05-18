@@ -139,7 +139,7 @@ export function RestockReservationDialog({
           {triggerLabel}
         </Button>
       </DialogTrigger>
-      <DialogContent className="bg-background sm:max-w-lg">
+      <DialogContent className="rounded-2xl bg-background sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Reserve the Next Restock</DialogTitle>
           <DialogDescription>
@@ -148,7 +148,7 @@ export function RestockReservationDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm">
+          <div className="rounded-2xl border border-border/70 bg-muted/40 p-3 text-sm">
             <p className="font-medium text-foreground">{productName}</p>
             {variantLabel ? (
               <p className="text-muted-foreground">Preferred option: {variantLabel}</p>
@@ -222,7 +222,7 @@ export function RestockReservationDialog({
               rows={4}
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
-              placeholder="Add timing, color/size preferences, or whether you want us to call first."
+              placeholder="Add timing, variant/size preferences, or whether you want us to call first."
             />
           </div>
 

@@ -49,6 +49,10 @@ import {
   getGroupBuySavingsPercent,
   getGroupBuyUnitPrice,
 } from '@/lib/groupBuyPricing';
+import {
+  extractGroupBuySelectionsFromShippingAddress,
+  getGroupBuySelectionsTotalAmount,
+} from '@/lib/groupBuySelections';
 import { GroupBuyParticipantList } from '@/components/groupbuy/GroupBuyParticipantList';
 
 type GroupBuyStatus = Database['public']['Enums']['group_buy_status'];
@@ -97,6 +101,11 @@ const defaultForm: GroupBuyForm = {
   tier_group_price: '',
   expires_at: '',
 };
+
+function generateAjynOrderNumber() {
+  const random = Math.random().toString(36).slice(2, 8).toUpperCase();
+  return `AJYN-${Date.now()}-${random}`;
+}
 
 function formatDateTimeLocal(value: string): string {
   const date = new Date(value);
@@ -430,6 +439,11 @@ export function AdminGroupBuys() {
       });
 
       const totalAmount = paidParticipants.reduce((sum, participant) => {
+        const selections = extractGroupBuySelectionsFromShippingAddress(participant.shipping_address);
+        if (selections.length > 0) {
+          return sum + getGroupBuySelectionsTotalAmount(selections);
+        }
+
         return sum + Number(participant.unit_price_at_join || fallbackUnitPrice) * (participant.quantity || 1);
       }, 0);
 
@@ -442,7 +456,7 @@ export function AdminGroupBuys() {
           group_buy_id: groupBuyId,
           is_group_buy_master: true,
           status: 'confirmed',
-          order_number: 'PLACEHOLDER',
+          order_number: generateAjynOrderNumber(),
           notes: `Group Buy: ${groupBuy.title || 'Group Buy'} - ${paidParticipants.length} participants`,
         })
         .select()
@@ -451,8 +465,11 @@ export function AdminGroupBuys() {
       if (masterOrderError) throw masterOrderError;
 
       for (const participant of paidParticipants) {
+        const selections = extractGroupBuySelectionsFromShippingAddress(participant.shipping_address);
         const participantUnitPrice = Number(participant.unit_price_at_join || fallbackUnitPrice);
-        const childTotal = participantUnitPrice * (participant.quantity || 1);
+        const childTotal = selections.length > 0
+          ? getGroupBuySelectionsTotalAmount(selections)
+          : participantUnitPrice * (participant.quantity || 1);
         const shippingAddress =
           participant.shipping_address && typeof participant.shipping_address === 'object'
             ? participant.shipping_address
@@ -467,7 +484,7 @@ export function AdminGroupBuys() {
             group_buy_id: groupBuyId,
             parent_order_id: masterOrder.id,
             status: 'confirmed',
-            order_number: 'PLACEHOLDER',
+            order_number: generateAjynOrderNumber(),
             shipping_address: shippingAddress,
           })
           .select()
@@ -475,16 +492,28 @@ export function AdminGroupBuys() {
 
         if (childOrderError) continue;
 
-        if (participant.variant_id) {
-          await supabase.from('order_items').insert({
-            order_id: childOrder.id,
-            product_variant_id: participant.variant_id,
-            product_name: groupBuy.products?.name || 'Group Buy Product',
-            quantity: participant.quantity || 1,
-            unit_price: participantUnitPrice,
-            total_price: childTotal,
-          });
-        }
+        const orderItems = selections.length > 0
+          ? selections.map((selection) => ({
+              order_id: childOrder.id,
+              product_id: groupBuy.product_id,
+              product_variant_id: selection.variantId,
+              product_name: groupBuy.products?.name || 'Group Buy Product',
+              variant_details: selection.label,
+              quantity: selection.quantity,
+              unit_price: selection.unitPrice,
+              total_price: selection.quantity * selection.unitPrice,
+            }))
+          : [{
+              order_id: childOrder.id,
+              product_id: groupBuy.product_id,
+              product_variant_id: participant.variant_id,
+              product_name: groupBuy.products?.name || 'Group Buy Product',
+              quantity: participant.quantity || 1,
+              unit_price: participantUnitPrice,
+              total_price: childTotal,
+            }];
+
+        await supabase.from('order_items').insert(orderItems);
 
         await supabase.from('notifications').insert({
           user_id: participant.user_id,

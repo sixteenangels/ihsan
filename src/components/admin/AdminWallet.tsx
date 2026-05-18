@@ -175,7 +175,7 @@ export function AdminWallet() {
                       <Textarea
                         value={creditDescription}
                         onChange={(e) => setCreditDescription(e.target.value)}
-                        placeholder="e.g. Shipping buffer refund for order IHS-..."
+                        placeholder="e.g. Shipping buffer refund for order AJYN-..."
                         rows={3}
                       />
                     </div>
