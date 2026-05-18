@@ -32,6 +32,20 @@ Premium e-commerce storefront for curated cross-border shopping, built with Reac
 - `npm run test:e2e:headed` runs the same Playwright smoke suite with a visible browser.
 - `npm run test:e2e:live` runs the opt-in deployed auth smoke check when `PLAYWRIGHT_LIVE_BASE_URL` is set.
 - `npm run preview` serves the production build locally.
+- `npm run cap:sync` builds the Vite app and syncs web assets into the native Capacitor projects.
+- `npm run cap:open:android` opens the Android project in Android Studio.
+- `npm run cap:open:ios` opens the iOS project in Xcode on macOS.
+- `npm run cap:run:android` syncs and runs the Android app on a connected emulator or device.
+- `npm run cap:run:ios` syncs and runs the iOS app on a connected simulator or device on macOS.
+
+## Native Apps
+
+Capacitor is configured for Android and iOS with app ID `com.ajyn.app`, app name `AJYN`, and Vite output directory `dist`.
+
+1. Run `npm run cap:sync` after web changes.
+2. Use Android Studio for `android/`.
+3. Use Xcode on macOS for `ios/`.
+4. Keep native build artifacts, generated web assets, local SDK paths, and signing keys out of git.
 
 ## Notes
 
