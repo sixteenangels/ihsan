@@ -178,8 +178,21 @@ All colors MUST be HSL.
 @layer base {
   * {
     @apply border-border;
+    min-width: 0;
     scrollbar-width: thin;
     scrollbar-color: hsl(var(--border)) transparent;
+  }
+
+  html,
+  body,
+  #root {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  html,
+  body {
+    overflow-x: clip;
   }
 
   *::-webkit-scrollbar {
@@ -204,7 +217,13 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
-    scrollbar-gutter: stable both-edges;
+    min-width: 0;
+  }
+
+  @media (min-width: 768px) {
+    body {
+      scrollbar-gutter: stable both-edges;
+    }
   }
 }
 
@@ -216,5 +235,17 @@ All colors MUST be HSL.
 
   .mobile-scroll-pills::-webkit-scrollbar {
     display: none;
+  }
+
+  @media (max-width: 600px) {
+    [data-sonner-toaster] {
+      width: auto !important;
+      max-width: calc(100vw - 1.5rem);
+    }
+
+    [data-sonner-toaster] [data-sonner-toast] {
+      width: 100% !important;
+      max-width: 100%;
+    }
   }
 }

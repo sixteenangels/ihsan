@@ -78,7 +78,7 @@ export function RelatedProducts({ productId, categoryId }: RelatedProductsProps)
       <h2 className="mb-5 text-xl font-bold font-serif text-foreground sm:mb-6 sm:text-2xl">
         Related Products
       </h2>
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 min-[380px]:grid-cols-2 sm:gap-6 lg:grid-cols-4">
         {relatedProducts.map((product) => (
           <ProductCard key={product.id} product={product} />
         ))}

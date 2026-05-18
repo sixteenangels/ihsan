@@ -64,9 +64,9 @@ export function ProductCard({ product, onQuickView, viewMode = 'grid' }: Product
     return (
       <Link to={`/product/${product.id}`} className="block h-full">
         <Card className="group h-full overscroll-contain rounded-2xl border-border/70 bg-card shadow-sm transition-all duration-300 hover:shadow-md">
-          <div className="flex">
+          <div className="flex flex-col min-[420px]:flex-row">
             {/* Image - horizontal layout */}
-            <div className="relative h-28 w-28 shrink-0 overflow-hidden bg-muted sm:h-auto sm:w-48">
+            <div className="relative aspect-[1.8/1] w-full shrink-0 overflow-hidden bg-muted min-[420px]:h-28 min-[420px]:w-28 sm:h-auto sm:w-48">
               <img
                 src={product.images[0]}
                 alt={product.name}
