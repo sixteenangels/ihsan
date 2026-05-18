@@ -13,8 +13,8 @@ import { toast } from 'sonner';
 import { Loader2, Mail, Lock, User, ArrowLeft, RefreshCw } from 'lucide-react';
 import { z } from 'zod';
 import { supabase } from '@/integrations/supabase/client';
+import { BrandMark } from '@/components/brand/BrandMark';
 import {
-  BRAND_NAME,
   STORAGE_KEYS,
   getStoredItem,
   removeStoredItems,
@@ -587,11 +587,9 @@ export default function Auth() {
         <div className="mx-auto max-w-md">
           <Card className="rounded-2xl border-border/70 shadow-sm">
             <CardHeader className="space-y-2 px-5 text-center sm:px-6">
-              <CardTitle className="text-2xl font-serif">
-                Welcome to{' '}
-                <span className="auth-brand-word" aria-label={BRAND_NAME}>
-                  A<span className="auth-brand-j">j</span>yn
-                </span>
+              <CardTitle className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-2xl font-serif">
+                <span>Welcome to</span>
+                <BrandMark size="sm" />
               </CardTitle>
               <CardDescription>
                 Sign in to your account or create a new one

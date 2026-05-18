@@ -56,7 +56,8 @@ export function OrderInvoice({ order }: OrderInvoiceProps) {
         <style>
           body { font-family: 'Segoe UI', sans-serif; padding: 40px; color: #1a1a1a; max-width: 800px; margin: 0 auto; }
           .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; border-bottom: 3px solid #1a1a1a; padding-bottom: 20px; }
-          .logo { font-size: 28px; font-weight: bold; }
+          .logo { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; min-width: 128px; background: #151515; padding: 14px 18px 12px; color: #d8cec4; font-family: 'Avenir Next', Montserrat, 'Segoe UI', sans-serif; font-size: 25px; font-weight: 700; letter-spacing: 10px; line-height: 1; }
+          .logo-dot { width: 7px; height: 7px; margin-top: 12px; border-radius: 999px; background: #d97822; }
           .invoice-info { text-align: right; }
           .invoice-info h2 { margin: 0; font-size: 24px; color: #666; }
           .addresses { display: flex; justify-content: space-between; margin-bottom: 30px; }
@@ -74,7 +75,7 @@ export function OrderInvoice({ order }: OrderInvoiceProps) {
       </head>
       <body>
         <div class="header">
-          <div class="logo">${BRAND_NAME}</div>
+          <div class="logo"><span>${BRAND_NAME}</span><span class="logo-dot"></span></div>
           <div class="invoice-info">
             <h2>INVOICE</h2>
             <p><strong>${order.order_number}</strong></p>

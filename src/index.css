@@ -209,26 +209,6 @@ All colors MUST be HSL.
 }
 
 @layer components {
-  .auth-brand-word {
-    display: inline-flex;
-    align-items: baseline;
-    color: hsl(var(--primary));
-    font-family: var(--font-serif);
-    font-weight: 700;
-    line-height: 1;
-  }
-
-  .auth-brand-j {
-    display: inline-block;
-    margin-inline: 0.015em 0.005em;
-    font-size: 1.35em;
-    font-style: italic;
-    line-height: 0.62;
-    text-shadow: 0.018em 0 currentColor;
-    transform: translateY(0.16em) rotate(-4deg);
-    transform-origin: 50% 75%;
-  }
-
   .mobile-scroll-pills {
     -ms-overflow-style: none;
     scrollbar-width: none;

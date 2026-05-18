@@ -26,6 +26,9 @@ const sizeClasses: Record<
   },
 };
 
+const BRAND_LETTER_COLOR = '#d8cec4';
+const BRAND_DOT_COLOR = '#d97822';
+
 export function BrandMark({ className, size = 'md' }: BrandMarkProps) {
   const classes = sizeClasses[size];
 
@@ -46,23 +49,22 @@ export function BrandMark({ className, size = 'md' }: BrandMarkProps) {
       >
         <text
           x="66"
-          y="30"
+          y="23"
           textAnchor="middle"
           dominantBaseline="middle"
-          fill="currentColor"
+          fill={BRAND_LETTER_COLOR}
           fontFamily="Montserrat, Avenir Next, Futura, Arial, sans-serif"
-          fontSize="27"
+          fontSize="26"
           fontWeight="700"
-          letterSpacing="13"
+          letterSpacing="10"
         >
           AJYN
         </text>
         <circle
           cx="66"
-          cy="51"
-          r="4"
-          fill="currentColor"
-          className="text-primary"
+          cy="45"
+          r="3.8"
+          fill={BRAND_DOT_COLOR}
         />
       </svg>
     </span>

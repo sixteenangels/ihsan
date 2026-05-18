@@ -30,7 +30,6 @@ import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { BrandMark } from '@/components/brand/BrandMark';
-import { BRAND_ADMIN_NAME } from '@/lib/brand';
 
 // Permission slug for each nav item
 const ALL_NAV_ITEMS = [
@@ -173,7 +172,10 @@ export default function Admin() {
             <span className="sr-only">Open admin menu</span>
           </Button>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-lg font-bold font-serif text-primary">{BRAND_ADMIN_NAME}</p>
+            <div className="flex items-center gap-2">
+              <BrandMark size="sm" />
+              <span className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">Admin</span>
+            </div>
             <p className="truncate text-xs text-muted-foreground">{currentSection}</p>
           </div>
           <Link to="/" className="shrink-0">
