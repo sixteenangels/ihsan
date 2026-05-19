@@ -116,10 +116,12 @@ export function GroupBuyCard({ groupBuy }: GroupBuyCardProps) {
             id: groupBuy.id,
             product_id: groupBuy.product_id,
             min_participants: groupBuy.min_participants,
+            max_participants: groupBuy.max_participants,
             current_participants: groupBuy.current_participants,
             discount_percentage: groupBuy.discount_percentage,
             group_price: groupBuy.group_price,
             expires_at: groupBuy.expires_at,
+            status: groupBuy.status,
             product: {
               name: groupBuy.product.name,
               base_price: groupBuy.product.base_price,

@@ -165,12 +165,12 @@ export function AdminLoyalty() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold font-serif text-foreground">Loyalty Programme</h1>
-        <div className="flex gap-2">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="font-serif text-2xl font-bold text-foreground sm:text-3xl">Loyalty Programme</h1>
+        <div className="flex flex-col gap-2 sm:flex-row">
           <Dialog open={bdayDialog} onOpenChange={setBdayDialog}>
             <DialogTrigger asChild>
-              <Button variant="outline">
+              <Button variant="outline" className="w-full sm:w-auto">
                 <Cake className="h-4 w-4 mr-2" />
                 Birthday Coupons
               </Button>
@@ -205,7 +205,7 @@ export function AdminLoyalty() {
 
           <Dialog open={awardDialog} onOpenChange={setAwardDialog}>
             <DialogTrigger asChild>
-              <Button>
+              <Button className="w-full sm:w-auto">
                 <Award className="h-4 w-4 mr-2" />
                 Award / Deduct Points
               </Button>

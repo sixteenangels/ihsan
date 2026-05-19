@@ -219,10 +219,16 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Label className="text-base font-semibold">Product Variants</Label>
         {!showForm && (
-          <Button type="button" variant="outline" size="sm" onClick={() => setShowForm(true)}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="w-full sm:w-auto"
+            onClick={() => setShowForm(true)}
+          >
             <Plus className="h-4 w-4 mr-1" />
             Add Variant
           </Button>

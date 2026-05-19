@@ -494,16 +494,16 @@ export function AdminSupport() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold font-serif">Live Chat Support</h1>
-        <Badge variant="outline">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="font-serif text-2xl font-bold sm:text-3xl">Live Chat Support</h1>
+        <Badge variant="outline" className="w-fit">
           {conversations?.filter(c => c.status === 'open').length || 0} Active Chats
         </Badge>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-6 h-[600px]">
+      <div className="grid gap-6 md:h-[600px] md:grid-cols-3">
         {/* Conversations List */}
-        <Card className="md:col-span-1 flex flex-col">
+        <Card className="flex min-h-[20rem] flex-col md:col-span-1">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">Conversations</CardTitle>
           </CardHeader>
@@ -542,7 +542,7 @@ export function AdminSupport() {
                           <p className="text-sm text-muted-foreground truncate">
                             {conv.profile?.email}
                           </p>
-                          <div className="flex items-center gap-2 mt-1">
+                          <div className="mt-1 flex flex-wrap items-center gap-2">
                             {getStatusIcon(conv.status)}
                             <span className="text-xs text-muted-foreground capitalize">
                               {conv.status}
@@ -562,21 +562,24 @@ export function AdminSupport() {
         </Card>
 
         {/* Chat Window */}
-        <Card className="md:col-span-2 flex flex-col">
+        <Card className="flex min-h-[28rem] flex-col md:col-span-2">
           <CardHeader className="pb-2 border-b">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg flex items-center gap-2">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <CardTitle className="flex min-w-0 items-center gap-2 text-lg">
                 <MessageCircle className="h-5 w-5" />
-                {selectedConversation
-                  ? selectedConversation.profile?.name || 'Chat'
-                  : 'Select a conversation'}
+                <span className="truncate">
+                  {selectedConversation
+                    ? selectedConversation.profile?.name || 'Chat'
+                    : 'Select a conversation'}
+                </span>
               </CardTitle>
               {selectedConversation && (
-                <div className="flex items-center gap-2">
+                <div className="flex w-full items-center gap-2 sm:w-auto">
                   {selectedConversation.status !== 'closed' && (
                     <Button
                       variant="outline"
                       size="sm"
+                      className="w-full sm:w-auto"
                       onClick={() => updateConversationStatusMutation.mutate('closed')}
                     >
                       <XCircle className="h-4 w-4 mr-1" />
@@ -587,6 +590,7 @@ export function AdminSupport() {
                     <Button
                       variant="outline"
                       size="sm"
+                      className="w-full sm:w-auto"
                       onClick={() => updateConversationStatusMutation.mutate('open')}
                     >
                       <Circle className="h-4 w-4 mr-1" />

@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -18,6 +19,7 @@ import { Users, Loader2, CreditCard } from 'lucide-react';
 import { useCurrency } from '@/hooks/useCurrency';
 import { getErrorMessage } from '@/lib/errors';
 import { loadPaystack, type PaystackTransactionResponse } from '@/lib/paystack';
+import { VariantQuantityStepper } from '@/components/groupbuy/VariantQuantityStepper';
 import {
   buildGroupBuyVariantSelections,
   getGroupBuySelectionsTotalAmount,
@@ -35,6 +37,9 @@ interface StartGroupBuyDialogProps {
     group_buy_price: number | null;
   };
 }
+
+const MIN_GROUP_BUY_PARTICIPANTS = 2;
+const MAX_GROUP_BUY_PARTICIPANTS = 100;
 
 export function StartGroupBuyDialog({ product }: StartGroupBuyDialogProps) {
   const { user } = useAuth();
@@ -82,7 +87,14 @@ export function StartGroupBuyDialog({ product }: StartGroupBuyDialogProps) {
     ? Math.max(0, Math.round(((product.base_price - offeredUnitPrice) / product.base_price) * 100))
     : 0;
   const normalizedQuantity = Math.max(1, Number.parseInt(quantity || '1', 10) || 1);
-  const normalizedParticipantCount = Math.max(2, Number.parseInt(participantCount || '2', 10) || 2);
+  const requestedParticipantCount = Number.parseInt(participantCount || '', 10);
+  const hasValidParticipantCount =
+    Number.isFinite(requestedParticipantCount) &&
+    requestedParticipantCount >= MIN_GROUP_BUY_PARTICIPANTS &&
+    requestedParticipantCount <= MAX_GROUP_BUY_PARTICIPANTS;
+  const normalizedParticipantCount = hasValidParticipantCount
+    ? requestedParticipantCount
+    : MIN_GROUP_BUY_PARTICIPANTS;
   const variantSelections = hasVariants
     ? buildGroupBuyVariantSelections({
         quantitiesByVariantId: variantQuantities,
@@ -125,8 +137,35 @@ export function StartGroupBuyDialog({ product }: StartGroupBuyDialogProps) {
     }));
   };
 
+  const clampParticipantCount = () => {
+    const parsed = Number.parseInt(participantCount || '', 10);
+    if (!Number.isFinite(parsed)) {
+      setParticipantCount(String(MIN_GROUP_BUY_PARTICIPANTS));
+      return;
+    }
+
+    setParticipantCount(
+      String(Math.min(MAX_GROUP_BUY_PARTICIPANTS, Math.max(MIN_GROUP_BUY_PARTICIPANTS, parsed))),
+    );
+  };
+
+  const handleContinueToPayment = () => {
+    if (!hasValidParticipantCount) {
+      toast.error(`Choose between ${MIN_GROUP_BUY_PARTICIPANTS} and ${MAX_GROUP_BUY_PARTICIPANTS} participants`);
+      return;
+    }
+
+    setStep('payment');
+  };
+
   const handlePayAndCreate = async () => {
     if (!user) return;
+
+    if (!hasValidParticipantCount) {
+      toast.error(`Choose between ${MIN_GROUP_BUY_PARTICIPANTS} and ${MAX_GROUP_BUY_PARTICIPANTS} participants`);
+      setStep('setup');
+      return;
+    }
 
     if (hasVariants && totalSelectedQuantity <= 0) {
       toast.error('Choose at least one variant to continue');
@@ -158,6 +197,9 @@ export function StartGroupBuyDialog({ product }: StartGroupBuyDialogProps) {
 
       const reference = `GB-NEW-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       const amountInPesewas = Math.round(totalAmount * 100);
+      if (amountInPesewas <= 0) {
+        throw new Error('Choose a paid group buy quantity before continuing');
+      }
       callbackFiredRef.current = false;
 
       const handler = paystack.setup({
@@ -182,6 +224,8 @@ export function StartGroupBuyDialog({ product }: StartGroupBuyDialogProps) {
           setTimeout(() => {
             if (!callbackFiredRef.current) {
               setIsPaying(false);
+              setStep('payment');
+              setIsOpen(true);
               toast.info('Payment cancelled. You were not charged.');
             }
           }, 500);
@@ -189,6 +233,7 @@ export function StartGroupBuyDialog({ product }: StartGroupBuyDialogProps) {
       });
 
       if (handler) {
+        flushSync(() => setIsOpen(false));
         handler.openIframe();
       } else {
         toast.error('Payment system not loaded. Please refresh and try again.');
@@ -371,7 +416,11 @@ export function StartGroupBuyDialog({ product }: StartGroupBuyDialogProps) {
                   max="100"
                   value={participantCount}
                   onChange={(event) => setParticipantCount(event.target.value)}
+                  onBlur={clampParticipantCount}
                 />
+                <p className="text-xs text-muted-foreground">
+                  Group buys need {MIN_GROUP_BUY_PARTICIPANTS}-{MAX_GROUP_BUY_PARTICIPANTS} participants.
+                </p>
               </div>
 
               {variants && variants.length > 0 ? (
@@ -395,13 +444,11 @@ export function StartGroupBuyDialog({ product }: StartGroupBuyDialogProps) {
                               {variant.stock != null && variant.stock <= 5 ? ` - ${variant.stock} left` : ''}
                             </p>
                           </div>
-                          <Input
-                            className="h-10 w-20 rounded-xl"
-                            type="number"
-                            min="0"
-                            max={variant.stock != null ? String(Math.max(0, variant.stock)) : undefined}
+                          <VariantQuantityStepper
+                            id={`start-group-buy-variant-${variant.id}`}
                             value={variantQuantities[variant.id] ?? ''}
-                            onChange={(event) => handleVariantQuantityChange(variant.id, event.target.value)}
+                            max={variant.stock != null ? Math.max(0, variant.stock) : undefined}
+                            onChange={(nextValue) => handleVariantQuantityChange(variant.id, nextValue)}
                           />
                         </div>
                       );
@@ -427,8 +474,8 @@ export function StartGroupBuyDialog({ product }: StartGroupBuyDialogProps) {
                 <Button variant="outline" className="h-11 flex-1 rounded-xl" onClick={() => setIsOpen(false)}>Cancel</Button>
                 <Button
                   className="h-11 flex-1 rounded-xl"
-                  disabled={normalizedParticipantCount < 2 || (hasVariants ? totalSelectedQuantity <= 0 : normalizedQuantity <= 0)}
-                  onClick={() => setStep('payment')}
+                  disabled={!hasValidParticipantCount || (hasVariants ? totalSelectedQuantity <= 0 : normalizedQuantity <= 0)}
+                  onClick={handleContinueToPayment}
                 >
                   Next: Pay and Start
                 </Button>
@@ -439,7 +486,7 @@ export function StartGroupBuyDialog({ product }: StartGroupBuyDialogProps) {
               <div className="rounded-2xl border border-border/70 bg-muted/50 p-4">
                 <h4 className="mb-2 font-medium">Summary</h4>
                 <div className="space-y-1 text-sm">
-                  <p>Participants needed: {participantCount}</p>
+                  <p>Participants needed: {normalizedParticipantCount}</p>
                   {hasVariants ? (
                     variantSelections.map((selection) => (
                       <p key={selection.variantId}>

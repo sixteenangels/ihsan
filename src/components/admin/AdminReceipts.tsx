@@ -357,11 +357,11 @@ export function AdminReceipts() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold font-serif">Receipts</h1>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="font-serif text-2xl font-bold sm:text-3xl">Receipts</h1>
         <Dialog>
           <DialogTrigger asChild>
-            <Button>
+            <Button className="w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-2" />
               Generate Receipt
             </Button>
@@ -380,16 +380,17 @@ export function AdminReceipts() {
                   {ordersWithoutReceipts?.map((order) => (
                     <div
                       key={order.id}
-                      className="flex items-center justify-between p-3 border border-border rounded-lg"
+                      className="flex flex-col gap-3 rounded-lg border border-border p-3 sm:flex-row sm:items-center sm:justify-between"
                     >
-                      <div>
-                        <p className="font-medium">{order.order_number}</p>
+                      <div className="min-w-0">
+                        <p className="break-words font-medium">{order.order_number}</p>
                         <p className="text-sm text-muted-foreground">
                           ₵{Number(order.total_amount).toFixed(2)} - {order.status}
                         </p>
                       </div>
                       <Button
                         size="sm"
+                        className="w-full sm:w-auto"
                         onClick={() => generateReceiptMutation.mutate(order)}
                         disabled={generateReceiptMutation.isPending}
                       >
@@ -406,13 +407,13 @@ export function AdminReceipts() {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle>All Receipts</CardTitle>
             <Input
               placeholder="Search receipts..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="max-w-xs"
+              className="w-full sm:max-w-xs"
             />
           </div>
         </CardHeader>

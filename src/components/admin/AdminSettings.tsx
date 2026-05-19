@@ -106,6 +106,11 @@ const FEATURE_TOGGLES = [
   { key: 'feature_push_notifications' as const, label: 'Push Notifications', description: 'Enable browser push notification prompts' },
 ];
 
+const settingsRowClass =
+  'flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between';
+const settingsStatusRowClass =
+  'flex flex-col gap-3 rounded-lg border border-border p-4 sm:flex-row sm:items-center sm:justify-between';
+
 function coerceSettingValue<K extends keyof SettingsState>(
   key: K,
   value: unknown,
@@ -214,9 +219,9 @@ export function AdminSettings() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold font-serif">System Settings</h1>
-        <Button onClick={handleSave} disabled={saveMutation.isPending}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="font-serif text-2xl font-bold sm:text-3xl">System Settings</h1>
+        <Button className="w-full sm:w-auto" onClick={handleSave} disabled={saveMutation.isPending}>
           {saveMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
           Save Changes
         </Button>
@@ -269,12 +274,13 @@ export function AdminSettings() {
               <CardDescription>Configure general platform settings</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
+              <div className={settingsRowClass}>
+                <div className="min-w-0">
                   <Label>Maintenance Mode</Label>
                   <p className="text-sm text-muted-foreground">Temporarily disable the store for maintenance</p>
                 </div>
                 <Switch
+                  className="shrink-0"
                   checked={settings.maintenanceMode}
                   onCheckedChange={(checked) => setSettings(prev => ({ ...prev, maintenanceMode: checked }))}
                 />
@@ -319,12 +325,13 @@ export function AdminSettings() {
                   <p className="text-xs text-destructive">Please set an end time for the schedule.</p>
                 )}
               </div>
-              <div className="flex items-center justify-between">
-                <div>
+              <div className={settingsRowClass}>
+                <div className="min-w-0">
                   <Label>Debug Mode</Label>
                   <p className="text-sm text-muted-foreground">Enable detailed logging for troubleshooting</p>
                 </div>
                 <Switch
+                  className="shrink-0"
                   checked={settings.debugMode}
                   onCheckedChange={(checked) => setSettings(prev => ({ ...prev, debugMode: checked }))}
                 />
@@ -380,7 +387,7 @@ export function AdminSettings() {
                   <Database className="h-5 w-5 text-muted-foreground" />
                   <h3 className="font-medium">Database Status</h3>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="p-3 border border-border rounded-lg">
                     <p className="text-sm text-muted-foreground">Connection</p>
                     <Badge variant="default" className="mt-1 bg-green-600">Connected</Badge>
@@ -409,12 +416,13 @@ export function AdminSettings() {
             </CardHeader>
             <CardContent className="space-y-4">
               {FEATURE_TOGGLES.map((toggle) => (
-                <div key={toggle.key} className="flex items-center justify-between py-2">
-                  <div>
+                <div key={toggle.key} className={`${settingsRowClass} py-2`}>
+                  <div className="min-w-0">
                     <Label>{toggle.label}</Label>
                     <p className="text-sm text-muted-foreground">{toggle.description}</p>
                   </div>
                   <Switch
+                    className="shrink-0"
                     checked={settings[toggle.key]}
                     onCheckedChange={(checked) => setSettings(prev => ({ ...prev, [toggle.key]: checked }))}
                   />
@@ -432,32 +440,35 @@ export function AdminSettings() {
               <CardDescription>Configure email notifications and delivery</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
+              <div className={settingsRowClass}>
+                <div className="min-w-0">
                   <Label>Email Notifications</Label>
                   <p className="text-sm text-muted-foreground">Enable email notifications for the platform</p>
                 </div>
                 <Switch
+                  className="shrink-0"
                   checked={settings.emailNotifications}
                   onCheckedChange={(checked) => setSettings(prev => ({ ...prev, emailNotifications: checked }))}
                 />
               </div>
-              <div className="flex items-center justify-between">
-                <div>
+              <div className={settingsRowClass}>
+                <div className="min-w-0">
                   <Label>Order Emails</Label>
                   <p className="text-sm text-muted-foreground">Send order confirmation and update emails</p>
                 </div>
                 <Switch
+                  className="shrink-0"
                   checked={settings.orderEmailsEnabled}
                   onCheckedChange={(checked) => setSettings(prev => ({ ...prev, orderEmailsEnabled: checked }))}
                 />
               </div>
-              <div className="flex items-center justify-between">
-                <div>
+              <div className={settingsRowClass}>
+                <div className="min-w-0">
                   <Label>Marketing Emails</Label>
                   <p className="text-sm text-muted-foreground">Send promotional and marketing emails</p>
                 </div>
                 <Switch
+                  className="shrink-0"
                   checked={settings.marketingEmailsEnabled}
                   onCheckedChange={(checked) => setSettings(prev => ({ ...prev, marketingEmailsEnabled: checked }))}
                 />
@@ -476,7 +487,7 @@ export function AdminSettings() {
             <CardContent className="space-y-6">
               <div className="space-y-2">
                 <Label>Map Provider</Label>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <button
                     onClick={() => setSettings(prev => ({ ...prev, mapProvider: 'openstreetmap' }))}
                     className={`p-4 border rounded-lg text-left transition-colors ${
@@ -527,12 +538,13 @@ export function AdminSettings() {
               <CardDescription>Configure OTP and authentication settings</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
+              <div className={settingsRowClass}>
+                <div className="min-w-0">
                   <Label>OTP Verification</Label>
                   <p className="text-sm text-muted-foreground">Require OTP for sensitive actions</p>
                 </div>
                 <Switch
+                  className="shrink-0"
                   checked={settings.otpEnabled}
                   onCheckedChange={(checked) => setSettings(prev => ({ ...prev, otpEnabled: checked }))}
                 />
@@ -598,44 +610,44 @@ export function AdminSettings() {
                 </p>
               </div>
               <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 border border-border rounded-lg">
-                  <div>
+                <div className={settingsStatusRowClass}>
+                  <div className="min-w-0">
                     <p className="font-medium">Google OAuth</p>
                     <p className="text-sm text-muted-foreground">For Google Sign-In</p>
                   </div>
-                  <Badge variant="default" className="bg-green-600">Configured</Badge>
+                  <Badge variant="default" className="shrink-0 bg-green-600">Configured</Badge>
                 </div>
-                <div className="flex items-center justify-between p-4 border border-border rounded-lg">
-                  <div>
+                <div className={settingsStatusRowClass}>
+                  <div className="min-w-0">
                     <p className="font-medium">Email Service</p>
                     <p className="text-sm text-muted-foreground">For transactional emails</p>
                   </div>
-                  <Badge variant="secondary">Using Default</Badge>
+                  <Badge variant="secondary" className="shrink-0">Using Default</Badge>
                 </div>
-                <div className="flex items-center justify-between p-4 border border-border rounded-lg">
-                  <div>
+                <div className={settingsStatusRowClass}>
+                  <div className="min-w-0">
                     <p className="font-medium">Map Service</p>
                     <p className="text-sm text-muted-foreground">For order tracking maps</p>
                   </div>
                   {settings.mapProvider === 'mapbox' ? (
                     settings.mapboxPublicKey ? (
-                      <Badge variant="default" className="bg-green-600">Mapbox Ready</Badge>
+                      <Badge variant="default" className="shrink-0 bg-green-600">Mapbox Ready</Badge>
                     ) : (
-                      <Badge variant="destructive">Mapbox Key Missing</Badge>
+                      <Badge variant="destructive" className="shrink-0">Mapbox Key Missing</Badge>
                     )
                   ) : (
-                    <Badge variant="secondary">OpenStreetMap</Badge>
+                    <Badge variant="secondary" className="shrink-0">OpenStreetMap</Badge>
                   )}
                 </div>
-                <div className="flex items-center justify-between p-4 border border-border rounded-lg">
-                  <div>
+                <div className={settingsStatusRowClass}>
+                  <div className="min-w-0">
                     <p className="font-medium">Web Push</p>
                     <p className="text-sm text-muted-foreground">Public browser key for push subscriptions</p>
                   </div>
                   {settings.vapidPublicKey ? (
-                    <Badge variant="default" className="bg-green-600">Configured</Badge>
+                    <Badge variant="default" className="shrink-0 bg-green-600">Configured</Badge>
                   ) : (
-                    <Badge variant="destructive">Missing Public Key</Badge>
+                    <Badge variant="destructive" className="shrink-0">Missing Public Key</Badge>
                   )}
                 </div>
               </div>
@@ -654,12 +666,13 @@ export function AdminSettings() {
               <CardDescription>Configure how customers earn loyalty points on orders</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
+              <div className={settingsRowClass}>
+                <div className="min-w-0">
                   <Label>Enable Loyalty Programme</Label>
                   <p className="text-sm text-muted-foreground">Customers earn points on qualifying orders</p>
                 </div>
                 <Switch
+                  className="shrink-0"
                   checked={settings.loyaltyEnabled}
                   onCheckedChange={(checked) => setSettings(prev => ({ ...prev, loyaltyEnabled: checked }))}
                 />
@@ -703,12 +716,13 @@ export function AdminSettings() {
               <CardDescription>Enable or disable the referral programme</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
+              <div className={settingsRowClass}>
+                <div className="min-w-0">
                   <Label>Enable Referral Programme</Label>
                   <p className="text-sm text-muted-foreground">Allow customers to share referral codes and earn rewards</p>
                 </div>
                 <Switch
+                  className="shrink-0"
                   checked={settings.referralEnabled}
                   onCheckedChange={(checked) => setSettings(prev => ({ ...prev, referralEnabled: checked }))}
                 />

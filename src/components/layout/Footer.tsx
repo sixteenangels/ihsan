@@ -5,7 +5,7 @@ import { BRAND_NAME, BRAND_TAGLINE } from '@/lib/brand';
 
 export function Footer() {
   return (
-    <footer className="mt-16 border-t border-border bg-card">
+    <footer className="mt-16 border-t border-border bg-card pb-24 md:pb-0">
       <div className="container px-4 py-10 sm:px-6 sm:py-12">
         <div className="mb-10 grid grid-cols-1 gap-4 border-b border-border pb-8 sm:mb-12 sm:gap-6 md:grid-cols-3">
           <div className="flex items-center gap-4">
@@ -59,17 +59,17 @@ export function Footer() {
           <div>
             <h5 className="mb-4 font-semibold text-foreground">Company</h5>
             <ul className="space-y-2">
-              <li><a href="#" className="text-sm text-muted-foreground transition-colors hover:text-primary">About Us</a></li>
-              <li><a href="#" className="text-sm text-muted-foreground transition-colors hover:text-primary">Contact</a></li>
-              <li><a href="#" className="text-sm text-muted-foreground transition-colors hover:text-primary">Careers</a></li>
+              <li><Link to="/about" className="text-sm text-muted-foreground transition-colors hover:text-primary">About Us</Link></li>
+              <li><Link to="/contact" className="text-sm text-muted-foreground transition-colors hover:text-primary">Contact</Link></li>
+              <li><Link to="/careers" className="text-sm text-muted-foreground transition-colors hover:text-primary">Careers</Link></li>
             </ul>
           </div>
           <div>
             <h5 className="mb-4 font-semibold text-foreground">Legal</h5>
             <ul className="space-y-2">
-              <li><a href="#" className="text-sm text-muted-foreground transition-colors hover:text-primary">Privacy Policy</a></li>
-              <li><a href="#" className="text-sm text-muted-foreground transition-colors hover:text-primary">Terms of Service</a></li>
-              <li><a href="#" className="text-sm text-muted-foreground transition-colors hover:text-primary">Returns Policy</a></li>
+              <li><Link to="/privacy-policy" className="text-sm text-muted-foreground transition-colors hover:text-primary">Privacy Policy</Link></li>
+              <li><Link to="/terms-of-service" className="text-sm text-muted-foreground transition-colors hover:text-primary">Terms of Service</Link></li>
+              <li><Link to="/returns-policy" className="text-sm text-muted-foreground transition-colors hover:text-primary">Returns Policy</Link></li>
             </ul>
           </div>
         </div>

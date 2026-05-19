@@ -570,11 +570,12 @@ export function AdminGroupBuys() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-3xl font-bold font-serif text-foreground">Group Buys</h1>
-        <div className="flex gap-2">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="font-serif text-2xl font-bold text-foreground sm:text-3xl">Group Buys</h1>
+        <div className="flex flex-col gap-2 sm:flex-row">
           <Button
             variant="outline"
+            className="w-full sm:w-auto"
             onClick={() => expireAllMutation.mutate()}
             disabled={expireAllMutation.isPending}
           >
@@ -584,7 +585,7 @@ export function AdminGroupBuys() {
             Process Expired
           </Button>
 
-          <Button onClick={openCreateDialog}>
+          <Button className="w-full sm:w-auto" onClick={openCreateDialog}>
             <Plus className="mr-2 h-4 w-4" />
             Create Group Buy
           </Button>
@@ -702,7 +703,7 @@ export function AdminGroupBuys() {
               </div>
             ) : null}
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Min Participants *</Label>
                 <Input
@@ -757,7 +758,7 @@ export function AdminGroupBuys() {
                   Optional lower price that unlocks when more participants join.
                 </p>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Unlock At Participants</Label>
                   <Input
@@ -798,11 +799,11 @@ export function AdminGroupBuys() {
               />
             </div>
 
-            <div className="flex justify-end gap-2 pt-4">
-              <Button type="button" variant="outline" onClick={closeDialog}>
+            <div className="flex flex-col-reverse gap-2 pt-4 sm:flex-row sm:justify-end">
+              <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={closeDialog}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button type="submit" className="w-full sm:w-auto" disabled={isSubmitting}>
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {dialogMode === 'edit' ? 'Save Changes' : 'Create'}
               </Button>

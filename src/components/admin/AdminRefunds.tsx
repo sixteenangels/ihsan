@@ -260,8 +260,8 @@ export function AdminRefunds() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-bold font-serif text-foreground">Refund Requests</h1>
+      <div className="mb-8">
+        <h1 className="font-serif text-2xl font-bold text-foreground sm:text-3xl">Refund Requests</h1>
       </div>
 
       <Card>
@@ -329,12 +329,12 @@ export function AdminRefunds() {
 
           {selectedRequest && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="min-w-0">
                   <p className="text-sm text-muted-foreground">Order</p>
-                  <p className="font-medium">{selectedRequest.orders?.order_number}</p>
+                  <p className="break-words font-medium">{selectedRequest.orders?.order_number}</p>
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-sm text-muted-foreground">Amount</p>
                   <p className="font-bold text-primary">
                     {formatPrice(Number(selectedRequest.refund_amount || selectedRequest.orders?.total_amount || 0))}
