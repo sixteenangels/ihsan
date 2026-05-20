@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Users, Clock, Share2 } from 'lucide-react';
+import { LockKeyhole, Star } from 'lucide-react';
 import { GroupBuyWithProduct } from '@/hooks/useGroupBuys';
 import { useCurrency } from '@/hooks/useCurrency';
 import { Card, CardContent } from '@/components/ui/card';
@@ -7,8 +7,9 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { JoinGroupBuyDialog } from '@/components/groupbuy/JoinGroupBuyDialog';
-import { toast } from 'sonner';
 import { getGroupBuySavingsPercent, getGroupBuyUnitPrice } from '@/lib/groupBuyPricing';
+import { ParticipantAvatarStack } from '@/components/groupbuy/ParticipantAvatarStack';
+import { useGroupBuyParticipantFaces } from '@/hooks/useGroupBuyParticipantFaces';
 
 interface GroupBuyCardProps {
   groupBuy: GroupBuyWithProduct;
@@ -16,10 +17,14 @@ interface GroupBuyCardProps {
 
 export function GroupBuyCard({ groupBuy }: GroupBuyCardProps) {
   const { formatPrice } = useCurrency();
+  const { data: participantFaces = [] } = useGroupBuyParticipantFaces(groupBuy.id, 5);
   
   if (!groupBuy.product) return null;
 
-  const progress = ((groupBuy.current_participants || 0) / groupBuy.min_participants) * 100;
+  const currentParticipants = groupBuy.current_participants || 0;
+  const participantGoal = groupBuy.min_participants;
+  const participantsNeeded = Math.max(0, participantGoal - currentParticipants);
+  const progress = (currentParticipants / participantGoal) * 100;
   const progressPercent = Math.min(progress, 100);
   const daysLeft = Math.ceil(
     (new Date(groupBuy.expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
@@ -34,101 +39,132 @@ export function GroupBuyCard({ groupBuy }: GroupBuyCardProps) {
     groupPrice: groupBuy.group_price,
     discountPercentage: groupBuy.discount_percentage,
   });
+  const productSummary = groupBuy.product.category_name || groupBuy.product.description || 'Limited group deal';
+  const ratingLabel = groupBuy.product.rating
+    ? `${Number(groupBuy.product.rating).toFixed(1)} rated`
+    : daysLeft > 0
+      ? `${daysLeft}d left`
+      : 'Ending soon';
+  const inviteText = participantsNeeded > 0
+    ? `${participantsNeeded} more ${participantsNeeded === 1 ? 'person' : 'people'} needed`
+    : 'Goal reached';
 
-  const handleShare = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleShare = async () => {
     const url = `${window.location.origin}/group-buy/${groupBuy.id}`;
-    const text = `Join this group buy on ${groupBuy.product.name} for ${formatPrice(discountedPrice)}. ${url}`;
+    const text = `Join this group buy on ${groupBuy.product.name} for ${formatPrice(discountedPrice)}. ${inviteText}.`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: groupBuy.product.name, text, url });
+        return;
+      } catch {
+        return;
+      }
+    }
+
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
   };
 
   return (
-    <Card className="overflow-hidden rounded-2xl border-border/70 bg-card shadow-sm transition-all duration-300 hover:shadow-md">
-      <Link to={`/group-buy/${groupBuy.id}`}>
-        <div className="relative aspect-[4/3] overflow-hidden">
+    <Card className="overflow-hidden rounded-[1.35rem] border-border/70 bg-card/95 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg">
+      <CardContent className="grid grid-cols-[minmax(104px,36%)_minmax(0,1fr)] gap-0 p-0 sm:grid-cols-[190px_minmax(0,1fr)]">
+        <Link to={`/group-buy/${groupBuy.id}`} className="relative min-h-[184px] overflow-hidden bg-muted sm:min-h-[230px]">
           <img
             src={groupBuy.product.images[0] || '/placeholder.svg'}
             alt={groupBuy.product.name}
-            className="w-full h-full object-cover"
+            className="h-full w-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 to-transparent" />
-          <Badge className="absolute left-2 top-2 bg-accent px-2.5 py-1 text-xs text-accent-foreground sm:left-3 sm:top-3 sm:text-lg">
-            {effectiveDiscount}% OFF
-          </Badge>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute right-2 top-2 h-9 w-9 rounded-full bg-background/70 shadow-sm backdrop-blur hover:bg-background/90 sm:right-3 sm:top-3"
-            onClick={handleShare}
-          >
-            <Share2 className="h-4 w-4" />
-          </Button>
-          <div className="absolute bottom-3 left-3 right-3">
-            <h3 className="text-lg font-bold text-primary-foreground line-clamp-1">
-              {groupBuy.product.name}
-            </h3>
-          </div>
-        </div>
-      </Link>
-      <CardContent className="p-3.5 sm:p-4">
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <p className="text-sm text-muted-foreground line-through">
-              {formatPrice(groupBuy.product.base_price)}
-            </p>
-            <p className="text-xl font-bold text-primary">
-              {formatPrice(discountedPrice)}
-            </p>
-          </div>
-          <div className="flex items-center gap-1 text-muted-foreground">
-            <Clock className="h-4 w-4" />
-            <span className="text-sm">{daysLeft > 0 ? `${daysLeft}d left` : 'Ending soon'}</span>
-          </div>
-        </div>
+          <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-black/20" />
+          {effectiveDiscount > 0 ? (
+            <Badge className="absolute left-2 top-2 rounded-full bg-primary px-2 py-0.5 text-[10px] font-black text-primary-foreground shadow-lg">
+              {effectiveDiscount}% OFF
+            </Badge>
+          ) : null}
+        </Link>
 
-        <div className="space-y-2 mb-4">
-          <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center gap-1 text-muted-foreground">
-              <Users className="h-4 w-4" />
-              <span>{groupBuy.current_participants || 0}/{groupBuy.min_participants} joined</span>
+        <div className="flex min-w-0 flex-col justify-between gap-3 overflow-hidden p-2.5 sm:p-4">
+          <div className="min-w-0">
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <Badge className="h-6 min-w-0 max-w-[62%] truncate rounded-full bg-primary/15 px-2 text-[10px] font-bold text-primary hover:bg-primary/15">
+                <Star className="mr-1 h-3 w-3 flex-shrink-0 fill-primary" />
+                <span className="truncate">{ratingLabel}</span>
+              </Badge>
+              <div className="min-w-[3.5rem] text-right leading-none">
+                <p className="text-[11px] text-muted-foreground line-through">
+                  {formatPrice(groupBuy.product.base_price)}
+                </p>
+                <p className="text-lg font-black text-primary">{formatPrice(discountedPrice)}</p>
+              </div>
             </div>
-            <span className="text-primary font-medium">{Math.round(progressPercent)}%</span>
+
+            <Link to={`/group-buy/${groupBuy.id}`} className="group block min-w-0">
+              <h3 className="line-clamp-1 text-sm font-bold text-foreground transition-colors group-hover:text-primary sm:text-base">
+                {groupBuy.title || groupBuy.product.name}
+              </h3>
+            </Link>
+            <p className="line-clamp-1 text-[11px] text-muted-foreground sm:text-xs">{productSummary}</p>
           </div>
-          <Progress value={progressPercent} className="h-2" />
-        </div>
 
-        {/* Participant avatars */}
-        <div className="flex -space-x-1 mb-3">
-          {Array.from({ length: Math.min(groupBuy.current_participants || 0, 5) }).map((_, i) => (
-            <div key={i} className="w-6 h-6 rounded-full bg-primary/20 border-2 border-card text-[10px] flex items-center justify-center text-primary font-medium">
-              {i + 1}
+          <div className="space-y-1.5">
+            <div className="flex items-end justify-between gap-2">
+              <div>
+                <p className="text-sm font-black text-primary sm:text-base">
+                  {currentParticipants}/{participantGoal} joined
+                </p>
+                <p className="text-[10px] text-muted-foreground">{inviteText}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-base font-black text-primary sm:text-lg">{Math.round(progressPercent)}%</p>
+                <p className="text-[9px] text-muted-foreground">of goal reached</p>
+              </div>
             </div>
-          ))}
-          {(groupBuy.current_participants || 0) > 5 && (
-            <div className="w-6 h-6 rounded-full bg-muted border-2 border-card text-[10px] flex items-center justify-center text-muted-foreground">
-              +{(groupBuy.current_participants || 0) - 5}
-            </div>
-          )}
-        </div>
+            <Progress value={progressPercent} className="h-1.5 bg-muted [&>div]:bg-primary" />
+          </div>
 
-        <JoinGroupBuyDialog
-          groupBuy={{
-            id: groupBuy.id,
-            product_id: groupBuy.product_id,
-            min_participants: groupBuy.min_participants,
-            max_participants: groupBuy.max_participants,
-            current_participants: groupBuy.current_participants,
-            discount_percentage: groupBuy.discount_percentage,
-            group_price: groupBuy.group_price,
-            expires_at: groupBuy.expires_at,
-            status: groupBuy.status,
-            product: {
-              name: groupBuy.product.name,
-              base_price: groupBuy.product.base_price,
-            },
-          }}
-        />
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <ParticipantAvatarStack
+                faces={participantFaces}
+                totalCount={currentParticipants}
+                maxVisible={3}
+                sizeClassName="h-6 w-6"
+                showRemainingLabel={false}
+              />
+              <p className="min-w-0 flex-1 truncate text-right text-[10px] leading-tight text-muted-foreground">
+                Buyers get it for <span className="font-bold text-foreground">{formatPrice(discountedPrice)}</span>
+              </p>
+            </div>
+
+            <div className="grid grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] gap-1.5 sm:gap-2">
+              <JoinGroupBuyDialog
+                triggerLabel="Join"
+                signedOutLabel="Join"
+                joinedLabel="Joined"
+                triggerClassName="h-8 min-w-0 rounded-xl border border-primary/30 bg-background px-2 text-xs font-bold text-foreground hover:bg-primary/10"
+                groupBuy={{
+                  id: groupBuy.id,
+                  product_id: groupBuy.product_id,
+                  min_participants: groupBuy.min_participants,
+                  max_participants: groupBuy.max_participants,
+                  current_participants: groupBuy.current_participants,
+                  discount_percentage: groupBuy.discount_percentage,
+                  group_price: groupBuy.group_price,
+                  expires_at: groupBuy.expires_at,
+                  status: groupBuy.status,
+                  product: {
+                    name: groupBuy.product.name,
+                    base_price: groupBuy.product.base_price,
+                  },
+                }}
+              />
+              <Button className="h-8 min-w-0 rounded-xl px-2 text-xs font-bold" onClick={handleShare}>
+                <LockKeyhole className="h-3.5 w-3.5" />
+                <span className="sm:hidden">Invite</span>
+                <span className="hidden sm:inline">Invite friends</span>
+              </Button>
+            </div>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );

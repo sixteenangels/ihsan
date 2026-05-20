@@ -15,6 +15,7 @@ import { useCurrency } from '@/hooks/useCurrency';
 import { getErrorMessage } from '@/lib/errors';
 import { loadPaystack, type PaystackTransactionResponse } from '@/lib/paystack';
 import { VariantQuantityStepper } from '@/components/groupbuy/VariantQuantityStepper';
+import { cn } from '@/lib/utils';
 import {
   buildGroupBuyVariantSelections,
   getGroupBuySelectionsTotalAmount,
@@ -26,6 +27,10 @@ import {
 
 interface JoinGroupBuyDialogProps {
   inviteCode?: string | null;
+  triggerClassName?: string;
+  triggerLabel?: string;
+  joinedLabel?: string;
+  signedOutLabel?: string;
   groupBuy: {
     id: string;
     product_id: string;
@@ -50,7 +55,14 @@ interface JoinGroupBuyDialogProps {
   };
 }
 
-export function JoinGroupBuyDialog({ groupBuy, inviteCode }: JoinGroupBuyDialogProps) {
+export function JoinGroupBuyDialog({
+  groupBuy,
+  inviteCode,
+  triggerClassName,
+  triggerLabel = 'Join Group Buy',
+  joinedLabel = 'Joined',
+  signedOutLabel = 'Join Group Buy',
+}: JoinGroupBuyDialogProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { formatPrice } = useCurrency();
@@ -397,9 +409,9 @@ export function JoinGroupBuyDialog({ groupBuy, inviteCode }: JoinGroupBuyDialogP
 
   if (!user) {
     return (
-      <Button className="w-full" onClick={() => toast.info('Please sign in to join this group buy')}>
+      <Button className={cn('w-full', triggerClassName)} onClick={() => toast.info('Please sign in to join this group buy')}>
         <Users className="h-4 w-4 mr-2" />
-        Join Group Buy
+        {signedOutLabel}
       </Button>
     );
   }
@@ -416,13 +428,13 @@ export function JoinGroupBuyDialog({ groupBuy, inviteCode }: JoinGroupBuyDialogP
     >
       <DialogTrigger asChild>
         {hasJoined ? (
-          <Button variant="outline" className="h-11 w-full gap-2 rounded-xl">
-            <Check className="h-4 w-4" /> Joined
+          <Button variant="outline" className={cn('h-11 w-full gap-2 rounded-xl', triggerClassName)}>
+            <Check className="h-4 w-4" /> {joinedLabel}
           </Button>
         ) : (
-          <Button className="h-11 w-full gap-2 rounded-xl" disabled={isClosedForNewParticipants}>
+          <Button className={cn('h-11 w-full gap-2 rounded-xl', triggerClassName)} disabled={isClosedForNewParticipants}>
             <Users className="h-4 w-4" />
-            {isAtParticipantCap ? 'Group Full' : 'Join Group Buy'}
+            {isAtParticipantCap ? 'Group Full' : triggerLabel}
           </Button>
         )}
       </DialogTrigger>

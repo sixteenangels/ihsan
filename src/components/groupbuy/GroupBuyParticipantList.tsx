@@ -3,7 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Json, Tables } from '@/integrations/supabase/types';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, User } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Loader2 } from 'lucide-react';
 import {
   extractGroupBuySelectionsFromShippingAddress,
   getGroupBuySelectionsTotalQuantity,
@@ -25,6 +26,7 @@ interface Participant extends GroupBuyParticipantRow {
     name: string | null;
     email: string | null;
     phone: string | null;
+    avatar_url: string | null;
   } | null;
   variant: {
     color: string | null;
@@ -38,6 +40,13 @@ function readShippingAddress(value: Json | null): ShippingAddress | null {
   }
 
   return value as ShippingAddress;
+}
+
+function getInitials(name: string | null | undefined, email: string | null | undefined) {
+  const source = name?.trim() || email?.trim() || 'AJYN member';
+  const [first, second] = source.split(/\s+|@/);
+
+  return `${first?.[0] || ''}${second?.[0] || ''}`.toUpperCase() || 'AJ';
 }
 
 export function GroupBuyParticipantList({ groupBuyId }: GroupBuyParticipantListProps) {
@@ -55,7 +64,7 @@ export function GroupBuyParticipantList({ groupBuyId }: GroupBuyParticipantListP
       const userIds = (data || []).map((participant) => participant.user_id);
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('user_id, name, email, phone')
+        .select('user_id, name, email, phone, avatar_url')
         .in('user_id', userIds);
 
       const variantIds = (data || []).map((participant) => participant.variant_id).filter(Boolean);
@@ -117,9 +126,15 @@ export function GroupBuyParticipantList({ groupBuyId }: GroupBuyParticipantListP
             <TableRow key={participant.id}>
               <TableCell>
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                    <User className="h-4 w-4 text-primary" />
-                  </div>
+                  <Avatar className="h-8 w-8 border border-border bg-primary/10">
+                    <AvatarImage
+                      src={participant.profile?.avatar_url || undefined}
+                      alt={`${participant.profile?.name || 'Customer'} avatar`}
+                    />
+                    <AvatarFallback className="bg-primary/10 text-[10px] font-bold text-primary">
+                      {getInitials(participant.profile?.name, participant.profile?.email)}
+                    </AvatarFallback>
+                  </Avatar>
                   <div>
                     <p className="font-medium text-sm">{participant.profile?.name || 'Unknown'}</p>
                     <p className="text-xs text-muted-foreground">{participant.profile?.email || ''}</p>

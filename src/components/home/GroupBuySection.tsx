@@ -8,9 +8,12 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getGroupBuySavingsPercent, getGroupBuyUnitPrice } from '@/lib/groupBuyPricing';
 import { useCurrency } from '@/hooks/useCurrency';
+import { ParticipantAvatarStack } from '@/components/groupbuy/ParticipantAvatarStack';
+import { useGroupBuyParticipantFaces } from '@/hooks/useGroupBuyParticipantFaces';
 
 function GroupBuyCardFromDB({ groupBuy }: { groupBuy: GroupBuyWithProduct }) {
   const { formatPrice } = useCurrency();
+  const { data: participantFaces = [] } = useGroupBuyParticipantFaces(groupBuy.id, 4);
 
   if (!groupBuy.product) return null;
 
@@ -75,6 +78,14 @@ function GroupBuyCardFromDB({ groupBuy }: { groupBuy: GroupBuyWithProduct }) {
           </div>
           <Progress value={progressPercent} className="h-2" />
         </div>
+
+        <ParticipantAvatarStack
+          faces={participantFaces}
+          totalCount={groupBuy.current_participants}
+          maxVisible={4}
+          sizeClassName="h-7 w-7"
+          className="mb-3"
+        />
 
         <Link to={`/product/${groupBuy.product_id}?groupBuy=${groupBuy.id}`}>
           <Button className="h-10 w-full rounded-xl">Join Group Buy</Button>

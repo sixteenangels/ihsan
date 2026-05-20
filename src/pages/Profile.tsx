@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { User, MapPin, Phone, Mail, Plus, Trash2, Loader2, Edit2, Check, X, Package, RefreshCcw, ShoppingBag, Gift, Award, Copy, Cake, Wallet, Bell, Headphones, Users } from 'lucide-react';
+import { User, MapPin, Phone, Mail, Plus, Trash2, Loader2, Edit2, Check, X, Package, RefreshCcw, ShoppingBag, Gift, Award, Copy, Cake, Wallet, Bell, Headphones, Users, Camera } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { useAuth } from '@/contexts/AuthContext';
@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import {
@@ -42,6 +43,7 @@ interface Profile {
   email: string | null;
   phone: string | null;
   birthday: string | null;
+  avatar_url: string | null;
 }
 
 interface Address {
@@ -97,6 +99,37 @@ interface Order {
   is_group_buy_master?: boolean | null;
   parent_order_id?: string | null;
   order_items: OrderItem[];
+}
+
+const PROFILE_AVATAR_BUCKET = 'profile-avatars';
+const MAX_AVATAR_FILE_SIZE_BYTES = 2 * 1024 * 1024;
+const AVATAR_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+
+function getAvatarInitials(name: string | null, email: string | null | undefined) {
+  const source = name?.trim() || email?.trim() || 'AJYN member';
+  const [first, second] = source.split(/\s+|@/);
+
+  return `${first?.[0] || ''}${second?.[0] || ''}`.toUpperCase() || 'AJ';
+}
+
+function getAvatarPathFromPublicUrl(avatarUrl: string | null) {
+  if (!avatarUrl) {
+    return null;
+  }
+
+  try {
+    const url = new URL(avatarUrl);
+    const marker = `/storage/v1/object/public/${PROFILE_AVATAR_BUCKET}/`;
+    const markerIndex = url.pathname.indexOf(marker);
+
+    if (markerIndex === -1) {
+      return null;
+    }
+
+    return decodeURIComponent(url.pathname.slice(markerIndex + marker.length));
+  } catch {
+    return null;
+  }
 }
 
 function ReferralTab() {
@@ -243,7 +276,13 @@ export default function Profile() {
   const { addToCart } = useCart();
   const { formatPrice } = useCurrency();
   const { refundRequests, isLoading: refundsLoading } = useRefundRequests();
-  const [profile, setProfile] = useState<Profile>({ name: null, email: null, phone: null, birthday: null });
+  const [profile, setProfile] = useState<Profile>({
+    name: null,
+    email: null,
+    phone: null,
+    birthday: null,
+    avatar_url: null,
+  });
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -253,6 +292,8 @@ export default function Profile() {
   const [editingAddress, setEditingAddress] = useState<Address | null>(null);
   const [activeTab, setActiveTab] = useState('profile');
   const [reviewDialogOrder, setReviewDialogOrder] = useState<Order | null>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement | null>(null);
 
   const [addressForm, setAddressForm] = useState({
     label: '',
@@ -278,7 +319,7 @@ export default function Profile() {
 
     const { data, error } = await supabase
       .from('profiles')
-      .select('name, email, phone, birthday')
+      .select('name, email, phone, birthday, avatar_url')
       .eq('user_id', user.id)
       .maybeSingle();
 
@@ -428,6 +469,101 @@ export default function Profile() {
       setEditingProfile(false);
     }
     setSaving(false);
+  };
+
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+
+    if (!file || !user) {
+      return;
+    }
+
+    if (!AVATAR_MIME_TYPES.has(file.type)) {
+      toast.error('Please choose a JPG, PNG, WEBP, or GIF image.');
+      return;
+    }
+
+    if (file.size > MAX_AVATAR_FILE_SIZE_BYTES) {
+      toast.error('Profile pictures must be 2MB or smaller.');
+      return;
+    }
+
+    setAvatarUploading(true);
+
+    const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+    const safeExtension = ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(extension) ? extension : 'jpg';
+    const avatarPath = `${user.id}/avatar-${Date.now()}.${safeExtension}`;
+    const previousAvatarPath = getAvatarPathFromPublicUrl(profile.avatar_url);
+
+    try {
+      const { error: uploadError } = await supabase.storage
+        .from(PROFILE_AVATAR_BUCKET)
+        .upload(avatarPath, file, {
+          cacheControl: '3600',
+          contentType: file.type,
+          upsert: false,
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: publicUrlData } = supabase.storage.from(PROFILE_AVATAR_BUCKET).getPublicUrl(avatarPath);
+      const avatarUrl = publicUrlData.publicUrl;
+
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: avatarUrl })
+        .eq('user_id', user.id);
+
+      if (profileError) {
+        await supabase.storage.from(PROFILE_AVATAR_BUCKET).remove([avatarPath]);
+        throw profileError;
+      }
+
+      setProfile((currentProfile) => ({ ...currentProfile, avatar_url: avatarUrl }));
+
+      if (previousAvatarPath && previousAvatarPath !== avatarPath) {
+        await supabase.storage.from(PROFILE_AVATAR_BUCKET).remove([previousAvatarPath]);
+      }
+
+      toast.success('Profile picture updated');
+    } catch (error) {
+      console.error('Avatar upload failed:', error);
+      toast.error('Could not update your profile picture.');
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    if (!user || !profile.avatar_url) {
+      return;
+    }
+
+    setAvatarUploading(true);
+    const avatarPath = getAvatarPathFromPublicUrl(profile.avatar_url);
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ avatar_url: null })
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      setProfile((currentProfile) => ({ ...currentProfile, avatar_url: null }));
+
+      if (avatarPath) {
+        await supabase.storage.from(PROFILE_AVATAR_BUCKET).remove([avatarPath]);
+      }
+
+      toast.success('Profile picture removed');
+    } catch (error) {
+      console.error('Avatar removal failed:', error);
+      toast.error('Could not remove your profile picture.');
+    } finally {
+      setAvatarUploading(false);
+    }
   };
 
   const handleSaveAddress = async () => {
@@ -651,6 +787,63 @@ export default function Profile() {
                 )}
               </CardHeader>
               <CardContent className="space-y-4">
+                <div className="rounded-2xl border border-border/70 bg-muted/30 p-4">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-4">
+                      <Avatar className="h-20 w-20 border-2 border-primary/30 bg-primary/10 text-primary shadow-sm">
+                        <AvatarImage
+                          src={profile.avatar_url || undefined}
+                          alt={`${profile.name || 'Profile'} avatar`}
+                        />
+                        <AvatarFallback className="bg-primary/10 text-xl font-bold text-primary">
+                          {getAvatarInitials(profile.name, profile.email || user?.email)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-semibold text-foreground">Profile picture</p>
+                        <p className="max-w-md text-sm text-muted-foreground">
+                          Your avatar appears around group buys so shoppers can see real momentum building.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <input
+                        ref={avatarInputRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/gif"
+                        className="sr-only"
+                        onChange={handleAvatarUpload}
+                        disabled={avatarUploading}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => avatarInputRef.current?.click()}
+                        disabled={avatarUploading}
+                      >
+                        {avatarUploading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Camera className="h-4 w-4" />
+                        )}
+                        Upload
+                      </Button>
+                      {profile.avatar_url ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleRemoveAvatar}
+                          disabled={avatarUploading}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Remove
+                        </Button>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label className="flex items-center gap-2">

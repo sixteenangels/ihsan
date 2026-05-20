@@ -1795,6 +1795,18 @@ export type Database = {
     }
     Functions: {
       check_expired_group_buys: { Args: never; Returns: undefined }
+      get_group_buy_participant_faces: {
+        Args: {
+          p_group_buy_id: string
+          p_limit?: number
+        }
+        Returns: {
+          participant_id: string
+          display_name: string
+          avatar_url: string | null
+          joined_at: string
+        }[]
+      }
       join_group_buy_after_payment: {
         Args: {
           p_group_buy_id: string

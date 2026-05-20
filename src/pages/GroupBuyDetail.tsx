@@ -13,6 +13,8 @@ import { Button } from '@/components/ui/button';
 import { useCurrency } from '@/hooks/useCurrency';
 import { Users, Clock, ArrowLeft, Loader2, CheckCircle, Send, Target, UserPlus } from 'lucide-react';
 import { getGroupBuySavingsPercent, getGroupBuyUnitPrice } from '@/lib/groupBuyPricing';
+import { ParticipantAvatarStack } from '@/components/groupbuy/ParticipantAvatarStack';
+import { useGroupBuyParticipantFaces } from '@/hooks/useGroupBuyParticipantFaces';
 
 interface GroupBuyDetailData {
   id: string;
@@ -138,6 +140,7 @@ export default function GroupBuyDetail() {
     },
     enabled: !!id,
   });
+  const { data: participantFaces = [] } = useGroupBuyParticipantFaces(id, 8);
 
   if (isLoading) {
     return (
@@ -395,22 +398,18 @@ export default function GroupBuyDetail() {
               </CardContent>
             </Card>
 
-            <div className="flex items-center gap-2">
-              <div className="flex -space-x-2">
-                {Array.from({ length: Math.min(8, currentParticipants) }).map((_, index) => (
-                  <div
-                    key={index}
-                    className="w-8 h-8 rounded-full bg-primary/20 border-2 border-background flex items-center justify-center text-xs font-medium text-primary"
-                  >
-                    {index + 1}
-                  </div>
-                ))}
-              </div>
-              {currentParticipants > 8 ? (
-                <span className="text-sm text-muted-foreground">
-                  +{currentParticipants - 8} more
-                </span>
-              ) : null}
+            <div className="flex items-center gap-3 rounded-2xl border border-border/70 bg-card p-3 shadow-sm">
+              <ParticipantAvatarStack
+                faces={participantFaces}
+                totalCount={currentParticipants}
+                maxVisible={8}
+                sizeClassName="h-8 w-8"
+              />
+              <p className="text-sm text-muted-foreground">
+                {currentParticipants > 0
+                  ? `${currentParticipants} shopper${currentParticipants === 1 ? '' : 's'} in this group`
+                  : 'Be the first face in this group'}
+              </p>
             </div>
 
             {!isCancelled ? (
