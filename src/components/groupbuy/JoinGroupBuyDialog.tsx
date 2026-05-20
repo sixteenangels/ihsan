@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,6 +14,7 @@ import { Users, Loader2, Check, UserMinus, CreditCard } from 'lucide-react';
 import { useCurrency } from '@/hooks/useCurrency';
 import { getErrorMessage } from '@/lib/errors';
 import { loadPaystack, type PaystackTransactionResponse } from '@/lib/paystack';
+import { VariantQuantityStepper } from '@/components/groupbuy/VariantQuantityStepper';
 import {
   buildGroupBuyVariantSelections,
   getGroupBuySelectionsTotalAmount,
@@ -28,10 +30,12 @@ interface JoinGroupBuyDialogProps {
     id: string;
     product_id: string;
     min_participants: number;
+    max_participants: number | null;
     current_participants: number | null;
     discount_percentage: number | null;
     group_price: number | null;
     expires_at: string;
+    status: string | null;
     product: {
       name: string;
       base_price: number;
@@ -116,7 +120,11 @@ export function JoinGroupBuyDialog({ groupBuy, inviteCode }: JoinGroupBuyDialogP
   });
 
   const hasVariants = (variants?.length ?? 0) > 0;
-  const effectiveParticipantCount = (groupBuy.current_participants || 0) + 1;
+  const currentParticipants = groupBuy.current_participants || 0;
+  const participantCap = groupBuy.max_participants ?? groupBuy.min_participants;
+  const isAtParticipantCap = currentParticipants >= participantCap;
+  const isClosedForNewParticipants = groupBuy.status !== 'open' || isAtParticipantCap;
+  const effectiveParticipantCount = currentParticipants + 1;
   const activeTier = [...(groupBuy.tiers || [])]
     .filter((tier) => effectiveParticipantCount >= tier.min_participants)
     .sort((left, right) => right.min_participants - left.min_participants)[0];
@@ -163,6 +171,11 @@ export function JoinGroupBuyDialog({ groupBuy, inviteCode }: JoinGroupBuyDialogP
   const handlePaystackPayment = async () => {
     if (!user) return;
 
+    if (isClosedForNewParticipants) {
+      toast.error('This group buy is already full.');
+      return;
+    }
+
     if (hasVariants && totalSelectedQuantity <= 0) {
       toast.error('Choose at least one variant to continue');
       return;
@@ -195,6 +208,9 @@ export function JoinGroupBuyDialog({ groupBuy, inviteCode }: JoinGroupBuyDialogP
 
       const reference = `GB-${groupBuy.id.slice(0, 8)}-${Date.now()}`;
       const amountInPesewas = Math.round(totalAmount * 100);
+      if (amountInPesewas <= 0) {
+        throw new Error('Choose a paid group buy quantity before continuing');
+      }
       callbackFiredRef.current = false;
 
       const handler = paystack.setup({
@@ -219,6 +235,8 @@ export function JoinGroupBuyDialog({ groupBuy, inviteCode }: JoinGroupBuyDialogP
           setTimeout(() => {
             if (!callbackFiredRef.current) {
               setPayingWithPaystack(false);
+              setStep('payment');
+              setIsOpen(true);
               toast.info('Payment cancelled. You were not charged.');
             }
           }, 500);
@@ -226,6 +244,7 @@ export function JoinGroupBuyDialog({ groupBuy, inviteCode }: JoinGroupBuyDialogP
       });
 
       if (handler) {
+        flushSync(() => setIsOpen(false));
         handler.openIframe();
       } else {
         toast.error('Payment system not loaded. Please refresh and try again.');
@@ -306,24 +325,22 @@ export function JoinGroupBuyDialog({ groupBuy, inviteCode }: JoinGroupBuyDialogP
       country: defaultAddress.country,
     } : null;
 
-    const { error } = await supabase
-      .from('group_buy_participants')
-      .insert({
-        group_buy_id: groupBuy.id,
-        user_id: user.id,
-        quantity: totalSelectedQuantity,
-        variant_id: primaryVariantId,
-        payment_reference: paymentRef,
-        payment_status: 'paid',
-        shipping_address: withGroupBuySelectionsInShippingAddress(addressData, variantSelections),
-        invite_code: invite?.invite_code || null,
-        referred_by_user_id:
-          invite?.inviter_user_id && invite.inviter_user_id !== user.id
-            ? invite.inviter_user_id
-            : null,
-        unit_price_at_join: averageUnitPrice,
-        tier_label_at_join: activeTier?.label || null,
-      });
+    const referredByUserId =
+      invite?.inviter_user_id && invite.inviter_user_id !== user.id
+        ? invite.inviter_user_id
+        : null;
+
+    const { error } = await supabase.rpc('join_group_buy_after_payment' as never, {
+      p_group_buy_id: groupBuy.id,
+      p_quantity: totalSelectedQuantity,
+      p_variant_id: primaryVariantId,
+      p_payment_reference: paymentRef,
+      p_shipping_address: withGroupBuySelectionsInShippingAddress(addressData, variantSelections),
+      p_invite_code: invite?.invite_code || null,
+      p_referred_by_user_id: referredByUserId,
+      p_unit_price_at_join: averageUnitPrice,
+      p_tier_label_at_join: activeTier?.label || null,
+    } as never);
 
     if (error) {
       if (error.message.includes('duplicate') || error.code === '23505') {
@@ -335,7 +352,7 @@ export function JoinGroupBuyDialog({ groupBuy, inviteCode }: JoinGroupBuyDialogP
         setIsOpen(false);
         resetForm();
       } else {
-        toast.error(error.message || 'Failed to join');
+        toast.error(`${error.message || 'Failed to join'}. Contact support with ref: ${paymentRef}`);
       }
     } else {
       queryClient.invalidateQueries({ queryKey: ['group-buys'] });
@@ -372,7 +389,7 @@ export function JoinGroupBuyDialog({ groupBuy, inviteCode }: JoinGroupBuyDialogP
     },
   });
 
-  const participantsNeeded = Math.max(0, groupBuy.min_participants - (groupBuy.current_participants || 0));
+  const participantsNeeded = Math.max(0, groupBuy.min_participants - currentParticipants);
   const hasJoined = !!existingParticipation;
 
   if (!user) {
@@ -400,12 +417,13 @@ export function JoinGroupBuyDialog({ groupBuy, inviteCode }: JoinGroupBuyDialogP
             <Check className="h-4 w-4" /> Joined
           </Button>
         ) : (
-          <Button className="h-11 w-full gap-2 rounded-xl">
-            <Users className="h-4 w-4" /> Join Group Buy
+          <Button className="h-11 w-full gap-2 rounded-xl" disabled={isClosedForNewParticipants}>
+            <Users className="h-4 w-4" />
+            {isAtParticipantCap ? 'Group Full' : 'Join Group Buy'}
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="rounded-2xl sm:max-w-md">
+      <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{hasJoined ? 'Your Participation' : 'Join Group Buy'}</DialogTitle>
           <DialogDescription>{groupBuy.product?.name}</DialogDescription>
@@ -426,10 +444,10 @@ export function JoinGroupBuyDialog({ groupBuy, inviteCode }: JoinGroupBuyDialogP
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Participants</span>
-              <span className="font-medium">{groupBuy.current_participants || 0} / {groupBuy.min_participants}</span>
+              <span className="font-medium">{currentParticipants} / {participantCap}</span>
             </div>
             <div className="h-2 w-full rounded-full bg-muted">
-              <div className="h-2 rounded-full bg-primary transition-all" style={{ width: `${Math.min(100, ((groupBuy.current_participants || 0) / groupBuy.min_participants) * 100)}%` }} />
+              <div className="h-2 rounded-full bg-primary transition-all" style={{ width: `${Math.min(100, (currentParticipants / participantCap) * 100)}%` }} />
             </div>
             {participantsNeeded > 0 ? (
               <p className="text-xs text-muted-foreground">{participantsNeeded} more needed</p>
@@ -477,13 +495,11 @@ export function JoinGroupBuyDialog({ groupBuy, inviteCode }: JoinGroupBuyDialogP
                               {variant.stock !== null && variant.stock <= 5 ? ` - ${variant.stock} left` : ''}
                             </p>
                           </div>
-                          <Input
-                            className="h-10 w-20 rounded-xl"
-                            type="number"
-                            min="0"
-                            max={variant.stock != null ? String(Math.max(0, variant.stock)) : undefined}
+                          <VariantQuantityStepper
+                            id={`join-group-buy-variant-${variant.id}`}
                             value={variantQuantities[variant.id] ?? ''}
-                            onChange={(event) => handleVariantQuantityChange(variant.id, event.target.value)}
+                            max={variant.stock != null ? Math.max(0, variant.stock) : undefined}
+                            onChange={(nextValue) => handleVariantQuantityChange(variant.id, nextValue)}
                           />
                         </div>
                       );

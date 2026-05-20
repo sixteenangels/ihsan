@@ -94,6 +94,8 @@ interface Order {
   payment_reference: string | null;
   customer_confirmed_at: string | null;
   group_buy_id: string | null;
+  is_group_buy_master?: boolean | null;
+  parent_order_id?: string | null;
   order_items: OrderItem[];
 }
 
@@ -322,9 +324,12 @@ export default function Profile() {
         payment_reference,
         customer_confirmed_at,
         group_buy_id,
+        is_group_buy_master,
+        parent_order_id,
         order_items (*)
       `)
       .eq('user_id', user.id)
+      .or('is_group_buy_master.is.null,is_group_buy_master.eq.false')
       .order('created_at', { ascending: false });
 
     if (error) {

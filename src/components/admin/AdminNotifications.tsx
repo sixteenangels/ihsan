@@ -304,11 +304,11 @@ export function AdminNotifications() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold font-serif">Notifications</h1>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="font-serif text-2xl font-bold sm:text-3xl">Notifications</h1>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button className="w-full sm:w-auto">
               <Send className="h-4 w-4 mr-2" />
               Send Notification
             </Button>
@@ -358,9 +358,10 @@ export function AdminNotifications() {
                 </Select>
               </div>
 
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-3">
                 <Label htmlFor="broadcast">Broadcast to all users</Label>
                 <Switch
+                  className="shrink-0"
                   id="broadcast"
                   checked={newNotification.is_broadcast}
                   onCheckedChange={(checked) => {
@@ -412,7 +413,7 @@ export function AdminNotifications() {
         </Dialog>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 min-[380px]:grid-cols-2 md:grid-cols-4">
         <Card>
           <CardContent className="pt-6">
             <div className="text-2xl font-bold">{visibleNotifications.length}</div>

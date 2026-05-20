@@ -80,9 +80,9 @@ export function AdminQA() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold font-serif">Product Q&A</h1>
-        <div className="flex gap-2">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="font-serif text-2xl font-bold sm:text-3xl">Product Q&A</h1>
+        <div className="flex flex-wrap gap-2">
           <Badge variant="outline">{unanswered} Unanswered</Badge>
           <Badge variant="secondary">{(questions?.length || 0) - unanswered} Answered</Badge>
         </div>
@@ -99,8 +99,8 @@ export function AdminQA() {
           {questions?.map((q) => (
             <Card key={q.id}>
               <CardHeader className="pb-2">
-                <div className="flex items-start justify-between">
-                  <div>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
                     <CardTitle className="text-base">{q.question}</CardTitle>
                     <p className="text-sm text-muted-foreground mt-1">
                       on <span className="font-medium">{q.products?.name}</span>
@@ -110,7 +110,7 @@ export function AdminQA() {
                       {format(new Date(q.created_at), 'MMM d, yyyy')}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex shrink-0 items-center gap-2">
                     <span className="text-xs text-muted-foreground">Published</span>
                     <Switch
                       checked={q.is_published}
@@ -126,7 +126,7 @@ export function AdminQA() {
                     <p className="text-sm text-foreground">{q.answer}</p>
                   </div>
                 ) : (
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row">
                     <Textarea
                       value={answers[q.id] || ''}
                       onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })}
@@ -136,6 +136,7 @@ export function AdminQA() {
                     />
                     <Button
                       size="sm"
+                      className="w-full sm:w-auto"
                       onClick={() => {
                         if (answers[q.id]?.trim()) {
                           answerMutation.mutate({ id: q.id, answer: answers[q.id].trim() });

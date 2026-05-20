@@ -180,7 +180,7 @@ export default function FlashDeals() {
             <p className="text-muted-foreground text-lg">No flash deals right now. Check back soon!</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 min-[380px]:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
             {flashProducts.map((product) => (
               <div key={product.id} className="relative">
                 {product.flash_deal_ends_at ? (

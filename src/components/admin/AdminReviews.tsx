@@ -118,9 +118,9 @@ export function AdminReviews() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold font-serif">Reviews</h1>
-        <div className="flex gap-2">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="font-serif text-2xl font-bold sm:text-3xl">Reviews</h1>
+        <div className="flex flex-wrap gap-2">
           <Badge variant="outline">
             {reviews?.filter(r => !r.is_approved).length || 0} Pending
           </Badge>
@@ -141,14 +141,14 @@ export function AdminReviews() {
           {reviews?.map((review) => (
             <Card key={review.id}>
               <CardHeader className="pb-2">
-                <div className="flex items-start justify-between">
-                  <div>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
                     <CardTitle className="text-lg">{review.title || 'No title'}</CardTitle>
                     <p className="text-sm text-muted-foreground">
                       on <span className="font-medium">{review.products?.name}</span>
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                     {review.is_verified && (
                       <Badge variant="default" className="bg-green-600">Verified Purchase</Badge>
                     )}
@@ -184,7 +184,7 @@ export function AdminReviews() {
                     <p className="text-sm text-foreground">{review.admin_response}</p>
                   </div>
                 ) : (
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row">
                     <Textarea
                       value={responses[review.id] || ''}
                       onChange={(e) => setResponses({ ...responses, [review.id]: e.target.value })}
@@ -193,6 +193,7 @@ export function AdminReviews() {
                       className="flex-1"
                     />
                     <Button
+                      className="w-full sm:w-auto"
                       size="sm"
                       onClick={() => {
                         if (responses[review.id]?.trim()) {
@@ -207,14 +208,15 @@ export function AdminReviews() {
                   </div>
                 )}
                 
-                <div className="flex items-center justify-between pt-2 border-t border-border">
-                  <p className="text-sm text-muted-foreground">
+                <div className="flex flex-col gap-3 border-t border-border pt-2 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="min-w-0 break-words text-sm text-muted-foreground">
                     By: {review.profiles?.name || review.profiles?.email || 'Unknown'}
                   </p>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row">
                     <Button
                       variant="outline"
                       size="sm"
+                      className="w-full sm:w-auto"
                       onClick={() => approveReviewMutation.mutate({ 
                         id: review.id, 
                         is_approved: !review.is_approved 
@@ -235,6 +237,7 @@ export function AdminReviews() {
                     <Button
                       variant="destructive"
                       size="sm"
+                      className="w-full sm:w-auto"
                       onClick={() => deleteReviewMutation.mutate(review.id)}
                     >
                       <Trash2 className="h-4 w-4 mr-1" />

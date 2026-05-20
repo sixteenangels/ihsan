@@ -85,7 +85,7 @@ export default function Wishlist() {
             <p className="mb-6 text-sm text-muted-foreground sm:text-base">
               {wishlistProducts.length} item{wishlistProducts.length !== 1 ? 's' : ''} saved
             </p>
-            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-3 min-[380px]:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
               {wishlistProducts.map((product) => (
                 <ProductCard key={product.id} product={toProductCardFormat(product)} />
               ))}

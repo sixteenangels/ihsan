@@ -593,7 +593,7 @@ export default function Products() {
                 )}
               </div>
 
-              <div className="mobile-scroll-pills -mx-1 flex gap-2 overflow-x-auto px-1 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
                 {quickDiscoveryActions.map((action) => {
                   const Icon = action.icon;
                   return (
@@ -601,12 +601,12 @@ export default function Products() {
                       key={action.key}
                       variant={action.active ? 'default' : 'outline'}
                       size="sm"
-                      className="h-10 shrink-0 rounded-full px-3 sm:h-12 sm:rounded-2xl sm:px-4"
+                      className="h-10 min-w-0 justify-start rounded-full px-3 text-xs sm:h-12 sm:rounded-2xl sm:px-4 sm:text-sm"
                       onClick={action.onClick}
                     >
-                      <Icon className="mr-2 h-4 w-4" />
-                      {action.label}
-                      <span className="ml-2 text-xs opacity-75">{action.count}</span>
+                      <Icon className="mr-1.5 h-4 w-4 shrink-0 sm:mr-2" />
+                      <span className="truncate">{action.label}</span>
+                      <span className="ml-auto text-xs opacity-75 sm:ml-2">{action.count}</span>
                     </Button>
                   );
                 })}
@@ -701,11 +701,11 @@ export default function Products() {
           </div>
         </div>
 
-        <div className="mobile-scroll-pills mb-6 overflow-x-auto pb-1">
-          <div className="flex min-w-max gap-2 pr-4">
+        <div className="mb-6">
+          <div className="flex flex-wrap gap-2">
             <Badge
               variant={selectedCategory === '' ? 'default' : 'outline'}
-              className="inline-flex cursor-pointer items-center gap-1.5 px-3 py-1.5 text-center text-xs sm:px-4 sm:py-2 sm:text-sm"
+              className="inline-flex max-w-full cursor-pointer items-center gap-1.5 px-3 py-1.5 text-center text-xs sm:px-4 sm:py-2 sm:text-sm"
               onClick={() => setSelectedCategory('')}
             >
               <Package className="h-3.5 w-3.5 shrink-0" />
@@ -720,7 +720,7 @@ export default function Products() {
                       ? 'default'
                       : 'outline'
                   }
-                  className="flex cursor-pointer items-center gap-1.5 px-3 py-1.5 text-center text-xs sm:py-2 sm:text-sm"
+                  className="flex max-w-full cursor-pointer items-center gap-1.5 px-3 py-1.5 text-center text-xs sm:py-2 sm:text-sm"
                   onClick={() =>
                     setSelectedCategory((currentCategory) =>
                       currentCategory === category.name || currentCategory === category.id
@@ -905,7 +905,7 @@ export default function Products() {
           <div
             className={
               viewMode === 'grid'
-                ? 'grid grid-cols-2 gap-2.5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4'
+                ? 'grid grid-cols-1 gap-3 min-[380px]:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4'
                 : 'flex flex-col gap-3 sm:gap-4'
             }
           >

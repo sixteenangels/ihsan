@@ -181,13 +181,18 @@ export function AdminGiftCards() {
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="gift-card-code">Code</Label>
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row">
                   <Input
                     id="gift-card-code"
                     value={code}
                     onChange={(event) => setCode(event.target.value.trim().toUpperCase())}
                   />
-                  <Button type="button" variant="outline" onClick={() => setCode(generateGiftCode())}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full sm:w-auto"
+                    onClick={() => setCode(generateGiftCode())}
+                  >
                     <RefreshCw className="h-4 w-4" />
                     Regenerate
                   </Button>

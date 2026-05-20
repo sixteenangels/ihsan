@@ -15,6 +15,7 @@ function GroupBuyCardFromDB({ groupBuy }: { groupBuy: GroupBuyWithProduct }) {
   if (!groupBuy.product) return null;
 
   const progress = ((groupBuy.current_participants || 0) / groupBuy.min_participants) * 100;
+  const progressPercent = Math.min(progress, 100);
   const daysLeft = Math.max(
     0,
     Math.ceil((new Date(groupBuy.expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
@@ -70,9 +71,9 @@ function GroupBuyCardFromDB({ groupBuy }: { groupBuy: GroupBuyWithProduct }) {
                 {groupBuy.current_participants || 0}/{groupBuy.min_participants} joined
               </span>
             </div>
-            <span className="text-primary font-medium">{Math.round(progress)}%</span>
+            <span className="text-primary font-medium">{Math.round(progressPercent)}%</span>
           </div>
-          <Progress value={progress} className="h-2" />
+          <Progress value={progressPercent} className="h-2" />
         </div>
 
         <Link to={`/product/${groupBuy.product_id}?groupBuy=${groupBuy.id}`}>

@@ -19,7 +19,7 @@ export function CategorySection() {
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6">
+        <div className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6">
           {isLoading
             ? Array.from({ length: 6 }).map((_, i) => (
                 <Card key={i} className="bg-card">

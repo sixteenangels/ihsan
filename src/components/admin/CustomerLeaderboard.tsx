@@ -24,7 +24,9 @@ export function CustomerLeaderboard() {
     queryFn: async (): Promise<LeaderboardCustomer[]> => {
       const { data, error } = await supabase
         .from('orders')
-        .select('user_id, total_amount');
+        .select('user_id, total_amount')
+        .neq('status', 'pending')
+        .or('is_group_buy_master.is.null,is_group_buy_master.eq.false');
 
       if (error) throw error;
 

@@ -604,8 +604,9 @@ export function AdminProducts() {
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
-                  <Label htmlFor="is_group_buy_eligible">Group Buy Eligible</Label>
+                  <Label htmlFor="is_group_buy_eligible" className="min-w-0">Group Buy Eligible</Label>
                   <Switch
+                    className="shrink-0"
                     id="is_group_buy_eligible"
                     checked={form.is_group_buy_eligible}
                     onCheckedChange={(checked) =>
@@ -614,8 +615,9 @@ export function AdminProducts() {
                   />
                 </div>
                 <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
-                  <Label htmlFor="is_flash_deal">Flash Deal</Label>
+                  <Label htmlFor="is_flash_deal" className="min-w-0">Flash Deal</Label>
                   <Switch
+                    className="shrink-0"
                     id="is_flash_deal"
                     checked={form.is_flash_deal}
                     onCheckedChange={(checked) =>
@@ -640,8 +642,9 @@ export function AdminProducts() {
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
-                  <Label htmlFor="is_free_shipping">Free Shipping</Label>
+                  <Label htmlFor="is_free_shipping" className="min-w-0">Free Shipping</Label>
                   <Switch
+                    className="shrink-0"
                     id="is_free_shipping"
                     checked={form.is_free_shipping}
                     onCheckedChange={(checked) =>
@@ -650,8 +653,9 @@ export function AdminProducts() {
                   />
                 </div>
                 <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
-                  <Label htmlFor="is_active">Active</Label>
+                  <Label htmlFor="is_active" className="min-w-0">Active</Label>
                   <Switch
+                    className="shrink-0"
                     id="is_active"
                     checked={form.is_active}
                     onCheckedChange={(checked) =>
@@ -661,12 +665,13 @@ export function AdminProducts() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between rounded-lg border border-primary/50 p-3 bg-primary/5">
-                <div>
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-primary/50 bg-primary/5 p-3">
+                <div className="min-w-0">
                   <Label htmlFor="is_ready_now" className="text-primary font-semibold">Ready Now</Label>
                   <p className="text-xs text-muted-foreground">Mark as immediately available for shipping</p>
                 </div>
                 <Switch
+                  className="shrink-0"
                   id="is_ready_now"
                   checked={form.is_ready_now}
                   onCheckedChange={(checked) =>
@@ -676,12 +681,13 @@ export function AdminProducts() {
               </div>
 
               <div className="rounded-lg border border-amber-500/50 p-3 bg-amber-500/5 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
                     <Label htmlFor="is_fragile" className="text-amber-700 dark:text-amber-300 font-semibold">Fragile Item</Label>
                     <p className="text-xs text-muted-foreground">Customer will see Standard / Reinforced packaging choice at checkout</p>
                   </div>
                   <Switch
+                    className="shrink-0"
                     id="is_fragile"
                     checked={form.is_fragile}
                     onCheckedChange={(checked) =>
@@ -693,8 +699,9 @@ export function AdminProducts() {
                   <div className="space-y-2">
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
-                        <Label htmlFor="allow_standard_packaging">Standard Packaging</Label>
+                        <Label htmlFor="allow_standard_packaging" className="min-w-0">Standard Packaging</Label>
                         <Switch
+                          className="shrink-0"
                           id="allow_standard_packaging"
                           checked={form.allow_standard_packaging}
                           onCheckedChange={(checked) =>
@@ -703,8 +710,9 @@ export function AdminProducts() {
                         />
                       </div>
                       <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
-                        <Label htmlFor="allow_reinforced_packaging">Reinforced Protection</Label>
+                        <Label htmlFor="allow_reinforced_packaging" className="min-w-0">Reinforced Protection</Label>
                         <Switch
+                          className="shrink-0"
                           id="allow_reinforced_packaging"
                           checked={form.allow_reinforced_packaging}
                           onCheckedChange={(checked) =>

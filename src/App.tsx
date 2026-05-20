@@ -41,6 +41,7 @@ const FlashDeals = lazy(() => import("./pages/FlashDeals"));
 const DeliveryZones = lazy(() => import("./pages/DeliveryZones"));
 const CustomsDutyEstimator = lazy(() => import("./pages/CustomsDutyEstimator"));
 const ReceiptVerify = lazy(() => import("./pages/ReceiptVerify"));
+const FooterInfo = lazy(() => import("./pages/FooterInfo"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -145,6 +146,12 @@ function AppRouterContent() {
           <Route path="/flash-deals" element={<FlashDeals />} />
           <Route path="/delivery-zones" element={<DeliveryZones />} />
           <Route path="/customs-estimator" element={<CustomsDutyEstimator />} />
+          <Route path="/about" element={<FooterInfo />} />
+          <Route path="/contact" element={<FooterInfo />} />
+          <Route path="/careers" element={<FooterInfo />} />
+          <Route path="/privacy-policy" element={<FooterInfo />} />
+          <Route path="/terms-of-service" element={<FooterInfo />} />
+          <Route path="/returns-policy" element={<FooterInfo />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>

@@ -70,9 +70,9 @@ export function AdminAuditLogs() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold font-serif text-foreground flex items-center gap-2">
-          <ScrollText className="h-7 w-7 text-primary" />
+      <div>
+        <h1 className="flex items-center gap-2 font-serif text-2xl font-bold text-foreground sm:text-3xl">
+          <ScrollText className="h-7 w-7 shrink-0 text-primary" />
           Audit Logs
         </h1>
       </div>

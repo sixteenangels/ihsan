@@ -18,17 +18,14 @@ interface TrackRecommendationEventInput {
 }
 
 const SESSION_KEY = 'ajyn_scan_recommendation_session_v1';
-const LEGACY_SESSION_KEY = 'ihsan_recommendation_session_v1';
 
 function getRecommendationSessionId() {
   if (typeof window === 'undefined') {
     return null;
   }
 
-  const existing = window.localStorage.getItem(SESSION_KEY) || window.localStorage.getItem(LEGACY_SESSION_KEY);
+  const existing = window.localStorage.getItem(SESSION_KEY);
   if (existing) {
-    window.localStorage.setItem(SESSION_KEY, existing);
-    window.localStorage.removeItem(LEGACY_SESSION_KEY);
     return existing;
   }
 

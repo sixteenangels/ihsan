@@ -249,8 +249,8 @@ export function AdminUsers() {
                 onOpenChange={(open) => setExpandedUser(open ? user.id : null)}
               >
                 <div className="p-4 bg-muted rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex min-w-0 items-center gap-4">
                       {user.role === 'manager' ? (
                         <CollapsibleTrigger asChild>
                           <button className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center cursor-pointer hover:bg-primary/20 transition-colors">
@@ -266,15 +266,15 @@ export function AdminUsers() {
                           {getRoleIcon(user.role)}
                         </div>
                       )}
-                      <div>
-                        <p className="font-medium text-foreground">{user.name || 'No name'}</p>
-                        <p className="text-sm text-muted-foreground">{user.email}</p>
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-foreground">{user.name || 'No name'}</p>
+                        <p className="truncate text-sm text-muted-foreground">{user.email}</p>
                         <p className="text-xs text-muted-foreground">
                           Joined: {format(new Date(user.created_at), 'PP')}
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
+                    <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-4">
                       <Badge variant={getRoleBadgeVariant(user.role)}>
                         {user.role}
                       </Badge>
@@ -286,7 +286,7 @@ export function AdminUsers() {
                           roleId: user.roleId,
                         })}
                       >
-                        <SelectTrigger className="w-32">
+                        <SelectTrigger className="w-full sm:w-32">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -309,12 +309,13 @@ export function AdminUsers() {
                   {user.role === 'manager' && (
                     <CollapsibleContent>
                       <div className="mt-3 pt-3 border-t border-border">
-                        <div className="flex items-center justify-between mb-3">
+                        <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                           <p className="text-sm font-medium text-foreground">Section Permissions</p>
-                          <div className="flex gap-2">
+                          <div className="flex flex-col gap-2 sm:flex-row">
                             <Button
                               variant="outline"
                               size="sm"
+                              className="w-full sm:w-auto"
                               onClick={() => bulkPermissions.mutate({ userId: user.user_id, selectAll: true })}
                             >
                               Select All
@@ -322,21 +323,22 @@ export function AdminUsers() {
                             <Button
                               variant="outline"
                               size="sm"
+                              className="w-full sm:w-auto"
                               onClick={() => bulkPermissions.mutate({ userId: user.user_id, selectAll: false })}
                             >
                               Deselect All
                             </Button>
                           </div>
                         </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                           {PERMISSION_SECTIONS.map((section) => {
                             const hasPermission = user.permissions.includes(section.key);
                             return (
                               <div
                                 key={section.key}
-                                className="flex items-center justify-between p-2 rounded-lg border border-border bg-background"
+                                className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background p-2"
                               >
-                                <span className="text-sm text-foreground">{section.label}</span>
+                                <span className="min-w-0 text-sm text-foreground">{section.label}</span>
                                 <Switch
                                   checked={hasPermission}
                                   onCheckedChange={(checked) => togglePermission.mutate({

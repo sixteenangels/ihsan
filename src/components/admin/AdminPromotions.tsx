@@ -367,7 +367,7 @@ export function AdminPromotions() {
                     className="uppercase"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label>Type</Label>
                     <Select
@@ -515,22 +515,22 @@ export function AdminPromotions() {
 
       {/* Flash Deals */}
       <Card>
-        <CardHeader>
+        <CardHeader className="px-4 sm:px-6">
           <CardTitle className="flex items-center gap-2">
             <Zap className="h-5 w-5 text-destructive" />
             Flash Deals
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-4 sm:px-6">
           <p className="text-sm text-muted-foreground mb-4">
             Toggle flash deal status and set end times. Flash deal products are highlighted on the storefront.
           </p>
           <div className="space-y-3">
             {flashDealProducts?.map((product) => (
-              <div key={product.id} className="p-4 bg-muted rounded-lg space-y-3">
+              <div key={product.id} className="space-y-3 rounded-lg bg-muted p-3 sm:p-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="min-w-0">
-                    <p className="font-medium text-foreground">{product.name}</p>
+                    <p className="break-words font-medium text-foreground">{product.name}</p>
                     <p className="text-sm text-muted-foreground">{formatPrice(Number(product.base_price))}</p>
                   </div>
                   <div className="flex items-center justify-end gap-3 sm:justify-start">
@@ -556,19 +556,20 @@ export function AdminPromotions() {
                   </div>
                 </div>
                 {product.is_flash_deal && (
-                  <div className="flex flex-col gap-2 pl-1 sm:flex-row sm:items-end">
-                    <div className="flex-1 space-y-1">
+                  <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                    <div className="min-w-0 space-y-1">
                       <Label className="text-xs">Flash Deal Ends At</Label>
                       <Input
                         type="datetime-local"
                         value={flashEndTimes[product.id] || ''}
                         onChange={e => setFlashEndTimes(prev => ({ ...prev, [product.id]: e.target.value }))}
-                        className="h-9"
+                        className="h-10 max-w-full text-center sm:h-9"
                       />
                     </div>
                     <Button
                       size="sm"
                       variant="outline"
+                      className="w-full sm:w-auto"
                       onClick={() => {
                         const val = flashEndTimes[product.id];
                         if (!val) { toast.error('Set an end time first'); return; }

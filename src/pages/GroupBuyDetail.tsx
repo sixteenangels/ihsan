@@ -13,12 +13,6 @@ import { Button } from '@/components/ui/button';
 import { useCurrency } from '@/hooks/useCurrency';
 import { Users, Clock, ArrowLeft, Loader2, CheckCircle, Send, Target, UserPlus } from 'lucide-react';
 import { getGroupBuySavingsPercent, getGroupBuyUnitPrice } from '@/lib/groupBuyPricing';
-import type { Database } from '@/integrations/supabase/types';
-
-type GroupBuyParticipantSummary = Pick<
-  Database['public']['Tables']['group_buy_participants']['Row'],
-  'id' | 'joined_at'
->;
 
 interface GroupBuyDetailData {
   id: string;
@@ -41,7 +35,6 @@ interface GroupBuyDetailData {
     category_name: string | null;
     images: string[];
   } | null;
-  participants: GroupBuyParticipantSummary[];
   tiers: Array<{
     id: string;
     min_participants: number;
@@ -88,11 +81,6 @@ export default function GroupBuyDetail() {
         .eq('product_id', data.product_id)
         .order('order_index');
 
-      const { data: participants } = await supabase
-        .from('group_buy_participants')
-        .select('id, joined_at')
-        .eq('group_buy_id', id!);
-
       const { data: tiers } = await supabase
         .from('group_buy_tiers' as never)
         .select('id, min_participants, group_price, discount_percentage, reward_coupon_percent, label')
@@ -125,7 +113,6 @@ export default function GroupBuyDetail() {
               images: images?.map((image) => image.image_url) || [],
             }
           : null,
-        participants: (participants || []) as GroupBuyParticipantSummary[],
         tiers: ((tiers as unknown[]) || []).map((tier) => {
           const typedTier = tier as {
             id: string;
@@ -178,6 +165,7 @@ export default function GroupBuyDetail() {
   }
 
   const progress = ((groupBuy.current_participants || 0) / groupBuy.min_participants) * 100;
+  const progressPercent = Math.min(progress, 100);
   const currentParticipants = groupBuy.current_participants || 0;
   const participantsNeeded = Math.max(0, groupBuy.min_participants - currentParticipants);
   const activeTier = [...groupBuy.tiers]
@@ -299,9 +287,9 @@ export default function GroupBuyDetail() {
                         {groupBuy.current_participants || 0} / {groupBuy.min_participants} joined
                       </span>
                     </div>
-                    <span className="font-medium text-primary">{Math.round(progress)}%</span>
+                    <span className="font-medium text-primary">{Math.round(progressPercent)}%</span>
                   </div>
-                  <Progress value={Math.min(progress, 100)} className="h-3" />
+                  <Progress value={progressPercent} className="h-3" />
                   {groupBuy.max_participants ? (
                     <p className="text-xs text-muted-foreground">
                       Max {groupBuy.max_participants} participants
@@ -409,18 +397,18 @@ export default function GroupBuyDetail() {
 
             <div className="flex items-center gap-2">
               <div className="flex -space-x-2">
-                {groupBuy.participants.slice(0, 8).map((participant, index) => (
+                {Array.from({ length: Math.min(8, currentParticipants) }).map((_, index) => (
                   <div
-                    key={participant.id}
+                    key={index}
                     className="w-8 h-8 rounded-full bg-primary/20 border-2 border-background flex items-center justify-center text-xs font-medium text-primary"
                   >
                     {index + 1}
                   </div>
                 ))}
               </div>
-              {groupBuy.participants.length > 8 ? (
+              {currentParticipants > 8 ? (
                 <span className="text-sm text-muted-foreground">
-                  +{groupBuy.participants.length - 8} more
+                  +{currentParticipants - 8} more
                 </span>
               ) : null}
             </div>
@@ -432,11 +420,13 @@ export default function GroupBuyDetail() {
                     groupBuy={{
                       id: groupBuy.id,
                       product_id: groupBuy.product_id,
-                    min_participants: groupBuy.min_participants,
-                    current_participants: groupBuy.current_participants,
-                    discount_percentage: groupBuy.discount_percentage,
-                    group_price: groupBuy.group_price,
-                    expires_at: groupBuy.expires_at,
+                      min_participants: groupBuy.min_participants,
+                      max_participants: groupBuy.max_participants,
+                      current_participants: groupBuy.current_participants,
+                      discount_percentage: groupBuy.discount_percentage,
+                      group_price: groupBuy.group_price,
+                      expires_at: groupBuy.expires_at,
+                      status: groupBuy.status,
                       product: {
                         name: groupBuy.product.name,
                         base_price: groupBuy.product.base_price,

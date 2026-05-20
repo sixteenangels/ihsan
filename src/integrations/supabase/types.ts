@@ -461,33 +461,45 @@ export type Database = {
         Row: {
           group_buy_id: string
           id: string
+          invite_code: string | null
           joined_at: string
           payment_reference: string | null
           payment_status: string | null
           quantity: number | null
+          referred_by_user_id: string | null
           shipping_address: Json | null
+          tier_label_at_join: string | null
+          unit_price_at_join: number | null
           user_id: string
           variant_id: string | null
         }
         Insert: {
           group_buy_id: string
           id?: string
+          invite_code?: string | null
           joined_at?: string
           payment_reference?: string | null
           payment_status?: string | null
           quantity?: number | null
+          referred_by_user_id?: string | null
           shipping_address?: Json | null
+          tier_label_at_join?: string | null
+          unit_price_at_join?: number | null
           user_id: string
           variant_id?: string | null
         }
         Update: {
           group_buy_id?: string
           id?: string
+          invite_code?: string | null
           joined_at?: string
           payment_reference?: string | null
           payment_status?: string | null
           quantity?: number | null
+          referred_by_user_id?: string | null
           shipping_address?: Json | null
+          tier_label_at_join?: string | null
+          unit_price_at_join?: number | null
           user_id?: string
           variant_id?: string | null
         }
@@ -515,6 +527,7 @@ export type Database = {
           current_participants: number | null
           discount_percentage: number | null
           expires_at: string
+          goal_reached_at: string | null
           group_price: number | null
           id: string
           max_participants: number | null
@@ -530,6 +543,7 @@ export type Database = {
           current_participants?: number | null
           discount_percentage?: number | null
           expires_at: string
+          goal_reached_at?: string | null
           group_price?: number | null
           id?: string
           max_participants?: number | null
@@ -545,6 +559,7 @@ export type Database = {
           current_participants?: number | null
           discount_percentage?: number | null
           expires_at?: string
+          goal_reached_at?: string | null
           group_price?: number | null
           id?: string
           max_participants?: number | null
@@ -1780,6 +1795,20 @@ export type Database = {
     }
     Functions: {
       check_expired_group_buys: { Args: never; Returns: undefined }
+      join_group_buy_after_payment: {
+        Args: {
+          p_group_buy_id: string
+          p_quantity: number
+          p_variant_id?: string | null
+          p_payment_reference?: string | null
+          p_shipping_address?: Json | null
+          p_invite_code?: string | null
+          p_referred_by_user_id?: string | null
+          p_unit_price_at_join?: number | null
+          p_tier_label_at_join?: string | null
+        }
+        Returns: Database["public"]["Tables"]["group_buy_participants"]["Row"]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

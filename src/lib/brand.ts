@@ -11,23 +11,23 @@ export const BRAND_TEST_ORIGIN = 'https://ajyn.test';
 
 export const STORAGE_KEYS = {
   cart: 'ajyn_scan_cart_v1',
-  cartLegacy: ['ihsan_cart_v2'],
+  cartLegacy: [],
   tempSession: 'ajyn_scan_temp_session',
-  tempSessionLegacy: ['ihsan_temp_session'],
+  tempSessionLegacy: [],
   sessionMode: 'ajyn_scan_session_mode',
-  sessionModeLegacy: ['ihsan_session_mode'],
+  sessionModeLegacy: [],
   buildId: 'ajyn-scan-app-build-id',
-  buildIdLegacy: ['ihsan-app-build-id'],
+  buildIdLegacy: [],
   checkoutRecovery: 'ajyn_scan_checkout_recovery_v1',
-  checkoutRecoveryLegacy: ['ihsan_checkout_recovery_v1'],
+  checkoutRecoveryLegacy: [],
   checkoutRecoveryEvent: 'ajyn-scan:checkout-recovery-updated',
-  checkoutRecoveryEventLegacy: ['ihsan:checkout-recovery-updated'],
+  checkoutRecoveryEventLegacy: [],
   pendingReferralCode: 'ajyn_scan_pending_referral_code',
-  pendingReferralCodeLegacy: ['ihsan_pending_referral_code'],
+  pendingReferralCodeLegacy: [],
   processedReferralPrefix: 'ajyn_scan_processed_referral',
-  processedReferralPrefixLegacy: ['ihsan_processed_referral'],
+  processedReferralPrefixLegacy: [],
   adminSwipeHintDismissed: 'ajyn_scan_admin_swipe_hint_dismissed',
-  adminSwipeHintDismissedLegacy: ['ihsan_admin_swipe_hint_dismissed'],
+  adminSwipeHintDismissedLegacy: [],
 } as const;
 
 export function getStoredItem(
