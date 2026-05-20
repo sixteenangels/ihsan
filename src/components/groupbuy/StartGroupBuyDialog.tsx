@@ -216,9 +216,12 @@ export function StartGroupBuyDialog({ product }: StartGroupBuyDialogProps) {
           variant_id: primaryVariantId,
           variant_selections: variantSelections,
         },
-        callback: async (response: PaystackTransactionResponse) => {
+        callback: function(response: PaystackTransactionResponse) {
           callbackFiredRef.current = true;
-          await verifyAndCreateGroupBuy(response.reference, amountInPesewas);
+          verifyAndCreateGroupBuy(response.reference, amountInPesewas).catch((error) => {
+            toast.error(getErrorMessage(error, `Failed to create group buy. Contact support with ref: ${response.reference}`));
+            setIsPaying(false);
+          });
         },
         onClose: () => {
           setTimeout(() => {

@@ -227,9 +227,12 @@ export function JoinGroupBuyDialog({ groupBuy, inviteCode }: JoinGroupBuyDialogP
           variant_id: primaryVariantId,
           variant_selections: variantSelections,
         },
-        callback: async (response: PaystackTransactionResponse) => {
+        callback: function(response: PaystackTransactionResponse) {
           callbackFiredRef.current = true;
-          await verifyAndSaveParticipant(response.reference, amountInPesewas);
+          verifyAndSaveParticipant(response.reference, amountInPesewas).catch((error) => {
+            toast.error(getErrorMessage(error, `Failed to join the group buy. Contact support with ref: ${response.reference}`));
+            setPayingWithPaystack(false);
+          });
         },
         onClose: () => {
           setTimeout(() => {
