@@ -447,85 +447,124 @@ export function AdminGroupBuys() {
         return sum + Number(participant.unit_price_at_join || fallbackUnitPrice) * (participant.quantity || 1);
       }, 0);
 
-      const { data: masterOrder, error: masterOrderError } = await supabase
-        .from('orders')
-        .insert({
-          user_id: groupBuy.created_by,
-          subtotal: totalAmount,
-          total_amount: totalAmount,
-          group_buy_id: groupBuyId,
-          is_group_buy_master: true,
-          status: 'confirmed',
-          order_number: generateAjynOrderNumber(),
-          notes: `Group Buy: ${groupBuy.title || 'Group Buy'} - ${paidParticipants.length} participants`,
-        })
-        .select()
-        .single();
+      const createdOrderIds: string[] = [];
+      let masterOrderId: string | null = null;
 
-      if (masterOrderError) throw masterOrderError;
-
-      for (const participant of paidParticipants) {
-        const selections = extractGroupBuySelectionsFromShippingAddress(participant.shipping_address);
-        const participantUnitPrice = Number(participant.unit_price_at_join || fallbackUnitPrice);
-        const childTotal = selections.length > 0
-          ? getGroupBuySelectionsTotalAmount(selections)
-          : participantUnitPrice * (participant.quantity || 1);
-        const shippingAddress =
-          participant.shipping_address && typeof participant.shipping_address === 'object'
-            ? participant.shipping_address
-            : null;
-
-        const { data: childOrder, error: childOrderError } = await supabase
+      try {
+        const { data: masterOrder, error: masterOrderError } = await supabase
           .from('orders')
           .insert({
-            user_id: participant.user_id,
-            subtotal: childTotal,
-            total_amount: childTotal,
+            user_id: groupBuy.created_by,
+            subtotal: totalAmount,
+            total_amount: totalAmount,
             group_buy_id: groupBuyId,
-            parent_order_id: masterOrder.id,
+            is_group_buy_master: true,
             status: 'confirmed',
             order_number: generateAjynOrderNumber(),
-            shipping_address: shippingAddress,
+            notes: `Group Buy: ${groupBuy.title || 'Group Buy'} - ${paidParticipants.length} participants`,
           })
           .select()
           .single();
 
-        if (childOrderError) continue;
+        if (masterOrderError) throw masterOrderError;
+        masterOrderId = masterOrder.id;
 
-        const orderItems = selections.length > 0
-          ? selections.map((selection) => ({
-              order_id: childOrder.id,
-              product_id: groupBuy.product_id,
-              product_variant_id: selection.variantId,
-              product_name: groupBuy.products?.name || 'Group Buy Product',
-              variant_details: selection.label,
-              quantity: selection.quantity,
-              unit_price: selection.unitPrice,
-              total_price: selection.quantity * selection.unitPrice,
-            }))
-          : [{
-              order_id: childOrder.id,
-              product_id: groupBuy.product_id,
-              product_variant_id: participant.variant_id,
-              product_name: groupBuy.products?.name || 'Group Buy Product',
-              quantity: participant.quantity || 1,
-              unit_price: participantUnitPrice,
-              total_price: childTotal,
-            }];
+        for (const participant of paidParticipants) {
+          const selections = extractGroupBuySelectionsFromShippingAddress(participant.shipping_address);
+          const participantUnitPrice = Number(participant.unit_price_at_join || fallbackUnitPrice);
+          const childTotal = selections.length > 0
+            ? getGroupBuySelectionsTotalAmount(selections)
+            : participantUnitPrice * (participant.quantity || 1);
+          const shippingAddress =
+            participant.shipping_address && typeof participant.shipping_address === 'object'
+              ? participant.shipping_address
+              : null;
 
-        await supabase.from('order_items').insert(orderItems);
+          const { data: childOrder, error: childOrderError } = await supabase
+            .from('orders')
+            .insert({
+              user_id: participant.user_id,
+              subtotal: childTotal,
+              total_amount: childTotal,
+              group_buy_id: groupBuyId,
+              parent_order_id: masterOrder.id,
+              status: 'confirmed',
+              order_number: generateAjynOrderNumber(),
+              shipping_address: shippingAddress,
+            })
+            .select()
+            .single();
 
-        await supabase.from('notifications').insert({
-          user_id: participant.user_id,
-          title: 'Group Buy Order Created!',
-          message: `Your group buy order for "${groupBuy.title || 'Group Buy'}" has been created. Check My Orders for details.`,
-          type: 'order',
-          data: { order_id: childOrder.id, group_buy_id: groupBuyId },
-        });
+          if (childOrderError) {
+            throw new Error(`Could not create order for participant ${participant.user_id}: ${childOrderError.message}`);
+          }
+
+          createdOrderIds.push(childOrder.id);
+
+          const orderItems = selections.length > 0
+            ? selections.map((selection) => ({
+                order_id: childOrder.id,
+                product_id: groupBuy.product_id,
+                product_variant_id: selection.variantId,
+                product_name: groupBuy.products?.name || 'Group Buy Product',
+                variant_details: selection.label,
+                quantity: selection.quantity,
+                unit_price: selection.unitPrice,
+                total_price: selection.quantity * selection.unitPrice,
+              }))
+            : [{
+                order_id: childOrder.id,
+                product_id: groupBuy.product_id,
+                product_variant_id: participant.variant_id,
+                product_name: groupBuy.products?.name || 'Group Buy Product',
+                quantity: participant.quantity || 1,
+                unit_price: participantUnitPrice,
+                total_price: childTotal,
+              }];
+
+          const { error: orderItemsError } = await supabase.from('order_items').insert(orderItems);
+          if (orderItemsError) {
+            throw new Error(`Could not add items for participant ${participant.user_id}: ${orderItemsError.message}`);
+          }
+
+          const { error: notificationError } = await supabase.from('notifications').insert({
+            user_id: participant.user_id,
+            title: 'Group Buy Order Created!',
+            message: `Your group buy order for "${groupBuy.title || 'Group Buy'}" has been created. Check My Orders for details.`,
+            type: 'order',
+            data: { order_id: childOrder.id, group_buy_id: groupBuyId },
+          });
+
+          if (notificationError) {
+            throw new Error(`Could not notify participant ${participant.user_id}: ${notificationError.message}`);
+          }
+        }
+
+        const { error: closeError } = await supabase
+          .from('group_buys')
+          .update({ status: 'closed' })
+          .eq('id', groupBuyId);
+
+        if (closeError) throw closeError;
+
+        return masterOrder;
+      } catch (error) {
+        if (masterOrderId) {
+          const { error: childRollbackError } = createdOrderIds.length > 0
+            ? await supabase.from('orders').delete().in('id', createdOrderIds)
+            : { error: null };
+          const { error: masterRollbackError } = await supabase
+            .from('orders')
+            .delete()
+            .eq('id', masterOrderId);
+
+          if (childRollbackError || masterRollbackError) {
+            console.warn('Could not roll back incomplete group-buy orders:', childRollbackError || masterRollbackError);
+          }
+        }
+
+        throw error;
       }
-
-      await supabase.from('group_buys').update({ status: 'closed' }).eq('id', groupBuyId);
-      return masterOrder;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-group-buys'] });
@@ -556,9 +595,44 @@ export function AdminGroupBuys() {
   });
 
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
+  const selectedCurrentParticipants = selectedGroupBuy?.current_participants || 0;
+  const selectedParticipantCap =
+    selectedGroupBuy?.max_participants ?? selectedGroupBuy?.min_participants ?? 0;
+  const selectedCanCreateCollectiveOrder =
+    !!selectedGroupBuy &&
+    (selectedGroupBuy.status === 'open' || selectedGroupBuy.status === 'filled') &&
+    selectedCurrentParticipants >= selectedGroupBuy.min_participants;
 
   const handleDialogSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    const minParticipants = Number.parseInt(form.min_participants, 10);
+    const maxParticipants = form.max_participants
+      ? Number.parseInt(form.max_participants, 10)
+      : null;
+    const tierParticipants = form.tier_participants
+      ? Number.parseInt(form.tier_participants, 10)
+      : null;
+
+    if (!Number.isFinite(minParticipants) || minParticipants < 1) {
+      toast.error('Set a valid minimum participant target.');
+      return;
+    }
+
+    if (maxParticipants != null && maxParticipants < minParticipants) {
+      toast.error('Max participants must be the same as or higher than the minimum target.');
+      return;
+    }
+
+    if (tierParticipants != null && tierParticipants <= minParticipants) {
+      toast.error('Momentum tier participants must be higher than the minimum target.');
+      return;
+    }
+
+    if (tierParticipants != null && maxParticipants != null && tierParticipants > maxParticipants) {
+      toast.error('Momentum tier cannot be higher than the participant cap.');
+      return;
+    }
 
     if (dialogMode === 'edit' && editingGroupBuyId) {
       updateMutation.mutate({ id: editingGroupBuyId, data: form });
@@ -845,8 +919,11 @@ export function AdminGroupBuys() {
                 {selectedGroupBuy.title || selectedGroupBuy.products?.name || 'Group Buy'}
               </CardTitle>
               <p className="text-sm text-muted-foreground">
-                {selectedGroupBuy.current_participants || 0}/{selectedGroupBuy.min_participants}{' '}
-                participants {' - '} {getStatusBadge(selectedGroupBuy.status)}
+                {selectedCurrentParticipants}/{selectedGroupBuy.min_participants} minimum
+                {selectedParticipantCap > selectedGroupBuy.min_participants
+                  ? `, ${selectedParticipantCap} cap`
+                  : ''}{' '}
+                {' - '} {getStatusBadge(selectedGroupBuy.status)}
               </p>
               <div className="flex flex-wrap gap-4 text-sm">
                 <span className="text-muted-foreground">
@@ -901,7 +978,7 @@ export function AdminGroupBuys() {
                 <Pencil className="mr-2 h-4 w-4" />
                 Edit Pricing
               </Button>
-              {selectedGroupBuy.status === 'filled' ? (
+              {selectedCanCreateCollectiveOrder ? (
                 <Button
                   onClick={() => createCollectiveOrderMutation.mutate(selectedGroupBuy.id)}
                   disabled={createCollectiveOrderMutation.isPending}

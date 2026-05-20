@@ -425,6 +425,7 @@ export function AdminOrders() {
           )
         `)
         .in('status', ADMIN_VISIBLE_ORDER_STATUSES)
+        .or('is_group_buy_master.is.null,is_group_buy_master.eq.false')
         .order('created_at', { ascending: false });
 
       if (ordersError) throw ordersError;

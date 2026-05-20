@@ -20,6 +20,7 @@ export function GroupBuyCard({ groupBuy }: GroupBuyCardProps) {
   if (!groupBuy.product) return null;
 
   const progress = ((groupBuy.current_participants || 0) / groupBuy.min_participants) * 100;
+  const progressPercent = Math.min(progress, 100);
   const daysLeft = Math.ceil(
     (new Date(groupBuy.expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
   );
@@ -92,9 +93,9 @@ export function GroupBuyCard({ groupBuy }: GroupBuyCardProps) {
               <Users className="h-4 w-4" />
               <span>{groupBuy.current_participants || 0}/{groupBuy.min_participants} joined</span>
             </div>
-            <span className="text-primary font-medium">{Math.round(progress)}%</span>
+            <span className="text-primary font-medium">{Math.round(progressPercent)}%</span>
           </div>
-          <Progress value={Math.min(progress, 100)} className="h-2" />
+          <Progress value={progressPercent} className="h-2" />
         </div>
 
         {/* Participant avatars */}

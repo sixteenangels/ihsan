@@ -185,7 +185,8 @@ export function AdminDashboard() {
       const { data } = await supabase
         .from('orders')
         .select('status, total_amount, created_at')
-        .in('status', ADMIN_VISIBLE_ORDER_STATUSES);
+        .in('status', ADMIN_VISIBLE_ORDER_STATUSES)
+        .or('is_group_buy_master.is.null,is_group_buy_master.eq.false');
       return data || [];
     },
   });
@@ -329,6 +330,7 @@ export function AdminDashboard() {
           )
         `)
         .in('status', ADMIN_PICK_PACK_ORDER_STATUSES)
+        .or('is_group_buy_master.is.null,is_group_buy_master.eq.false')
         .order('created_at', { ascending: true })
         .limit(8);
 

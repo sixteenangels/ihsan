@@ -325,24 +325,22 @@ export function JoinGroupBuyDialog({ groupBuy, inviteCode }: JoinGroupBuyDialogP
       country: defaultAddress.country,
     } : null;
 
-    const { error } = await supabase
-      .from('group_buy_participants')
-      .insert({
-        group_buy_id: groupBuy.id,
-        user_id: user.id,
-        quantity: totalSelectedQuantity,
-        variant_id: primaryVariantId,
-        payment_reference: paymentRef,
-        payment_status: 'paid',
-        shipping_address: withGroupBuySelectionsInShippingAddress(addressData, variantSelections),
-        invite_code: invite?.invite_code || null,
-        referred_by_user_id:
-          invite?.inviter_user_id && invite.inviter_user_id !== user.id
-            ? invite.inviter_user_id
-            : null,
-        unit_price_at_join: averageUnitPrice,
-        tier_label_at_join: activeTier?.label || null,
-      });
+    const referredByUserId =
+      invite?.inviter_user_id && invite.inviter_user_id !== user.id
+        ? invite.inviter_user_id
+        : null;
+
+    const { error } = await supabase.rpc('join_group_buy_after_payment' as never, {
+      p_group_buy_id: groupBuy.id,
+      p_quantity: totalSelectedQuantity,
+      p_variant_id: primaryVariantId,
+      p_payment_reference: paymentRef,
+      p_shipping_address: withGroupBuySelectionsInShippingAddress(addressData, variantSelections),
+      p_invite_code: invite?.invite_code || null,
+      p_referred_by_user_id: referredByUserId,
+      p_unit_price_at_join: averageUnitPrice,
+      p_tier_label_at_join: activeTier?.label || null,
+    } as never);
 
     if (error) {
       if (error.message.includes('duplicate') || error.code === '23505') {
@@ -354,7 +352,7 @@ export function JoinGroupBuyDialog({ groupBuy, inviteCode }: JoinGroupBuyDialogP
         setIsOpen(false);
         resetForm();
       } else {
-        toast.error(error.message || 'Failed to join');
+        toast.error(`${error.message || 'Failed to join'}. Contact support with ref: ${paymentRef}`);
       }
     } else {
       queryClient.invalidateQueries({ queryKey: ['group-buys'] });

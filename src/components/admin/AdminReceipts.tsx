@@ -225,7 +225,8 @@ export function AdminReceipts() {
       const { data: allOrders, error: ordersError } = await supabase
         .from('orders')
         .select('id, order_number, total_amount, status')
-        .in('status', ['delivered', 'shipped', 'in_transit']);
+        .in('status', ['delivered', 'shipped', 'in_transit'])
+        .or('is_group_buy_master.is.null,is_group_buy_master.eq.false');
 
       if (ordersError) throw ordersError;
 

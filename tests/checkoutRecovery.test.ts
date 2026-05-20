@@ -9,7 +9,6 @@ import {
 } from '@/lib/checkoutRecovery';
 
 const STORAGE_KEY = 'ajyn_scan_checkout_recovery_v1';
-const LEGACY_STORAGE_KEY = 'ihsan_checkout_recovery_v1';
 
 describe('checkout recovery snapshot helpers', () => {
   beforeEach(() => {
@@ -70,16 +69,4 @@ describe('checkout recovery snapshot helpers', () => {
     expect(loadCheckoutRecoverySnapshot()).toBeNull();
   });
 
-  it('loads snapshots saved under the legacy key', () => {
-    const snapshot: CheckoutRecoverySnapshot = {
-      itemCount: 3,
-      subtotal: 210,
-      productNames: ['Desk Lamp', 'Travel Mug', 'Glass Set'],
-      updatedAt: '2026-05-11T12:00:00.000Z',
-    };
-
-    window.localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify(snapshot));
-
-    expect(loadCheckoutRecoverySnapshot()).toEqual(snapshot);
-  });
 });

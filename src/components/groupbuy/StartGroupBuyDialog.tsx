@@ -347,17 +347,17 @@ export function StartGroupBuyDialog({ product }: StartGroupBuyDialogProps) {
       country: defaultAddress.country,
     } : null;
 
-    const { error: participantError } = await supabase.from('group_buy_participants').insert({
-      group_buy_id: gbData.id,
-      user_id: user.id,
-      quantity: totalSelectedQuantity,
-      variant_id: primaryVariantId,
-      payment_reference: paymentRef,
-      payment_status: 'paid',
-      shipping_address: withGroupBuySelectionsInShippingAddress(addressData, variantSelections),
-      unit_price_at_join: averageUnitPrice,
-      tier_label_at_join: 'Base group price',
-    });
+    const { error: participantError } = await supabase.rpc('join_group_buy_after_payment' as never, {
+      p_group_buy_id: gbData.id,
+      p_quantity: totalSelectedQuantity,
+      p_variant_id: primaryVariantId,
+      p_payment_reference: paymentRef,
+      p_shipping_address: withGroupBuySelectionsInShippingAddress(addressData, variantSelections),
+      p_invite_code: null,
+      p_referred_by_user_id: null,
+      p_unit_price_at_join: averageUnitPrice,
+      p_tier_label_at_join: 'Base group price',
+    } as never);
 
     if (participantError) {
       await supabase.from('group_buys').delete().eq('id', gbData.id).eq('created_by', user.id);
