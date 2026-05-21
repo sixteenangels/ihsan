@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Package, FolderTree, Users, ShoppingCart, AlertTriangle, Zap, TrendingUp, TrendingDown, DollarSign, Target, BellRing, ScrollText, ClipboardList, Factory, CheckSquare, ArrowRight, Phone, QrCode, PackageCheck } from 'lucide-react';
+import { Package, FolderTree, Users, ShoppingCart, AlertTriangle, Zap, TrendingUp, TrendingDown, DollarSign, Target, BellRing, ScrollText, ClipboardList, Factory, CheckSquare, ArrowRight, Phone, QrCode, PackageCheck, ShieldCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +13,7 @@ import { useMemo, useState } from 'react';
 import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
 import type { Database } from '@/integrations/supabase/types';
 import { useAuth } from '@/contexts/AuthContext';
+import { AFTER_SALES_CATEGORY, AFTER_SALES_SUPPORT_OPTIONS, getAfterSalesSupportLabel } from '@/lib/afterSalesSupport';
 import { toast } from 'sonner';
 
 type OrderSummaryRow = Pick<Database['public']['Tables']['orders']['Row'], 'status' | 'total_amount' | 'created_at'>;
@@ -89,6 +90,10 @@ type AuditLogSummaryRow = {
   summary: string;
   created_at: string;
 };
+type AfterSalesRequestRow = Pick<
+  Database['public']['Tables']['support_requests']['Row'],
+  'id' | 'status' | 'priority' | 'support_type' | 'category' | 'created_at'
+>;
 type PickPackOrderRow = Pick<
   Database['public']['Tables']['orders']['Row'],
   | 'id'
@@ -306,6 +311,21 @@ export function AdminDashboard() {
 
       if (error) throw error;
       return (data || []) as unknown as AuditLogSummaryRow[];
+    },
+  });
+
+  const { data: afterSalesRequests = [] } = useQuery({
+    queryKey: ['admin-dashboard-after-sales'],
+    queryFn: async (): Promise<AfterSalesRequestRow[]> => {
+      const { data, error } = await supabase
+        .from('support_requests')
+        .select('id, status, priority, support_type, category, created_at')
+        .eq('category', AFTER_SALES_CATEGORY)
+        .order('created_at', { ascending: false })
+        .limit(200);
+
+      if (error) throw error;
+      return (data || []) as AfterSalesRequestRow[];
     },
   });
 
@@ -665,6 +685,28 @@ export function AdminDashboard() {
     { name: 'Active Group Buys', value: groupBuyCount ?? 0, icon: Users, color: 'text-primary' },
     { name: 'Total Orders', value: orderStats.total, icon: ShoppingCart, color: 'text-accent-foreground' },
   ];
+  const afterSalesMetrics = useMemo(() => {
+    const open = afterSalesRequests.filter((request) => request.status === 'new' || request.status === 'in_progress');
+    const urgent = open.filter((request) => request.priority === 'urgent' || request.priority === 'high');
+    const resolved = afterSalesRequests.filter((request) => request.status === 'resolved' || request.status === 'closed');
+
+    return {
+      total: afterSalesRequests.length,
+      open: open.length,
+      urgent: urgent.length,
+      resolved: resolved.length,
+    };
+  }, [afterSalesRequests]);
+
+  const afterSalesTypeCounts = useMemo(() => {
+    return AFTER_SALES_SUPPORT_OPTIONS
+      .map((option) => ({
+        value: option.value,
+        label: getAfterSalesSupportLabel(option.value),
+        count: afterSalesRequests.filter((request) => request.support_type === option.value).length,
+      }))
+      .filter((item) => item.count > 0);
+  }, [afterSalesRequests]);
 
   return (
     <div>
@@ -818,6 +860,67 @@ export function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold text-foreground">{priceAlerts.length}</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="mb-8">
+        <Card>
+          <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-primary" />
+                After-Sales Desk
+              </CardTitle>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Delivered-order issues grouped by need so the team can jump straight into the right queue.
+              </p>
+            </div>
+            <Button asChild variant="outline" className="w-full sm:w-auto">
+              <Link to="/admin/support?category=After-Sales">
+                Open Queue
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-lg border border-border/70 bg-muted/30 p-4">
+                <p className="text-xs text-muted-foreground">Total requests</p>
+                <p className="mt-1 text-2xl font-bold text-foreground">{afterSalesMetrics.total}</p>
+              </div>
+              <div className="rounded-lg border border-border/70 bg-muted/30 p-4">
+                <p className="text-xs text-muted-foreground">Open now</p>
+                <p className="mt-1 text-2xl font-bold text-foreground">{afterSalesMetrics.open}</p>
+              </div>
+              <div className="rounded-lg border border-border/70 bg-muted/30 p-4">
+                <p className="text-xs text-muted-foreground">Priority queue</p>
+                <p className="mt-1 text-2xl font-bold text-foreground">{afterSalesMetrics.urgent}</p>
+              </div>
+              <div className="rounded-lg border border-border/70 bg-muted/30 p-4">
+                <p className="text-xs text-muted-foreground">Resolved</p>
+                <p className="mt-1 text-2xl font-bold text-foreground">{afterSalesMetrics.resolved}</p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {afterSalesTypeCounts.length > 0 ? (
+                afterSalesTypeCounts.map((item) => (
+                  <Button key={item.value} asChild variant="outline" size="sm" className="rounded-full">
+                    <Link to={`/admin/support?category=${encodeURIComponent(AFTER_SALES_CATEGORY)}&type=${item.value}`}>
+                      {item.label}
+                      <Badge variant="secondary" className="ml-2">
+                        {item.count}
+                      </Badge>
+                    </Link>
+                  </Button>
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No after-sales requests yet.
+                </p>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>

@@ -36,12 +36,13 @@ interface StartGroupBuyDialogProps {
     base_price: number;
     group_buy_price: number | null;
   };
+  triggerClassName?: string;
 }
 
 const MIN_GROUP_BUY_PARTICIPANTS = 2;
 const MAX_GROUP_BUY_PARTICIPANTS = 100;
 
-export function StartGroupBuyDialog({ product }: StartGroupBuyDialogProps) {
+export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuyDialogProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { formatPrice } = useCurrency();
@@ -305,8 +306,7 @@ export function StartGroupBuyDialog({ product }: StartGroupBuyDialogProps) {
       return;
     }
 
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
+    const expiresAt = new Date(Date.now() + (48 * 60 * 60 * 1000));
 
     const { data: gbData, error: gbError } = await supabase
       .from('group_buys')
@@ -378,7 +378,7 @@ export function StartGroupBuyDialog({ product }: StartGroupBuyDialogProps) {
 
   if (!user) {
     return (
-      <Button variant="secondary" onClick={() => toast.info('Please sign in to start a group buy')}>
+      <Button variant="secondary" className={triggerClassName} onClick={() => toast.info('Please sign in to start a group buy')}>
         <Users className="mr-2 h-4 w-4" /> Start Group Buy
       </Button>
     );
@@ -387,14 +387,14 @@ export function StartGroupBuyDialog({ product }: StartGroupBuyDialogProps) {
   return (
     <Dialog open={isOpen} onOpenChange={handleOpen}>
       <DialogTrigger asChild>
-        <Button variant="secondary">
+        <Button variant="secondary" className={triggerClassName}>
           <Users className="mr-2 h-4 w-4" /> Start Group Buy
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Start a Group Buy</DialogTitle>
-          <DialogDescription>Create a shared offer for "{product.name}"</DialogDescription>
+          <DialogDescription>Create a 48-hour shared offer for "{product.name}"</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
@@ -423,6 +423,9 @@ export function StartGroupBuyDialog({ product }: StartGroupBuyDialogProps) {
                 />
                 <p className="text-xs text-muted-foreground">
                   Group buys need {MIN_GROUP_BUY_PARTICIPANTS}-{MAX_GROUP_BUY_PARTICIPANTS} participants.
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  New group buys stay open for 48 hours. If yours is still unfilled in the final hour, you can extend it once.
                 </p>
               </div>
 

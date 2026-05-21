@@ -15,6 +15,10 @@ import { useCurrency } from '@/hooks/useCurrency';
 import { getErrorMessage } from '@/lib/errors';
 import { loadPaystack, type PaystackTransactionResponse } from '@/lib/paystack';
 import { VariantQuantityStepper } from '@/components/groupbuy/VariantQuantityStepper';
+import {
+  formatGroupBuyTimeRemaining,
+  getLeaveWindowInfo,
+} from '@/lib/groupBuyTiming';
 import { cn } from '@/lib/utils';
 import {
   buildGroupBuyVariantSelections,
@@ -31,6 +35,7 @@ interface JoinGroupBuyDialogProps {
   triggerLabel?: string;
   joinedLabel?: string;
   signedOutLabel?: string;
+  disableDialogWhenJoined?: boolean;
   groupBuy: {
     id: string;
     product_id: string;
@@ -62,6 +67,7 @@ export function JoinGroupBuyDialog({
   triggerLabel = 'Join Group Buy',
   joinedLabel = 'Joined',
   signedOutLabel = 'Join Group Buy',
+  disableDialogWhenJoined = false,
 }: JoinGroupBuyDialogProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -385,12 +391,16 @@ export function JoinGroupBuyDialog({
   const leaveMutation = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error('Please sign in');
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('group_buy_participants')
         .delete()
         .eq('group_buy_id', groupBuy.id)
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .select('id');
       if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error('You can only leave within one hour of joining while the group is still open.');
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['group-buys'] });
@@ -406,6 +416,15 @@ export function JoinGroupBuyDialog({
 
   const participantsNeeded = Math.max(0, groupBuy.min_participants - currentParticipants);
   const hasJoined = !!existingParticipation;
+  const leaveWindow = existingParticipation
+    ? getLeaveWindowInfo({
+        currentParticipants,
+        joinedAt: existingParticipation.joined_at,
+        minParticipants: groupBuy.min_participants,
+        status: groupBuy.status,
+      })
+    : null;
+  const joinedButtonDisabled = hasJoined && disableDialogWhenJoined;
 
   if (!user) {
     return (
@@ -418,8 +437,11 @@ export function JoinGroupBuyDialog({
 
   return (
     <Dialog
-      open={isOpen}
+      open={joinedButtonDisabled ? false : isOpen}
       onOpenChange={(open) => {
+        if (joinedButtonDisabled) {
+          return;
+        }
         setIsOpen(open);
         if (!open) {
           resetForm();
@@ -428,7 +450,11 @@ export function JoinGroupBuyDialog({
     >
       <DialogTrigger asChild>
         {hasJoined ? (
-          <Button variant="outline" className={cn('h-11 w-full gap-2 rounded-xl', triggerClassName)}>
+          <Button
+            variant="outline"
+            className={cn('h-11 w-full gap-2 rounded-xl', triggerClassName)}
+            disabled={joinedButtonDisabled}
+          >
             <Check className="h-4 w-4" /> {joinedLabel}
           </Button>
         ) : (
@@ -469,6 +495,9 @@ export function JoinGroupBuyDialog({
             ) : (
               <p className="text-xs font-medium text-primary">Goal reached!</p>
             )}
+            <p className="text-xs text-muted-foreground">
+              {formatGroupBuyTimeRemaining(groupBuy.expires_at)}
+            </p>
           </div>
 
           {hasJoined ? (
@@ -481,8 +510,18 @@ export function JoinGroupBuyDialog({
                 {existingParticipation.payment_status === 'paid' ? (
                   <p className="mt-1 text-sm text-green-600">Payment confirmed</p>
                 ) : null}
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {leaveWindow?.canLeave
+                    ? `You can still leave for ${leaveWindow.remainingMinutes} more minute${leaveWindow.remainingMinutes === 1 ? '' : 's'}.`
+                    : 'Your participation is now locked in.'}
+                </p>
               </div>
-              <Button variant="destructive" className="h-11 w-full rounded-xl" onClick={() => leaveMutation.mutate()} disabled={leaveMutation.isPending}>
+              <Button
+                variant="destructive"
+                className="h-11 w-full rounded-xl"
+                onClick={() => leaveMutation.mutate()}
+                disabled={leaveMutation.isPending || !leaveWindow?.canLeave}
+              >
                 {leaveMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserMinus className="mr-2 h-4 w-4" />}
                 Leave Group Buy
               </Button>

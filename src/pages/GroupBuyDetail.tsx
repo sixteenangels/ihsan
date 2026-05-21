@@ -6,6 +6,7 @@ import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { JoinGroupBuyDialog } from '@/components/groupbuy/JoinGroupBuyDialog';
 import { GroupBuyShareSheet } from '@/components/groupbuy/GroupBuyShareSheet';
+import { ExtendGroupBuyButton } from '@/components/groupbuy/ExtendGroupBuyButton';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -13,10 +14,13 @@ import { Button } from '@/components/ui/button';
 import { useCurrency } from '@/hooks/useCurrency';
 import { Users, Clock, ArrowLeft, Loader2, CheckCircle, Send, Target, UserPlus } from 'lucide-react';
 import { getGroupBuySavingsPercent, getGroupBuyUnitPrice } from '@/lib/groupBuyPricing';
+import { canExtendGroupBuy, formatGroupBuyTimeRemaining } from '@/lib/groupBuyTiming';
 import { ParticipantAvatarStack } from '@/components/groupbuy/ParticipantAvatarStack';
 import { useGroupBuyParticipantFaces } from '@/hooks/useGroupBuyParticipantFaces';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface GroupBuyDetailData {
+  created_by: string;
   id: string;
   product_id: string;
   title: string | null;
@@ -24,6 +28,8 @@ interface GroupBuyDetailData {
   max_participants: number | null;
   current_participants: number | null;
   discount_percentage: number | null;
+  extension_hours: number | null;
+  extension_used: boolean;
   group_price: number | null;
   expires_at: string;
   status: string | null;
@@ -50,6 +56,7 @@ interface GroupBuyDetailData {
 export default function GroupBuyDetail() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
+  const { user } = useAuth();
   const { formatPrice } = useCurrency();
   const inviteCode = searchParams.get('invite')?.trim().toUpperCase() || null;
 
@@ -175,9 +182,6 @@ export default function GroupBuyDetail() {
     .filter((tier) => currentParticipants >= tier.min_participants)
     .sort((left, right) => right.min_participants - left.min_participants)[0];
   const nextTier = groupBuy.tiers.find((tier) => currentParticipants < tier.min_participants);
-  const daysLeft = Math.ceil(
-    (new Date(groupBuy.expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24),
-  );
   const groupPrice = getGroupBuyUnitPrice({
     basePrice: groupBuy.product.base_price,
     groupPrice: activeTier?.group_price ?? groupBuy.group_price,
@@ -190,6 +194,14 @@ export default function GroupBuyDetail() {
   });
   const isFilled = groupBuy.status === 'filled';
   const isCancelled = groupBuy.status === 'cancelled' || groupBuy.status === 'closed';
+  const isHost = groupBuy.created_by === user?.id;
+  const allowExtension = canExtendGroupBuy({
+    currentParticipants: groupBuy.current_participants,
+    expiresAt: groupBuy.expires_at,
+    extensionUsed: groupBuy.extension_used,
+    minParticipants: groupBuy.min_participants,
+    status: groupBuy.status,
+  });
   const milestones = [
     {
       key: 'started',
@@ -276,7 +288,7 @@ export default function GroupBuyDetail() {
                     <div className="flex items-center gap-1 text-muted-foreground">
                       <Clock className="h-4 w-4" />
                       <span className="text-sm">
-                        {daysLeft > 0 ? `${daysLeft} days left` : 'Ending soon'}
+                        {formatGroupBuyTimeRemaining(groupBuy.expires_at)}
                       </span>
                     </div>
                   </div>
@@ -414,6 +426,13 @@ export default function GroupBuyDetail() {
 
             {!isCancelled ? (
               <div className="space-y-3">
+                <ExtendGroupBuyButton
+                  canExtend={allowExtension}
+                  extensionUsed={groupBuy.extension_used}
+                  groupBuyId={groupBuy.id}
+                  isHost={isHost}
+                  className="h-10 w-full"
+                />
                   <JoinGroupBuyDialog
                     inviteCode={inviteCode}
                     groupBuy={{

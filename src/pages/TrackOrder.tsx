@@ -10,7 +10,7 @@ import { Footer } from '@/components/layout/Footer';
 import { OrderTrackingMap } from '@/components/order/OrderTrackingMap';
 import { OrderReviewDialog } from '@/components/orders/OrderReviewDialog';
 import { RefundRequestDialog } from '@/components/orders/RefundRequestDialog';
-import { OrderIssueDialog } from '@/components/support/OrderIssueDialog';
+import { AfterSalesServiceDialog } from '@/components/support/AfterSalesServiceDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -628,44 +628,54 @@ export default function TrackOrder() {
                     )}
                   </div>
                 )}
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {canManageOrder && !delivered && (
-                    <RefundRequestDialog
+                <div className="mt-4 space-y-2.5">
+                  <div className="flex flex-wrap gap-2">
+                    {canManageOrder && !delivered && (
+                      <RefundRequestDialog
+                        order={order}
+                        canRequest={refundOpen}
+                        disabledReason={refundReason}
+                        triggerLabel="Refund"
+                      />
+                    )}
+                    {canManageOrder && delivered && (
+                      <>
+                        <Button
+                          variant="outline"
+                          onClick={() => setReviewDialogOrder(order)}
+                          className="h-11 flex-1 rounded-xl px-4 sm:flex-none"
+                        >
+                          <Star className="mr-2 h-4 w-4" />
+                          Review
+                        </Button>
+                        <Button
+                          onClick={handleBuyAgain}
+                          className="h-11 flex-1 rounded-xl bg-orange-500 px-4 text-white hover:bg-orange-600 sm:flex-none"
+                        >
+                          <ShoppingBag className="mr-2 h-4 w-4" />
+                          Buy Again
+                        </Button>
+                      </>
+                    )}
+                    {canManageOrder && !delivered && (
+                      <Button
+                        variant={order.status === 'out_for_delivery' ? 'default' : 'outline'}
+                        onClick={handleConfirmDelivery}
+                        disabled={order.status !== 'out_for_delivery'}
+                        className="h-11 rounded-xl px-4"
+                      >
+                        <CheckCircle className="mr-2 h-4 w-4" />
+                        Confirm Delivery
+                      </Button>
+                    )}
+                  </div>
+                  {canManageOrder && delivered ? (
+                    <AfterSalesServiceDialog
                       order={order}
-                      canRequest={refundOpen}
-                      disabledReason={refundReason}
-                      triggerLabel="Refund"
+                      triggerLabel="Request After-Sales Service"
+                      className="h-11 w-full justify-center rounded-xl border-border/70 px-4 text-sm font-semibold"
                     />
-                  )}
-                  {canManageOrder && delivered && (
-                    <>
-                      <Button variant="outline" onClick={() => setReviewDialogOrder(order)}>
-                        <Star className="mr-2 h-4 w-4" />
-                        Review
-                      </Button>
-                      <Button onClick={handleBuyAgain}>
-                        <ShoppingBag className="mr-2 h-4 w-4" />
-                        Buy Again
-                      </Button>
-                    </>
-                  )}
-                  {canManageOrder && !delivered && (
-                    <Button
-                      variant={order.status === 'out_for_delivery' ? 'default' : 'outline'}
-                      onClick={handleConfirmDelivery}
-                      disabled={order.status !== 'out_for_delivery'}
-                    >
-                      <CheckCircle className="mr-2 h-4 w-4" />
-                      Confirm Delivery
-                    </Button>
-                  )}
-                  <OrderIssueDialog
-                    orderId={order.id}
-                    orderNumber={order.order_number}
-                    orderStatus={order.status || 'pending'}
-                    itemNames={order.order_items.map((item) => item.product_name)}
-                    triggerLabel="Report Delivery Issue"
-                  />
+                  ) : null}
                 </div>
               </CardContent>
             </Card>

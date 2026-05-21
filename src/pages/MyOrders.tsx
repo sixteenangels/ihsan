@@ -17,6 +17,7 @@ import { Footer } from '@/components/layout/Footer';
 import { CompactOrderHistoryCard } from '@/components/orders/CompactOrderHistoryCard';
 import { OrderReviewDialog } from '@/components/orders/OrderReviewDialog';
 import { RefundRequestDialog } from '@/components/orders/RefundRequestDialog';
+import { AfterSalesServiceDialog } from '@/components/support/AfterSalesServiceDialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -447,6 +448,13 @@ export default function MyOrders() {
                       onConfirmDelivery={handleConfirmDelivery}
                       onReview={openManualReview}
                       onBuyAgain={handleBuyAgain}
+                      afterSalesAction={
+                        <AfterSalesServiceDialog
+                          order={order}
+                          triggerLabel="Request After-Sales Service"
+                          className="h-9 w-full justify-center rounded-xl border-border/70 px-3 text-xs font-semibold"
+                        />
+                      }
                       refundAction={
                         <RefundRequestDialog
                           order={order}

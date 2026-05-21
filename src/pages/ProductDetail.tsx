@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Star, Truck, Users, Zap, Ship, Plane, Package, ShoppingCart, ArrowLeft, Loader2, Share2, Copy, Link as LinkIcon, Clock3, ShieldCheck } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
@@ -11,6 +11,7 @@ import { RelatedProducts } from '@/components/products/RelatedProducts';
 import { VariantSelector } from '@/components/products/VariantSelector';
 import { ProductImageGallery } from '@/components/products/ProductImageGallery';
 import { StartGroupBuyDialog } from '@/components/groupbuy/StartGroupBuyDialog';
+import { JoinGroupBuyDialog } from '@/components/groupbuy/JoinGroupBuyDialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -26,6 +27,8 @@ import { BackInStockAlert } from '@/components/products/BackInStockAlert';
 import { RestockReservationDialog } from '@/components/products/RestockReservationDialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { trackRecommendationEvent } from '@/lib/recommendationEvents';
+import { useProductActiveGroupBuys } from '@/hooks/useProductActiveGroupBuys';
+import { formatGroupBuyTimeRemaining } from '@/lib/groupBuyTiming';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -106,6 +109,7 @@ interface ShippingRule {
 
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const { data: product, isLoading } = useProduct(id);
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -116,6 +120,12 @@ export default function ProductDetail() {
 
   const [selectedVariants, setSelectedVariants] = useState<SelectedVariant[]>([]);
   const [selectedShipping, setSelectedShipping] = useState<ShippingRule | null>(null);
+  const preferredGroupBuyId = searchParams.get('groupBuy');
+
+  const { data: activeProductGroupBuys = [] } = useProductActiveGroupBuys({
+    productId: id,
+    userId: user?.id,
+  });
 
   // Track recently viewed
   useEffect(() => {
@@ -341,6 +351,9 @@ export default function ProductDetail() {
     : expectedRestockDateLabel
       ? `Expected restock ${expectedRestockDateLabel}`
       : 'Restock alerts available';
+  const activeProductGroupBuy = activeProductGroupBuys.find((groupBuy) => groupBuy.id === preferredGroupBuyId)
+    || activeProductGroupBuys[0]
+    || null;
 
   return (
     <div className="min-h-screen bg-background">
@@ -399,12 +412,48 @@ export default function ProductDetail() {
             {/* Start Group Buy Button */}
             {product.is_group_buy_eligible && (
               <div className="rounded-2xl border border-accent/20 bg-accent/10 p-3.5 sm:p-4">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
+                <div className="flex flex-col gap-4">
+                  <div className="space-y-1">
                     <p className="font-medium text-foreground">Start a Group Buy</p>
-                    <p className="text-sm text-muted-foreground">Lock in the group price and invite others to fill the target.</p>
+                    <p className="text-sm text-muted-foreground">
+                      Lock in the group price for 48 hours and invite others to fill the target.
+                    </p>
+                    {activeProductGroupBuy ? (
+                      <p className="text-xs text-primary">
+                        An open group is already live for this item. {formatGroupBuyTimeRemaining(activeProductGroupBuy.expires_at)}.
+                      </p>
+                    ) : null}
                   </div>
-                  <StartGroupBuyDialog product={{ id: product.id, name: product.name, base_price: product.base_price, group_buy_price: product.group_buy_price ?? null }} />
+                  <div className={`grid gap-2 ${activeProductGroupBuy ? 'sm:grid-cols-2' : 'sm:grid-cols-1'}`}>
+                    <StartGroupBuyDialog
+                      triggerClassName="h-10 w-full rounded-xl"
+                      product={{ id: product.id, name: product.name, base_price: product.base_price, group_buy_price: product.group_buy_price ?? null }}
+                    />
+                    {activeProductGroupBuy ? (
+                      <JoinGroupBuyDialog
+                        disableDialogWhenJoined
+                        triggerLabel="Join Existing"
+                        joinedLabel="Joined"
+                        triggerClassName="h-10 rounded-xl"
+                        groupBuy={{
+                          id: activeProductGroupBuy.id,
+                          product_id: activeProductGroupBuy.product_id,
+                          min_participants: activeProductGroupBuy.min_participants,
+                          max_participants: activeProductGroupBuy.max_participants,
+                          current_participants: activeProductGroupBuy.current_participants,
+                          discount_percentage: activeProductGroupBuy.discount_percentage,
+                          group_price: activeProductGroupBuy.group_price,
+                          expires_at: activeProductGroupBuy.expires_at,
+                          status: activeProductGroupBuy.status,
+                          product: {
+                            name: product.name,
+                            base_price: product.base_price,
+                          },
+                          tiers: activeProductGroupBuy.tiers,
+                        }}
+                      />
+                    ) : null}
+                  </div>
                 </div>
               </div>
             )}

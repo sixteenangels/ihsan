@@ -526,6 +526,10 @@ export type Database = {
           created_by: string
           current_participants: number | null
           discount_percentage: number | null
+          extended_at: string | null
+          extension_hours: number | null
+          extension_notice_sent_at: string | null
+          extension_used: boolean
           expires_at: string
           goal_reached_at: string | null
           group_price: number | null
@@ -542,6 +546,10 @@ export type Database = {
           created_by: string
           current_participants?: number | null
           discount_percentage?: number | null
+          extended_at?: string | null
+          extension_hours?: number | null
+          extension_notice_sent_at?: string | null
+          extension_used?: boolean
           expires_at: string
           goal_reached_at?: string | null
           group_price?: number | null
@@ -558,6 +566,10 @@ export type Database = {
           created_by?: string
           current_participants?: number | null
           discount_percentage?: number | null
+          extended_at?: string | null
+          extension_hours?: number | null
+          extension_notice_sent_at?: string | null
+          extension_used?: boolean
           expires_at?: string
           goal_reached_at?: string | null
           group_price?: number | null
@@ -1624,45 +1636,95 @@ export type Database = {
       }
       support_requests: {
         Row: {
+          assigned_admin_id: string | null
+          attachment_paths: string[]
+          category: string | null
           created_at: string
+          customer_phone: string | null
+          delivery_date: string | null
           email: string
           id: string
           internal_notes: string | null
           message: string
           name: string
+          order_id: string | null
+          order_number: string | null
+          priority: string
+          product_names: string[]
+          public_reply: string | null
+          resolution_summary: string | null
           responded_at: string | null
           source: string
           status: string
+          subject: string | null
+          support_type: string | null
+          tags: string[]
           updated_at: string
           user_id: string | null
         }
         Insert: {
+          assigned_admin_id?: string | null
+          attachment_paths?: string[]
+          category?: string | null
           created_at?: string
+          customer_phone?: string | null
+          delivery_date?: string | null
           email: string
           id?: string
           internal_notes?: string | null
           message: string
           name: string
+          order_id?: string | null
+          order_number?: string | null
+          priority?: string
+          product_names?: string[]
+          public_reply?: string | null
+          resolution_summary?: string | null
           responded_at?: string | null
           source?: string
           status?: string
+          subject?: string | null
+          support_type?: string | null
+          tags?: string[]
           updated_at?: string
           user_id?: string | null
         }
         Update: {
+          assigned_admin_id?: string | null
+          attachment_paths?: string[]
+          category?: string | null
           created_at?: string
+          customer_phone?: string | null
+          delivery_date?: string | null
           email?: string
           id?: string
           internal_notes?: string | null
           message?: string
           name?: string
+          order_id?: string | null
+          order_number?: string | null
+          priority?: string
+          product_names?: string[]
+          public_reply?: string | null
+          resolution_summary?: string | null
           responded_at?: string | null
           source?: string
           status?: string
+          subject?: string | null
+          support_type?: string | null
+          tags?: string[]
           updated_at?: string
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "support_requests_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {

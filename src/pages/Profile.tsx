@@ -29,6 +29,7 @@ import { SessionManagement } from '@/components/auth/SessionManagement';
 import { CompactOrderHistoryCard } from '@/components/orders/CompactOrderHistoryCard';
 import { OrderReviewDialog } from '@/components/orders/OrderReviewDialog';
 import { RefundRequestDialog } from '@/components/orders/RefundRequestDialog';
+import { AfterSalesServiceDialog } from '@/components/support/AfterSalesServiceDialog';
 import { useReferral } from '@/hooks/useReferral';
 import { useLoyaltyPoints } from '@/hooks/useLoyaltyPoints';
 import { WalletSection } from '@/components/profile/WalletSection';
@@ -1131,6 +1132,13 @@ export default function Profile() {
                       onConfirmDelivery={handleConfirmDelivery}
                       onReview={(selectedOrder) => setReviewDialogOrder(selectedOrder)}
                       onBuyAgain={handleBuyAgain}
+                      afterSalesAction={
+                        <AfterSalesServiceDialog
+                          order={order}
+                          triggerLabel="Request After-Sales Service"
+                          className="h-9 w-full justify-center rounded-xl border-border/70 px-3 text-xs font-semibold"
+                        />
+                      }
                       refundAction={
                         <RefundRequestDialog
                           order={order}

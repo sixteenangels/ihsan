@@ -53,6 +53,7 @@ interface CompactOrderHistoryCardProps {
   onConfirmDelivery?: (order: CompactOrderHistoryOrder) => void;
   onReview?: (order: CompactOrderHistoryOrder) => void;
   onBuyAgain?: (order: CompactOrderHistoryOrder) => void;
+  afterSalesAction?: ReactNode;
   refundAction?: ReactNode;
   footerSlot?: ReactNode;
   className?: string;
@@ -89,6 +90,7 @@ export function CompactOrderHistoryCard({
   onConfirmDelivery,
   onReview,
   onBuyAgain,
+  afterSalesAction,
   refundAction,
   footerSlot,
   className,
@@ -233,6 +235,7 @@ export function CompactOrderHistoryCard({
                 <span className="hidden sm:inline">Confirm Delivery</span>
               </Button>
             )}
+            {delivered && afterSalesAction ? <div className="col-span-3">{afterSalesAction}</div> : null}
           </div>
         </div>
       </CardContent>

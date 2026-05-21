@@ -22,11 +22,15 @@ export interface MyGroupBuyParticipation {
   variant_id: string | null;
   group_buy: {
     id: string;
+    created_by: string;
     title: string | null;
     product_id: string;
     min_participants: number;
+    max_participants: number | null;
     current_participants: number | null;
     discount_percentage: number | null;
+    extension_hours: number | null;
+    extension_used: boolean;
     group_price: number | null;
     expires_at: string;
     status: string | null;
@@ -51,8 +55,8 @@ export function useMyGroupBuys() {
         .select(`
           *,
           group_buys(
-            id, title, product_id, min_participants, current_participants,
-            discount_percentage, group_price, expires_at, status,
+            id, created_by, title, product_id, min_participants, max_participants, current_participants,
+            discount_percentage, extension_hours, extension_used, group_price, expires_at, status,
             products(name, base_price)
           )
         `)
@@ -93,11 +97,15 @@ export function useMyGroupBuys() {
           variant_id: participation.variant_id,
           group_buy: {
             id: gb?.id,
+            created_by: gb?.created_by || '',
             title: gb?.title,
             product_id: gb?.product_id,
             min_participants: gb?.min_participants,
+            max_participants: gb?.max_participants ?? null,
             current_participants: gb?.current_participants,
             discount_percentage: gb?.discount_percentage ? Number(gb.discount_percentage) : null,
+            extension_hours: gb?.extension_hours ?? null,
+            extension_used: gb?.extension_used ?? false,
             group_price: gb?.group_price != null ? Number(gb.group_price) : null,
             expires_at: gb?.expires_at,
             status: gb?.status,

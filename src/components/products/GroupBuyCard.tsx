@@ -8,6 +8,7 @@ import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { JoinGroupBuyDialog } from '@/components/groupbuy/JoinGroupBuyDialog';
 import { getGroupBuySavingsPercent, getGroupBuyUnitPrice } from '@/lib/groupBuyPricing';
+import { formatGroupBuyTimeRemaining } from '@/lib/groupBuyTiming';
 import { ParticipantAvatarStack } from '@/components/groupbuy/ParticipantAvatarStack';
 import { useGroupBuyParticipantFaces } from '@/hooks/useGroupBuyParticipantFaces';
 
@@ -26,9 +27,6 @@ export function GroupBuyCard({ groupBuy }: GroupBuyCardProps) {
   const participantsNeeded = Math.max(0, participantGoal - currentParticipants);
   const progress = (currentParticipants / participantGoal) * 100;
   const progressPercent = Math.min(progress, 100);
-  const daysLeft = Math.ceil(
-    (new Date(groupBuy.expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-  );
   const discountedPrice = getGroupBuyUnitPrice({
     basePrice: groupBuy.product.base_price,
     groupPrice: groupBuy.group_price,
@@ -42,12 +40,15 @@ export function GroupBuyCard({ groupBuy }: GroupBuyCardProps) {
   const productSummary = groupBuy.product.category_name || groupBuy.product.description || 'Limited group deal';
   const ratingLabel = groupBuy.product.rating
     ? `${Number(groupBuy.product.rating).toFixed(1)} rated`
-    : daysLeft > 0
-      ? `${daysLeft}d left`
-      : 'Ending soon';
+    : formatGroupBuyTimeRemaining(groupBuy.expires_at);
   const inviteText = participantsNeeded > 0
     ? `${participantsNeeded} more ${participantsNeeded === 1 ? 'person' : 'people'} needed`
     : 'Goal reached';
+  const inviteSubtext = participantsNeeded <= 0
+    ? 'This deal is ready to move forward.'
+    : participantsNeeded === 1
+      ? 'Almost there. Help unlock the deal.'
+      : `Invite ${participantsNeeded} more ${participantsNeeded === 1 ? 'shopper' : 'shoppers'} to close the gap.`;
 
   const handleShare = async () => {
     const url = `${window.location.origin}/group-buy/${groupBuy.id}`;
@@ -105,18 +106,19 @@ export function GroupBuyCard({ groupBuy }: GroupBuyCardProps) {
             <p className="line-clamp-1 text-[11px] text-muted-foreground sm:text-xs">{productSummary}</p>
           </div>
 
-          <div className="space-y-1.5">
-            <div className="flex items-end justify-between gap-2">
-              <div>
-                <p className="text-sm font-black text-primary sm:text-base">
-                  {currentParticipants}/{participantGoal} joined
-                </p>
-                <p className="text-[10px] text-muted-foreground">{inviteText}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-base font-black text-primary sm:text-lg">{Math.round(progressPercent)}%</p>
-                <p className="text-[9px] text-muted-foreground">of goal reached</p>
-              </div>
+            <div className="space-y-1.5">
+              <div className="flex items-end justify-between gap-2">
+                <div>
+                  <p className="text-sm font-black text-primary sm:text-base">
+                    {currentParticipants}/{participantGoal} joined
+                  </p>
+                  <p className="text-[10px] font-semibold text-foreground">{inviteText}</p>
+                  <p className="text-[10px] text-muted-foreground">{inviteSubtext}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-base font-black text-primary sm:text-lg">{Math.round(progressPercent)}%</p>
+                  <p className="text-[9px] text-muted-foreground">of goal reached</p>
+                </div>
             </div>
             <Progress value={progressPercent} className="h-1.5 bg-muted [&>div]:bg-primary" />
           </div>

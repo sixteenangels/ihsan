@@ -1,4 +1,4 @@
-import { Bell, Check, CheckCheck, Package, Tag, MessageCircle, Info, ShoppingBag } from 'lucide-react';
+import { Bell, Check, CheckCheck, Package, Tag, MessageCircle, Info, ShoppingBag, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -28,6 +28,8 @@ export function NotificationBell() {
         return <Tag className="h-4 w-4" />;
       case 'message':
         return <MessageCircle className="h-4 w-4" />;
+      case 'group_buy':
+        return <Users className="h-4 w-4" />;
       default:
         return <Info className="h-4 w-4" />;
     }
@@ -43,6 +45,8 @@ export function NotificationBell() {
         return 'bg-accent/10 text-accent-foreground';
       case 'message':
         return 'bg-secondary/10 text-secondary-foreground';
+      case 'group_buy':
+        return 'bg-primary/10 text-primary';
       default:
         return 'bg-muted text-muted-foreground';
     }

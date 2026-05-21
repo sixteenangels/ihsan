@@ -14,6 +14,8 @@ import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { getGroupBuyUnitPrice } from '@/lib/groupBuyPricing';
+import { canExtendGroupBuy, formatGroupBuyTimeRemaining } from '@/lib/groupBuyTiming';
+import { ExtendGroupBuyButton } from '@/components/groupbuy/ExtendGroupBuyButton';
 
 export default function GroupBuys() {
   const { user } = useAuth();
@@ -121,51 +123,91 @@ export default function GroupBuys() {
                         : groupBuy.status === 'cancelled'
                           ? <XCircle className="h-4 w-4" />
                           : <Clock className="h-4 w-4" />;
+                      const statusLabel = groupBuy.status === 'open'
+                        ? formatGroupBuyTimeRemaining(groupBuy.expires_at)
+                        : groupBuy.status === 'filled'
+                          ? 'Filled'
+                          : groupBuy.status === 'cancelled'
+                            ? 'Cancelled'
+                            : groupBuy.status === 'expired'
+                              ? 'Expired'
+                              : 'Closed';
                       const statusColor = groupBuy.status === 'filled'
                         ? 'bg-primary/10 text-primary'
                         : groupBuy.status === 'cancelled'
                           ? 'bg-destructive/10 text-destructive'
                           : 'bg-accent/10 text-accent-foreground';
+                      const isHost = groupBuy.created_by === user?.id;
+                      const allowExtension = canExtendGroupBuy({
+                        currentParticipants: groupBuy.current_participants,
+                        expiresAt: groupBuy.expires_at,
+                        extensionUsed: groupBuy.extension_used,
+                        minParticipants: groupBuy.min_participants,
+                        status: groupBuy.status,
+                      });
 
                       return (
-                        <Link key={participation.id} to={`/group-buy/${groupBuy.id}`}>
-                          <Card className="rounded-2xl border-border/70 transition-shadow hover:shadow-md">
-                            <CardContent className="p-4">
-                              <div className="flex flex-col gap-4 sm:flex-row">
-                                <div className="h-20 w-full overflow-hidden rounded-xl bg-muted sm:w-20 sm:flex-shrink-0">
-                                  <img
-                                    src={groupBuy.product.images[0] || '/placeholder.svg'}
-                                    alt={groupBuy.product.name}
-                                    className="w-full h-full object-cover"
-                                  />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center">
-                                    <h3 className="font-medium text-foreground sm:truncate">
-                                      {groupBuy.title || groupBuy.product.name}
-                                    </h3>
+                        <Card key={participation.id} className="rounded-2xl border-border/70 transition-shadow hover:shadow-md">
+                          <CardContent className="p-4">
+                            <div className="flex flex-col gap-4 sm:flex-row">
+                              <Link to={`/group-buy/${groupBuy.id}`} className="h-20 w-full overflow-hidden rounded-xl bg-muted sm:w-20 sm:flex-shrink-0">
+                                <img
+                                  src={groupBuy.product.images[0] || '/placeholder.svg'}
+                                  alt={groupBuy.product.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              </Link>
+                              <div className="flex-1 min-w-0">
+                                <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                  <Link to={`/group-buy/${groupBuy.id}`} className="font-medium text-foreground transition-colors hover:text-primary sm:truncate">
+                                    {groupBuy.title || groupBuy.product.name}
+                                  </Link>
+                                  <div className="flex flex-wrap items-center gap-2">
                                     <Badge className={`${statusColor} gap-1 flex-shrink-0`}>
-                                      {statusIcon} {groupBuy.status}
+                                      {statusIcon} {statusLabel}
                                     </Badge>
+                                    <ExtendGroupBuyButton
+                                      canExtend={allowExtension}
+                                      extensionUsed={groupBuy.extension_used}
+                                      groupBuyId={groupBuy.id}
+                                      isHost={isHost}
+                                      className="h-8 px-3 text-xs"
+                                    />
                                   </div>
-                                  <div className="mb-2 flex flex-wrap items-center gap-3 text-sm">
-                                    <span className="text-primary font-bold">{formatPrice(groupPrice)}</span>
-                                    <span className="text-muted-foreground">Qty: {participation.quantity || 1}</span>
-                                    {participation.payment_status === 'paid' ? (
-                                      <span className="text-primary text-xs">Paid</span>
+                                </div>
+                                <div className="mb-2 flex flex-wrap items-center gap-3 text-sm">
+                                  <span className="text-primary font-bold">{formatPrice(groupPrice)}</span>
+                                  <span className="text-muted-foreground">Qty: {participation.quantity || 1}</span>
+                                  {participation.payment_status === 'paid' ? (
+                                    <span className="text-primary text-xs">Paid</span>
+                                  ) : null}
+                                    {isHost && groupBuy.status === 'open' ? (
+                                      <span className="text-xs text-muted-foreground">
+                                        {groupBuy.extension_used
+                                          ? `Extended by ${groupBuy.extension_hours}h`
+                                          : allowExtension
+                                            ? 'Extension available now'
+                                            : 'Extension unlocks in the final hour'}
+                                      </span>
                                     ) : null}
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <Progress value={Math.min(progress, 100)} className="h-1.5 flex-1" />
-                                    <span className="text-xs text-muted-foreground">
-                                      {groupBuy.current_participants || 0}/{groupBuy.min_participants}
-                                    </span>
-                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Progress value={Math.min(progress, 100)} className="h-1.5 flex-1" />
+                                  <span className="text-xs text-muted-foreground">
+                                    {groupBuy.current_participants || 0}/{groupBuy.min_participants}
+                                  </span>
+                                </div>
+                                <div className="mt-3 flex justify-end">
+                                  <Button asChild variant="ghost" size="sm" className="rounded-xl px-3 text-xs">
+                                    <Link to={`/group-buy/${groupBuy.id}`}>
+                                      {groupBuy.status === 'filled' ? 'Order Details' : 'View Details'}
+                                    </Link>
+                                  </Button>
                                 </div>
                               </div>
-                            </CardContent>
-                          </Card>
-                        </Link>
+                            </div>
+                          </CardContent>
+                        </Card>
                       );
                     })}
                   </div>

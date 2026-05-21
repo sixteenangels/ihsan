@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,6 +13,12 @@ import { Loader2, Send, MessageCircle, User, Circle, Clock, CheckCircle, XCircle
 import { toast } from 'sonner';
 import { differenceInHours, format } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
+import {
+  AFTER_SALES_ATTACHMENT_BUCKET,
+  AFTER_SALES_CATEGORY,
+  AFTER_SALES_SUPPORT_OPTIONS,
+  getAfterSalesSupportLabel,
+} from '@/lib/afterSalesSupport';
 import { cn } from '@/lib/utils';
 import { buildSupportReplyEmailHtml, buildSupportReplyEmailText } from '@/lib/email-templates';
 import { logAdminAction } from '@/lib/audit-log';
@@ -42,15 +49,24 @@ interface Message {
 }
 
 interface SupportRequest {
+  attachment_paths: string[];
+  attachment_urls?: Array<{ path: string; url: string }>;
   id: string;
   user_id: string | null;
   name: string;
   email: string;
+  customer_phone: string | null;
+  subject: string | null;
   message: string;
   category: string | null;
   priority: 'low' | 'normal' | 'high' | 'urgent';
   status: 'new' | 'in_progress' | 'resolved' | 'closed';
   source: string;
+  order_id: string | null;
+  order_number: string | null;
+  delivery_date: string | null;
+  product_names: string[];
+  support_type: string | null;
   assigned_admin_id: string | null;
   internal_notes: string | null;
   public_reply: string | null;
@@ -61,10 +77,15 @@ interface SupportRequest {
 }
 
 const SUPPORT_PRIORITIES: SupportRequest['priority'][] = ['low', 'normal', 'high', 'urgent'];
-const SUPPORT_CATEGORIES = ['General', 'Orders & Shipping', 'Payments', 'Returns & Refunds', 'Group Buys'];
+const SUPPORT_CATEGORIES = ['General', 'Orders & Shipping', 'Payments', 'Returns & Refunds', 'Group Buys', AFTER_SALES_CATEGORY];
 type SupportQueueFilter = 'all' | 'open' | 'overdue' | 'urgent' | 'unassigned';
 const ADMIN_SUPPORT_CONVERSATION_POLL_MS = 15000;
 const ADMIN_SUPPORT_QUEUE_POLL_MS = 30000;
+const SUPPORT_QUEUE_FILTERS: SupportQueueFilter[] = ['all', 'open', 'overdue', 'urgent', 'unassigned'];
+
+function isSupportQueueFilter(value: string | null): value is SupportQueueFilter {
+  return Boolean(value && SUPPORT_QUEUE_FILTERS.includes(value as SupportQueueFilter));
+}
 
 function getSlaThresholdHours(request: SupportRequest) {
   switch (request.priority) {
@@ -99,14 +120,40 @@ function getSlaState(request: SupportRequest) {
 export function AdminSupport() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [replyMessage, setReplyMessage] = useState('');
   const [requestNotes, setRequestNotes] = useState<Record<string, string>>({});
   const [requestReplies, setRequestReplies] = useState<Record<string, string>>({});
   const [requestSummaries, setRequestSummaries] = useState<Record<string, string>>({});
-  const [queueFilter, setQueueFilter] = useState<SupportQueueFilter>('all');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isDocumentVisible = useDocumentVisibility();
+  const queueFilter = isSupportQueueFilter(searchParams.get('queue')) ? searchParams.get('queue')! : 'all';
+  const categoryFilter = searchParams.get('category') || 'all';
+  const supportTypeFilter = searchParams.get('type') || 'all';
+
+  const updateRequestFilters = ({
+    queue = queueFilter,
+    category = categoryFilter,
+    type = supportTypeFilter,
+  }: {
+    queue?: SupportQueueFilter;
+    category?: string;
+    type?: string;
+  }) => {
+    const nextParams = new URLSearchParams(searchParams);
+
+    if (queue === 'all') nextParams.delete('queue');
+    else nextParams.set('queue', queue);
+
+    if (category === 'all') nextParams.delete('category');
+    else nextParams.set('category', category);
+
+    if (type === 'all') nextParams.delete('type');
+    else nextParams.set('type', type);
+
+    setSearchParams(nextParams, { replace: true });
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -183,7 +230,43 @@ export function AdminSupport() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return (data || []) as SupportRequest[];
+
+      const requests = (data || []) as SupportRequest[];
+      const requestsWithAttachments = await Promise.all(
+        requests.map(async (request) => {
+          const attachmentPaths = request.attachment_paths || [];
+
+          if (attachmentPaths.length === 0) {
+            return { ...request, attachment_urls: [] };
+          }
+
+          const signedAttachments = await Promise.all(
+            attachmentPaths.map(async (path) => {
+              const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+                .from(AFTER_SALES_ATTACHMENT_BUCKET)
+                .createSignedUrl(path, 60 * 60);
+
+              if (signedUrlError || !signedUrlData?.signedUrl) {
+                return null;
+              }
+
+              return {
+                path,
+                url: signedUrlData.signedUrl,
+              };
+            }),
+          );
+
+          return {
+            ...request,
+            attachment_urls: signedAttachments.filter(
+              (attachment): attachment is { path: string; url: string } => Boolean(attachment),
+            ),
+          };
+        }),
+      );
+
+      return requestsWithAttachments;
     },
   });
 
@@ -453,10 +536,12 @@ export function AdminSupport() {
     const overdue = activeRequests.filter((request) => getSlaState(request).state === 'overdue');
     const urgent = activeRequests.filter((request) => request.priority === 'urgent');
     const unassigned = activeRequests.filter((request) => !request.assigned_admin_id);
+    const afterSales = requests.filter((request) => request.category === AFTER_SALES_CATEGORY);
 
     return {
       total: requests.length,
       active: activeRequests.length,
+      afterSales: afterSales.length,
       overdue: overdue.length,
       urgent: urgent.length,
       unassigned: unassigned.length,
@@ -465,24 +550,48 @@ export function AdminSupport() {
 
   const filteredSupportRequests = useMemo(() => {
     const requests = supportRequests || [];
+    let filtered = requests;
+
     switch (queueFilter) {
       case 'open':
-        return requests.filter((request) => request.status === 'new' || request.status === 'in_progress');
+        filtered = filtered.filter((request) => request.status === 'new' || request.status === 'in_progress');
+        break;
       case 'overdue':
-        return requests.filter((request) => getSlaState(request).state === 'overdue');
+        filtered = filtered.filter((request) => getSlaState(request).state === 'overdue');
+        break;
       case 'urgent':
-        return requests.filter(
+        filtered = filtered.filter(
           (request) => request.priority === 'urgent' && request.status !== 'resolved' && request.status !== 'closed',
         );
+        break;
       case 'unassigned':
-        return requests.filter(
+        filtered = filtered.filter(
           (request) => !request.assigned_admin_id && request.status !== 'resolved' && request.status !== 'closed',
         );
+        break;
       case 'all':
       default:
-        return requests;
+        break;
     }
-  }, [queueFilter, supportRequests]);
+
+    if (categoryFilter !== 'all') {
+      filtered = filtered.filter((request) => (request.category || 'General') === categoryFilter);
+    }
+
+    if (supportTypeFilter !== 'all') {
+      filtered = filtered.filter((request) => request.support_type === supportTypeFilter);
+    }
+
+    return filtered;
+  }, [categoryFilter, queueFilter, supportRequests, supportTypeFilter]);
+
+  const supportCategoryCounts = useMemo(() => {
+    return (supportRequests || []).reduce<Record<string, number>>((counts, request) => {
+      const category = request.category || 'General';
+      counts[category] = (counts[category] || 0) + 1;
+      return counts;
+    }, {});
+  }, [supportRequests]);
 
   if (loadingConversations) {
     return (
@@ -700,7 +809,7 @@ export function AdminSupport() {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-lg">Guest Help Center Requests</CardTitle>
+          <CardTitle className="text-lg">Support Requests & After-Sales</CardTitle>
           <Badge variant="outline">{supportRequestMetrics.total} requests</Badge>
         </CardHeader>
         <CardContent>
@@ -743,10 +852,10 @@ export function AdminSupport() {
             </Card>
             <Card className="border-border/60">
               <CardContent className="flex items-center gap-3 p-4">
-                <TimerReset className="h-5 w-5 text-muted-foreground" />
+                <TimerReset className="h-5 w-5 text-primary" />
                 <div>
-                  <p className="text-xs text-muted-foreground">All Requests</p>
-                  <p className="text-xl font-semibold">{supportRequestMetrics.total}</p>
+                  <p className="text-xs text-muted-foreground">After-Sales</p>
+                  <p className="text-xl font-semibold">{supportRequestMetrics.afterSales}</p>
                 </div>
               </CardContent>
             </Card>
@@ -765,12 +874,61 @@ export function AdminSupport() {
                 type="button"
                 size="sm"
                 variant={queueFilter === value ? 'default' : 'outline'}
-                onClick={() => setQueueFilter(value)}
+                onClick={() => updateRequestFilters({ queue: value })}
               >
                 {label}
               </Button>
             ))}
           </div>
+
+          <div className="mb-4 flex flex-wrap gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant={categoryFilter === 'all' ? 'default' : 'outline'}
+              onClick={() => updateRequestFilters({ category: 'all', type: 'all' })}
+            >
+              All categories
+            </Button>
+            {SUPPORT_CATEGORIES.map((category) => (
+              <Button
+                key={category}
+                type="button"
+                size="sm"
+                variant={categoryFilter === category ? 'default' : 'outline'}
+                onClick={() => updateRequestFilters({ category, type: category === AFTER_SALES_CATEGORY ? supportTypeFilter : 'all' })}
+              >
+                {category}
+                <Badge variant="secondary" className="ml-2">
+                  {supportCategoryCounts[category] || 0}
+                </Badge>
+              </Button>
+            ))}
+          </div>
+
+          {(categoryFilter === AFTER_SALES_CATEGORY || supportTypeFilter !== 'all') && (
+            <div className="mb-5 flex flex-wrap gap-2 rounded-2xl border border-primary/15 bg-primary/5 p-3">
+              <Button
+                type="button"
+                size="sm"
+                variant={supportTypeFilter === 'all' ? 'default' : 'outline'}
+                onClick={() => updateRequestFilters({ category: AFTER_SALES_CATEGORY, type: 'all' })}
+              >
+                All after-sales
+              </Button>
+              {AFTER_SALES_SUPPORT_OPTIONS.map((option) => (
+                <Button
+                  key={option.value}
+                  type="button"
+                  size="sm"
+                  variant={supportTypeFilter === option.value ? 'default' : 'outline'}
+                  onClick={() => updateRequestFilters({ category: AFTER_SALES_CATEGORY, type: option.value })}
+                >
+                  {option.label}
+                </Button>
+              ))}
+            </div>
+          )}
 
           {loadingSupportRequests ? (
             <div className="flex items-center justify-center py-8">
@@ -783,11 +941,13 @@ export function AdminSupport() {
                 const draftReply = requestReplies[request.id] ?? request.public_reply ?? '';
                 const draftSummary = requestSummaries[request.id] ?? request.resolution_summary ?? '';
                 const sla = getSlaState(request);
+                const isAfterSalesRequest = request.category === AFTER_SALES_CATEGORY;
                 return (
                   <div key={request.id} className="rounded-xl border border-border p-4 space-y-3">
                     <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                       <div>
-                        <p className="font-medium text-foreground">{request.name}</p>
+                        <p className="font-medium text-foreground">{request.subject || request.name}</p>
+                        <p className="text-sm text-muted-foreground">{request.name}</p>
                         <button
                           type="button"
                           className="text-sm text-primary underline-offset-4 hover:underline"
@@ -828,9 +988,79 @@ export function AdminSupport() {
                       </div>
                     </div>
 
+                    {isAfterSalesRequest ? (
+                      <div className="grid gap-3 rounded-2xl border border-primary/15 bg-primary/5 p-4 md:grid-cols-2 xl:grid-cols-4">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary/80">
+                            Support Need
+                          </p>
+                          <p className="mt-1 text-sm font-medium text-foreground">
+                            {getAfterSalesSupportLabel(request.support_type)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary/80">
+                            Order ID
+                          </p>
+                          <p className="mt-1 text-sm font-medium text-foreground">
+                            {request.order_number || 'Not attached'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary/80">
+                            Delivery Date
+                          </p>
+                          <p className="mt-1 text-sm font-medium text-foreground">
+                            {request.delivery_date ? format(new Date(request.delivery_date), 'MMM d, yyyy') : 'Not provided'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary/80">
+                            Contact
+                          </p>
+                          <p className="mt-1 text-sm font-medium text-foreground">{request.email}</p>
+                          {request.customer_phone ? (
+                            <p className="text-xs text-muted-foreground">{request.customer_phone}</p>
+                          ) : null}
+                        </div>
+                        <div className="md:col-span-2 xl:col-span-4">
+                          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary/80">
+                            Products
+                          </p>
+                          <p className="mt-1 text-sm text-foreground">
+                            {request.product_names?.length ? request.product_names.join(', ') : 'No product summary added'}
+                          </p>
+                        </div>
+                      </div>
+                    ) : null}
+
                     <div className="rounded-lg bg-muted/40 p-3 text-sm whitespace-pre-wrap">
                       {request.message}
                     </div>
+
+                    {request.attachment_urls && request.attachment_urls.length > 0 ? (
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium text-foreground">Customer attachments</p>
+                        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                          {request.attachment_urls.map((attachment) => (
+                            <a
+                              key={attachment.path}
+                              href={attachment.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="overflow-hidden rounded-2xl border border-border/70 bg-muted/25 transition-colors hover:border-primary/40"
+                            >
+                              <img
+                                src={attachment.url}
+                                alt={`After-sales attachment ${request.order_number || request.id}`}
+                                className="h-40 w-full object-cover"
+                                loading="lazy"
+                              />
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
 
                     <div className="grid gap-3 md:grid-cols-3">
                       <div className="space-y-2">
@@ -1043,7 +1273,7 @@ export function AdminSupport() {
             </div>
           ) : (
             <p className="py-8 text-center text-sm text-muted-foreground">
-              No guest Help Center requests in this queue.
+              No support requests match the current filters.
             </p>
           )}
         </CardContent>
