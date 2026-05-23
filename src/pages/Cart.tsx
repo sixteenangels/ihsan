@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, Minus, Plus, Search, ShoppingBag, Trash2, X } from 'lucide-react';
+import { ArrowRight, Minus, Plus, ShoppingBag, Trash2, X } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { isVariantPlaceholder, useCart } from '@/contexts/CartContext';
@@ -14,6 +14,16 @@ import { toast } from 'sonner';
 function getVariantLabel(variant: ProductVariant) {
   const parts = [variant.color, variant.size].filter(Boolean);
   return parts.length > 0 ? parts.join(' / ') : 'Standard option';
+}
+
+function createPlaceholderVariant(product: Product): ProductVariant {
+  return {
+    id: `__novariant__${product.id}`,
+    color: undefined,
+    size: undefined,
+    price: product.basePrice,
+    stock: 0,
+  };
 }
 
 interface ProductGroup {
@@ -32,9 +42,7 @@ export default function Cart() {
     removeFromCart,
     updateQuantity,
     updateVariant,
-    setSelectedItemIds,
     clearCart,
-    selectedSubtotal,
   } = useCart();
   const [variantDialogProductId, setVariantDialogProductId] = useState<string | null>(null);
 
@@ -152,6 +160,15 @@ export default function Cart() {
     setVariantDialogProductId(null);
   };
 
+  const handleClearVariantSelection = (group: ProductGroup, item: CartItem) => {
+    if (group.items.length === 1) {
+      updateVariant(item.id, createPlaceholderVariant(group.product));
+      return;
+    }
+
+    removeFromCart(item.id);
+  };
+
   if (visibleItems.length === 0) {
     return (
       <div className="min-h-screen bg-background">
@@ -182,14 +199,6 @@ export default function Cart() {
       <Header />
       <main className="container px-3 py-4 pb-28 sm:px-6 md:py-8 md:pb-10">
         <div className="mx-auto max-w-3xl">
-          <Link
-            to="/products"
-            className="mb-4 flex h-12 items-center gap-3 rounded-2xl border border-border/70 bg-card px-4 text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <Search className="h-4 w-4" />
-            <span>Search products, brands, or categories</span>
-          </Link>
-
           <div className="mb-4 border-b border-border/60 pb-4">
             <h1 className="text-2xl font-bold text-foreground">
               Your Cart ({groupedProducts.length})
@@ -296,7 +305,7 @@ export default function Cart() {
                                   <button
                                     type="button"
                                     className="mt-1 shrink-0 text-muted-foreground transition-colors hover:text-destructive"
-                                    onClick={() => removeFromCart(item.id)}
+                                    onClick={() => handleClearVariantSelection(group, item)}
                                     aria-label={`Remove ${getVariantLabel(item.variant)}`}
                                   >
                                     <X className="h-4 w-4" />
@@ -325,7 +334,7 @@ export default function Cart() {
                                         size="icon"
                                         variant="ghost"
                                         className="h-8 w-8 rounded-lg"
-                                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                                        onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))}
                                       >
                                         <Minus className="h-4 w-4" />
                                       </Button>
