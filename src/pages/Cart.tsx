@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, Minus, Plus, ShoppingBag, Trash2, X } from 'lucide-react';
+import { ArrowRight, Check, Minus, Plus, ShoppingBag, Trash2, X } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { isVariantPlaceholder, useCart } from '@/contexts/CartContext';
@@ -42,6 +42,7 @@ export default function Cart() {
     removeFromCart,
     updateQuantity,
     updateVariant,
+    setSelectedItemIds,
     clearCart,
   } = useCart();
   const [variantDialogProductId, setVariantDialogProductId] = useState<string | null>(null);
@@ -130,6 +131,19 @@ export default function Cart() {
       : 0;
   const activeGroup =
     groupedProducts.find((group) => group.product.id === variantDialogProductId) || null;
+  const groupSelectionMap = useMemo(() => {
+    const selectedItemIdSet = new Set(visibleSelectedItemIds);
+
+    return new Map(
+      groupedProducts.map((group) => [
+        group.product.id,
+        group.items.every((item) => selectedItemIdSet.has(item.id)),
+      ]),
+    );
+  }, [groupedProducts, visibleSelectedItemIds]);
+  const selectedGroupCount = groupedProducts.filter((group) =>
+    groupSelectionMap.get(group.product.id),
+  ).length;
 
   const handleCheckout = () => {
     if (visibleSelectedItemIds.length === 0) {
@@ -150,11 +164,12 @@ export default function Cart() {
 
   const handleAddVariant = (group: ProductGroup, variant: ProductVariant) => {
     const unresolvedItem = group.items.find((item) => isVariantPlaceholder(item.variant.id));
+    const groupIsSelected = groupSelectionMap.get(group.product.id) ?? false;
 
     if (unresolvedItem) {
       updateVariant(unresolvedItem.id, variant);
     } else {
-      addToCart(group.product, variant, 1, 'include');
+      addToCart(group.product, variant, 1, groupIsSelected ? 'include' : 'preserve');
     }
 
     setVariantDialogProductId(null);
@@ -167,6 +182,31 @@ export default function Cart() {
     }
 
     removeFromCart(item.id);
+  };
+
+  const handleToggleGroupSelection = (group: ProductGroup) => {
+    const selectedItemIdSet = new Set(visibleSelectedItemIds);
+    const groupItemIds = group.items.map((item) => item.id);
+    const groupIsSelected = groupItemIds.every((itemId) => selectedItemIdSet.has(itemId));
+
+    if (groupIsSelected) {
+      setSelectedItemIds(
+        visibleSelectedItemIds.filter((itemId) => !groupItemIds.includes(itemId)),
+      );
+      return;
+    }
+
+    setSelectedItemIds(
+      Array.from(new Set([...visibleSelectedItemIds, ...groupItemIds])),
+    );
+  };
+
+  const handleSelectAllGroups = () => {
+    setSelectedItemIds(visibleItems.map((item) => item.id));
+  };
+
+  const handleUnselectAllGroups = () => {
+    setSelectedItemIds([]);
   };
 
   if (visibleItems.length === 0) {
@@ -204,21 +244,57 @@ export default function Cart() {
               Your Cart ({groupedProducts.length})
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Review your items and complete your order
+              Review your items and select what to checkout
             </p>
+          </div>
+
+          <div className="mb-4 flex items-center justify-between gap-3 text-sm">
+            <button
+              type="button"
+              className="font-medium text-foreground transition-colors hover:text-primary"
+              onClick={handleSelectAllGroups}
+            >
+              Select All ({groupedProducts.length})
+            </button>
+            <button
+              type="button"
+              className="font-medium text-primary transition-colors hover:text-primary/80"
+              onClick={handleUnselectAllGroups}
+            >
+              Unselect All
+            </button>
           </div>
 
           <div className="space-y-4">
             {groupedProducts.map((group) => {
               const variantCount = group.items.length;
+              const groupIsSelected = groupSelectionMap.get(group.product.id) ?? false;
 
               return (
                 <Card
                   key={group.product.id}
-                  className="overflow-hidden rounded-[1.4rem] border border-border/70 bg-card shadow-sm"
+                  className={`overflow-hidden rounded-[1.4rem] border bg-card shadow-sm transition-colors ${
+                    groupIsSelected
+                      ? 'border-primary/40'
+                      : 'border-border/70'
+                  }`}
                 >
                   <CardContent className="p-4">
                     <div className="flex items-start gap-3">
+                      <button
+                        type="button"
+                        aria-pressed={groupIsSelected}
+                        aria-label={`${groupIsSelected ? 'Unselect' : 'Select'} ${group.product.name}`}
+                        onClick={() => handleToggleGroupSelection(group)}
+                        className={`mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors ${
+                          groupIsSelected
+                            ? 'border-primary bg-primary text-primary-foreground'
+                            : 'border-primary/40 bg-background text-transparent'
+                        }`}
+                      >
+                        <Check className="h-3 w-3" />
+                      </button>
+
                       <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-muted">
                         <img
                           src={group.product.images[0] || '/placeholder.svg'}
@@ -374,7 +450,7 @@ export default function Cart() {
               <div className="space-y-3 p-4">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">
-                    Subtotal ({selectedQuantityCount} item{selectedQuantityCount === 1 ? '' : 's'})
+                    Subtotal (Selected {selectedGroupCount} of {groupedProducts.length} item{groupedProducts.length === 1 ? '' : 's'})
                   </span>
                   <span className="text-foreground">{formatPrice(checkoutSubtotal)}</span>
                 </div>
@@ -408,9 +484,33 @@ export default function Cart() {
               className="h-12 rounded-xl"
               onClick={handleCheckout}
             >
-              Proceed to Checkout
+              Checkout ({selectedGroupCount} item{selectedGroupCount === 1 ? '' : 's'}) ({formatPrice(checkoutSubtotal)})
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
+          </div>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-2">
+            <Card className="rounded-[1.4rem] border border-border/70 bg-card shadow-sm">
+              <CardContent className="p-4">
+                <p className="text-sm font-semibold text-primary">How it works</p>
+                <ul className="mt-3 space-y-2 text-xs text-muted-foreground">
+                  <li>Selected items in orange chips will be included in checkout.</li>
+                  <li>Unselected product groups stay in your cart for later.</li>
+                  <li>Select all or unselect all helps you choose what to pay for now.</li>
+                </ul>
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-[1.4rem] border border-border/70 bg-card shadow-sm">
+              <CardContent className="p-4">
+                <p className="text-sm font-semibold text-primary">Benefits</p>
+                <ul className="mt-3 space-y-2 text-xs text-muted-foreground">
+                  <li>Gives users full control.</li>
+                  <li>Reduces accidental checkout.</li>
+                  <li>Improves shopping flexibility.</li>
+                </ul>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </main>
