@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { Star, Truck, Users, Zap, Ship, Plane, Package, ShoppingCart, ArrowLeft, Loader2, Share2, Copy, Link as LinkIcon } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
@@ -25,6 +25,7 @@ import { FrequentlyBoughtTogether } from '@/components/products/FrequentlyBought
 import { PriceDropAlert } from '@/components/products/PriceDropAlert';
 import { BackInStockAlert } from '@/components/products/BackInStockAlert';
 import { RestockReservationDialog } from '@/components/products/RestockReservationDialog';
+import { BuyNowSheet } from '@/components/products/BuyNowSheet';
 import { useAuth } from '@/contexts/AuthContext';
 import { trackRecommendationEvent } from '@/lib/recommendationEvents';
 import { useProductActiveGroupBuys } from '@/hooks/useProductActiveGroupBuys';
@@ -113,7 +114,6 @@ export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const { data: product, isLoading } = useProduct(id);
-  const navigate = useNavigate();
   const { user } = useAuth();
   const { addToCart } = useCart();
   const { formatPrice } = useCurrency();
@@ -229,46 +229,6 @@ export default function ProductDetail() {
     });
     toast.success(`Added ${selectedVariants.length} item(s) to cart`);
     setSelectedVariants([]);
-  };
-
-  const handleBuyNow = () => {
-    if (!product) return;
-    const cartProduct = toCartProduct(product);
-
-    if (selectedVariants.length === 0) {
-      addToCart(cartProduct, null, 1, 'only');
-      trackRecommendationEvent({
-        productId: product.id,
-        userId: user?.id,
-        eventType: 'cart_add',
-        source: 'buy_now',
-      });
-    } else {
-      selectedVariants.forEach((variant, index) => {
-        const cartVariant: ProductVariant = {
-          id: variant.id,
-          size: variant.size || undefined,
-          color: variant.color || undefined,
-          price: variant.price,
-          stock: variant.stock || 0,
-        };
-        addToCart(
-          cartProduct,
-          cartVariant,
-          variant.quantity,
-          index === 0 ? 'only' : 'include',
-        );
-      });
-      trackRecommendationEvent({
-        productId: product.id,
-        userId: user?.id,
-        eventType: 'cart_add',
-        source: 'buy_now',
-        weight: selectedVariants.reduce((sum, variant) => sum + variant.quantity, 0),
-      });
-    }
-
-    navigate('/checkout');
   };
 
   const handleCopyLink = () => {
@@ -645,10 +605,13 @@ export default function ProductDetail() {
                 <ShoppingCart className="mr-1 h-4 w-4" />
                 Add
               </Button>
-              <Button size="sm" className="rounded-xl" onClick={handleBuyNow}>
-                <Zap className="mr-1 h-4 w-4" />
-                Buy
-              </Button>
+              <BuyNowSheet
+                product={product}
+                selectedVariants={selectedVariants}
+                selectedShippingRuleId={selectedShipping?.id || null}
+                triggerClassName="rounded-xl"
+                triggerSize="sm"
+              />
             </div>
           </div>
         </div>
