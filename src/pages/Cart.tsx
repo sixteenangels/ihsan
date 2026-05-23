@@ -1,19 +1,14 @@
+import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Check, Minus, Plus, ShoppingBag, Trash2 } from 'lucide-react';
+import { ArrowRight, Minus, Plus, Search, ShoppingBag, Trash2, X } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { isVariantPlaceholder, useCart } from '@/contexts/CartContext';
 import { useCurrency } from '@/hooks/useCurrency';
-import type { ProductVariant } from '@/types';
+import type { CartItem, Product, ProductVariant } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 
 function getVariantLabel(variant: ProductVariant) {
@@ -21,24 +16,52 @@ function getVariantLabel(variant: ProductVariant) {
   return parts.length > 0 ? parts.join(' / ') : 'Standard option';
 }
 
+interface ProductGroup {
+  product: Product;
+  items: CartItem[];
+}
+
 export default function Cart() {
   const navigate = useNavigate();
   const { formatPrice } = useCurrency();
   const {
     items,
+    selectedItems,
     selectedItemIds,
+    addToCart,
     removeFromCart,
     updateQuantity,
     updateVariant,
-    toggleItemSelection,
     setSelectedItemIds,
     clearCart,
     selectedSubtotal,
   } = useCart();
+  const [variantDialogProductId, setVariantDialogProductId] = useState<string | null>(null);
 
-  const unresolvedItems = items.filter((item) => isVariantPlaceholder(item.variant.id));
+  const groupedProducts = useMemo(() => {
+    const groups = new Map<string, ProductGroup>();
+
+    items.forEach((item) => {
+      const existingGroup = groups.get(item.product.id);
+      if (existingGroup) {
+        existingGroup.items.push(item);
+        return;
+      }
+
+      groups.set(item.product.id, {
+        product: item.product,
+        items: [item],
+      });
+    });
+
+    return Array.from(groups.values());
+  }, [items]);
+
   const allSelected = items.length > 0 && selectedItemIds.length === items.length;
+  const selectedQuantityCount = selectedItems.reduce((sum, item) => sum + item.quantity, 0);
   const checkoutSubtotal = selectedItemIds.length > 0 ? selectedSubtotal : 0;
+  const activeGroup =
+    groupedProducts.find((group) => group.product.id === variantDialogProductId) || null;
 
   const handleCheckout = () => {
     if (selectedItemIds.length === 0) {
@@ -49,13 +72,24 @@ export default function Cart() {
     navigate('/checkout');
   };
 
-  const handleResolveVariants = () => {
-    const firstUnresolvedItem = unresolvedItems[0];
-    if (!firstUnresolvedItem) return;
+  const handleRemoveProduct = (productId: string) => {
+    const matchingItemIds = items
+      .filter((item) => item.product.id === productId)
+      .map((item) => item.id);
 
-    document
-      .getElementById(`cart-item-${firstUnresolvedItem.id}`)
-      ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    matchingItemIds.forEach((itemId) => removeFromCart(itemId));
+  };
+
+  const handleAddVariant = (group: ProductGroup, variant: ProductVariant) => {
+    const unresolvedItem = group.items.find((item) => isVariantPlaceholder(item.variant.id));
+
+    if (unresolvedItem) {
+      updateVariant(unresolvedItem.id, variant);
+    } else {
+      addToCart(group.product, variant, 1, 'include');
+    }
+
+    setVariantDialogProductId(null);
   };
 
   if (items.length === 0) {
@@ -86,75 +120,40 @@ export default function Cart() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="container px-3 py-6 pb-28 sm:px-6 md:py-8 md:pb-10">
+      <main className="container px-3 py-4 pb-28 sm:px-6 md:py-8 md:pb-10">
         <div className="mx-auto max-w-3xl">
-          <div className="mb-5 border-b border-border/60 pb-4">
+          <Link
+            to="/products"
+            className="mb-4 flex h-12 items-center gap-3 rounded-2xl border border-border/70 bg-card px-4 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <Search className="h-4 w-4" />
+            <span>Search products, brands, or categories</span>
+          </Link>
+
+          <div className="mb-4 border-b border-border/60 pb-4">
             <h1 className="text-2xl font-bold text-foreground">
-              Your Cart ({items.length})
+              Your Cart ({groupedProducts.length})
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
               Review your items and complete your order
             </p>
           </div>
 
-          {unresolvedItems.length > 0 ? (
-            <Card className="mb-4 rounded-2xl border border-amber-500/30 bg-card shadow-sm">
-              <CardContent className="flex items-start justify-between gap-4 p-4">
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-foreground">
-                    {unresolvedItems.length} item{unresolvedItems.length === 1 ? '' : 's'} need{' '}
-                    variant selection
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Select variants so we can sync your cart across devices.
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-9 shrink-0 rounded-xl border-amber-500/40 px-4 text-primary"
-                  onClick={handleResolveVariants}
-                >
-                  Resolve
-                </Button>
-              </CardContent>
-            </Card>
-          ) : null}
-
           <div className="space-y-4">
-            {items.map((item) => {
-              const variantOptions = item.product.variants || [];
-              const hasSelectableVariants = variantOptions.length > 0;
-              const selectedVariantId = isVariantPlaceholder(item.variant.id)
-                ? undefined
-                : item.variant.id;
+            {groupedProducts.map((group) => {
+              const variantCount = group.items.length;
 
               return (
                 <Card
-                  key={item.id}
-                  id={`cart-item-${item.id}`}
+                  key={group.product.id}
                   className="overflow-hidden rounded-[1.4rem] border border-border/70 bg-card shadow-sm"
                 >
                   <CardContent className="p-4">
-                    <div className="flex gap-3">
-                      <button
-                        type="button"
-                        aria-pressed={selectedItemIds.includes(item.id)}
-                        aria-label={`Select ${item.product.name}`}
-                        onClick={() => toggleItemSelection(item.id)}
-                        className={`mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors ${
-                          selectedItemIds.includes(item.id)
-                            ? 'border-primary bg-primary text-primary-foreground'
-                            : 'border-border bg-background text-transparent'
-                        }`}
-                      >
-                        <Check className="h-3 w-3" />
-                      </button>
-
+                    <div className="flex items-start gap-3">
                       <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-muted">
                         <img
-                          src={item.product.images[0] || '/placeholder.svg'}
-                          alt={item.product.name}
+                          src={group.product.images[0] || '/placeholder.svg'}
+                          alt={group.product.name}
                           className="h-full w-full object-cover"
                         />
                       </div>
@@ -162,22 +161,11 @@ export default function Cart() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <h2 className="line-clamp-2 text-sm font-semibold leading-tight text-foreground">
-                              {item.product.name}
+                            <h2 className="line-clamp-2 text-lg font-semibold leading-tight text-foreground">
+                              {group.product.name}
                             </h2>
-                            <p
-                              className={`mt-1 text-sm ${
-                                isVariantPlaceholder(item.variant.id)
-                                  ? 'font-medium text-destructive'
-                                  : 'text-muted-foreground'
-                              }`}
-                            >
-                              {isVariantPlaceholder(item.variant.id)
-                                ? 'Variant: Not selected'
-                                : `Variant: ${getVariantLabel(item.variant)}`}
-                            </p>
-                            <p className="mt-2 text-xl font-semibold text-primary">
-                              {formatPrice(item.variant.price * item.quantity)}
+                            <p className="mt-1 text-sm text-muted-foreground">
+                              Base price: {formatPrice(group.product.basePrice)}
                             </p>
                           </div>
 
@@ -186,70 +174,125 @@ export default function Cart() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 shrink-0 rounded-full text-muted-foreground hover:text-destructive"
-                            onClick={() => removeFromCart(item.id)}
+                            onClick={() => handleRemoveProduct(group.product.id)}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
-
-                        <div className="mt-4 space-y-3">
-                          <Select
-                            value={selectedVariantId}
-                            onValueChange={(variantId) => {
-                              const variant = variantOptions.find((option) => option.id === variantId);
-                              if (!variant) return;
-
-                              updateVariant(item.id, variant);
-                            }}
-                            disabled={!hasSelectableVariants}
-                          >
-                            <SelectTrigger className="h-11 rounded-xl border-border/70 bg-background px-4 text-left">
-                              <SelectValue
-                                placeholder={
-                                  hasSelectableVariants
-                                    ? 'Select variant'
-                                    : 'No variants available'
-                                }
-                              />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {variantOptions.map((variant) => (
-                                <SelectItem
-                                  key={variant.id}
-                                  value={variant.id}
-                                  disabled={variant.stock <= 0}
-                                >
-                                  {getVariantLabel(variant)}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-
-                          <div className="flex items-center gap-3">
-                            <Button
-                              type="button"
-                              size="icon"
-                              variant="outline"
-                              className="h-10 w-10 rounded-xl border-border/70 bg-background"
-                              onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                            >
-                              <Minus className="h-4 w-4" />
-                            </Button>
-                            <span className="w-8 text-center text-base font-medium text-foreground">
-                              {item.quantity}
-                            </span>
-                            <Button
-                              type="button"
-                              size="icon"
-                              variant="outline"
-                              className="h-10 w-10 rounded-xl border-border/70 bg-background"
-                              onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                            >
-                              <Plus className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
                       </div>
+                    </div>
+
+                    <div className="mt-4 flex items-center justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <p className="text-sm font-semibold text-foreground">Selected Variants</p>
+                        <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                          {variantCount} variant{variantCount === 1 ? '' : 's'}
+                        </span>
+                      </div>
+
+                      {group.product.variants.length > 0 ? (
+                        <button
+                          type="button"
+                          className="text-sm font-medium text-primary"
+                          onClick={() => setVariantDialogProductId(group.product.id)}
+                        >
+                          + Add another variant
+                        </button>
+                      ) : null}
+                    </div>
+
+                    <div className="mt-3 space-y-3">
+                      {group.items.map((item) => {
+                        const needsVariant = isVariantPlaceholder(item.variant.id);
+
+                        return (
+                          <div
+                            key={item.id}
+                            className="rounded-2xl border border-border/70 bg-background/60 p-3"
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-muted">
+                                <img
+                                  src={item.product.images[0] || '/placeholder.svg'}
+                                  alt={item.product.name}
+                                  className="h-full w-full object-cover"
+                                />
+                              </div>
+
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <h3 className="line-clamp-1 text-sm font-semibold text-foreground">
+                                      {needsVariant ? 'Variant not selected' : getVariantLabel(item.variant)}
+                                    </h3>
+                                    <p className="mt-0.5 text-xs text-muted-foreground">
+                                      {item.variant.size || item.variant.color || 'Standard option'}
+                                    </p>
+                                    <p className="mt-1 text-xs text-muted-foreground">
+                                      {formatPrice(item.variant.price)} each
+                                    </p>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    className="mt-1 shrink-0 text-muted-foreground transition-colors hover:text-destructive"
+                                    onClick={() => removeFromCart(item.id)}
+                                    aria-label={`Remove ${getVariantLabel(item.variant)}`}
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                </div>
+
+                                {needsVariant ? (
+                                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                                    <p className="text-xs font-medium text-destructive">
+                                      Choose a variant to continue
+                                    </p>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      className="h-9 rounded-xl"
+                                      onClick={() => setVariantDialogProductId(group.product.id)}
+                                    >
+                                      Select variant
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <div className="mt-3 flex items-end justify-between gap-3">
+                                    <div className="flex items-center gap-2 rounded-xl border border-border/70 px-2 py-1">
+                                      <Button
+                                        type="button"
+                                        size="icon"
+                                        variant="ghost"
+                                        className="h-8 w-8 rounded-lg"
+                                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                                      >
+                                        <Minus className="h-4 w-4" />
+                                      </Button>
+                                      <span className="w-6 text-center text-sm font-semibold text-foreground">
+                                        {item.quantity}
+                                      </span>
+                                      <Button
+                                        type="button"
+                                        size="icon"
+                                        variant="ghost"
+                                        className="h-8 w-8 rounded-lg"
+                                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                                      >
+                                        <Plus className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+
+                                    <p className="text-sm font-semibold text-primary">
+                                      {formatPrice(item.variant.price * item.quantity)}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </CardContent>
                 </Card>
@@ -257,29 +300,23 @@ export default function Cart() {
             })}
           </div>
 
-          <div className="mt-4 space-y-3">
-            <Button
+          <div className="mt-4 flex justify-center">
+            <button
               type="button"
-              variant="outline"
-              className="h-11 w-full rounded-xl border-border/70 bg-card"
+              className="min-w-[10rem] rounded-full border border-border/70 px-5 py-2 text-sm font-medium text-primary transition-colors hover:border-primary/40"
               onClick={() => setSelectedItemIds(allSelected ? [] : items.map((item) => item.id))}
             >
               {allSelected ? 'Unselect All' : 'Select All'}
-            </Button>
-            <Button
-              type="button"
-              className="h-11 w-full rounded-xl"
-              onClick={clearCart}
-            >
-              Clear Cart
-            </Button>
+            </button>
           </div>
 
-          <Card className="mt-5 rounded-[1.4rem] border border-border/70 bg-card shadow-sm">
-            <CardContent className="p-4">
-              <div className="space-y-3">
+          <Card className="mt-4 overflow-hidden rounded-[1.4rem] border border-border/70 bg-card shadow-sm">
+            <CardContent className="p-0">
+              <div className="space-y-3 p-4">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Cart subtotal</span>
+                  <span className="text-muted-foreground">
+                    Subtotal ({selectedQuantityCount} item{selectedQuantityCount === 1 ? '' : 's'})
+                  </span>
                   <span className="text-foreground">{formatPrice(checkoutSubtotal)}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
@@ -289,29 +326,72 @@ export default function Cart() {
                 <div className="h-px bg-border/70" />
                 <div className="flex items-center justify-between">
                   <span className="text-base font-semibold text-foreground">Total</span>
-                  <span className="text-2xl font-bold text-primary">
+                  <span className="text-3xl font-bold text-primary">
                     {formatPrice(checkoutSubtotal)}
                   </span>
                 </div>
-                {selectedItemIds.length !== items.length ? (
-                  <p className="text-xs text-muted-foreground">
-                    Total reflects selected items only.
-                  </p>
-                ) : null}
               </div>
-
-              <Button
-                type="button"
-                className="mt-5 h-12 w-full rounded-xl"
-                size="lg"
-                onClick={handleCheckout}
-              >
-                Proceed to Checkout
-              </Button>
             </CardContent>
           </Card>
+
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-12 rounded-xl border-primary/40 text-primary"
+              onClick={clearCart}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Clear Cart
+            </Button>
+            <Button
+              type="button"
+              className="h-12 rounded-xl"
+              onClick={handleCheckout}
+            >
+              Proceed to Checkout
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </main>
+
+      <Dialog open={!!activeGroup} onOpenChange={(open) => setVariantDialogProductId(open ? variantDialogProductId : null)}>
+        <DialogContent className="max-w-md bg-background">
+          <DialogHeader>
+            <DialogTitle>Add another variant</DialogTitle>
+          </DialogHeader>
+
+          {activeGroup ? (
+            <div className="space-y-3">
+              {activeGroup.product.variants.length > 0 ? (
+                activeGroup.product.variants.map((variant) => (
+                  <button
+                    key={variant.id}
+                    type="button"
+                    className="flex w-full items-center justify-between rounded-2xl border border-border/70 px-4 py-3 text-left transition-colors hover:border-primary/40"
+                    disabled={variant.stock <= 0}
+                    onClick={() => handleAddVariant(activeGroup, variant)}
+                  >
+                    <div>
+                      <p className="font-medium text-foreground">{getVariantLabel(variant)}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {formatPrice(variant.price)} {variant.stock > 0 ? `- ${variant.stock} in stock` : '- Out of stock'}
+                      </p>
+                    </div>
+                    <Plus className="h-4 w-4 text-primary" />
+                  </button>
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No additional variants are available for this product.
+                </p>
+              )}
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
       <Footer />
     </div>
   );
