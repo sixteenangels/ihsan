@@ -473,7 +473,7 @@ export default function Cart() {
             <Button
               type="button"
               variant="outline"
-              className="h-12 rounded-xl border-primary/40 text-primary"
+              className="h-12 min-w-0 rounded-xl border-primary/40 px-3 text-primary"
               onClick={clearCart}
             >
               <Trash2 className="mr-2 h-4 w-4" />
@@ -481,37 +481,16 @@ export default function Cart() {
             </Button>
             <Button
               type="button"
-              className="h-12 rounded-xl"
+              className="h-12 min-w-0 rounded-xl px-3 text-center text-xs sm:text-sm"
               onClick={handleCheckout}
             >
-              Checkout ({selectedGroupCount} item{selectedGroupCount === 1 ? '' : 's'}) ({formatPrice(checkoutSubtotal)})
+              <span className="truncate">
+                Checkout ({selectedGroupCount} item{selectedGroupCount === 1 ? '' : 's'}) ({formatPrice(checkoutSubtotal)})
+              </span>
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </div>
 
-          <div className="mt-5 grid gap-3 md:grid-cols-2">
-            <Card className="rounded-[1.4rem] border border-border/70 bg-card shadow-sm">
-              <CardContent className="p-4">
-                <p className="text-sm font-semibold text-primary">How it works</p>
-                <ul className="mt-3 space-y-2 text-xs text-muted-foreground">
-                  <li>Selected items in orange chips will be included in checkout.</li>
-                  <li>Unselected product groups stay in your cart for later.</li>
-                  <li>Select all or unselect all helps you choose what to pay for now.</li>
-                </ul>
-              </CardContent>
-            </Card>
-
-            <Card className="rounded-[1.4rem] border border-border/70 bg-card shadow-sm">
-              <CardContent className="p-4">
-                <p className="text-sm font-semibold text-primary">Benefits</p>
-                <ul className="mt-3 space-y-2 text-xs text-muted-foreground">
-                  <li>Gives users full control.</li>
-                  <li>Reduces accidental checkout.</li>
-                  <li>Improves shopping flexibility.</li>
-                </ul>
-              </CardContent>
-            </Card>
-          </div>
         </div>
       </main>
 
