@@ -459,7 +459,7 @@ export function JoinGroupBuyDialog({
   const hasExistingParticipation = !!existingParticipation;
   const hasDeliveryDetails = hasRequiredGroupBuyDeliveryDetails({
     address: defaultAddress,
-    email: user.email,
+    email: user?.email,
   });
   const leaveWindow = existingParticipation
     ? getLeaveWindowInfo({
