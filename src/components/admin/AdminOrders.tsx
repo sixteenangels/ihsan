@@ -26,7 +26,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import type { Database, Json } from '@/integrations/supabase/types';
 import { useDocumentVisibility } from '@/hooks/useDocumentVisibility';
 import { logAdminAction } from '@/lib/audit-log';
-import { generateProofVerificationCode, uploadProofOfDelivery } from '@/lib/proof-of-delivery';
+import {
+  generateProofVerificationCode,
+  getProofOfDeliverySignedUrl,
+  normalizeProofOfDeliveryPath,
+  uploadProofOfDelivery,
+} from '@/lib/proof-of-delivery';
 import { creditWalletByAdmin } from '@/lib/wallet';
 import {
   buildGroupedAdminOrderCards,
@@ -357,6 +362,7 @@ export function AdminOrders() {
     courierConfirmed: false,
   });
   const [isUploadingProof, setIsUploadingProof] = useState(false);
+  const [proofImagePreviewUrl, setProofImagePreviewUrl] = useState('');
 
   const getShippingAddress = useCallback((address: Json | null): ShippingAddress | null => {
     if (!address || typeof address !== 'object' || Array.isArray(address)) {
@@ -1114,7 +1120,7 @@ export function AdminOrders() {
       courierTrackingNumber: order.courier_tracking_number || '',
       deliveryFee: order.delivery_fee != null ? String(order.delivery_fee) : '',
       proofNote: order.proof_of_delivery_note || '',
-      proofImageUrl: order.proof_of_delivery_image_url || '',
+      proofImageUrl: normalizeProofOfDeliveryPath(order.proof_of_delivery_image_url) || '',
       recipientName: order.proof_of_delivery_recipient_name || '',
       recipientPhone: order.proof_of_delivery_recipient_phone || '',
       recipientRelationship: order.proof_of_delivery_relationship || '',
@@ -1123,6 +1129,31 @@ export function AdminOrders() {
       courierConfirmed: Boolean(order.courier_confirmed_at),
     });
   };
+
+  useEffect(() => {
+    if (!fulfillmentDraft.proofImageUrl) {
+      setProofImagePreviewUrl('');
+      return;
+    }
+
+    let cancelled = false;
+
+    void getProofOfDeliverySignedUrl(fulfillmentDraft.proofImageUrl)
+      .then((url) => {
+        if (!cancelled) {
+          setProofImagePreviewUrl(url || '');
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setProofImagePreviewUrl(fulfillmentDraft.proofImageUrl);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [fulfillmentDraft.proofImageUrl]);
 
   const resetRefundDialog = () => {
     setSelectedRefundOrder(null);
@@ -1171,8 +1202,8 @@ export function AdminOrders() {
 
     try {
       setIsUploadingProof(true);
-      const publicUrl = await uploadProofOfDelivery(selectedFulfillmentOrder.id, file);
-      setFulfillmentDraft((prev) => ({ ...prev, proofImageUrl: publicUrl }));
+      const proofPath = await uploadProofOfDelivery(selectedFulfillmentOrder.id, file);
+      setFulfillmentDraft((prev) => ({ ...prev, proofImageUrl: proofPath }));
       toast.success('Proof image uploaded');
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : 'Failed to upload proof image');
@@ -2886,11 +2917,11 @@ export function AdminOrders() {
             </div>
 
             <div className="space-y-2">
-              <Label>Proof of Delivery Image URL</Label>
+              <Label>Proof of Delivery Image Path or URL</Label>
               <Input
                 value={fulfillmentDraft.proofImageUrl}
                 onChange={(e) => setFulfillmentDraft((prev) => ({ ...prev, proofImageUrl: e.target.value }))}
-                placeholder="Paste an uploaded photo URL if available"
+                placeholder="Stored proof path or an external backup URL"
               />
               <input
                 ref={proofUploadInputRef}
@@ -2913,9 +2944,9 @@ export function AdminOrders() {
                   )}
                   Upload Proof Image
                 </Button>
-                {fulfillmentDraft.proofImageUrl && (
+                {proofImagePreviewUrl && (
                   <a
-                    href={fulfillmentDraft.proofImageUrl}
+                    href={proofImagePreviewUrl}
                     target="_blank"
                     rel="noreferrer"
                     className="inline-flex items-center text-sm text-primary underline"

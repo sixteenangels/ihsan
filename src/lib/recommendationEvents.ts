@@ -14,6 +14,8 @@ interface TrackRecommendationEventInput {
   source?: string;
   weight?: number;
   revenue?: number;
+  productVariantId?: string | null;
+  orderId?: string | null;
   metadata?: Record<string, unknown>;
 }
 
@@ -36,21 +38,23 @@ function getRecommendationSessionId() {
 
 export function trackRecommendationEvent({
   productId,
-  userId,
   eventType,
   source,
   weight = 1,
-  revenue = 0,
+  productVariantId,
+  orderId,
   metadata = {},
 }: TrackRecommendationEventInput) {
-  void supabase.from('product_recommendation_events' as never).insert({
-    product_id: productId,
-    user_id: userId || null,
-    session_id: getRecommendationSessionId(),
-    event_type: eventType,
-    source: source || null,
-    weight,
-    revenue,
-    metadata,
+  const quantity = Math.max(1, Math.round(Number(weight) || 1));
+
+  void supabase.rpc('record_recommendation_event' as never, {
+    product_id_input: productId,
+    event_type_input: eventType,
+    source_input: source || null,
+    quantity_input: quantity,
+    product_variant_id_input: productVariantId || null,
+    order_id_input: orderId || null,
+    metadata_input: metadata,
+    session_id_input: getRecommendationSessionId(),
   } as never);
 }

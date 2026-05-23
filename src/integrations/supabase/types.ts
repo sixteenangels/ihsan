@@ -537,6 +537,7 @@ export type Database = {
           max_participants: number | null
           min_participants: number
           product_id: string
+          settings: Json
           status: Database["public"]["Enums"]["group_buy_status"] | null
           title: string | null
           updated_at: string
@@ -557,6 +558,7 @@ export type Database = {
           max_participants?: number | null
           min_participants: number
           product_id: string
+          settings?: Json
           status?: Database["public"]["Enums"]["group_buy_status"] | null
           title?: string | null
           updated_at?: string
@@ -577,6 +579,7 @@ export type Database = {
           max_participants?: number | null
           min_participants?: number
           product_id?: string
+          settings?: Json
           status?: Database["public"]["Enums"]["group_buy_status"] | null
           title?: string | null
           updated_at?: string

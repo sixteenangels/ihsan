@@ -1,10 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import { corsHeaders, createServiceSupabaseClient, jsonResponse, requireAdminOrInternalRequest, type ServiceSupabaseClient } from '../_shared/auth.ts'
 
 interface RecoverySnapshot {
   id: string
@@ -47,7 +41,7 @@ function buildEmail(snapshot: RecoverySnapshot, profile?: ProfileRow) {
   }
 }
 
-async function markSnapshotReminded(supabase: ReturnType<typeof createClient>, snapshotId: string) {
+async function markSnapshotReminded(supabase: ServiceSupabaseClient, snapshotId: string) {
   await supabase
     .from('checkout_recovery_snapshots')
     .update({
@@ -67,7 +61,11 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const supabase = createClient(supabaseUrl, serviceRoleKey)
+    const supabase = createServiceSupabaseClient()
+    const { errorResponse } = await requireAdminOrInternalRequest(req, supabase)
+    if (errorResponse) {
+      return errorResponse
+    }
     const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {}
     const limit = Math.min(Number(body?.limit || 25), 100)
 
@@ -160,15 +158,9 @@ Deno.serve(async (req) => {
       await markSnapshotReminded(supabase, snapshot.id)
     }
 
-    return new Response(
-      JSON.stringify({ processed: rows.length, sent, skipped, failed }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-    )
+    return jsonResponse({ processed: rows.length, sent, skipped, failed })
   } catch (error) {
     console.error('send-checkout-recovery-reminders error', error)
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-    )
+    return jsonResponse({ error: error instanceof Error ? error.message : 'Unknown error' }, 500)
   }
 })

@@ -41,24 +41,21 @@ export function GroupBuyShareSheet({
     }
 
     const nextCode = `GB-${groupBuyId.slice(0, 6).toUpperCase()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('group_buy_invites' as never)
       .insert({
         group_buy_id: groupBuyId,
         inviter_user_id: user.id,
         invite_code: nextCode,
         channel,
-      } as never)
-      .select('invite_code')
-      .single();
+      } as never);
 
     if (error) {
       return `${window.location.origin}/group-buy/${groupBuyId}`;
     }
 
-    const createdCode = (data as { invite_code: string }).invite_code;
-    setInviteCode(createdCode);
-    return `${window.location.origin}/group-buy/${groupBuyId}?invite=${createdCode}`;
+    setInviteCode(nextCode);
+    return `${window.location.origin}/group-buy/${groupBuyId}?invite=${nextCode}`;
   };
 
   const handleCopy = async () => {

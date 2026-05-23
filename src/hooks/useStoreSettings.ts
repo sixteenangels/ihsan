@@ -1,28 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import type { Json } from '@/integrations/supabase/types';
-
-type StoreSettings = Record<string, Json>;
-
-async function fetchStoreSettings(): Promise<StoreSettings> {
-  const { data, error } = await supabase
-    .from('store_settings')
-    .select('key, value');
-
-  if (error) throw error;
-
-  const settings: StoreSettings = {};
-  data?.forEach((row) => {
-    settings[row.key] = row.value;
-  });
-
-  return settings;
-}
+import { fetchPublicStoreSettings } from '@/lib/storeSettings';
 
 export function useStoreSettings() {
   return useQuery({
     queryKey: ['store-settings'],
-    queryFn: fetchStoreSettings,
+    queryFn: fetchPublicStoreSettings,
   });
 }
 

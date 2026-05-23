@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { TablesInsert } from '@/integrations/supabase/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { fetchPublicStoreSettings } from '@/lib/storeSettings';
 
 // Helper to convert URL-safe base64 to ArrayBuffer for VAPID key
 function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
@@ -25,15 +26,9 @@ interface PushSubscriptionData {
 }
 
 async function getVapidPublicKey() {
-  const { data, error } = await supabase
-    .from('store_settings')
-    .select('key, value')
-    .in('key', ['vapidPublicKey', 'vapid_public_key']);
-
-  if (error) throw error;
-
-  const preferredValue = data?.find((row) => row.key === 'vapidPublicKey')?.value;
-  const legacyValue = data?.find((row) => row.key === 'vapid_public_key')?.value;
+  const settings = await fetchPublicStoreSettings();
+  const preferredValue = settings.vapidPublicKey;
+  const legacyValue = settings.vapid_public_key;
   const resolvedValue = preferredValue ?? legacyValue;
 
   return typeof resolvedValue === 'string' ? resolvedValue : null;

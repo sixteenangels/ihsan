@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
+import { DEFAULT_GROUP_BUY_SETTINGS, resolveGroupBuySettings } from '@/lib/groupBuyConfig';
 
 interface GroupBuyTier {
   id: string;
@@ -22,6 +24,7 @@ export interface ProductActiveGroupBuy {
   min_participants: number;
   product_id: string;
   group_price: number | null;
+  settings: Json;
   status: string | null;
   title: string | null;
   tiers: GroupBuyTier[];
@@ -60,6 +63,7 @@ export function useProductActiveGroupBuys({
           min_participants,
           product_id,
           group_price,
+          settings,
           status,
           title
         `)
@@ -125,24 +129,37 @@ export function useProductActiveGroupBuys({
         tiersByGroupId.set(tier.group_buy_id, existing);
       });
 
-      return rows.map((row) => ({
-        id: row.id,
-        created_by: row.created_by,
-        current_participants: row.current_participants,
-        discount_percentage:
-          row.discount_percentage != null ? Number(row.discount_percentage) : null,
-        expires_at: row.expires_at,
-        extension_hours: row.extension_hours,
-        extension_used: row.extension_used,
-        max_participants: row.max_participants,
-        min_participants: row.min_participants,
-        product_id: row.product_id,
-        group_price: row.group_price != null ? Number(row.group_price) : null,
-        status: row.status,
-        title: row.title,
-        tiers: tiersByGroupId.get(row.id) || [],
-        viewer_has_joined: joinedIds.has(row.id),
-      }));
+      return rows
+        .filter((row) => resolveGroupBuySettings(DEFAULT_GROUP_BUY_SETTINGS, row.settings).visibleByDefault)
+        .sort((left, right) => {
+          const leftSettings = resolveGroupBuySettings(DEFAULT_GROUP_BUY_SETTINGS, left.settings);
+          const rightSettings = resolveGroupBuySettings(DEFAULT_GROUP_BUY_SETTINGS, right.settings);
+
+          if (leftSettings.featuredByDefault !== rightSettings.featuredByDefault) {
+            return leftSettings.featuredByDefault ? -1 : 1;
+          }
+
+          return new Date(left.expires_at).getTime() - new Date(right.expires_at).getTime();
+        })
+        .map((row) => ({
+          id: row.id,
+          created_by: row.created_by,
+          current_participants: row.current_participants,
+          discount_percentage:
+            row.discount_percentage != null ? Number(row.discount_percentage) : null,
+          expires_at: row.expires_at,
+          extension_hours: row.extension_hours,
+          extension_used: row.extension_used,
+          max_participants: row.max_participants,
+          min_participants: row.min_participants,
+          product_id: row.product_id,
+          group_price: row.group_price != null ? Number(row.group_price) : null,
+          settings: row.settings,
+          status: row.status,
+          title: row.title,
+          tiers: tiersByGroupId.get(row.id) || [],
+          viewer_has_joined: joinedIds.has(row.id),
+        }));
     },
   });
 }

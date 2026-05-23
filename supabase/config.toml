@@ -15,13 +15,16 @@ verify_jwt = true
 verify_jwt = false
 
 [functions.verify-paystack-payment]
-verify_jwt = false
+verify_jwt = true
 
 [functions.check-birthdays]
 verify_jwt = false
 
 [functions.process-referral-reward]
-verify_jwt = false
+verify_jwt = true
 
 [functions.send-checkout-recovery-reminders]
+verify_jwt = false
+
+[functions.send-transactional-email]
 verify_jwt = false

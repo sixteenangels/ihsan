@@ -22,6 +22,7 @@ import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
 import { canRequestRefund, getRefundButtonReason, isDeliveredOrder } from '@/lib/orderHistory';
 import { reAddOrderItemsToCart } from '@/lib/reorderOrder';
+import { getProofOfDeliverySignedUrl } from '@/lib/proof-of-delivery';
 
 interface OrderTrackingItem {
   id: string;
@@ -438,6 +439,12 @@ export default function TrackOrder() {
     enabled: !!searchedOrderId,
   });
 
+  const { data: proofOfDeliveryImageUrl } = useQuery({
+    queryKey: ['proof-of-delivery-image', order?.id, order?.proof_of_delivery_image_url],
+    queryFn: async () => getProofOfDeliverySignedUrl(order?.proof_of_delivery_image_url),
+    enabled: !!order?.proof_of_delivery_image_url,
+  });
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchOrderNumber.trim()) {
@@ -579,7 +586,7 @@ export default function TrackOrder() {
                   <CardTitle className="break-all text-lg sm:text-xl">Order {order.order_number}</CardTitle>
                   <div className="flex flex-wrap items-center gap-2">
                     {order.receipt?.receipt_number ? (
-                      <Link to={`/receipt/${order.receipt.receipt_number}`}>
+                      <Link to={`/receipt/${order.receipt.receipt_number}?order=${encodeURIComponent(order.order_number)}`}>
                         <Button variant="outline" size="sm">Receipt</Button>
                       </Link>
                     ) : null}
@@ -846,9 +853,9 @@ export default function TrackOrder() {
                     {order.proof_of_delivery_note}
                   </div>
                 )}
-                {order.proof_of_delivery_image_url && (
+                {proofOfDeliveryImageUrl && (
                   <img
-                    src={order.proof_of_delivery_image_url}
+                    src={proofOfDeliveryImageUrl}
                     alt={`Proof of delivery for ${order.order_number}`}
                     className="h-28 w-full max-w-[8rem] rounded-2xl border border-border object-cover"
                   />

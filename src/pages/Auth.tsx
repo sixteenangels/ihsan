@@ -260,7 +260,7 @@ export default function Auth() {
     const pendingReferralCode = getPendingReferralCode();
 
     setIsLoading(true);
-    const { error, userId } = await signUp(
+    const { error } = await signUp(
       signupEmail,
       signupPassword,
       signupName,
@@ -275,12 +275,6 @@ export default function Auth() {
         toast.error(error.message);
       }
     } else {
-      if (pendingReferralCode && userId) {
-        void processReferralForUser(pendingReferralCode, userId).catch((referralError) => {
-          console.error('Referral signup processing error:', referralError);
-        });
-      }
-
       // Check if email confirmation is required
       setPendingVerificationEmail(signupEmail);
       setShowVerificationSent(true);

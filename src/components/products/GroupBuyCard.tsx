@@ -157,6 +157,7 @@ export function GroupBuyCard({ groupBuy }: GroupBuyCardProps) {
                   discount_percentage: groupBuy.discount_percentage,
                   group_price: groupBuy.group_price,
                   expires_at: groupBuy.expires_at,
+                  settings: groupBuy.settings,
                   status: groupBuy.status,
                   product: {
                     name: groupBuy.product.name,

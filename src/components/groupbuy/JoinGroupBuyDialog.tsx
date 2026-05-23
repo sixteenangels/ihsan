@@ -33,6 +33,8 @@ import {
   getGroupBuyAddressSetupPath,
   hasRequiredGroupBuyDeliveryDetails,
 } from '@/lib/groupBuyCheckout';
+import { useGroupBuySettings } from '@/hooks/useGroupBuySettings';
+import { resolveGroupBuySettings } from '@/lib/groupBuyConfig';
 
 interface JoinGroupBuyDialogProps {
   inviteCode?: string | null;
@@ -51,6 +53,7 @@ interface JoinGroupBuyDialogProps {
     group_price: number | null;
     expires_at: string;
     status: string | null;
+    settings?: unknown;
     product: {
       name: string;
       base_price: number;
@@ -78,6 +81,7 @@ export function JoinGroupBuyDialog({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { formatPrice } = useCurrency();
+  const { settings: defaultGroupBuySettings } = useGroupBuySettings();
   const [isOpen, setIsOpen] = useState(false);
   const [quantity, setQuantity] = useState('1');
   const [variantQuantities, setVariantQuantities] = useState<Record<string, string>>({});
@@ -131,25 +135,37 @@ export function JoinGroupBuyDialog({
   });
 
   const { data: invite } = useQuery({
-    queryKey: ['group-buy-invite', inviteCode],
+    queryKey: ['group-buy-invite', groupBuy.id, inviteCode],
     queryFn: async () => {
       if (!inviteCode) return null;
-      const { data } = await supabase
-        .from('group_buy_invites' as never)
-        .select('invite_code, inviter_user_id')
-        .eq('invite_code', inviteCode)
-        .maybeSingle();
+      const { data, error } = await supabase.rpc('resolve_group_buy_invite' as never, {
+        invite_code_input: inviteCode,
+      } as never);
 
-      return data as unknown as { invite_code: string; inviter_user_id: string } | null;
+      if (error) {
+        throw error;
+      }
+
+      const resolvedInvite = (((data as unknown[]) || [])[0] || null) as
+        | { invite_code: string; inviter_user_id: string; group_buy_id: string }
+        | null;
+
+      if (!resolvedInvite || resolvedInvite.group_buy_id !== groupBuy.id) {
+        return null;
+      }
+
+      return resolvedInvite;
     },
     enabled: !!inviteCode,
   });
 
   const hasVariants = (variants?.length ?? 0) > 0;
+  const resolvedGroupBuySettings = resolveGroupBuySettings(defaultGroupBuySettings, groupBuy.settings);
   const currentParticipants = groupBuy.current_participants || 0;
   const participantCap = groupBuy.max_participants ?? groupBuy.min_participants;
   const isAtParticipantCap = currentParticipants >= participantCap;
-  const isClosedForNewParticipants = groupBuy.status !== 'open' || isAtParticipantCap;
+  const isClosedForNewParticipants =
+    groupBuy.status !== 'open' || isAtParticipantCap || !resolvedGroupBuySettings.participationOpen;
   const effectiveParticipantCount = currentParticipants + 1;
   const activeTier = [...(groupBuy.tiers || [])]
     .filter((tier) => effectiveParticipantCount >= tier.min_participants)
@@ -179,6 +195,13 @@ export function JoinGroupBuyDialog({
   const averageUnitPrice = totalSelectedQuantity > 0
     ? totalAmount / totalSelectedQuantity
     : discountedPrice;
+  const existingQuantity = Math.max(0, Number(existingParticipation?.quantity || 0));
+  const desiredTotalQuantity =
+    existingParticipation && resolvedGroupBuySettings.allowDuplicateParticipation
+      ? existingQuantity + totalSelectedQuantity
+      : totalSelectedQuantity;
+  const exceedsParticipantLimitPerUser =
+    desiredTotalQuantity > resolvedGroupBuySettings.participantLimitPerUser;
 
   const resetForm = () => {
     setQuantity('1');
@@ -209,6 +232,11 @@ export function JoinGroupBuyDialog({
 
     if (!hasVariants && normalizedQuantity <= 0) {
       toast.error('Choose a valid quantity to continue');
+      return;
+    }
+
+    if (exceedsParticipantLimitPerUser) {
+      toast.error(`This group buy allows up to ${resolvedGroupBuySettings.participantLimitPerUser} item(s) per shopper.`);
       return;
     }
 
@@ -333,7 +361,7 @@ export function JoinGroupBuyDialog({
       .eq('user_id', user.id)
       .maybeSingle();
 
-    if (existingParticipant?.payment_status === 'paid') {
+    if (existingParticipant?.payment_status === 'paid' && !resolvedGroupBuySettings.allowDuplicateParticipation) {
       queryClient.invalidateQueries({ queryKey: ['group-buys'] });
       queryClient.invalidateQueries({ queryKey: ['group-buy-participation'] });
       queryClient.invalidateQueries({ queryKey: ['my-group-buys'] });
@@ -388,7 +416,11 @@ export function JoinGroupBuyDialog({
       queryClient.invalidateQueries({ queryKey: ['group-buy-participation'] });
       queryClient.invalidateQueries({ queryKey: ['my-group-buys'] });
       queryClient.invalidateQueries({ queryKey: ['group-buy-detail'] });
-      toast.success('Successfully joined the group buy!');
+      toast.success(
+        existingParticipant?.payment_status === 'paid' && resolvedGroupBuySettings.allowDuplicateParticipation
+          ? 'Successfully added more items to this group buy!'
+          : 'Successfully joined the group buy!',
+      );
       setIsOpen(false);
       resetForm();
     }
@@ -423,7 +455,8 @@ export function JoinGroupBuyDialog({
   });
 
   const participantsNeeded = Math.max(0, groupBuy.min_participants - currentParticipants);
-  const hasJoined = !!existingParticipation;
+  const hasJoined = !!existingParticipation && !resolvedGroupBuySettings.allowDuplicateParticipation;
+  const hasExistingParticipation = !!existingParticipation;
   const hasDeliveryDetails = hasRequiredGroupBuyDeliveryDetails({
     address: defaultAddress,
     email: user.email,
@@ -490,7 +523,11 @@ export function JoinGroupBuyDialog({
         ) : (
           <Button className={cn('h-11 w-full gap-2 rounded-xl', triggerClassName)} disabled={isClosedForNewParticipants}>
             <Users className="h-4 w-4" />
-            {isAtParticipantCap ? 'Group Full' : triggerLabel}
+            {isAtParticipantCap
+              ? 'Group Full'
+              : hasExistingParticipation && resolvedGroupBuySettings.allowDuplicateParticipation
+                ? 'Add More'
+                : triggerLabel}
           </Button>
         )}
       </DialogTrigger>
@@ -558,6 +595,14 @@ export function JoinGroupBuyDialog({
             </div>
           ) : step === 'select' ? (
             <>
+              {hasExistingParticipation && resolvedGroupBuySettings.allowDuplicateParticipation ? (
+                <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 text-sm">
+                  <p className="font-medium text-primary">You already joined this group buy.</p>
+                  <p className="mt-1 text-muted-foreground">
+                    Current quantity: {existingQuantity}. You can add more as long as you stay within the limit of {resolvedGroupBuySettings.participantLimitPerUser} item(s).
+                  </p>
+                </div>
+              ) : null}
               {variants && variants.length > 0 ? (
                 <div className="space-y-3">
                   <Label>Choose Variant Quantities</Label>
@@ -596,7 +641,14 @@ export function JoinGroupBuyDialog({
               ) : (
                 <div className="space-y-2">
                   <Label htmlFor="join-qty">Quantity</Label>
-                  <Input id="join-qty" type="number" min="1" max="10" value={quantity} onChange={(event) => setQuantity(event.target.value)} />
+                  <Input
+                    id="join-qty"
+                    type="number"
+                    min="1"
+                    max={resolvedGroupBuySettings.participantLimitPerUser}
+                    value={quantity}
+                    onChange={(event) => setQuantity(event.target.value)}
+                  />
                 </div>
               )}
 
@@ -623,13 +675,19 @@ export function JoinGroupBuyDialog({
                     Invite reward will be credited after your join is confirmed.
                   </p>
                 ) : null}
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Per-user limit for this group buy: {resolvedGroupBuySettings.participantLimitPerUser} item(s).
+                </p>
               </div>
 
               <div className="flex flex-col gap-2 pt-2 sm:flex-row">
                 <Button variant="outline" className="h-11 flex-1 rounded-xl" onClick={() => setIsOpen(false)}>Cancel</Button>
                 <Button
                   className="h-11 flex-1 rounded-xl"
-                  disabled={hasVariants ? totalSelectedQuantity <= 0 : normalizedQuantity <= 0}
+                  disabled={
+                    exceedsParticipantLimitPerUser ||
+                    (hasVariants ? totalSelectedQuantity <= 0 : normalizedQuantity <= 0)
+                  }
                   onClick={() => setStep('payment')}
                 >
                   <CreditCard className="mr-2 h-4 w-4" /> Proceed to Pay

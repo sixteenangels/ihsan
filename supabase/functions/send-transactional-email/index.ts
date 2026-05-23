@@ -1,11 +1,5 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import nodemailer from 'npm:nodemailer'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import { corsHeaders, createServiceSupabaseClient, jsonResponse, requireAdminOrInternalRequest } from '../_shared/auth.ts'
 
 interface EmailPayload {
   to: string
@@ -21,7 +15,7 @@ interface EmailPayload {
 type EmailProvider = 'resend' | 'gmail_smtp'
 
 async function updateOutboxStatus(
-  supabase: ReturnType<typeof createClient>,
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
   id: string,
   input: {
     status: 'queued' | 'sent' | 'failed'
@@ -109,17 +103,18 @@ Deno.serve(async (req) => {
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-  const supabase = createClient(supabaseUrl, supabaseServiceKey)
+  const supabase = createServiceSupabaseClient()
 
   try {
+    const { actor, errorResponse } = await requireAdminOrInternalRequest(req, supabase)
+    if (errorResponse) {
+      return errorResponse
+    }
+
     const payload = await req.json() as EmailPayload
 
     if (!payload.to || !payload.subject || !payload.html) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required fields: to, subject, html' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      )
+      return jsonResponse({ error: 'Missing required fields: to, subject, html' }, 400)
     }
 
     const { data: outboxRow, error: outboxError } = await supabase
@@ -132,7 +127,7 @@ Deno.serve(async (req) => {
         email_type: payload.type || 'transactional',
         related_entity_type: payload.relatedEntityType || null,
         related_entity_id: payload.relatedEntityId || null,
-        requested_by: payload.requestedBy || null,
+        requested_by: actor?.id || payload.requestedBy || null,
         status: 'queued',
       })
       .select('id')
@@ -167,10 +162,7 @@ Deno.serve(async (req) => {
         errorMessage: 'No configured email providers. Set RESEND_API_KEY and/or Gmail SMTP secrets.',
       })
 
-      return new Response(
-        JSON.stringify({ queued: false, sent: false, reason: 'Missing email provider configuration' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      )
+      return jsonResponse({ queued: false, sent: false, reason: 'Missing email provider configuration' })
     }
 
     const providerErrors: Array<{ provider: EmailProvider; error: string }> = []
@@ -187,16 +179,13 @@ Deno.serve(async (req) => {
           sentAt: new Date().toISOString(),
         })
 
-        return new Response(
-          JSON.stringify({
-            queued: true,
-            sent: true,
-            provider: result.provider,
-            id: result.providerMessageId,
-            attemptedProviders: availableProviders,
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-        )
+        return jsonResponse({
+          queued: true,
+          sent: true,
+          provider: result.provider,
+          id: result.providerMessageId,
+          attemptedProviders: availableProviders,
+        })
       } catch (providerError) {
         const message = providerError instanceof Error ? providerError.message : 'Unknown provider error'
         providerErrors.push({ provider, error: message })
@@ -208,20 +197,14 @@ Deno.serve(async (req) => {
       errorMessage: providerErrors.map((item) => `${item.provider}: ${item.error}`).join(' | '),
     })
 
-    return new Response(
-      JSON.stringify({
-        queued: true,
-        sent: false,
-        attemptedProviders: availableProviders,
-        errors: providerErrors,
-      }),
-      { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-    )
+    return jsonResponse({
+      queued: true,
+      sent: false,
+      attemptedProviders: availableProviders,
+      errors: providerErrors,
+    }, 502)
   } catch (error) {
     console.error('send-transactional-email error', error)
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-    )
+    return jsonResponse({ error: error instanceof Error ? error.message : 'Unknown error' }, 500)
   }
 })

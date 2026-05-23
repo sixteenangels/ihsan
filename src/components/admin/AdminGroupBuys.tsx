@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -41,10 +41,18 @@ import {
   XCircle,
   Users,
   Pencil,
+  BarChart3,
+  Sparkles,
+  EyeOff,
+  EyeIcon,
+  LockKeyhole,
+  LockOpen,
+  Star,
+  RotateCcw,
 } from 'lucide-react';
 import { useProducts } from '@/hooks/useProducts';
 import { useCurrency } from '@/hooks/useCurrency';
-import type { Database } from '@/integrations/supabase/types';
+import type { Database, Json } from '@/integrations/supabase/types';
 import {
   getGroupBuySavingsPercent,
   getGroupBuyUnitPrice,
@@ -54,6 +62,20 @@ import {
   getGroupBuySelectionsTotalAmount,
 } from '@/lib/groupBuySelections';
 import { GroupBuyParticipantList } from '@/components/groupbuy/GroupBuyParticipantList';
+import { AdminGroupBuySettingsCard } from './AdminGroupBuySettingsCard';
+import { useGroupBuySettings } from '@/hooks/useGroupBuySettings';
+import {
+  buildGroupBuySettingsSnapshot,
+  DEFAULT_GROUP_BUY_SETTINGS,
+  GROUP_BUY_SHIPPING_METHODS,
+  resolveGroupBuySettings,
+  type GroupBuySettings,
+  type GroupBuyShippingMethod,
+  groupBuyDurationToMilliseconds,
+} from '@/lib/groupBuyConfig';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
 
 type GroupBuyStatus = Database['public']['Enums']['group_buy_status'];
 type GroupBuyRecord = Database['public']['Tables']['group_buys']['Row'];
@@ -91,16 +113,37 @@ interface GroupBuyTierRow {
   label: string;
 }
 
-const defaultForm: GroupBuyForm = {
-  product_id: '',
-  title: '',
-  min_participants: '10',
-  max_participants: '',
-  group_price: '',
-  tier_participants: '',
-  tier_group_price: '',
-  expires_at: '',
-};
+interface GroupBuyInviteAnalyticsRow {
+  group_buy_id: string;
+  visits: number;
+  joins: number;
+}
+
+function buildDefaultExpiryLocal(settings: GroupBuySettings): string {
+  const futureDate = new Date(
+    Date.now() +
+      groupBuyDurationToMilliseconds(
+        settings.countdownDurationValue,
+        settings.countdownDurationUnit,
+      ),
+  );
+  return formatDateTimeLocal(futureDate.toISOString());
+}
+
+function buildDefaultForm(settings: GroupBuySettings): GroupBuyForm {
+  return {
+    product_id: '',
+    title: '',
+    min_participants: String(settings.minParticipantsRequired),
+    max_participants: String(
+      Math.max(settings.maxParticipantsAllowed, settings.minParticipantsRequired),
+    ),
+    group_price: '',
+    tier_participants: '',
+    tier_group_price: '',
+    expires_at: buildDefaultExpiryLocal(settings),
+  };
+}
 
 function generateAjynOrderNumber() {
   const random = Math.random().toString(36).slice(2, 8).toUpperCase();
@@ -128,12 +171,15 @@ export function AdminGroupBuys() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { formatPrice } = useCurrency();
+  const { settings: defaultGroupBuySettings } = useGroupBuySettings();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<'create' | 'edit'>('create');
   const [editingGroupBuyId, setEditingGroupBuyId] = useState<string | null>(null);
-  const [form, setForm] = useState<GroupBuyForm>(defaultForm);
+  const [form, setForm] = useState<GroupBuyForm>(() => buildDefaultForm(DEFAULT_GROUP_BUY_SETTINGS));
   const [selectedGroupBuyId, setSelectedGroupBuyId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | GroupBuyStatus>('all');
+  const [controlsGroupBuyId, setControlsGroupBuyId] = useState<string | null>(null);
+  const [controlsDraft, setControlsDraft] = useState<GroupBuySettings>(DEFAULT_GROUP_BUY_SETTINGS);
 
   const { data: products } = useProducts();
 
@@ -185,10 +231,27 @@ export function AdminGroupBuys() {
     },
   });
 
+  const { data: inviteAnalytics = [] } = useQuery({
+    queryKey: ['admin-group-buy-invite-analytics'],
+    queryFn: async (): Promise<GroupBuyInviteAnalyticsRow[]> => {
+      const { data, error } = await supabase
+        .from('group_buy_invites' as never)
+        .select('group_buy_id, visits, joins');
+
+      if (error) {
+        throw error;
+      }
+
+      return ((data as unknown[]) || []) as GroupBuyInviteAnalyticsRow[];
+    },
+  });
+
   const editingGroupBuy =
     groupBuys.find((groupBuy) => groupBuy.id === editingGroupBuyId) || null;
   const selectedGroupBuy =
     groupBuys.find((groupBuy) => groupBuy.id === selectedGroupBuyId) || null;
+  const controlsGroupBuy =
+    groupBuys.find((groupBuy) => groupBuy.id === controlsGroupBuyId) || null;
   const selectedProduct = products?.find((product) => product.id === form.product_id);
   const formBasePrice =
     Number(
@@ -216,10 +279,20 @@ export function AdminGroupBuys() {
         })
       : 0;
 
+  useEffect(() => {
+    if (!controlsGroupBuy) {
+      return;
+    }
+
+    setControlsDraft(
+      resolveGroupBuySettings(defaultGroupBuySettings, controlsGroupBuy.settings),
+    );
+  }, [controlsGroupBuy, defaultGroupBuySettings]);
+
   const resetDialog = () => {
     setDialogMode('create');
     setEditingGroupBuyId(null);
-    setForm(defaultForm);
+    setForm(buildDefaultForm(defaultGroupBuySettings));
   };
 
   const closeDialog = () => {
@@ -228,7 +301,9 @@ export function AdminGroupBuys() {
   };
 
   const openCreateDialog = () => {
-    resetDialog();
+    setDialogMode('create');
+    setEditingGroupBuyId(null);
+    setForm(buildDefaultForm(defaultGroupBuySettings));
     setIsDialogOpen(true);
   };
 
@@ -265,19 +340,27 @@ export function AdminGroupBuys() {
       const product = products?.find((item) => item.id === data.product_id);
       const basePrice = Number(product?.base_price || 0);
       const groupPrice = data.group_price ? Number.parseFloat(data.group_price) : null;
+      const minParticipants = Number.parseInt(data.min_participants, 10);
+      const maxParticipants = data.max_participants
+        ? Number.parseInt(data.max_participants, 10)
+        : null;
+      const settingsSnapshot = buildGroupBuySettingsSnapshot({
+        ...defaultGroupBuySettings,
+        minParticipantsRequired: minParticipants,
+        maxParticipantsAllowed: maxParticipants ?? minParticipants,
+      });
 
       const { data: createdGroupBuy, error } = await supabase.from('group_buys').insert({
         product_id: data.product_id,
         title: data.title || null,
-        min_participants: Number.parseInt(data.min_participants, 10),
-        max_participants: data.max_participants
-          ? Number.parseInt(data.max_participants, 10)
-          : null,
+        min_participants: minParticipants,
+        max_participants: maxParticipants,
         group_price: groupPrice,
         discount_percentage: calculateDiscountPercentage(basePrice, data.group_price),
         expires_at: data.expires_at,
         created_by: user.id,
         status: 'open',
+        settings: settingsSnapshot as unknown as Json,
       }).select('id').single();
 
       if (error) throw error;
@@ -309,6 +392,7 @@ export function AdminGroupBuys() {
       queryClient.invalidateQueries({ queryKey: ['admin-group-buys'] });
       queryClient.invalidateQueries({ queryKey: ['admin-group-buy-tiers'] });
       queryClient.invalidateQueries({ queryKey: ['group-buys'] });
+      queryClient.invalidateQueries({ queryKey: ['product-active-group-buys'] });
       toast.success('Group buy created');
       closeDialog();
     },
@@ -320,18 +404,27 @@ export function AdminGroupBuys() {
       const basePrice = Number(
         groupBuys.find((groupBuy) => groupBuy.id === id)?.products?.base_price || 0,
       );
+      const existingGroupBuy = groupBuys.find((groupBuy) => groupBuy.id === id);
+      const minParticipants = Number.parseInt(data.min_participants, 10);
+      const maxParticipants = data.max_participants
+        ? Number.parseInt(data.max_participants, 10)
+        : null;
+      const settingsSnapshot = buildGroupBuySettingsSnapshot({
+        ...resolveGroupBuySettings(defaultGroupBuySettings, existingGroupBuy?.settings),
+        minParticipantsRequired: minParticipants,
+        maxParticipantsAllowed: maxParticipants ?? minParticipants,
+      });
 
       const { error } = await supabase
         .from('group_buys')
         .update({
           title: data.title || null,
-          min_participants: Number.parseInt(data.min_participants, 10),
-          max_participants: data.max_participants
-            ? Number.parseInt(data.max_participants, 10)
-            : null,
+          min_participants: minParticipants,
+          max_participants: maxParticipants,
           group_price: data.group_price ? Number.parseFloat(data.group_price) : null,
           discount_percentage: calculateDiscountPercentage(basePrice, data.group_price),
           expires_at: data.expires_at,
+          settings: settingsSnapshot as unknown as Json,
         })
         .eq('id', id);
 
@@ -368,6 +461,7 @@ export function AdminGroupBuys() {
       queryClient.invalidateQueries({ queryKey: ['admin-group-buy-tiers'] });
       queryClient.invalidateQueries({ queryKey: ['group-buys'] });
       queryClient.invalidateQueries({ queryKey: ['group-buy-detail'] });
+      queryClient.invalidateQueries({ queryKey: ['product-active-group-buys'] });
       toast.success('Group buy updated');
       closeDialog();
     },
@@ -398,7 +492,46 @@ export function AdminGroupBuys() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-group-buys'] });
       queryClient.invalidateQueries({ queryKey: ['group-buys'] });
+      queryClient.invalidateQueries({ queryKey: ['group-buy-detail'] });
+      queryClient.invalidateQueries({ queryKey: ['product-active-group-buys'] });
       toast.success('Group buy cancelled');
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const updateControlsMutation = useMutation({
+    mutationFn: async ({
+      groupBuyId,
+      settings,
+      status,
+    }: {
+      groupBuyId: string;
+      settings: GroupBuySettings;
+      status?: GroupBuyStatus | null;
+    }) => {
+      const payload: Database['public']['Tables']['group_buys']['Update'] = {
+        settings: buildGroupBuySettingsSnapshot(settings) as unknown as Json,
+      };
+
+      if (status !== undefined) {
+        payload.status = status;
+      }
+
+      const { error } = await supabase
+        .from('group_buys')
+        .update(payload)
+        .eq('id', groupBuyId);
+
+      if (error) {
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-group-buys'] });
+      queryClient.invalidateQueries({ queryKey: ['group-buys'] });
+      queryClient.invalidateQueries({ queryKey: ['group-buy-detail'] });
+      queryClient.invalidateQueries({ queryKey: ['product-active-group-buys'] });
+      toast.success('Group-buy controls updated');
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -411,6 +544,8 @@ export function AdminGroupBuys() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-group-buys'] });
       queryClient.invalidateQueries({ queryKey: ['group-buys'] });
+      queryClient.invalidateQueries({ queryKey: ['group-buy-detail'] });
+      queryClient.invalidateQueries({ queryKey: ['product-active-group-buys'] });
       toast.success('Expired group buys processed');
     },
     onError: (error: Error) => toast.error(error.message),
@@ -568,6 +703,9 @@ export function AdminGroupBuys() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-group-buys'] });
+      queryClient.invalidateQueries({ queryKey: ['group-buys'] });
+      queryClient.invalidateQueries({ queryKey: ['group-buy-detail'] });
+      queryClient.invalidateQueries({ queryKey: ['product-active-group-buys'] });
       toast.success('Collective order created! All participants have been notified.');
       setSelectedGroupBuyId(null);
     },
@@ -589,10 +727,24 @@ export function AdminGroupBuys() {
     }
   };
 
-  const filteredGroupBuys = groupBuys.filter((groupBuy) => {
-    if (statusFilter === 'all') return true;
-    return groupBuy.status === statusFilter;
-  });
+  const filteredGroupBuys = useMemo(
+    () =>
+      groupBuys
+        .filter((groupBuy) => {
+          if (statusFilter === 'all') return true;
+          return groupBuy.status === statusFilter;
+        })
+        .sort((left, right) => {
+          const leftSettings = resolveGroupBuySettings(defaultGroupBuySettings, left.settings);
+          const rightSettings = resolveGroupBuySettings(defaultGroupBuySettings, right.settings);
+          if (leftSettings.featuredByDefault !== rightSettings.featuredByDefault) {
+            return leftSettings.featuredByDefault ? -1 : 1;
+          }
+
+          return new Date(left.expires_at).getTime() - new Date(right.expires_at).getTime();
+        }),
+    [defaultGroupBuySettings, groupBuys, statusFilter],
+  );
 
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
   const selectedCurrentParticipants = selectedGroupBuy?.current_participants || 0;
@@ -602,6 +754,77 @@ export function AdminGroupBuys() {
     !!selectedGroupBuy &&
     (selectedGroupBuy.status === 'open' || selectedGroupBuy.status === 'filled') &&
     selectedCurrentParticipants >= selectedGroupBuy.min_participants;
+  const selectedResolvedSettings = selectedGroupBuy
+    ? resolveGroupBuySettings(defaultGroupBuySettings, selectedGroupBuy.settings)
+    : null;
+  const totalParticipantsTracked = groupBuys.reduce(
+    (sum, groupBuy) => sum + (groupBuy.current_participants || 0),
+    0,
+  );
+  const totalInviteVisits = inviteAnalytics.reduce((sum, row) => sum + (row.visits || 0), 0);
+  const totalInviteJoins = inviteAnalytics.reduce((sum, row) => sum + (row.joins || 0), 0);
+  const completedGroupBuyCount = groupBuys.filter(
+    (groupBuy) => groupBuy.status === 'filled' || groupBuy.status === 'closed',
+  ).length;
+  const failedGroupBuyCount = groupBuys.filter((groupBuy) => groupBuy.status === 'cancelled').length;
+  const completionRate = groupBuys.length > 0
+    ? Math.round((completedGroupBuyCount / groupBuys.length) * 100)
+    : 0;
+  const inviteConversionRate = totalInviteVisits > 0
+    ? Math.round((totalInviteJoins / totalInviteVisits) * 100)
+    : 0;
+
+  const openControlsDialog = (groupBuy: AdminGroupBuyRecord) => {
+    setControlsGroupBuyId(groupBuy.id);
+    setControlsDraft(resolveGroupBuySettings(defaultGroupBuySettings, groupBuy.settings));
+  };
+
+  const closeControlsDialog = () => {
+    setControlsGroupBuyId(null);
+  };
+
+  const handleControlsSave = () => {
+    if (!controlsGroupBuy) {
+      return;
+    }
+
+    const nextStatus =
+      controlsGroupBuy.status === 'filled' && controlsDraft.participationOpen
+        ? 'open'
+        : undefined;
+
+    updateControlsMutation.mutate(
+      {
+        groupBuyId: controlsGroupBuy.id,
+        settings: controlsDraft,
+        status: nextStatus,
+      },
+      {
+        onSuccess: () => {
+          closeControlsDialog();
+        },
+      },
+    );
+  };
+
+  const updateSelectedGroupBuySettings = (
+    transform: (settings: GroupBuySettings) => GroupBuySettings,
+    status?: GroupBuyStatus | null,
+  ) => {
+    if (!selectedGroupBuy) {
+      return;
+    }
+
+    const nextSettings = transform(
+      resolveGroupBuySettings(defaultGroupBuySettings, selectedGroupBuy.settings),
+    );
+
+    updateControlsMutation.mutate({
+      groupBuyId: selectedGroupBuy.id,
+      settings: nextSettings,
+      status,
+    });
+  };
 
   const handleDialogSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -664,6 +887,57 @@ export function AdminGroupBuys() {
             Create Group Buy
           </Button>
         </div>
+      </div>
+
+      <AdminGroupBuySettingsCard />
+
+      <div className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Card>
+          <CardContent className="flex items-center gap-4 p-5">
+            <div className="rounded-2xl bg-primary/10 p-3 text-primary">
+              <Users className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Participant Count Tracker</p>
+              <p className="text-2xl font-bold text-foreground">{totalParticipantsTracked}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-4 p-5">
+            <div className="rounded-2xl bg-accent/15 p-3 text-accent-foreground">
+              <BarChart3 className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Conversion Tracking</p>
+              <p className="text-2xl font-bold text-foreground">{inviteConversionRate}%</p>
+              <p className="text-xs text-muted-foreground">{totalInviteJoins} joins from {totalInviteVisits} tracked visits</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-4 p-5">
+            <div className="rounded-2xl bg-destructive/10 p-3 text-destructive">
+              <XCircle className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Failed Group Buy Tracking</p>
+              <p className="text-2xl font-bold text-foreground">{failedGroupBuyCount}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-4 p-5">
+            <div className="rounded-2xl bg-green-500/10 p-3 text-green-600">
+              <Sparkles className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Completion Rate Monitoring</p>
+              <p className="text-2xl font-bold text-foreground">{completionRate}%</p>
+              <p className="text-xs text-muted-foreground">{completedGroupBuyCount} completed of {groupBuys.length}</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <Dialog
@@ -886,6 +1160,366 @@ export function AdminGroupBuys() {
         </DialogContent>
       </Dialog>
 
+      <Dialog
+        open={!!controlsGroupBuyId}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeControlsDialog();
+          }
+        }}
+      >
+        <DialogContent className="max-h-[90vh] overflow-y-auto bg-background sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              {controlsGroupBuy?.title || controlsGroupBuy?.products?.name || 'Group Buy'} Controls
+            </DialogTitle>
+            <DialogDescription>
+              Override visibility, participation, fulfillment, shipping, notification, and pricing rules for this live deal.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-3 rounded-xl border border-border/70 p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <Label>Visible</Label>
+                    <p className="text-xs text-muted-foreground">Show this group buy on the storefront.</p>
+                  </div>
+                  <Switch
+                    checked={controlsDraft.visibleByDefault}
+                    onCheckedChange={(checked) =>
+                      setControlsDraft((current) => ({ ...current, visibleByDefault: checked }))
+                    }
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <Label>Featured Group Buy</Label>
+                    <p className="text-xs text-muted-foreground">Pin this deal higher in storefront group-buy lists.</p>
+                  </div>
+                  <Switch
+                    checked={controlsDraft.featuredByDefault}
+                    onCheckedChange={(checked) =>
+                      setControlsDraft((current) => ({ ...current, featuredByDefault: checked }))
+                    }
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <Label>Participation Open</Label>
+                    <p className="text-xs text-muted-foreground">Allow new shoppers to join this group buy.</p>
+                  </div>
+                  <Switch
+                    checked={controlsDraft.participationOpen}
+                    onCheckedChange={(checked) =>
+                      setControlsDraft((current) => ({ ...current, participationOpen: checked }))
+                    }
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <Label>Auto-Close When Full</Label>
+                    <p className="text-xs text-muted-foreground">Close automatically when the max seat count is reached.</p>
+                  </div>
+                  <Switch
+                    checked={controlsDraft.autoCloseWhenFull}
+                    onCheckedChange={(checked) =>
+                      setControlsDraft((current) => ({ ...current, autoCloseWhenFull: checked }))
+                    }
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <Label>Auto-Confirm At Target</Label>
+                    <p className="text-xs text-muted-foreground">Mark this deal ready when the minimum target is met.</p>
+                  </div>
+                  <Switch
+                    checked={controlsDraft.autoConfirmWhenTargetReached}
+                    onCheckedChange={(checked) =>
+                      setControlsDraft((current) => ({
+                        ...current,
+                        autoConfirmWhenTargetReached: checked,
+                      }))
+                    }
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <Label>Manual Confirmation Required</Label>
+                    <p className="text-xs text-muted-foreground">Keep admin confirmation in the loop before fulfillment starts.</p>
+                  </div>
+                  <Switch
+                    checked={controlsDraft.manualConfirmationRequired}
+                    onCheckedChange={(checked) =>
+                      setControlsDraft((current) => ({
+                        ...current,
+                        manualConfirmationRequired: checked,
+                      }))
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-3 rounded-xl border border-border/70 p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <Label>Allow Partial Fulfillment</Label>
+                    <p className="text-xs text-muted-foreground">Process ready participants even if the deal does not fully convert.</p>
+                  </div>
+                  <Switch
+                    checked={controlsDraft.allowPartialFulfillment}
+                    onCheckedChange={(checked) =>
+                      setControlsDraft((current) => ({ ...current, allowPartialFulfillment: checked }))
+                    }
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <Label>Allow Duplicate Participation</Label>
+                    <p className="text-xs text-muted-foreground">Let the same shopper add more quantity later.</p>
+                  </div>
+                  <Switch
+                    checked={controlsDraft.allowDuplicateParticipation}
+                    onCheckedChange={(checked) =>
+                      setControlsDraft((current) => ({ ...current, allowDuplicateParticipation: checked }))
+                    }
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <Label>Require Full Payment</Label>
+                    <p className="text-xs text-muted-foreground">Prevent unpaid shoppers from taking a slot.</p>
+                  </div>
+                  <Switch
+                    checked={controlsDraft.requireFullPaymentBeforeJoining}
+                    onCheckedChange={(checked) =>
+                      setControlsDraft((current) => ({
+                        ...current,
+                        requireFullPaymentBeforeJoining: checked,
+                      }))
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Participant Limit Per User</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={controlsDraft.participantLimitPerUser}
+                    onChange={(event) =>
+                      setControlsDraft((current) => ({
+                        ...current,
+                        participantLimitPerUser: Math.max(1, Number(event.target.value) || 1),
+                      }))
+                    }
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <Label>Automatic Participant Notifications</Label>
+                    <p className="text-xs text-muted-foreground">Send automatic lifecycle notifications for this deal.</p>
+                  </div>
+                  <Switch
+                    checked={controlsDraft.automaticParticipantNotifications}
+                    onCheckedChange={(checked) =>
+                      setControlsDraft((current) => ({
+                        ...current,
+                        automaticParticipantNotifications: checked,
+                      }))
+                    }
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <Label>Allow Admin Cancellation</Label>
+                    <p className="text-xs text-muted-foreground">Keep the cancel action available for this group buy.</p>
+                  </div>
+                  <Switch
+                    checked={controlsDraft.allowAdminCancellation}
+                    onCheckedChange={(checked) =>
+                      setControlsDraft((current) => ({ ...current, allowAdminCancellation: checked }))
+                    }
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4 rounded-xl border border-border/70 p-4">
+              <div>
+                <Label>Allowed Shipping Methods</Label>
+                <p className="text-xs text-muted-foreground">Restrict which shipping methods can be used for this deal.</p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {GROUP_BUY_SHIPPING_METHODS.map((method) => (
+                  <label
+                    key={method}
+                    className="flex items-center gap-3 rounded-xl border border-border/70 p-3 text-sm"
+                  >
+                    <Checkbox
+                      checked={controlsDraft.allowedShippingMethods.includes(method)}
+                      onCheckedChange={(checked) =>
+                        setControlsDraft((current) => {
+                          const nextMethods = checked
+                            ? [...current.allowedShippingMethods, method]
+                            : current.allowedShippingMethods.filter((entry) => entry !== method);
+                          const dedupedMethods = Array.from(new Set(nextMethods));
+
+                          return {
+                            ...current,
+                            allowedShippingMethods:
+                              dedupedMethods.length > 0 ? dedupedMethods : [method],
+                            defaultShippingMethod:
+                              dedupedMethods.includes(current.defaultShippingMethod) || checked
+                                ? current.defaultShippingMethod
+                                : method,
+                          };
+                        })
+                      }
+                    />
+                    <span>
+                      {method === 'air_shipping'
+                        ? 'Air Shipping'
+                        : method === 'sea_shipping'
+                          ? 'Sea Shipping'
+                          : 'Courier (Local) Delivery'}
+                    </span>
+                  </label>
+                ))}
+              </div>
+              <div className="grid gap-4 md:grid-cols-[16rem_minmax(0,1fr)]">
+                <div className="space-y-2">
+                  <Label>Default Shipping Method</Label>
+                  <Select
+                    value={controlsDraft.defaultShippingMethod}
+                    onValueChange={(value) =>
+                      setControlsDraft((current) => ({
+                        ...current,
+                        defaultShippingMethod: value as GroupBuyShippingMethod,
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {controlsDraft.allowedShippingMethods.map((method) => (
+                        <SelectItem key={method} value={method}>
+                          {method === 'air_shipping'
+                            ? 'Air Shipping'
+                            : method === 'sea_shipping'
+                              ? 'Sea Shipping'
+                              : 'Courier (Local) Delivery'}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Shipping Fee Override</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={controlsDraft.shippingFeeOverride ?? ''}
+                    onChange={(event) =>
+                      setControlsDraft((current) => ({
+                        ...current,
+                        shippingFeeOverride:
+                          event.target.value === '' ? null : Math.max(0, Number(event.target.value) || 0),
+                      }))
+                    }
+                    placeholder="Optional"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Shipping Restriction Notes</Label>
+                <Textarea
+                  rows={3}
+                  value={controlsDraft.shippingRestrictionNotes}
+                  onChange={(event) =>
+                    setControlsDraft((current) => ({
+                      ...current,
+                      shippingRestrictionNotes: event.target.value,
+                    }))
+                  }
+                  placeholder="Sea shipping not recommended for electronics."
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-3 rounded-xl border border-border/70 p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <Label>Dynamic Pricing</Label>
+                    <p className="text-xs text-muted-foreground">Allow this deal to react to milestone pricing rules.</p>
+                  </div>
+                  <Switch
+                    checked={controlsDraft.dynamicPricing}
+                    onCheckedChange={(checked) =>
+                      setControlsDraft((current) => ({ ...current, dynamicPricing: checked }))
+                    }
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <Label>Admin Override Pricing</Label>
+                    <p className="text-xs text-muted-foreground">Keep manual override pricing enabled for this deal.</p>
+                  </div>
+                  <Switch
+                    checked={controlsDraft.adminOverridePricing}
+                    onCheckedChange={(checked) =>
+                      setControlsDraft((current) => ({ ...current, adminOverridePricing: checked }))
+                    }
+                  />
+                </div>
+              </div>
+              <div className="space-y-3 rounded-xl border border-border/70 p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <Label>Fragile Item</Label>
+                    <p className="text-xs text-muted-foreground">Flag this group buy for fragile handling logic.</p>
+                  </div>
+                  <Switch
+                    checked={controlsDraft.fragileItemByDefault}
+                    onCheckedChange={(checked) =>
+                      setControlsDraft((current) => ({ ...current, fragileItemByDefault: checked }))
+                    }
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <Label>Reinforced Packaging</Label>
+                    <p className="text-xs text-muted-foreground">Allow reinforced packaging upsell for this deal.</p>
+                  </div>
+                  <Switch
+                    checked={controlsDraft.reinforcedPackagingAvailable}
+                    onCheckedChange={(checked) =>
+                      setControlsDraft((current) => ({
+                        ...current,
+                        reinforcedPackagingAvailable: checked,
+                      }))
+                    }
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col-reverse gap-2 pt-4 sm:flex-row sm:justify-end">
+              <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={closeControlsDialog}>
+                Cancel
+              </Button>
+              <Button className="w-full sm:w-auto" onClick={handleControlsSave} disabled={updateControlsMutation.isPending}>
+                {updateControlsMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Save Controls
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Tabs
         value={statusFilter}
         onValueChange={(value) => setStatusFilter(value as 'all' | GroupBuyStatus)}
@@ -956,6 +1590,30 @@ export function AdminGroupBuys() {
                   </span>
                 </span>
               </div>
+              {selectedResolvedSettings ? (
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant={selectedResolvedSettings.visibleByDefault ? 'default' : 'outline'}>
+                    {selectedResolvedSettings.visibleByDefault ? (
+                      <EyeIcon className="mr-1 h-3.5 w-3.5" />
+                    ) : (
+                      <EyeOff className="mr-1 h-3.5 w-3.5" />
+                    )}
+                    {selectedResolvedSettings.visibleByDefault ? 'Visible' : 'Hidden'}
+                  </Badge>
+                  <Badge variant={selectedResolvedSettings.featuredByDefault ? 'default' : 'outline'}>
+                    <Star className="mr-1 h-3.5 w-3.5" />
+                    {selectedResolvedSettings.featuredByDefault ? 'Featured' : 'Not featured'}
+                  </Badge>
+                  <Badge variant={selectedResolvedSettings.participationOpen ? 'default' : 'outline'}>
+                    {selectedResolvedSettings.participationOpen ? (
+                      <LockOpen className="mr-1 h-3.5 w-3.5" />
+                    ) : (
+                      <LockKeyhole className="mr-1 h-3.5 w-3.5" />
+                    )}
+                    {selectedResolvedSettings.participationOpen ? 'Participation open' : 'Participation closed'}
+                  </Badge>
+                </div>
+              ) : null}
               {groupBuyTiers.filter((tier) => tier.group_buy_id === selectedGroupBuy.id).length > 0 ? (
                 <div className="mt-3 flex flex-wrap gap-2">
                   {groupBuyTiers
@@ -978,6 +1636,82 @@ export function AdminGroupBuys() {
                 <Pencil className="mr-2 h-4 w-4" />
                 Edit Pricing
               </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => openControlsDialog(selectedGroupBuy)}
+              >
+                <Sparkles className="mr-2 h-4 w-4" />
+                Deal Controls
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const reopening = !selectedResolvedSettings?.participationOpen;
+                  updateSelectedGroupBuySettings(
+                    (settings) => ({
+                      ...settings,
+                      participationOpen: !settings.participationOpen,
+                    }),
+                    reopening && selectedGroupBuy.status === 'filled' ? 'open' : undefined,
+                  );
+                }}
+                disabled={
+                  updateControlsMutation.isPending ||
+                  selectedGroupBuy.status === 'cancelled' ||
+                  selectedGroupBuy.status === 'closed'
+                }
+              >
+                {selectedResolvedSettings?.participationOpen ? (
+                  <>
+                    <LockKeyhole className="mr-2 h-4 w-4" />
+                    Close Participation
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    Reopen Participation
+                  </>
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  updateSelectedGroupBuySettings((settings) => ({
+                    ...settings,
+                    visibleByDefault: !settings.visibleByDefault,
+                  }))
+                }
+                disabled={updateControlsMutation.isPending}
+              >
+                {selectedResolvedSettings?.visibleByDefault ? (
+                  <>
+                    <EyeOff className="mr-2 h-4 w-4" />
+                    Hide
+                  </>
+                ) : (
+                  <>
+                    <EyeIcon className="mr-2 h-4 w-4" />
+                    Show
+                  </>
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  updateSelectedGroupBuySettings((settings) => ({
+                    ...settings,
+                    featuredByDefault: !settings.featuredByDefault,
+                  }))
+                }
+                disabled={updateControlsMutation.isPending}
+              >
+                <Star className="mr-2 h-4 w-4" />
+                {selectedResolvedSettings?.featuredByDefault ? 'Unfeature' : 'Feature'}
+              </Button>
               {selectedCanCreateCollectiveOrder ? (
                 <Button
                   onClick={() => createCollectiveOrderMutation.mutate(selectedGroupBuy.id)}
@@ -990,7 +1724,7 @@ export function AdminGroupBuys() {
                   Create Collective Order
                 </Button>
               ) : null}
-              {selectedGroupBuy.status === 'open' ? (
+              {selectedGroupBuy.status === 'open' && selectedResolvedSettings?.allowAdminCancellation !== false ? (
                 <Button
                   variant="destructive"
                   size="sm"
@@ -1042,6 +1776,7 @@ export function AdminGroupBuys() {
                     groupPrice: groupBuy.group_price,
                     discountPercentage: groupBuy.discount_percentage,
                   });
+                  const resolvedSettings = resolveGroupBuySettings(defaultGroupBuySettings, groupBuy.settings);
 
                   return (
                     <TableRow
@@ -1050,9 +1785,23 @@ export function AdminGroupBuys() {
                     >
                       <TableCell>
                         <div>
-                          <p className="font-medium">
-                            {groupBuy.title || groupBuy.products?.name || '-'}
-                          </p>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-medium">
+                              {groupBuy.title || groupBuy.products?.name || '-'}
+                            </p>
+                            {resolvedSettings.featuredByDefault ? (
+                              <Badge variant="outline">
+                                <Star className="mr-1 h-3 w-3" />
+                                Featured
+                              </Badge>
+                            ) : null}
+                            {!resolvedSettings.visibleByDefault ? (
+                              <Badge variant="outline">
+                                <EyeOff className="mr-1 h-3 w-3" />
+                                Hidden
+                              </Badge>
+                            ) : null}
+                          </div>
                           {groupBuy.title ? (
                             <p className="text-xs text-muted-foreground">
                               {groupBuy.products?.name}
@@ -1069,6 +1818,11 @@ export function AdminGroupBuys() {
                               {' '}
                               (max {groupBuy.max_participants})
                             </span>
+                          ) : null}
+                          {!resolvedSettings.participationOpen ? (
+                            <Badge variant="outline" className="ml-2">
+                              Closed
+                            </Badge>
                           ) : null}
                         </div>
                       </TableCell>
@@ -1095,6 +1849,14 @@ export function AdminGroupBuys() {
                             title="Edit pricing"
                           >
                             <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openControlsDialog(groupBuy)}
+                            title="Deal controls"
+                          >
+                            <Sparkles className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"

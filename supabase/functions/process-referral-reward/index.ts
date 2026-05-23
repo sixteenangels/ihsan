@@ -1,19 +1,6 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createServiceSupabaseClient, jsonResponse, requireAuthenticatedActor, corsHeaders, type ServiceSupabaseClient } from '../_shared/auth.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-const jsonHeaders = { ...corsHeaders, 'Content-Type': 'application/json' };
 const REFERRAL_POINTS = 50;
-
-function jsonResponse(body: Record<string, unknown>, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: jsonHeaders,
-  });
-}
 
 function normalizeReferralCode(referralCode: unknown) {
   return typeof referralCode === 'string' ? referralCode.trim().toUpperCase() : '';
@@ -41,7 +28,7 @@ function getCouponCodeFromRewardData(data: unknown) {
 }
 
 async function syncReferralTotal(
-  supabase: ReturnType<typeof createClient>,
+  supabase: ServiceSupabaseClient,
   referrerId: string,
   referralCodeId: string,
 ) {
@@ -64,7 +51,7 @@ async function syncReferralTotal(
 }
 
 async function findExistingReferralReward(
-  supabase: ReturnType<typeof createClient>,
+  supabase: ServiceSupabaseClient,
   referrerId: string,
   trackingId: string,
 ) {
@@ -86,7 +73,7 @@ async function findExistingReferralReward(
 }
 
 async function ensureReferralReward(
-  supabase: ReturnType<typeof createClient>,
+  supabase: ServiceSupabaseClient,
   options: {
     referrerId: string;
     referredUserId: string;
@@ -184,6 +171,12 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const supabase = createServiceSupabaseClient();
+    const { actor, errorResponse } = await requireAuthenticatedActor(req, supabase);
+    if (errorResponse || !actor) {
+      return errorResponse!;
+    }
+
     const { referral_code, referred_user_id } = await req.json();
     const normalizedReferralCode = normalizeReferralCode(referral_code);
 
@@ -191,9 +184,9 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'Missing referral_code or referred_user_id' }, 400);
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
+    if (actor.id !== referred_user_id) {
+      return jsonResponse({ error: 'Referral can only be processed for the signed-in user' }, 403);
+    }
 
     const { data: codeData, error: codeError } = await supabase
       .from('referral_codes')

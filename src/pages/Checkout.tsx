@@ -136,7 +136,6 @@ interface ProductVariantRow {
   stock: number | null;
 }
 
-type StoreSettingRow = Database['public']['Tables']['store_settings']['Row'];
 type WalletTransactionInsert = Database['public']['Tables']['wallet_transactions']['Insert'];
 
 function groupVariantOptionsByColor(variants: VariantOption[]) {
@@ -409,7 +408,7 @@ export default function Checkout() {
     }
 
     (async () => {
-      const [{ data: products }, { data: variants }, { data: settings }] = await Promise.all([
+      const [{ data: products }, { data: variants }] = await Promise.all([
         supabase
           .from('products')
           .select('id, is_fragile, reinforced_packaging_cost, is_free_shipping, allow_standard_packaging, allow_reinforced_packaging')
@@ -419,11 +418,6 @@ export default function Checkout() {
           .select('id, product_id, color, size, price_override, stock')
           .in('product_id', cartProductIds)
           .eq('is_active', true),
-        supabase
-          .from('store_settings')
-          .select('value')
-          .eq('key', 'reinforcedPackagingCost')
-          .maybeSingle(),
       ]);
       const meta: Record<string, {
         is_fragile: boolean;
@@ -458,10 +452,12 @@ export default function Checkout() {
       });
       setProductVariantOptions(variantsMap);
 
-      const globalDefault = Number((settings as StoreSettingRow | null)?.value) || 0;
+      const globalDefault = typeof storeSettings?.reinforcedPackagingCost === 'number'
+        ? storeSettings.reinforcedPackagingCost
+        : 0;
       setGlobalReinforcedCost(globalDefault);
     })();
-  }, [cartProductIds]);
+  }, [cartProductIds, storeSettings]);
 
   // Cart-level fragile / free shipping detection for the selected checkout items
   const hasFragile = selectedItems.some((it) => productMeta[it.product.id]?.is_fragile);
@@ -580,10 +576,10 @@ export default function Checkout() {
     selectedItems.forEach((item) => {
       trackRecommendationEvent({
         productId: item.product.id,
-        userId: user?.id,
         eventType: 'checkout_seed',
         source: 'checkout_recovery',
         weight: item.quantity,
+        productVariantId: item.variant.id,
       });
     });
 
@@ -905,6 +901,10 @@ export default function Checkout() {
         amount: Math.round(total * 100),
         currency: 'GHS',
         ref: reference,
+        metadata: {
+          type: 'checkout',
+          user_id: user.id,
+        },
         callback: function(response: PaystackTransactionResponse) {
           callbackFiredRef.current = true;
           verifyAndCreateOrder(response.reference).catch((err) => {
@@ -1050,26 +1050,18 @@ export default function Checkout() {
       selectedItems.forEach((item) => {
         trackRecommendationEvent({
           productId: item.product.id,
-          userId: user?.id,
           eventType: 'order_complete',
           source: 'checkout',
           weight: item.quantity,
-          revenue: item.variant.price * item.quantity,
+          productVariantId: item.variant.id,
+          orderId: order.id,
         });
       });
 
       try {
-        const { data: settingsData } = await supabase
-          .from('store_settings')
-          .select('key, value')
-          .in('key', ['loyaltyEnabled', 'loyaltyPointsPerOrder', 'loyaltyMinOrderAmount']);
-
-        const sMap: Record<string, Database['public']['Tables']['store_settings']['Row']['value']> = {};
-        settingsData?.forEach(r => { sMap[r.key] = r.value; });
-
-        const loyaltyEnabled = sMap.loyaltyEnabled !== false;
-        const pointsPerGhs = typeof sMap.loyaltyPointsPerOrder === 'number' ? sMap.loyaltyPointsPerOrder : 1;
-        const minAmount = typeof sMap.loyaltyMinOrderAmount === 'number' ? sMap.loyaltyMinOrderAmount : 0;
+        const loyaltyEnabled = storeSettings?.loyaltyEnabled !== false;
+        const pointsPerGhs = typeof storeSettings?.loyaltyPointsPerOrder === 'number' ? storeSettings.loyaltyPointsPerOrder : 1;
+        const minAmount = typeof storeSettings?.loyaltyMinOrderAmount === 'number' ? storeSettings.loyaltyMinOrderAmount : 0;
 
         if (loyaltyEnabled && total >= minAmount && user?.id) {
           const pointsToAward = Math.floor(total * pointsPerGhs);

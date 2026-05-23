@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Star, Truck, Users, Zap, Ship, Plane, Package, ShoppingCart, ArrowLeft, Loader2, Share2, Copy, Link as LinkIcon, Clock3, ShieldCheck } from 'lucide-react';
+import { Star, Truck, Users, Zap, Ship, Plane, Package, ShoppingCart, ArrowLeft, Loader2, Share2, Copy, Link as LinkIcon } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { useProduct, ProductWithDetails } from '@/hooks/useProducts';
@@ -29,6 +29,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { trackRecommendationEvent } from '@/lib/recommendationEvents';
 import { useProductActiveGroupBuys } from '@/hooks/useProductActiveGroupBuys';
 import { formatGroupBuyTimeRemaining } from '@/lib/groupBuyTiming';
+import { useGroupBuySettings } from '@/hooks/useGroupBuySettings';
+import { formatGroupBuyDuration } from '@/lib/groupBuyConfig';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -116,6 +118,7 @@ export default function ProductDetail() {
   const { addToCart } = useCart();
   const { formatPrice } = useCurrency();
   const { addProduct } = useRecentlyViewed();
+  const { settings: groupBuySettings } = useGroupBuySettings();
   const isMobile = useIsMobile();
 
   const [selectedVariants, setSelectedVariants] = useState<SelectedVariant[]>([]);
@@ -330,27 +333,9 @@ export default function ProductDetail() {
     ? Math.max(0, Math.round(((product.base_price - product.group_buy_price) / product.base_price) * 100))
     : 0;
   const purchaseDisplayPrice = selectedVariants.length > 0 ? totalPrice : product.base_price;
-  const selectedVariantPreview = selectedVariants.length > 0
-    ? selectedVariants
-        .slice(0, 2)
-        .map((variant) => [variant.color, variant.size].filter(Boolean).join(' / ') || 'Standard')
-        .join(', ')
-    : product.variants.length > 0
-      ? 'Choose variants now or finish selection at checkout.'
-      : 'Standard configuration ready to order.';
   const shippingEtaLabel = highlightedShipping?.shipping_class
     ? `${highlightedShipping.shipping_class.estimated_days_min}-${highlightedShipping.shipping_class.estimated_days_max} days`
     : 'Shipping set at checkout';
-  const purchaseSupportNote = selectedVariants.length > 0
-    ? `${selectedItemCount} item${selectedItemCount === 1 ? '' : 's'} selected across ${selectedVariants.length} option${selectedVariants.length === 1 ? '' : 's'}.`
-    : product.variants.length > 0
-      ? 'Pick exact variants and sizes now for an exact total, or add first and confirm at checkout.'
-      : 'Ready to add straight to cart with the current price and shipping options.';
-  const stockStatusLabel = hasAnyStock
-    ? `${totalAvailableStock} available now`
-    : expectedRestockDateLabel
-      ? `Expected restock ${expectedRestockDateLabel}`
-      : 'Restock alerts available';
   const preferredProductGroupBuy = activeProductGroupBuys.find((groupBuy) => groupBuy.id === preferredGroupBuyId) || null;
   const joinedProductGroupBuy = activeProductGroupBuys.find((groupBuy) => groupBuy.viewer_has_joined) || null;
   const activeProductGroupBuy = preferredProductGroupBuy || joinedProductGroupBuy || activeProductGroupBuys[0] || null;
@@ -417,7 +402,7 @@ export default function ProductDetail() {
                   <div className="space-y-1">
                     <p className="font-medium text-foreground">Start a Group Buy</p>
                     <p className="text-sm text-muted-foreground">
-                      Lock in the group price for 48 hours and invite others to fill the target.
+                      Lock in the group price for {formatGroupBuyDuration(groupBuySettings.countdownDurationValue, groupBuySettings.countdownDurationUnit)} and invite others to fill the target.
                     </p>
                     {activeProductGroupBuy ? (
                       <p className="text-xs text-primary">
@@ -445,6 +430,7 @@ export default function ProductDetail() {
                           discount_percentage: activeProductGroupBuy.discount_percentage,
                           group_price: activeProductGroupBuy.group_price,
                           expires_at: activeProductGroupBuy.expires_at,
+                          settings: activeProductGroupBuy.settings,
                           status: activeProductGroupBuy.status,
                           product: {
                             name: product.name,
@@ -532,6 +518,34 @@ export default function ProductDetail() {
               </CardContent>
             </Card>
 
+            <div className="flex flex-wrap gap-2">
+              <PriceDropAlert
+                productId={product.id}
+                productName={product.name}
+                currentPrice={product.base_price}
+              />
+              <BackInStockAlert
+                productId={product.id}
+                productName={product.name}
+                variantId={alertVariantId}
+                isOutOfStock={showRestockAlert}
+              />
+              {showRestockAlert ? (
+                <RestockReservationDialog
+                  productId={product.id}
+                  productName={product.name}
+                  expectedRestockDate={product.expected_restock_date}
+                  productVariantId={alertVariantId}
+                  variantLabel={reservationVariantLabel}
+                />
+              ) : null}
+              {showRestockAlert && expectedRestockDateLabel && (
+                <p className="w-full text-sm text-muted-foreground">
+                  We are currently expecting more stock around {expectedRestockDateLabel}.
+                </p>
+              )}
+            </div>
+
             <Separator />
 
             <div className="space-y-4">
@@ -589,98 +603,6 @@ export default function ProductDetail() {
                   ))}
                 </div>
               )}
-            </div>
-
-            <Separator />
-
-            <div className="space-y-4">
-              <Card className="overflow-hidden rounded-2xl border-primary/20 bg-gradient-to-br from-card via-card to-primary/5 shadow-sm">
-                <CardContent className="p-4 sm:p-5">
-                  <div className="flex flex-col gap-5">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                      <div>
-                        <p className="text-xs font-medium uppercase tracking-[0.22em] text-primary/80">
-                          Purchase Snapshot
-                        </p>
-                        <p className="mt-2 text-3xl font-bold text-primary">
-                          {formatPrice(purchaseDisplayPrice)}
-                        </p>
-                        <p className="mt-2 text-sm text-muted-foreground">{purchaseSupportNote}</p>
-                        <p className="mt-2 text-sm font-medium text-foreground">
-                          {selectedVariantPreview}
-                          {selectedVariants.length > 2 ? ` +${selectedVariants.length - 2} more` : ''}
-                        </p>
-                      </div>
-
-                      <div className="hidden w-full max-w-xs flex-col gap-3 sm:flex">
-                        <Button size="lg" className="w-full" variant="outline" onClick={handleAddToCart}>
-                          <ShoppingCart className="h-5 w-5 mr-2" />
-                          Add to Cart
-                        </Button>
-                        <Button size="lg" className="w-full" onClick={handleBuyNow}>
-                          <Zap className="h-5 w-5 mr-2" />
-                          Buy Now
-                        </Button>
-                      </div>
-                    </div>
-
-                    <div className="grid gap-3 sm:grid-cols-3">
-                      <div className="rounded-2xl border border-border/70 bg-background/70 p-3">
-                        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Selected</p>
-                        <p className="mt-1 font-semibold text-foreground">
-                          {selectedVariants.length > 0
-                            ? `${selectedItemCount} item${selectedItemCount === 1 ? '' : 's'}`
-                            : product.variants.length > 0
-                              ? 'Pending choice'
-                              : 'Ready now'}
-                        </p>
-                      </div>
-                      <div className="rounded-2xl border border-border/70 bg-background/70 p-3">
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Clock3 className="h-4 w-4" />
-                          <p className="text-xs uppercase tracking-[0.18em]">Delivery</p>
-                        </div>
-                        <p className="mt-1 font-semibold text-foreground">{shippingEtaLabel}</p>
-                      </div>
-                      <div className="rounded-2xl border border-border/70 bg-background/70 p-3">
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <ShieldCheck className="h-4 w-4" />
-                          <p className="text-xs uppercase tracking-[0.18em]">Confidence</p>
-                        </div>
-                        <p className="mt-1 font-semibold text-foreground">{stockStatusLabel}</p>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <div className="flex flex-wrap gap-2">
-                <PriceDropAlert
-                  productId={product.id}
-                  productName={product.name}
-                  currentPrice={product.base_price}
-                />
-                <BackInStockAlert
-                  productId={product.id}
-                  productName={product.name}
-                  variantId={alertVariantId}
-                  isOutOfStock={showRestockAlert}
-                />
-                {showRestockAlert ? (
-                  <RestockReservationDialog
-                    productId={product.id}
-                    productName={product.name}
-                    expectedRestockDate={product.expected_restock_date}
-                    productVariantId={alertVariantId}
-                    variantLabel={reservationVariantLabel}
-                  />
-                ) : null}
-                {showRestockAlert && expectedRestockDateLabel && (
-                  <p className="w-full text-sm text-muted-foreground">
-                    We are currently expecting more stock around {expectedRestockDateLabel}.
-                  </p>
-                )}
-              </div>
             </div>
           </div>
         </div>

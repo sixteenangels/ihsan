@@ -18,6 +18,7 @@ import { canExtendGroupBuy, formatGroupBuyTimeRemaining } from '@/lib/groupBuyTi
 import { ParticipantAvatarStack } from '@/components/groupbuy/ParticipantAvatarStack';
 import { useGroupBuyParticipantFaces } from '@/hooks/useGroupBuyParticipantFaces';
 import { useAuth } from '@/contexts/AuthContext';
+import type { Json } from '@/integrations/supabase/types';
 
 interface GroupBuyDetailData {
   created_by: string;
@@ -32,6 +33,7 @@ interface GroupBuyDetailData {
   extension_used: boolean;
   group_price: number | null;
   expires_at: string;
+  settings: Json;
   status: string | null;
   product: {
     id: string;
@@ -65,8 +67,21 @@ export default function GroupBuyDetail() {
       return;
     }
 
+    const visitorStorageKey = `ajyn_group_buy_invite_visit:${inviteCode}`;
+    let visitorToken = '';
+
+    try {
+      visitorToken =
+        window.localStorage.getItem(visitorStorageKey) ||
+        `visit_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+      window.localStorage.setItem(visitorStorageKey, visitorToken);
+    } catch {
+      visitorToken = `visit_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+    }
+
     void supabase.rpc('record_group_buy_invite_visit' as never, {
       invite_code_input: inviteCode,
+      visitor_token_input: visitorToken,
     } as never);
   }, [inviteCode]);
 
@@ -444,6 +459,7 @@ export default function GroupBuyDetail() {
                       discount_percentage: groupBuy.discount_percentage,
                       group_price: groupBuy.group_price,
                       expires_at: groupBuy.expires_at,
+                      settings: groupBuy.settings,
                       status: groupBuy.status,
                       product: {
                         name: groupBuy.product.name,

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import type { Database } from '@/integrations/supabase/types';
+import type { Database, Json } from '@/integrations/supabase/types';
+import { DEFAULT_GROUP_BUY_SETTINGS, resolveGroupBuySettings } from '@/lib/groupBuyConfig';
 
 type GroupBuyRecord = Database['public']['Tables']['group_buys']['Row'];
 
@@ -17,6 +18,7 @@ export interface GroupBuyWithProduct {
   extension_used: boolean;
   group_price: number | null;
   expires_at: string;
+  settings: Json;
   status: string | null;
   product: {
     id: string;
@@ -98,6 +100,7 @@ async function fetchGroupBuys(): Promise<GroupBuyWithProduct[]> {
       extension_used: gb.extension_used,
       group_price: gb.group_price != null ? Number(gb.group_price) : null,
       expires_at: gb.expires_at,
+      settings: gb.settings,
       status: gb.status,
       product: product ? {
         id: product.id,
@@ -110,7 +113,17 @@ async function fetchGroupBuys(): Promise<GroupBuyWithProduct[]> {
         images: imagesMap.get(product.id) || [],
       } : null,
     };
-  });
+  })
+    .filter((groupBuy) => resolveGroupBuySettings(DEFAULT_GROUP_BUY_SETTINGS, groupBuy.settings).visibleByDefault)
+    .sort((left, right) => {
+      const leftSettings = resolveGroupBuySettings(DEFAULT_GROUP_BUY_SETTINGS, left.settings);
+      const rightSettings = resolveGroupBuySettings(DEFAULT_GROUP_BUY_SETTINGS, right.settings);
+      if (leftSettings.featuredByDefault !== rightSettings.featuredByDefault) {
+        return leftSettings.featuredByDefault ? -1 : 1;
+      }
+
+      return new Date(left.expires_at).getTime() - new Date(right.expires_at).getTime();
+    });
 }
 
 export function useGroupBuys() {

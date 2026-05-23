@@ -33,6 +33,12 @@ import {
   getGroupBuyAddressSetupPath,
   hasRequiredGroupBuyDeliveryDetails,
 } from '@/lib/groupBuyCheckout';
+import { useGroupBuySettings } from '@/hooks/useGroupBuySettings';
+import {
+  buildGroupBuySettingsSnapshot,
+  formatGroupBuyDuration,
+  groupBuyDurationToMilliseconds,
+} from '@/lib/groupBuyConfig';
 
 interface StartGroupBuyDialogProps {
   product: {
@@ -44,16 +50,14 @@ interface StartGroupBuyDialogProps {
   triggerClassName?: string;
 }
 
-const MIN_GROUP_BUY_PARTICIPANTS = 2;
-const MAX_GROUP_BUY_PARTICIPANTS = 100;
-
 export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuyDialogProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { formatPrice } = useCurrency();
+  const { settings: groupBuySettings } = useGroupBuySettings();
   const [isOpen, setIsOpen] = useState(false);
-  const [participantCount, setParticipantCount] = useState('5');
+  const [participantCount, setParticipantCount] = useState(String(groupBuySettings.minParticipantsRequired));
   const [quantity, setQuantity] = useState('1');
   const [variantQuantities, setVariantQuantities] = useState<Record<string, string>>({});
   const [step, setStep] = useState<'setup' | 'payment'>('setup');
@@ -99,11 +103,11 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
   const requestedParticipantCount = Number.parseInt(participantCount || '', 10);
   const hasValidParticipantCount =
     Number.isFinite(requestedParticipantCount) &&
-    requestedParticipantCount >= MIN_GROUP_BUY_PARTICIPANTS &&
-    requestedParticipantCount <= MAX_GROUP_BUY_PARTICIPANTS;
+    requestedParticipantCount >= groupBuySettings.minParticipantsRequired &&
+    requestedParticipantCount <= groupBuySettings.maxParticipantsAllowed;
   const normalizedParticipantCount = hasValidParticipantCount
     ? requestedParticipantCount
-    : MIN_GROUP_BUY_PARTICIPANTS;
+    : groupBuySettings.minParticipantsRequired;
   const variantSelections = hasVariants
     ? buildGroupBuyVariantSelections({
         quantitiesByVariantId: variantQuantities,
@@ -123,13 +127,14 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
   const averageUnitPrice = totalSelectedQuantity > 0
     ? totalAmount / totalSelectedQuantity
     : offeredUnitPrice;
+  const exceedsParticipantLimitPerUser = totalSelectedQuantity > groupBuySettings.participantLimitPerUser;
   const hasDeliveryDetails = hasRequiredGroupBuyDeliveryDetails({
     address: defaultAddress,
     email: user?.email,
   });
 
   const resetForm = () => {
-    setParticipantCount('5');
+    setParticipantCount(String(groupBuySettings.minParticipantsRequired));
     setQuantity('1');
     setVariantQuantities({});
     setStep('setup');
@@ -153,18 +158,30 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
   const clampParticipantCount = () => {
     const parsed = Number.parseInt(participantCount || '', 10);
     if (!Number.isFinite(parsed)) {
-      setParticipantCount(String(MIN_GROUP_BUY_PARTICIPANTS));
+      setParticipantCount(String(groupBuySettings.minParticipantsRequired));
       return;
     }
 
     setParticipantCount(
-      String(Math.min(MAX_GROUP_BUY_PARTICIPANTS, Math.max(MIN_GROUP_BUY_PARTICIPANTS, parsed))),
+      String(
+        Math.min(
+          groupBuySettings.maxParticipantsAllowed,
+          Math.max(groupBuySettings.minParticipantsRequired, parsed),
+        ),
+      ),
     );
   };
 
   const handleContinueToPayment = () => {
     if (!hasValidParticipantCount) {
-      toast.error(`Choose between ${MIN_GROUP_BUY_PARTICIPANTS} and ${MAX_GROUP_BUY_PARTICIPANTS} participants`);
+      toast.error(
+        `Choose between ${groupBuySettings.minParticipantsRequired} and ${groupBuySettings.maxParticipantsAllowed} participants`,
+      );
+      return;
+    }
+
+    if (exceedsParticipantLimitPerUser) {
+      toast.error(`This group buy allows up to ${groupBuySettings.participantLimitPerUser} item(s) per shopper.`);
       return;
     }
 
@@ -175,7 +192,9 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
     if (!user) return;
 
     if (!hasValidParticipantCount) {
-      toast.error(`Choose between ${MIN_GROUP_BUY_PARTICIPANTS} and ${MAX_GROUP_BUY_PARTICIPANTS} participants`);
+      toast.error(
+        `Choose between ${groupBuySettings.minParticipantsRequired} and ${groupBuySettings.maxParticipantsAllowed} participants`,
+      );
       setStep('setup');
       return;
     }
@@ -187,6 +206,11 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
 
     if (!hasVariants && normalizedQuantity <= 0) {
       toast.error('Choose a valid quantity to continue');
+      return;
+    }
+
+    if (exceedsParticipantLimitPerUser) {
+      toast.error(`This group buy allows up to ${groupBuySettings.participantLimitPerUser} item(s) per shopper.`);
       return;
     }
 
@@ -318,7 +342,18 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
       return;
     }
 
-    const expiresAt = new Date(Date.now() + (48 * 60 * 60 * 1000));
+    const expiresAt = new Date(
+      Date.now() +
+        groupBuyDurationToMilliseconds(
+          groupBuySettings.countdownDurationValue,
+          groupBuySettings.countdownDurationUnit,
+        ),
+    );
+    const settingsSnapshot = buildGroupBuySettingsSnapshot({
+      ...groupBuySettings,
+      minParticipantsRequired: normalizedParticipantCount,
+      maxParticipantsAllowed: normalizedParticipantCount,
+    });
 
     const { data: gbData, error: gbError } = await supabase
       .from('group_buys')
@@ -333,6 +368,7 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
         created_by: user.id,
         status: 'open',
         current_participants: 0,
+        settings: settingsSnapshot,
       })
       .select()
       .single();
@@ -418,10 +454,12 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
           <Users className="mr-2 h-4 w-4" /> Start Group Buy
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl sm:max-w-md">
+        <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Start a Group Buy</DialogTitle>
-          <DialogDescription>Create a 48-hour shared offer for "{product.name}"</DialogDescription>
+          <DialogDescription>
+            Create a {formatGroupBuyDuration(groupBuySettings.countdownDurationValue, groupBuySettings.countdownDurationUnit)} shared offer for "{product.name}"
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
@@ -442,17 +480,20 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
                 <Label>Participants Needed</Label>
                 <Input
                   type="number"
-                  min="2"
-                  max="100"
+                  min={groupBuySettings.minParticipantsRequired}
+                  max={groupBuySettings.maxParticipantsAllowed}
                   value={participantCount}
                   onChange={(event) => setParticipantCount(event.target.value)}
                   onBlur={clampParticipantCount}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Group buys need {MIN_GROUP_BUY_PARTICIPANTS}-{MAX_GROUP_BUY_PARTICIPANTS} participants.
+                  Group buys need {groupBuySettings.minParticipantsRequired}-{groupBuySettings.maxParticipantsAllowed} participants.
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  New group buys stay open for 48 hours. If yours is still unfilled in the final hour, you can extend it once.
+                  New group buys stay open for {formatGroupBuyDuration(groupBuySettings.countdownDurationValue, groupBuySettings.countdownDurationUnit)}. If yours is still unfilled in the final hour, you can extend it once.
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Each shopper can commit up to {groupBuySettings.participantLimitPerUser} item(s) in this deal.
                 </p>
               </div>
 
@@ -491,7 +532,13 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
               ) : (
                 <div className="space-y-2">
                   <Label>Your Quantity</Label>
-                  <Input type="number" min="1" max="10" value={quantity} onChange={(event) => setQuantity(event.target.value)} />
+                  <Input
+                    type="number"
+                    min="1"
+                    max={groupBuySettings.participantLimitPerUser}
+                    value={quantity}
+                    onChange={(event) => setQuantity(event.target.value)}
+                  />
                 </div>
               )}
 
@@ -507,7 +554,11 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
                 <Button variant="outline" className="h-11 flex-1 rounded-xl" onClick={() => setIsOpen(false)}>Cancel</Button>
                 <Button
                   className="h-11 flex-1 rounded-xl"
-                  disabled={!hasValidParticipantCount || (hasVariants ? totalSelectedQuantity <= 0 : normalizedQuantity <= 0)}
+                  disabled={
+                    !hasValidParticipantCount ||
+                    exceedsParticipantLimitPerUser ||
+                    (hasVariants ? totalSelectedQuantity <= 0 : normalizedQuantity <= 0)
+                  }
                   onClick={handleContinueToPayment}
                 >
                   Next: Pay and Start
