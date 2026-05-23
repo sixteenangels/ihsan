@@ -1,26 +1,18 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, MapPin, Plus, Ship, Plane, Package, CreditCard, Check, Tag, X, AlertTriangle, Wallet, Shield } from 'lucide-react';
+import { ArrowLeft, MapPin, Plus, Ship, Plane, Package, CreditCard, Check, Tag, X, AlertTriangle, Wallet, Shield, ChevronRight } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { isVariantPlaceholder, useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCurrency } from '@/hooks/useCurrency';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   Select,
   SelectContent,
@@ -42,7 +34,6 @@ import {
   saveCheckoutRecoverySnapshot,
 } from '@/lib/checkoutRecovery';
 import { trackRecommendationEvent } from '@/lib/recommendationEvents';
-import { useIsMobile } from '@/hooks/use-mobile';
 
 interface Address {
   id: string;
@@ -150,6 +141,28 @@ function groupVariantOptionsByColor(variants: VariantOption[]) {
   }, {});
 }
 
+function formatVariantLabel(color?: string | null, size?: string | null) {
+  const parts = [color, size].filter(Boolean);
+  return parts.length > 0 ? parts.join(' / ') : 'Standard option';
+}
+
+function formatAddressLine(address?: Address) {
+  if (!address) {
+    return 'Add a delivery address';
+  }
+
+  const place = [address.city, address.country].filter(Boolean).join(', ');
+  return place || address.address_line1;
+}
+
+function formatAddressReference(address?: Address) {
+  if (!address) {
+    return 'No saved address selected';
+  }
+
+  return [address.state, address.phone].filter(Boolean).join(' - ') || address.address_line1;
+}
+
 export default function Checkout() {
   const navigate = useNavigate();
   const { user, isLoading: authLoading } = useAuth();
@@ -157,14 +170,12 @@ export default function Checkout() {
     items,
     selectedItems,
     selectedItemIds,
-    subtotal,
     selectedSubtotal,
     setSelectedItemIds,
     updateVariant,
     clearSelectedItems,
   } = useCart();
-  const { formatPrice, currency } = useCurrency();
-  const isMobile = useIsMobile();
+  const { formatPrice } = useCurrency();
   
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string>('');
@@ -172,6 +183,9 @@ export default function Checkout() {
   const [selectedShippingId, setSelectedShippingId] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isAddressDialogOpen, setIsAddressDialogOpen] = useState(false);
+  const [isAddressPickerOpen, setIsAddressPickerOpen] = useState(false);
+  const [isShippingPickerOpen, setIsShippingPickerOpen] = useState(false);
+  const [isSavingsDialogOpen, setIsSavingsDialogOpen] = useState(false);
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
@@ -824,6 +838,17 @@ export default function Checkout() {
       : !selectedShippingId
         ? 'Choose a shipping method to continue.'
         : paymentSupportText;
+  const totalSavings = discount + loyaltyDiscount + walletApplied;
+  const savingsSummaryText =
+    totalSavings > 0
+      ? [
+          appliedCoupon ? appliedCoupon.code : null,
+          loyaltyDiscount > 0 ? 'Loyalty applied' : null,
+          walletApplied > 0 ? 'Wallet applied' : null,
+        ]
+          .filter(Boolean)
+          .join(' - ')
+      : 'Apply coupons, loyalty points, or wallet balance';
 
   const handleShippingSelection = (id: string) => {
     const shipping = shippingClasses.find((shippingClass) => shippingClass.id === id);
@@ -1231,696 +1256,690 @@ export default function Checkout() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="container px-3 py-5 pb-36 sm:px-6 md:py-8 md:pb-8">
-        <Link
-          to="/cart"
-          className="inline-flex items-center text-sm text-muted-foreground hover:text-primary mb-6"
-        >
-          <ArrowLeft className="h-4 w-4 mr-1" />
-          Back to Cart
-        </Link>
-
-        <h1 className="mb-6 text-2xl font-bold font-serif text-foreground md:mb-8 md:text-3xl">
-          Checkout
-        </h1>
-
-        <div className="grid gap-6 lg:grid-cols-3 lg:gap-8">
-          <div className="lg:col-span-2 space-y-6">
-            {/* Delivery Address */}
-            <Card className="rounded-2xl border-border/70 shadow-sm">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MapPin className="h-5 w-5 text-primary" />
-                  Delivery Address
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {addresses.length > 0 ? (
-                  <RadioGroup value={selectedAddressId} onValueChange={setSelectedAddressId}>
-                    <div className="space-y-3">
-                      {addresses.map((address) => (
-                        <div
-                          key={address.id}
-                          className={`cursor-pointer rounded-2xl border p-3.5 transition-all sm:p-4 ${
-                            selectedAddressId === address.id
-                              ? 'border-primary bg-primary/5'
-                              : 'border-border hover:border-primary/50'
-                          }`}
-                          onClick={() => setSelectedAddressId(address.id)}
-                        >
-                          <div className="flex items-start gap-3">
-                            <RadioGroupItem value={address.id} id={address.id} className="mt-1" />
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="font-medium text-foreground">{address.full_name}</span>
-                                {address.label && (
-                                  <span className="text-xs bg-muted px-2 py-0.5 rounded">{address.label}</span>
-                                )}
-                                {address.is_default && (
-                                  <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">Default</span>
-                                )}
-                              </div>
-                              <p className="text-sm text-muted-foreground">
-                                {address.address_line1}
-                                {address.address_line2 && `, ${address.address_line2}`}
-                              </p>
-                              <p className="text-sm text-muted-foreground">
-                                {address.city}, {address.state} {address.postal_code}
-                              </p>
-                              <p className="text-sm text-muted-foreground">{address.country}</p>
-                              <p className="text-sm text-muted-foreground mt-1">{address.phone}</p>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </RadioGroup>
-                ) : (
-                  <p className="text-muted-foreground mb-4">No saved addresses</p>
-                )}
-
-                <Dialog open={isAddressDialogOpen} onOpenChange={setIsAddressDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" className="mt-4 h-11 w-full rounded-xl sm:w-auto">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add New Address
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
-                    <DialogHeader>
-                      <DialogTitle>Add New Address</DialogTitle>
-                    </DialogHeader>
-                    <div className="mt-4 space-y-4">
-                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <div className="col-span-2">
-                          <Label>Full Name *</Label>
-                          <Input
-                            value={newAddress.full_name}
-                            onChange={(e) => setNewAddress({ ...newAddress, full_name: e.target.value })}
-                          />
-                        </div>
-                        <div className="col-span-2 sm:col-span-1">
-                          <Label>Phone *</Label>
-                          <Input
-                            value={newAddress.phone}
-                            onChange={(e) => setNewAddress({ ...newAddress, phone: e.target.value })}
-                          />
-                        </div>
-                        <div className="col-span-2 sm:col-span-1">
-                          <Label>Label (optional)</Label>
-                          <Input
-                            placeholder="Home, Office, etc."
-                            value={newAddress.label}
-                            onChange={(e) => setNewAddress({ ...newAddress, label: e.target.value })}
-                          />
-                        </div>
-                        <div className="col-span-2">
-                          <Label>Address Line 1 *</Label>
-                          <Input
-                            value={newAddress.address_line1}
-                            onChange={(e) => setNewAddress({ ...newAddress, address_line1: e.target.value })}
-                          />
-                        </div>
-                        <div className="col-span-2">
-                          <Label>Address Line 2</Label>
-                          <Input
-                            value={newAddress.address_line2}
-                            onChange={(e) => setNewAddress({ ...newAddress, address_line2: e.target.value })}
-                          />
-                        </div>
-                        <div>
-                          <Label>City *</Label>
-                          <Input
-                            value={newAddress.city}
-                            onChange={(e) => setNewAddress({ ...newAddress, city: e.target.value })}
-                          />
-                        </div>
-                        <div>
-                          <Label>State</Label>
-                          <Input
-                            value={newAddress.state}
-                            onChange={(e) => setNewAddress({ ...newAddress, state: e.target.value })}
-                          />
-                        </div>
-                        <div>
-                          <Label>Country *</Label>
-                          <Input
-                            value={newAddress.country}
-                            onChange={(e) => setNewAddress({ ...newAddress, country: e.target.value })}
-                          />
-                        </div>
-                        <div>
-                          <Label>Postal Code</Label>
-                          <Input
-                            value={newAddress.postal_code}
-                            onChange={(e) => setNewAddress({ ...newAddress, postal_code: e.target.value })}
-                          />
-                        </div>
-                      </div>
-                      <Button onClick={handleAddAddress} className="w-full">
-                        Save Address
-                      </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              </CardContent>
-            </Card>
-
-            {/* Shipping Method */}
-            <Card className="rounded-2xl border-border/70 shadow-sm">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Package className="h-5 w-5 text-primary" />
-                  Shipping Method
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <RadioGroup value={selectedShippingId} onValueChange={handleShippingSelection}>
-                  <div className="space-y-3">
-                    {shippingClasses.length === 0 && (
-                      <div className="rounded-2xl border border-dashed border-border/70 bg-muted/30 p-3.5 text-sm text-muted-foreground sm:p-4">
-                        No shared shipping method is available for the items you selected.
-                      </div>
-                    )}
-                    {shippingClasses.map((shipping) => {
-                      const shippingBreakdown = selectedItems.map((item) => {
-                        const unitShippingPrice = shipping.product_prices[item.product.id] ?? 0;
-                        const isFreeShipping =
-                          productMeta[item.product.id]?.is_free_shipping ||
-                          item.product.isFreeShippingEligible;
-
-                        return {
-                          id: item.id,
-                          name: item.product.name,
-                          quantity: item.quantity,
-                          unitShippingPrice,
-                          total: isFreeShipping ? 0 : unitShippingPrice * item.quantity,
-                          isFreeShipping,
-                        };
-                      });
-
-                      return (
-                        <div
-                          key={shipping.id}
-                          className={`cursor-pointer rounded-2xl border p-3.5 transition-all sm:p-4 ${
-                            selectedShippingId === shipping.id
-                              ? 'border-primary bg-primary/5'
-                              : 'border-border hover:border-primary/50'
-                          }`}
-                          onClick={() => handleShippingSelection(shipping.id)}
-                        >
-                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                            <div className="flex items-start gap-3 sm:items-center">
-                              <RadioGroupItem value={shipping.id} id={shipping.id} />
-                              <div className="text-primary">
-                                {getShippingIcon(shipping.shipping_type?.name || shipping.name)}
-                              </div>
-                              <div>
-                                <p className="font-medium text-foreground">{shipping.name}</p>
-                                <p className="text-sm text-muted-foreground">
-                                  {shipping.estimated_days_min}-{shipping.estimated_days_max} days delivery
-                                </p>
-                                {(shipping.description || shipping.shipping_type?.description) && (
-                                  <p className="text-sm text-muted-foreground">
-                                    {shipping.description || shipping.shipping_type?.description}
-                                  </p>
-                                )}
-                                <p className="text-xs text-muted-foreground">
-                                  Priced per selected item quantity.
-                                </p>
-                                <div className="mt-2 space-y-1 text-xs text-muted-foreground">
-                                  {shippingBreakdown.slice(0, 3).map((line) => (
-                                    <p key={line.id}>
-                                      {line.name} x {line.quantity}: {line.isFreeShipping ? 'Free' : formatPrice(line.total)}
-                                    </p>
-                                  ))}
-                                  {shippingBreakdown.length > 3 && (
-                                    <p>+ {shippingBreakdown.length - 3} more item{shippingBreakdown.length - 3 === 1 ? '' : 's'}</p>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                            <p className="pl-8 text-sm font-semibold text-foreground sm:pl-0">
-                              {formatPrice(shipping.base_price)}
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </RadioGroup>
-              </CardContent>
-            </Card>
-
-            <Accordion type="multiple" defaultValue={accordionDefaultSections} className="space-y-3">
-              {hasFragile && (
-                <AccordionItem value="packaging" className="overflow-hidden rounded-2xl border border-border/70 bg-card px-3 shadow-sm sm:px-4">
-                  <AccordionTrigger className="py-4 hover:no-underline">
-                    <div className="flex items-center gap-3 text-left">
-                      <Shield className="h-5 w-5 text-primary" />
-                      <div>
-                        <p className="text-sm font-semibold text-foreground">
-                          Packaging for fragile items
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Choose the protection level before payment.
-                        </p>
-                      </div>
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent className="pb-4">
-                    <RadioGroup
-                      value={packagingChoice}
-                      onValueChange={(value) => {
-                        if (value === 'standard') {
-                          setShowStandardWarning(true);
-                        } else {
-                          setPackagingChoice('reinforced');
-                        }
-                      }}
-                    >
-                      <div className="space-y-3">
-                        {allowsReinforcedPackaging && (
-                          <div
-                            className={`cursor-pointer rounded-2xl border p-3.5 transition-all sm:p-4 ${
-                              packagingChoice === 'reinforced'
-                                ? 'border-primary bg-primary/5'
-                                : 'border-border hover:border-primary/50'
-                            }`}
-                            onClick={() => setPackagingChoice('reinforced')}
-                          >
-                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                              <div className="flex items-start gap-3 sm:items-center">
-                                <RadioGroupItem value="reinforced" id="pack-reinforced" />
-                                <div>
-                                  <p className="font-medium text-foreground">Reinforced Protection</p>
-                                  <p className="text-sm text-muted-foreground">
-                                    Extra cushioning and protection for fragile items.
-                                  </p>
-                                </div>
-                              </div>
-                              <p className="pl-8 text-sm font-semibold text-foreground sm:pl-0">
-                                +{formatPrice(reinforcedPackagingCost || globalReinforcedCost)}
-                              </p>
-                            </div>
-                          </div>
-                        )}
-                        {allowsStandardPackaging && (
-                          <div
-                            className={`cursor-pointer rounded-2xl border p-3.5 transition-all sm:p-4 ${
-                              packagingChoice === 'standard'
-                                ? 'border-primary bg-primary/5'
-                                : 'border-border hover:border-primary/50'
-                            }`}
-                            onClick={() => setShowStandardWarning(true)}
-                          >
-                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                              <div className="flex items-start gap-3 sm:items-center">
-                                <RadioGroupItem value="standard" id="pack-standard" />
-                                <div>
-                                  <p className="font-medium text-foreground">Standard Packaging</p>
-                                  <p className="text-sm text-muted-foreground">
-                                    Factory packaging only with no extra transit protection.
-                                  </p>
-                                </div>
-                              </div>
-                              <p className="pl-8 text-sm font-semibold text-foreground sm:pl-0">
-                                Free
-                              </p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </RadioGroup>
-                  </AccordionContent>
-                </AccordionItem>
-              )}
-
-              {showSavingsSection && (
-                <AccordionItem value="savings" className="overflow-hidden rounded-2xl border border-border/70 bg-card px-3 shadow-sm sm:px-4">
-                  <AccordionTrigger className="py-4 hover:no-underline">
-                    <div className="flex items-center gap-3 text-left">
-                      <Tag className="h-5 w-5 text-primary" />
-                      <div>
-                        <p className="text-sm font-semibold text-foreground">Savings and credits</p>
-                        <p className="text-xs text-muted-foreground">
-                          Apply coupons, loyalty points, and wallet credit without expanding the full summary.
-                        </p>
-                      </div>
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent className="space-y-5 pb-4">
-                    <div className="space-y-2">
-                      <Label className="flex items-center gap-2">
-                        <Tag className="h-4 w-4" />
-                        Coupon Code
-                      </Label>
-                      {appliedCoupon ? (
-                        <div className="flex items-center justify-between rounded-2xl border border-primary/20 bg-primary/10 p-3">
-                          <div>
-                            <p className="font-medium text-foreground">{appliedCoupon.code}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {appliedCoupon.type === 'percentage'
-                                ? `${appliedCoupon.value}% off`
-                                : `${formatPrice(appliedCoupon.value)} off`}
-                            </p>
-                          </div>
-                          <Button variant="ghost" size="icon" onClick={removeCoupon}>
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="flex flex-col gap-2 sm:flex-row">
-                          <Input
-                            placeholder="Enter code"
-                            value={couponCode}
-                            onChange={(event) => setCouponCode(event.target.value.toUpperCase())}
-                            className="flex-1"
-                          />
-                          <Button
-                            variant="outline"
-                            onClick={handleApplyCoupon}
-                            disabled={isApplyingCoupon}
-                            className="w-full sm:w-auto"
-                          >
-                            {isApplyingCoupon ? 'Applying...' : 'Apply'}
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-
-                    {totalPoints > 0 && (
-                      <div className="space-y-4 rounded-2xl border border-border/70 bg-muted/20 p-4">
-                        <label className="flex cursor-pointer items-start gap-3">
-                          <Checkbox
-                            checked={useLoyaltyCredit}
-                            onCheckedChange={(checked) => {
-                              const enabled = !!checked;
-                              setUseLoyaltyCredit(enabled);
-                              if (enabled && !loyaltyPointsToRedeem) {
-                                setLoyaltyPointsToRedeem(String(maxRedeemablePoints));
-                              }
-                            }}
-                            className="mt-1"
-                          />
-                          <div>
-                            <p className="font-medium text-foreground">
-                              Redeem loyalty points ({totalPoints.toLocaleString()} available)
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              {loyaltyMinRedeemPoints} point minimum. {formatPrice(loyaltyRate)} per point.
-                            </p>
-                          </div>
-                        </label>
-
-                        {useLoyaltyCredit && (
-                          <div className="space-y-2">
-                            <Label htmlFor="loyalty-points">Points to redeem</Label>
-                            <Input
-                              id="loyalty-points"
-                              type="number"
-                              min={loyaltyMinRedeemPoints}
-                              max={maxRedeemablePoints}
-                              step="1"
-                              value={loyaltyPointsToRedeem}
-                              onChange={(event) => setLoyaltyPointsToRedeem(event.target.value)}
-                            />
-                            <p className="text-xs text-muted-foreground">
-                              Up to {maxRedeemablePoints.toLocaleString()} points can be used on this order.
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {walletBalance > 0 && (
-                      <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
-                        <label className="flex cursor-pointer items-start gap-3">
-                          <Checkbox
-                            checked={useWalletCredit}
-                            onCheckedChange={(checked) => setUseWalletCredit(!!checked)}
-                            className="mt-1"
-                          />
-                          <div>
-                            <p className="font-medium text-foreground">
-                              Use wallet credit ({formatPrice(walletBalance)} available)
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              Apply your store credit toward this order. Cannot be withdrawn.
-                            </p>
-                          </div>
-                        </label>
-                      </div>
-                    )}
-                  </AccordionContent>
-                </AccordionItem>
-              )}
-
-              {unresolvedVariantItems.length > 0 && (
-                <AccordionItem
-                  value="variants"
-                  className="overflow-hidden rounded-2xl border border-amber-500/40 bg-amber-500/5 px-4"
-                >
-                  <AccordionTrigger className="py-4 hover:no-underline">
-                    <div className="text-left">
-                      <p className="text-sm font-semibold text-foreground">Choose variants before payment</p>
-                      <p className="text-xs text-muted-foreground">
-                        Resolve the remaining product options so the order can be paid for.
-                      </p>
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent className="space-y-4 pb-4">
-                    {unresolvedVariantItems.map((item) => {
-                      const variantOptions = productVariantOptions[item.product.id] || [];
-                      const groupedVariantOptions = groupVariantOptionsByColor(variantOptions);
-
-                      return (
-                        <div key={item.id} className="space-y-2">
-                          <div>
-                            <p className="font-medium text-foreground">{item.product.name}</p>
-                            <p className="text-sm text-muted-foreground">Quantity: {item.quantity}</p>
-                          </div>
-                          <Select
-                            value=""
-                            onValueChange={(variantId) => {
-                              const variant = variantOptions.find((option) => option.id === variantId);
-                              if (!variant) return;
-
-                              updateVariant(item.id, {
-                                id: variant.id,
-                                color: variant.color || undefined,
-                                size: variant.size || undefined,
-                                price: variant.price_override ?? item.product.basePrice,
-                                stock: variant.stock || 0,
-                              });
-                            }}
-                          >
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="Select variant and size" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {Object.entries(groupedVariantOptions).map(([color, options]) => (
-                                <SelectGroup key={color}>
-                                  <SelectLabel>{color}</SelectLabel>
-                                  {options.map((variant) => {
-                                    const stock = variant.stock || 0;
-                                    const label = variant.size || 'Default size';
-
-                                    return (
-                                      <SelectItem key={variant.id} value={variant.id} disabled={stock <= 0}>
-                                        {label} - {stock > 0 ? `${stock} in stock` : 'Out of stock'}
-                                      </SelectItem>
-                                    );
-                                  })}
-                                </SelectGroup>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      );
-                    })}
-                  </AccordionContent>
-                </AccordionItem>
-              )}
-
-              <AccordionItem value="items" className="overflow-hidden rounded-2xl border border-border/70 bg-card px-3 shadow-sm sm:px-4">
-                <AccordionTrigger className="py-4 hover:no-underline">
-                  <div className="text-left">
-                    <p className="text-sm font-semibold text-foreground">
-                      Order items ({selectedItems.length})
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Review what is in this shipment without stretching the page.
-                    </p>
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent className="pb-4">
-                  <div className="space-y-3">
-                    {selectedItems.map((item) => (
-                      <div key={item.id} className="flex items-start gap-3 rounded-2xl bg-muted/30 p-3">
-                        <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl">
-                          <img
-                            src={item.product.images[0]}
-                            alt={item.product.name}
-                            className="h-full w-full object-cover"
-                          />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <h4 className="line-clamp-1 font-medium text-foreground">{item.product.name}</h4>
-                          <p className="text-sm text-muted-foreground">
-                            {[item.variant.color, item.variant.size].filter(Boolean).join(' - ') || 'Standard option'} x {item.quantity}
-                          </p>
-                        </div>
-                        <p className="mt-1 self-end text-sm font-medium text-foreground sm:hidden">
-                          {formatPrice(item.variant.price * item.quantity)}
-                        </p>
-                        <p className="hidden font-medium text-foreground sm:block">
-                          {formatPrice(item.variant.price * item.quantity)}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
-          </div>
-
-          {/* Order Summary */}
-          <div className="lg:col-span-1">
-            <Card className="rounded-2xl border-border/70 shadow-sm lg:sticky lg:top-24">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  Order Summary
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">At a glance</p>
-                      <p className="text-xs text-muted-foreground">
-                        {itemCount} item{itemCount === 1 ? '' : 's'} - {selectedItems.length} line
-                        {selectedItems.length === 1 ? '' : 's'}
-                      </p>
-                    </div>
-                    <Badge variant="secondary">{completedCheckoutSteps}/3 ready</Badge>
-                  </div>
-                  {appliedCoupon && (
-                    <div className="mt-3 rounded-xl border border-primary/20 bg-primary/10 px-3 py-2 text-sm">
-                      <p className="font-medium text-foreground">{appliedCoupon.code} applied</p>
-                      <p className="text-xs text-muted-foreground">
-                        {appliedCoupon.type === 'percentage'
-                          ? `${appliedCoupon.value}% discount`
-                          : `${formatPrice(appliedCoupon.value)} discount`}
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Subtotal</span>
-                    <span className="text-foreground">{formatPrice(selectedSubtotal)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">
-                      Shipping{allFreeShipping ? ' (free)' : hasFreeShippingItems ? ' (free items excluded)' : ''}
-                    </span>
-                    <span className="text-foreground">{formatPrice(shippingCost)}</span>
-                  </div>
-                  {reinforcedPackagingCost > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Reinforced Packaging</span>
-                      <span className="text-foreground">{formatPrice(reinforcedPackagingCost)}</span>
-                    </div>
-                  )}
-                  {appliedCoupon && (
-                    <div className="flex justify-between text-sm text-green-600">
-                      <span>Discount</span>
-                      <span>-{formatPrice(discount)}</span>
-                    </div>
-                  )}
-                  {loyaltyDiscount > 0 && (
-                    <div className="flex justify-between text-sm text-primary">
-                      <span>Loyalty Credit</span>
-                      <span>-{formatPrice(loyaltyDiscount)}</span>
-                    </div>
-                  )}
-                  {walletApplied > 0 && (
-                    <div className="flex justify-between text-sm text-primary">
-                      <span>Wallet Credit</span>
-                      <span>-{formatPrice(walletApplied)}</span>
-                    </div>
-                  )}
-                  <Separator />
-                  <div className="flex justify-between">
-                    <span className="font-semibold text-foreground">Total</span>
-                    <span className="text-xl font-bold text-primary">{formatPrice(total)}</span>
-                  </div>
-                </div>
-
-                {!isMobile && (
-                  <>
-                    <Button
-                      className="w-full"
-                      size="lg"
-                      onClick={handlePaystackPayment}
-                      disabled={isPaymentDisabled}
-                    >
-                      {isProcessing ? 'Processing...' : (
-                        <>
-                          {requiresPayment ? (
-                            <CreditCard className="h-4 w-4 mr-2" />
-                          ) : (
-                            <Check className="h-4 w-4 mr-2" />
-                          )}
-                          {paymentButtonText}
-                        </>
-                      )}
-                    </Button>
-
-                    <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-                      <Check className="h-3 w-3" />
-                      {paymentSupportText}
-                    </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </main>
-
-      {isMobile && (
-        <div className="fixed inset-x-0 bottom-0 z-40 px-3 pb-2">
-          <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 rounded-[1.35rem] border border-border/80 bg-background/95 px-3 pt-3 shadow-[0_18px_44px_-22px_hsl(var(--foreground)/0.75)] backdrop-blur-xl supports-[backdrop-filter]:bg-background/90">
-            <div className="min-w-0 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)]">
-              <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Ready to pay</p>
-              <p className="text-lg font-semibold text-foreground">{formatPrice(total)}</p>
-              <p className="truncate text-xs text-muted-foreground">{mobileCheckoutHint}</p>
+      <main className="container px-3 py-5 pb-10 sm:px-6 md:py-8">
+        <div className="mx-auto max-w-3xl">
+          <div className="mb-5 flex items-start justify-between gap-3 border-b border-border/60 pb-4">
+            <div className="flex min-w-0 items-start gap-3">
+              <Link
+                to="/cart"
+                className="mt-1 inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/70 text-muted-foreground transition-colors hover:text-primary"
+                aria-label="Back to cart"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Link>
+              <div className="min-w-0">
+                <h1 className="text-2xl font-bold text-foreground">Checkout</h1>
+                <p className="text-sm text-muted-foreground">Review and place your order</p>
+              </div>
             </div>
-            <div className="pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)]">
+
+            <div className="inline-flex shrink-0 items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary">
+              <Shield className="h-3.5 w-3.5" />
+              Secure checkout
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <Card className="rounded-2xl border-border/70 shadow-sm">
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground">Delivery</p>
+                      <p className="mt-1 text-sm text-foreground">{formatAddressLine(selectedAddressDetails)}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{formatAddressReference(selectedAddressDetails)}</p>
+                    </div>
+                  </div>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-9 shrink-0 rounded-xl px-4"
+                    onClick={() => setIsAddressPickerOpen(true)}
+                  >
+                    Change
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-2xl border-border/70 shadow-sm">
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <div className="mt-0.5 shrink-0 text-primary">
+                      {selectedShipping ? getShippingIcon(selectedShipping.shipping_type?.name || selectedShipping.name) : <Package className="h-5 w-5" />}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground">Shipping Method</p>
+                      <p className="mt-1 text-sm text-foreground">
+                        {selectedShipping ? selectedShipping.name : 'Choose a shipping method'}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {selectedShipping
+                          ? `${selectedShipping.estimated_days_min}-${selectedShipping.estimated_days_max} days delivery`
+                          : 'Select the shared delivery method for these items.'}
+                        {selectedShipping ? (
+                          <span className="ml-1 font-medium text-primary">
+                            {shippingCost === 0 ? 'FREE' : formatPrice(shippingCost)}
+                          </span>
+                        ) : null}
+                      </p>
+                    </div>
+                  </div>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-9 shrink-0 rounded-xl px-4"
+                    onClick={() => setIsShippingPickerOpen(true)}
+                  >
+                    Change
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            <button
+              type="button"
+              className="w-full text-left"
+              onClick={() => setIsSavingsDialogOpen(true)}
+            >
+              <Card className="rounded-2xl border-border/70 shadow-sm transition-colors hover:border-primary/40">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex min-w-0 items-start gap-3">
+                      <Tag className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-foreground">Savings & Credits</p>
+                        <p className="mt-1 text-xs text-muted-foreground">{savingsSummaryText}</p>
+                      </div>
+                    </div>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  </div>
+                </CardContent>
+              </Card>
+            </button>
+
+            <Card className="rounded-2xl border-border/70 shadow-sm">
+              <CardContent className="p-4">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <p className="text-sm font-semibold text-foreground">
+                    Order Items ({selectedItems.length})
+                  </p>
+                  <Link
+                    to="/cart"
+                    className="inline-flex items-center gap-1 text-sm font-medium text-primary"
+                  >
+                    Edit Cart
+                    <ChevronRight className="h-4 w-4" />
+                  </Link>
+                </div>
+
+                {unresolvedVariantItems.length > 0 ? (
+                  <div className="mb-4 rounded-2xl border border-amber-500/30 bg-amber-500/5 p-3 text-sm">
+                    <p className="font-medium text-foreground">Variants still need your selection</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Choose the remaining options below to unlock payment.
+                    </p>
+                  </div>
+                ) : null}
+
+                <div className="space-y-4">
+                  {selectedItems.map((item, index) => {
+                    const variantOptions = productVariantOptions[item.product.id] || [];
+                    const groupedVariantOptions = groupVariantOptionsByColor(variantOptions);
+                    const needsVariant = unresolvedVariantItems.some((unresolvedItem) => unresolvedItem.id === item.id);
+
+                    return (
+                      <div
+                        key={item.id}
+                        className={index === 0 ? '' : 'border-t border-border/60 pt-4'}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-muted">
+                            <img
+                              src={item.product.images[0]}
+                              alt={item.product.name}
+                              className="h-full w-full object-cover"
+                            />
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <h3 className="line-clamp-2 text-sm font-semibold text-foreground">
+                                  {item.product.name}
+                                </h3>
+                                <p className={`mt-1 text-sm ${needsVariant ? 'text-destructive' : 'text-muted-foreground'}`}>
+                                  {needsVariant
+                                    ? 'Variant not selected'
+                                    : formatVariantLabel(item.variant.color, item.variant.size)}
+                                </p>
+                                <p className="mt-1 text-xs text-muted-foreground">Qty: {item.quantity}</p>
+                              </div>
+
+                              <p className="shrink-0 text-sm font-semibold text-foreground">
+                                {formatPrice(item.variant.price * item.quantity)}
+                              </p>
+                            </div>
+
+                            {needsVariant ? (
+                              <div className="mt-3">
+                                <Select
+                                  value=""
+                                  onValueChange={(variantId) => {
+                                    const variant = variantOptions.find((option) => option.id === variantId);
+                                    if (!variant) return;
+
+                                    updateVariant(item.id, {
+                                      id: variant.id,
+                                      color: variant.color || undefined,
+                                      size: variant.size || undefined,
+                                      price: variant.price_override ?? item.product.basePrice,
+                                      stock: variant.stock || 0,
+                                    });
+                                  }}
+                                >
+                                  <SelectTrigger className="h-11 rounded-xl">
+                                    <SelectValue placeholder="Select variant" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {Object.entries(groupedVariantOptions).map(([color, options]) => (
+                                      <SelectGroup key={color}>
+                                        <SelectLabel>{color}</SelectLabel>
+                                        {options.map((variant) => {
+                                          const stock = variant.stock || 0;
+
+                                          return (
+                                            <SelectItem key={variant.id} value={variant.id} disabled={stock <= 0}>
+                                              {formatVariantLabel(color, variant.size)} - {stock > 0 ? `${stock} in stock` : 'Out of stock'}
+                                            </SelectItem>
+                                          );
+                                        })}
+                                      </SelectGroup>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-2xl border-border/70 shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-semibold">Order Summary</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Subtotal ({itemCount} items)</span>
+                  <span className="text-foreground">{formatPrice(selectedSubtotal)}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Shipping</span>
+                  <span className={shippingCost === 0 ? 'font-medium text-primary' : 'text-foreground'}>
+                    {shippingCost === 0 ? 'FREE' : formatPrice(shippingCost)}
+                  </span>
+                </div>
+                {reinforcedPackagingCost > 0 ? (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Reinforced Packaging</span>
+                    <span className="text-foreground">{formatPrice(reinforcedPackagingCost)}</span>
+                  </div>
+                ) : null}
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Savings</span>
+                  <span className={totalSavings > 0 ? 'font-medium text-primary' : 'text-muted-foreground'}>
+                    -{formatPrice(totalSavings)}
+                  </span>
+                </div>
+                <div className="h-px bg-border/70" />
+                <div className="flex items-center justify-between">
+                  <span className="text-base font-semibold text-foreground">Total</span>
+                  <span className="text-2xl font-bold text-primary">{formatPrice(total)}</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="grid grid-cols-2 gap-3">
               <Button
-                className="min-w-[9rem] rounded-xl"
-                size="lg"
+                type="button"
+                variant="outline"
+                className="h-12 rounded-xl"
+                onClick={() => navigate('/cart')}
+              >
+                Make Changes
+              </Button>
+              <Button
+                type="button"
+                className="h-12 rounded-xl"
                 onClick={handlePaystackPayment}
                 disabled={isPaymentDisabled}
               >
                 {isProcessing ? 'Processing...' : (
                   <>
                     {requiresPayment ? (
-                      <CreditCard className="h-4 w-4 mr-2" />
+                      <CreditCard className="mr-2 h-4 w-4" />
                     ) : (
-                      <Check className="h-4 w-4 mr-2" />
+                      <Check className="mr-2 h-4 w-4" />
                     )}
                     {paymentButtonText}
                   </>
                 )}
               </Button>
             </div>
+
+            <p className="text-center text-xs text-muted-foreground">{paymentSupportText}</p>
+
+            <div className="grid grid-cols-3 gap-2 text-center text-[11px] text-muted-foreground">
+              <div className="rounded-full border border-border/60 px-2 py-2">Secure payments</div>
+              <div className="rounded-full border border-border/60 px-2 py-2">Easy returns</div>
+              <div className="rounded-full border border-border/60 px-2 py-2">24/7 support</div>
+            </div>
           </div>
         </div>
-      )}
+      </main>
+
+      <Dialog open={isAddressPickerOpen} onOpenChange={setIsAddressPickerOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto bg-background">
+          <DialogHeader>
+            <DialogTitle>Choose Delivery Address</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {addresses.length > 0 ? (
+              <RadioGroup value={selectedAddressId} onValueChange={setSelectedAddressId}>
+                <div className="space-y-3">
+                  {addresses.map((address) => (
+                    <div
+                      key={address.id}
+                      className={`cursor-pointer rounded-2xl border p-3.5 transition-all sm:p-4 ${
+                        selectedAddressId === address.id
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-primary/50'
+                      }`}
+                      onClick={() => setSelectedAddressId(address.id)}
+                    >
+                      <div className="flex items-start gap-3">
+                        <RadioGroupItem value={address.id} id={`address-${address.id}`} className="mt-1" />
+                        <div className="flex-1">
+                          <div className="mb-1 flex items-center gap-2">
+                            <span className="font-medium text-foreground">{address.full_name}</span>
+                            {address.label ? (
+                              <span className="rounded bg-muted px-2 py-0.5 text-xs">{address.label}</span>
+                            ) : null}
+                            {address.is_default ? (
+                              <span className="rounded bg-primary/10 px-2 py-0.5 text-xs text-primary">Default</span>
+                            ) : null}
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {address.address_line1}
+                            {address.address_line2 ? `, ${address.address_line2}` : ''}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {[address.city, address.state, address.postal_code].filter(Boolean).join(', ')}
+                          </p>
+                          <p className="mt-1 text-sm text-muted-foreground">{address.country}</p>
+                          <p className="mt-1 text-sm text-muted-foreground">{address.phone}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </RadioGroup>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 p-4 text-sm text-muted-foreground">
+                No saved addresses yet.
+              </div>
+            )}
+
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 w-full rounded-xl"
+              onClick={() => {
+                setIsAddressPickerOpen(false);
+                setIsAddressDialogOpen(true);
+              }}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add New Address
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isShippingPickerOpen} onOpenChange={setIsShippingPickerOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto bg-background">
+          <DialogHeader>
+            <DialogTitle>Choose Shipping Method</DialogTitle>
+          </DialogHeader>
+          <RadioGroup value={selectedShippingId} onValueChange={handleShippingSelection}>
+            <div className="space-y-3">
+              {shippingClasses.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 p-4 text-sm text-muted-foreground">
+                  No shared shipping method is available for the items you selected.
+                </div>
+              ) : null}
+              {shippingClasses.map((shipping) => (
+                <div
+                  key={shipping.id}
+                  className={`cursor-pointer rounded-2xl border p-3.5 transition-all sm:p-4 ${
+                    selectedShippingId === shipping.id
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-primary/50'
+                  }`}
+                  onClick={() => handleShippingSelection(shipping.id)}
+                >
+                  <div className="flex items-start gap-3">
+                    <RadioGroupItem value={shipping.id} id={`shipping-${shipping.id}`} className="mt-1" />
+                    <div className="mt-0.5 text-primary">
+                      {getShippingIcon(shipping.shipping_type?.name || shipping.name)}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium text-foreground">{shipping.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {shipping.estimated_days_min}-{shipping.estimated_days_max} days delivery
+                          </p>
+                          {shipping.description || shipping.shipping_type?.description ? (
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {shipping.description || shipping.shipping_type?.description}
+                            </p>
+                          ) : null}
+                        </div>
+                        <p className="text-sm font-semibold text-foreground">
+                          {shipping.base_price === 0 ? 'FREE' : formatPrice(shipping.base_price)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </RadioGroup>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isSavingsDialogOpen} onOpenChange={setIsSavingsDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto bg-background">
+          <DialogHeader>
+            <DialogTitle>Savings & Credits</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-5">
+            {hasFragile ? (
+              <div className="space-y-4 rounded-2xl border border-border/70 bg-muted/20 p-4">
+                <div className="flex items-start gap-3">
+                  <Shield className="mt-0.5 h-5 w-5 text-primary" />
+                  <div>
+                    <p className="font-medium text-foreground">Packaging for fragile items</p>
+                    <p className="text-sm text-muted-foreground">
+                      Choose the protection level before payment.
+                    </p>
+                  </div>
+                </div>
+
+                <RadioGroup
+                  value={packagingChoice}
+                  onValueChange={(value) => {
+                    if (value === 'standard') {
+                      setShowStandardWarning(true);
+                    } else {
+                      setPackagingChoice('reinforced');
+                    }
+                  }}
+                >
+                  <div className="space-y-3">
+                    {allowsReinforcedPackaging ? (
+                      <div
+                        className={`cursor-pointer rounded-2xl border p-3.5 transition-all ${
+                          packagingChoice === 'reinforced'
+                            ? 'border-primary bg-primary/5'
+                            : 'border-border hover:border-primary/50'
+                        }`}
+                        onClick={() => setPackagingChoice('reinforced')}
+                      >
+                        <div className="flex items-start gap-3">
+                          <RadioGroupItem value="reinforced" id="savings-pack-reinforced" className="mt-1" />
+                          <div className="flex-1">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="font-medium text-foreground">Reinforced Protection</p>
+                                <p className="text-sm text-muted-foreground">
+                                  Extra cushioning and protection for fragile items.
+                                </p>
+                              </div>
+                              <p className="text-sm font-semibold text-foreground">
+                                +{formatPrice(reinforcedPackagingCost || globalReinforcedCost)}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {allowsStandardPackaging ? (
+                      <div
+                        className={`cursor-pointer rounded-2xl border p-3.5 transition-all ${
+                          packagingChoice === 'standard'
+                            ? 'border-primary bg-primary/5'
+                            : 'border-border hover:border-primary/50'
+                        }`}
+                        onClick={() => setShowStandardWarning(true)}
+                      >
+                        <div className="flex items-start gap-3">
+                          <RadioGroupItem value="standard" id="savings-pack-standard" className="mt-1" />
+                          <div className="flex-1">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="font-medium text-foreground">Standard Packaging</p>
+                                <p className="text-sm text-muted-foreground">
+                                  Factory packaging only with no extra transit protection.
+                                </p>
+                              </div>
+                              <p className="text-sm font-semibold text-foreground">Free</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                </RadioGroup>
+              </div>
+            ) : null}
+
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Tag className="h-4 w-4" />
+                Coupon Code
+              </Label>
+              {appliedCoupon ? (
+                <div className="flex items-center justify-between rounded-2xl border border-primary/20 bg-primary/10 p-3">
+                  <div>
+                    <p className="font-medium text-foreground">{appliedCoupon.code}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {appliedCoupon.type === 'percentage'
+                        ? `${appliedCoupon.value}% off`
+                        : `${formatPrice(appliedCoupon.value)} off`}
+                    </p>
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={removeCoupon}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Input
+                    placeholder="Enter code"
+                    value={couponCode}
+                    onChange={(event) => setCouponCode(event.target.value.toUpperCase())}
+                    className="flex-1"
+                  />
+                  <Button
+                    variant="outline"
+                    onClick={handleApplyCoupon}
+                    disabled={isApplyingCoupon}
+                    className="w-full sm:w-auto"
+                  >
+                    {isApplyingCoupon ? 'Applying...' : 'Apply'}
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {totalPoints > 0 ? (
+              <div className="space-y-4 rounded-2xl border border-border/70 bg-muted/20 p-4">
+                <label className="flex cursor-pointer items-start gap-3">
+                  <Checkbox
+                    checked={useLoyaltyCredit}
+                    onCheckedChange={(checked) => {
+                      const enabled = !!checked;
+                      setUseLoyaltyCredit(enabled);
+                      if (enabled && !loyaltyPointsToRedeem) {
+                        setLoyaltyPointsToRedeem(String(maxRedeemablePoints));
+                      }
+                    }}
+                    className="mt-1"
+                  />
+                  <div>
+                    <p className="font-medium text-foreground">
+                      Redeem loyalty points ({totalPoints.toLocaleString()} available)
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {loyaltyMinRedeemPoints} point minimum. {formatPrice(loyaltyRate)} per point.
+                    </p>
+                  </div>
+                </label>
+
+                {useLoyaltyCredit ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="loyalty-points">Points to redeem</Label>
+                    <Input
+                      id="loyalty-points"
+                      type="number"
+                      min={loyaltyMinRedeemPoints}
+                      max={maxRedeemablePoints}
+                      step="1"
+                      value={loyaltyPointsToRedeem}
+                      onChange={(event) => setLoyaltyPointsToRedeem(event.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Up to {maxRedeemablePoints.toLocaleString()} points can be used on this order.
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            {walletBalance > 0 ? (
+              <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
+                <label className="flex cursor-pointer items-start gap-3">
+                  <Checkbox
+                    checked={useWalletCredit}
+                    onCheckedChange={(checked) => setUseWalletCredit(!!checked)}
+                    className="mt-1"
+                  />
+                  <div>
+                    <p className="font-medium text-foreground">
+                      Use wallet credit ({formatPrice(walletBalance)} available)
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Apply your store credit toward this order. Cannot be withdrawn.
+                    </p>
+                  </div>
+                </label>
+              </div>
+            ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isAddressDialogOpen} onOpenChange={setIsAddressDialogOpen}>
+        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add New Address</DialogTitle>
+          </DialogHeader>
+          <div className="mt-4 space-y-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="col-span-2">
+                <Label>Full Name *</Label>
+                <Input
+                  value={newAddress.full_name}
+                  onChange={(e) => setNewAddress({ ...newAddress, full_name: e.target.value })}
+                />
+              </div>
+              <div className="col-span-2 sm:col-span-1">
+                <Label>Phone *</Label>
+                <Input
+                  value={newAddress.phone}
+                  onChange={(e) => setNewAddress({ ...newAddress, phone: e.target.value })}
+                />
+              </div>
+              <div className="col-span-2 sm:col-span-1">
+                <Label>Label (optional)</Label>
+                <Input
+                  placeholder="Home, Office, etc."
+                  value={newAddress.label}
+                  onChange={(e) => setNewAddress({ ...newAddress, label: e.target.value })}
+                />
+              </div>
+              <div className="col-span-2">
+                <Label>Address Line 1 *</Label>
+                <Input
+                  value={newAddress.address_line1}
+                  onChange={(e) => setNewAddress({ ...newAddress, address_line1: e.target.value })}
+                />
+              </div>
+              <div className="col-span-2">
+                <Label>Address Line 2</Label>
+                <Input
+                  value={newAddress.address_line2}
+                  onChange={(e) => setNewAddress({ ...newAddress, address_line2: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label>City *</Label>
+                <Input
+                  value={newAddress.city}
+                  onChange={(e) => setNewAddress({ ...newAddress, city: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label>State</Label>
+                <Input
+                  value={newAddress.state}
+                  onChange={(e) => setNewAddress({ ...newAddress, state: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label>Country *</Label>
+                <Input
+                  value={newAddress.country}
+                  onChange={(e) => setNewAddress({ ...newAddress, country: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label>Postal Code</Label>
+                <Input
+                  value={newAddress.postal_code}
+                  onChange={(e) => setNewAddress({ ...newAddress, postal_code: e.target.value })}
+                />
+              </div>
+            </div>
+            <Button onClick={handleAddAddress} className="w-full">
+              Save Address
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Payment Recovery Dialog */}
       <Dialog open={showPaymentRecovery} onOpenChange={setShowPaymentRecovery}>
