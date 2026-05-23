@@ -1244,69 +1244,12 @@ export default function Checkout() {
           Checkout
         </h1>
 
-        <Card className="mb-5 overflow-hidden rounded-2xl border-primary/15 bg-gradient-to-br from-primary/5 via-card to-card shadow-sm sm:mb-6">
-          <CardContent className="p-3.5 sm:p-5">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div>
-                <p className="text-xs font-medium uppercase tracking-[0.28em] text-primary/80">
-                  Checkout Progress
-                </p>
-                <h2 className="mt-2 text-lg font-semibold text-foreground sm:text-xl">
-                  Finish delivery details and review before payment
-                </h2>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  {itemCount} item{itemCount === 1 ? '' : 's'} across {selectedItems.length}{' '}
-                  line{selectedItems.length === 1 ? '' : 's'} selected for this order.
-                </p>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="secondary">{completedCheckoutSteps}/3 ready</Badge>
-                {selectedShipping && <Badge variant="outline">{selectedShipping.name}</Badge>}
-                {allFreeShipping && <Badge variant="outline">Free shipping unlocked</Badge>}
-              </div>
-            </div>
-
-            <div className="mt-4 grid gap-2.5 md:grid-cols-3">
-              {checkoutSteps.map((step, index) => (
-                <div
-                  key={step.id}
-                  className={`rounded-2xl border p-4 transition-colors ${
-                    step.complete
-                      ? 'border-primary/30 bg-primary/5'
-                      : 'border-border bg-background/80'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${
-                        step.complete
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted text-muted-foreground'
-                      }`}
-                    >
-                      {step.complete ? <Check className="h-4 w-4" /> : index + 1}
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">{step.label}</p>
-                      <p className="text-xs text-muted-foreground">{step.detail}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
         <div className="grid gap-6 lg:grid-cols-3 lg:gap-8">
           <div className="lg:col-span-2 space-y-6">
             {/* Delivery Address */}
             <Card className="rounded-2xl border-border/70 shadow-sm">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Badge variant="outline" className="mr-1">
-                    Step 1
-                  </Badge>
                   <MapPin className="h-5 w-5 text-primary" />
                   Delivery Address
                 </CardTitle>
@@ -1447,9 +1390,6 @@ export default function Checkout() {
             <Card className="rounded-2xl border-border/70 shadow-sm">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Badge variant="outline" className="mr-1">
-                    Step 2
-                  </Badge>
                   <Package className="h-5 w-5 text-primary" />
                   Shipping Method
                 </CardTitle>
@@ -1850,7 +1790,6 @@ export default function Checkout() {
             <Card className="rounded-2xl border-border/70 shadow-sm lg:sticky lg:top-24">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Badge variant="outline">Step 3</Badge>
                   Order Summary
                 </CardTitle>
               </CardHeader>
