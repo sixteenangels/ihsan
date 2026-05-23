@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Minus, Plus, Search, ShoppingBag, Trash2, X } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
@@ -38,10 +38,62 @@ export default function Cart() {
   } = useCart();
   const [variantDialogProductId, setVariantDialogProductId] = useState<string | null>(null);
 
+  const duplicatePlaceholderIds = useMemo(() => {
+    const itemsByProduct = new Map<string, CartItem[]>();
+
+    items.forEach((item) => {
+      const existingItems = itemsByProduct.get(item.product.id) || [];
+      existingItems.push(item);
+      itemsByProduct.set(item.product.id, existingItems);
+    });
+
+    return Array.from(itemsByProduct.values()).flatMap((productItems) => {
+      const hasResolvedVariant = productItems.some(
+        (item) => !isVariantPlaceholder(item.variant.id),
+      );
+
+      if (!hasResolvedVariant) {
+        return [];
+      }
+
+      return productItems
+        .filter((item) => isVariantPlaceholder(item.variant.id))
+        .map((item) => item.id);
+    });
+  }, [items]);
+
+  const duplicatePlaceholderIdSet = useMemo(
+    () => new Set(duplicatePlaceholderIds),
+    [duplicatePlaceholderIds],
+  );
+
+  const visibleItems = useMemo(
+    () => items.filter((item) => !duplicatePlaceholderIdSet.has(item.id)),
+    [duplicatePlaceholderIdSet, items],
+  );
+
+  const visibleSelectedItems = useMemo(
+    () => selectedItems.filter((item) => !duplicatePlaceholderIdSet.has(item.id)),
+    [duplicatePlaceholderIdSet, selectedItems],
+  );
+
+  const visibleSelectedItemIds = useMemo(
+    () => selectedItemIds.filter((itemId) => !duplicatePlaceholderIdSet.has(itemId)),
+    [duplicatePlaceholderIdSet, selectedItemIds],
+  );
+
+  useEffect(() => {
+    if (duplicatePlaceholderIds.length === 0) {
+      return;
+    }
+
+    duplicatePlaceholderIds.forEach((itemId) => removeFromCart(itemId));
+  }, [duplicatePlaceholderIds, removeFromCart]);
+
   const groupedProducts = useMemo(() => {
     const groups = new Map<string, ProductGroup>();
 
-    items.forEach((item) => {
+    visibleItems.forEach((item) => {
       const existingGroup = groups.get(item.product.id);
       if (existingGroup) {
         existingGroup.items.push(item);
@@ -55,16 +107,24 @@ export default function Cart() {
     });
 
     return Array.from(groups.values());
-  }, [items]);
+  }, [visibleItems]);
 
-  const allSelected = items.length > 0 && selectedItemIds.length === items.length;
-  const selectedQuantityCount = selectedItems.reduce((sum, item) => sum + item.quantity, 0);
-  const checkoutSubtotal = selectedItemIds.length > 0 ? selectedSubtotal : 0;
+  const selectedQuantityCount = visibleSelectedItems.reduce(
+    (sum, item) => sum + item.quantity,
+    0,
+  );
+  const checkoutSubtotal =
+    visibleSelectedItemIds.length > 0
+      ? visibleSelectedItems.reduce(
+          (sum, item) => sum + item.variant.price * item.quantity,
+          0,
+        )
+      : 0;
   const activeGroup =
     groupedProducts.find((group) => group.product.id === variantDialogProductId) || null;
 
   const handleCheckout = () => {
-    if (selectedItemIds.length === 0) {
+    if (visibleSelectedItemIds.length === 0) {
       toast.error('Select at least one item to continue');
       return;
     }
@@ -73,7 +133,7 @@ export default function Cart() {
   };
 
   const handleRemoveProduct = (productId: string) => {
-    const matchingItemIds = items
+    const matchingItemIds = visibleItems
       .filter((item) => item.product.id === productId)
       .map((item) => item.id);
 
@@ -92,7 +152,7 @@ export default function Cart() {
     setVariantDialogProductId(null);
   };
 
-  if (items.length === 0) {
+  if (visibleItems.length === 0) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
@@ -298,16 +358,6 @@ export default function Cart() {
                 </Card>
               );
             })}
-          </div>
-
-          <div className="mt-4 flex justify-center">
-            <button
-              type="button"
-              className="min-w-[10rem] rounded-full border border-border/70 px-5 py-2 text-sm font-medium text-primary transition-colors hover:border-primary/40"
-              onClick={() => setSelectedItemIds(allSelected ? [] : items.map((item) => item.id))}
-            >
-              {allSelected ? 'Unselect All' : 'Select All'}
-            </button>
           </div>
 
           <Card className="mt-4 overflow-hidden rounded-[1.4rem] border border-border/70 bg-card shadow-sm">
