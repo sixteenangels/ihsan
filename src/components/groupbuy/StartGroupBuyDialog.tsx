@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -28,6 +29,10 @@ import {
   getGroupBuyVariantUnitPrice,
   withGroupBuySelectionsInShippingAddress,
 } from '@/lib/groupBuySelections';
+import {
+  getGroupBuyAddressSetupPath,
+  hasRequiredGroupBuyDeliveryDetails,
+} from '@/lib/groupBuyCheckout';
 
 interface StartGroupBuyDialogProps {
   product: {
@@ -44,6 +49,7 @@ const MAX_GROUP_BUY_PARTICIPANTS = 100;
 
 export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuyDialogProps) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { formatPrice } = useCurrency();
   const [isOpen, setIsOpen] = useState(false);
@@ -75,7 +81,9 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
         .from('addresses')
         .select('*')
         .eq('user_id', user.id)
-        .eq('is_default', true)
+        .order('is_default', { ascending: false })
+        .order('created_at', { ascending: true })
+        .limit(1)
         .maybeSingle();
       return data;
     },
@@ -115,6 +123,10 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
   const averageUnitPrice = totalSelectedQuantity > 0
     ? totalAmount / totalSelectedQuantity
     : offeredUnitPrice;
+  const hasDeliveryDetails = hasRequiredGroupBuyDeliveryDetails({
+    address: defaultAddress,
+    email: user?.email,
+  });
 
   const resetForm = () => {
     setParticipantCount('5');
@@ -379,6 +391,21 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
   if (!user) {
     return (
       <Button variant="secondary" className={triggerClassName} onClick={() => toast.info('Please sign in to start a group buy')}>
+        <Users className="mr-2 h-4 w-4" /> Start Group Buy
+      </Button>
+    );
+  }
+
+  if (!hasDeliveryDetails) {
+    return (
+      <Button
+        variant="secondary"
+        className={triggerClassName}
+        onClick={() => {
+          toast.error('Add delivery address before starting this group buy.');
+          navigate(getGroupBuyAddressSetupPath());
+        }}
+      >
         <Users className="mr-2 h-4 w-4" /> Start Group Buy
       </Button>
     );

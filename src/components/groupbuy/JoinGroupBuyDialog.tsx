@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -28,6 +29,10 @@ import {
   getGroupBuyVariantUnitPrice,
   withGroupBuySelectionsInShippingAddress,
 } from '@/lib/groupBuySelections';
+import {
+  getGroupBuyAddressSetupPath,
+  hasRequiredGroupBuyDeliveryDetails,
+} from '@/lib/groupBuyCheckout';
 
 interface JoinGroupBuyDialogProps {
   inviteCode?: string | null;
@@ -70,6 +75,7 @@ export function JoinGroupBuyDialog({
   disableDialogWhenJoined = false,
 }: JoinGroupBuyDialogProps) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { formatPrice } = useCurrency();
   const [isOpen, setIsOpen] = useState(false);
@@ -115,7 +121,9 @@ export function JoinGroupBuyDialog({
         .from('addresses')
         .select('*')
         .eq('user_id', user.id)
-        .eq('is_default', true)
+        .order('is_default', { ascending: false })
+        .order('created_at', { ascending: true })
+        .limit(1)
         .maybeSingle();
       return data;
     },
@@ -416,6 +424,10 @@ export function JoinGroupBuyDialog({
 
   const participantsNeeded = Math.max(0, groupBuy.min_participants - currentParticipants);
   const hasJoined = !!existingParticipation;
+  const hasDeliveryDetails = hasRequiredGroupBuyDeliveryDetails({
+    address: defaultAddress,
+    email: user.email,
+  });
   const leaveWindow = existingParticipation
     ? getLeaveWindowInfo({
         currentParticipants,
@@ -426,11 +438,29 @@ export function JoinGroupBuyDialog({
     : null;
   const joinedButtonDisabled = hasJoined && disableDialogWhenJoined;
 
+  const redirectToAddressSetup = () => {
+    toast.error('Add delivery address before joining this group buy.');
+    navigate(getGroupBuyAddressSetupPath());
+  };
+
   if (!user) {
     return (
       <Button className={cn('w-full', triggerClassName)} onClick={() => toast.info('Please sign in to join this group buy')}>
         <Users className="h-4 w-4 mr-2" />
         {signedOutLabel}
+      </Button>
+    );
+  }
+
+  if (!hasJoined && !hasDeliveryDetails) {
+    return (
+      <Button
+        className={cn('w-full', triggerClassName)}
+        onClick={redirectToAddressSetup}
+        variant="outline"
+      >
+        <Users className="h-4 w-4 mr-2" />
+        {triggerLabel}
       </Button>
     );
   }

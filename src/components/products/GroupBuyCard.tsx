@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { LockKeyhole, Star } from 'lucide-react';
+import { Hourglass, LockKeyhole, Star } from 'lucide-react';
 import { GroupBuyWithProduct } from '@/hooks/useGroupBuys';
 import { useCurrency } from '@/hooks/useCurrency';
 import { Card, CardContent } from '@/components/ui/card';
@@ -38,7 +38,8 @@ export function GroupBuyCard({ groupBuy }: GroupBuyCardProps) {
     discountPercentage: groupBuy.discount_percentage,
   });
   const productSummary = groupBuy.product.category_name || groupBuy.product.description || 'Limited group deal';
-  const ratingLabel = groupBuy.product.rating
+  const hasRating = Boolean(groupBuy.product.rating);
+  const ratingLabel = hasRating
     ? `${Number(groupBuy.product.rating).toFixed(1)} rated`
     : formatGroupBuyTimeRemaining(groupBuy.expires_at);
   const inviteText = participantsNeeded > 0
@@ -87,7 +88,11 @@ export function GroupBuyCard({ groupBuy }: GroupBuyCardProps) {
           <div className="min-w-0">
             <div className="mb-1 flex items-center justify-between gap-2">
               <Badge className="h-6 min-w-0 max-w-[62%] truncate rounded-full bg-primary/15 px-2 text-[10px] font-bold text-primary hover:bg-primary/15">
-                <Star className="mr-1 h-3 w-3 flex-shrink-0 fill-primary" />
+                {hasRating ? (
+                  <Star className="mr-1 h-3 w-3 flex-shrink-0 fill-primary" />
+                ) : (
+                  <Hourglass className="mr-1 h-3 w-3 flex-shrink-0" />
+                )}
                 <span className="truncate">{ratingLabel}</span>
               </Badge>
               <div className="min-w-[3.5rem] text-right leading-none">

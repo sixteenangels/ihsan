@@ -351,9 +351,10 @@ export default function ProductDetail() {
     : expectedRestockDateLabel
       ? `Expected restock ${expectedRestockDateLabel}`
       : 'Restock alerts available';
-  const activeProductGroupBuy = activeProductGroupBuys.find((groupBuy) => groupBuy.id === preferredGroupBuyId)
-    || activeProductGroupBuys[0]
-    || null;
+  const preferredProductGroupBuy = activeProductGroupBuys.find((groupBuy) => groupBuy.id === preferredGroupBuyId) || null;
+  const joinedProductGroupBuy = activeProductGroupBuys.find((groupBuy) => groupBuy.viewer_has_joined) || null;
+  const activeProductGroupBuy = preferredProductGroupBuy || joinedProductGroupBuy || activeProductGroupBuys[0] || null;
+  const hasLiveProductGroupBuy = activeProductGroupBuys.length > 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -424,7 +425,7 @@ export default function ProductDetail() {
                       </p>
                     ) : null}
                   </div>
-                  <div className={`grid gap-2 ${activeProductGroupBuy ? 'sm:grid-cols-2' : 'sm:grid-cols-1'}`}>
+                  <div className="grid gap-2 sm:grid-cols-2">
                     <StartGroupBuyDialog
                       triggerClassName="h-10 w-full rounded-xl"
                       product={{ id: product.id, name: product.name, base_price: product.base_price, group_buy_price: product.group_buy_price ?? null }}
@@ -452,7 +453,12 @@ export default function ProductDetail() {
                           tiers: activeProductGroupBuy.tiers,
                         }}
                       />
-                    ) : null}
+                    ) : (
+                      <Button variant="outline" className="h-10 rounded-xl" disabled={!hasLiveProductGroupBuy}>
+                        <Users className="mr-2 h-4 w-4" />
+                        Join Existing
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>

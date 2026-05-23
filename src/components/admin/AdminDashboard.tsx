@@ -15,8 +15,21 @@ import type { Database } from '@/integrations/supabase/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { AFTER_SALES_CATEGORY, AFTER_SALES_SUPPORT_OPTIONS, getAfterSalesSupportLabel } from '@/lib/afterSalesSupport';
 import { toast } from 'sonner';
+import { buildGroupedAdminOrderCards } from '@/lib/groupBuyAdminOrders';
 
-type OrderSummaryRow = Pick<Database['public']['Tables']['orders']['Row'], 'status' | 'total_amount' | 'created_at'>;
+type OrderSummaryRow = Pick<
+  Database['public']['Tables']['orders']['Row'],
+  | 'created_at'
+  | 'group_buy_id'
+  | 'id'
+  | 'is_group_buy_master'
+  | 'order_number'
+  | 'parent_order_id'
+  | 'status'
+  | 'total_amount'
+  | 'updated_at'
+  | 'user_id'
+>;
 const ADMIN_VISIBLE_ORDER_STATUSES = [
   'payment_received',
   'order_placed',
@@ -100,10 +113,15 @@ type PickPackOrderRow = Pick<
   | 'order_number'
   | 'status'
   | 'created_at'
+  | 'updated_at'
   | 'fulfillment_stage'
   | 'fulfillment_checks'
+  | 'group_buy_id'
+  | 'is_group_buy_master'
+  | 'parent_order_id'
   | 'shipping_address'
   | 'total_amount'
+  | 'user_id'
 > & {
   order_items:
     | Array<{
@@ -189,9 +207,9 @@ export function AdminDashboard() {
     queryFn: async (): Promise<OrderSummaryRow[]> => {
       const { data } = await supabase
         .from('orders')
-        .select('status, total_amount, created_at')
+        .select('id, order_number, status, total_amount, created_at, updated_at, group_buy_id, is_group_buy_master, parent_order_id, user_id')
         .in('status', ADMIN_VISIBLE_ORDER_STATUSES)
-        .or('is_group_buy_master.is.null,is_group_buy_master.eq.false');
+        .order('created_at', { ascending: false });
       return data || [];
     },
   });
@@ -339,10 +357,15 @@ export function AdminDashboard() {
           order_number,
           status,
           created_at,
+          updated_at,
           fulfillment_stage,
           fulfillment_checks,
+          group_buy_id,
+          is_group_buy_master,
+          parent_order_id,
           shipping_address,
           total_amount,
+          user_id,
           order_items (
             id,
             product_name,
@@ -350,9 +373,8 @@ export function AdminDashboard() {
           )
         `)
         .in('status', ADMIN_PICK_PACK_ORDER_STATUSES)
-        .or('is_group_buy_master.is.null,is_group_buy_master.eq.false')
         .order('created_at', { ascending: true })
-        .limit(8);
+        .limit(40);
 
       if (error) throw error;
       return (data || []) as unknown as PickPackOrderRow[];
@@ -403,6 +425,29 @@ export function AdminDashboard() {
     onError: (error: Error) => toast.error(error.message),
   });
 
+  const groupedDashboardOrders = useMemo(
+    () =>
+      buildGroupedAdminOrderCards(orders || []).map((card) =>
+        card.kind === 'group'
+          ? {
+              created_at: card.cluster.createdAt,
+              status: card.cluster.status,
+              total_amount: card.cluster.totalAmount,
+            }
+          : {
+              created_at: card.order.created_at,
+              status: card.order.status,
+              total_amount: card.order.total_amount,
+            },
+      ),
+    [orders],
+  );
+
+  const groupedPickPackCards = useMemo(
+    () => buildGroupedAdminOrderCards(pickPackOrders || []),
+    [pickPackOrders],
+  );
+
   const pickPackActionMutation = useMutation({
     mutationFn: async ({
       orderId,
@@ -448,6 +493,43 @@ export function AdminDashboard() {
 
       if (orderError) throw orderError;
 
+      if (nextStatus && order?.is_group_buy_master && order.group_buy_id) {
+        const { error: childStatusError } = await supabase
+          .from('orders')
+          .update({ status: nextStatus, updated_at: new Date().toISOString() } as never)
+          .eq('group_buy_id', order.group_buy_id)
+          .neq('id', orderId);
+
+        if (childStatusError) throw childStatusError;
+
+        const { data: childOrders, error: childOrdersError } = await supabase
+          .from('orders')
+          .select('id')
+          .eq('group_buy_id', order.group_buy_id)
+          .neq('id', orderId);
+
+        if (childOrdersError) throw childOrdersError;
+
+        if ((childOrders || []).length > 0) {
+          const { error: trackingError } = await supabase.from('order_tracking').insert(
+            (childOrders || []).map((childOrder) => ({
+              order_id: childOrder.id,
+              status: nextStatus,
+              location_name:
+                nextStatus === 'packed_for_delivery'
+                  ? 'Packed for Delivery'
+                  : 'Handed to Courier',
+              notes:
+                nextStatus === 'packed_for_delivery'
+                  ? 'Group order packed and moved to the next fulfillment stage.'
+                  : 'Group order handed to the courier for delivery.',
+            })) as never,
+          );
+
+          if (trackingError) throw trackingError;
+        }
+      }
+
       const trimmedScanCode = scanCode?.trim();
       const { error: scanError } = await supabase
         .from('pick_pack_scans' as never)
@@ -470,36 +552,43 @@ export function AdminDashboard() {
   });
 
   const orderStats = useMemo(() => {
-    if (!orders) return { total: 0, paid: 0, delivered: 0, totalRevenue: 0 };
+    if (groupedDashboardOrders.length === 0) {
+      return { total: 0, paid: 0, delivered: 0, totalRevenue: 0 };
+    }
     return {
-      total: orders.length,
-      paid: orders.filter(o => ['payment_received', 'order_placed', 'confirmed'].includes(o.status || '')).length,
-      delivered: orders.filter(o => o.status === 'delivered').length,
-      totalRevenue: orders.reduce((sum, o) => sum + Number(o.total_amount), 0),
+      total: groupedDashboardOrders.length,
+      paid: groupedDashboardOrders.filter((order) =>
+        ['payment_received', 'order_placed', 'confirmed'].includes(order.status || ''),
+      ).length,
+      delivered: groupedDashboardOrders.filter((order) => order.status === 'delivered').length,
+      totalRevenue: groupedDashboardOrders.reduce(
+        (sum, order) => sum + Number(order.total_amount),
+        0,
+      ),
     };
-  }, [orders]);
+  }, [groupedDashboardOrders]);
 
   const revenueProgress = revenueGoal ? Math.min((orderStats.totalRevenue / (revenueGoal as number)) * 100, 100) : 0;
 
   // Revenue by month (last 6 months)
   const revenueByMonth = useMemo(() => {
-    if (!orders) return [];
+    if (groupedDashboardOrders.length === 0) return [];
     const months = Array.from({ length: 6 }, (_, i) => {
       const date = subMonths(new Date(), 5 - i);
       const start = startOfMonth(date);
       const end = endOfMonth(date);
-      const monthOrders = orders.filter(o => {
-        const d = new Date(o.created_at);
+      const monthOrders = groupedDashboardOrders.filter((order) => {
+        const d = new Date(order.created_at);
         return d >= start && d <= end;
       });
       return {
         month: format(date, 'MMM'),
-        revenue: monthOrders.reduce((sum, o) => sum + Number(o.total_amount), 0),
+        revenue: monthOrders.reduce((sum, order) => sum + Number(order.total_amount), 0),
         orders: monthOrders.length,
       };
     });
     return months;
-  }, [orders]);
+  }, [groupedDashboardOrders]);
 
   // Orders by status
   const ordersByStatus = useMemo(() => {
@@ -641,8 +730,49 @@ export function AdminDashboard() {
   }, [purchasePlanningQueue]);
 
   const pickPackQueue = useMemo(() => {
-    return pickPackOrders
-      .map((order) => {
+    return groupedPickPackCards
+      .map((card) => {
+        if (card.kind === 'group') {
+          const controlOrder = card.cluster.masterOrder || card.cluster.primaryOrder;
+          const checks =
+            controlOrder.fulfillment_checks && typeof controlOrder.fulfillment_checks === 'object'
+              ? (controlOrder.fulfillment_checks as Record<string, boolean>)
+              : null;
+          const deliverySource =
+            card.cluster.childOrders[0] || card.cluster.primaryOrder;
+          const shippingAddress =
+            (deliverySource.shipping_address as unknown as PickPackShippingAddress | null) || null;
+          const itemCount = card.cluster.childOrders
+            .flatMap((order) => order.order_items || [])
+            .reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+          const ageHours = Math.max(
+            1,
+            Math.round((Date.now() - new Date(card.cluster.createdAt).getTime()) / (1000 * 60 * 60)),
+          );
+
+          return {
+            id: controlOrder.id,
+            orderNumber: `Group #${card.cluster.displayOrderNumber}`,
+            status: card.cluster.status || 'pending',
+            checks,
+            totalAmount: Number(card.cluster.totalAmount || 0),
+            recipientName: `${card.cluster.participantCount} participant group`,
+            recipientPhone: shippingAddress?.phone || null,
+            city: shippingAddress?.city || 'Multiple delivery addresses',
+            itemCount,
+            itemPreview: card.cluster.childOrders
+              .flatMap((order) => order.order_items || [])
+              .slice(0, 2)
+              .map((item) => `${item.product_name} x${item.quantity}`)
+              .join(', '),
+            nextAction: getPickPackNextAction(checks, controlOrder.status),
+            ageHours,
+            isGroupOrder: true,
+            participantCount: card.cluster.participantCount,
+          };
+        }
+
+        const order = card.order;
         const checks =
           order.fulfillment_checks && typeof order.fulfillment_checks === 'object'
             ? (order.fulfillment_checks as Record<string, boolean>)
@@ -674,10 +804,12 @@ export function AdminDashboard() {
             .join(', '),
           nextAction: getPickPackNextAction(checks, order.status),
           ageHours,
+          isGroupOrder: false,
+          participantCount: 0,
         };
       })
       .sort((left, right) => right.ageHours - left.ageHours);
-  }, [pickPackOrders]);
+  }, [groupedPickPackCards]);
 
   const stats = [
     { name: 'Total Products', value: productCount ?? 0, icon: Package, color: 'text-primary' },
@@ -1138,6 +1270,9 @@ export function AdminDashboard() {
                 <div className="space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="font-semibold text-foreground">{order.orderNumber}</p>
+                    {order.isGroupOrder ? (
+                      <Badge variant="outline">Group Buy</Badge>
+                    ) : null}
                     <Badge variant={order.ageHours >= 24 ? 'destructive' : 'secondary'}>
                       {order.ageHours >= 24 ? 'Needs attention' : `${order.ageHours}h in queue`}
                     </Badge>
@@ -1148,6 +1283,7 @@ export function AdminDashboard() {
                   </p>
                   <p className="text-sm text-muted-foreground">
                     {order.itemCount} item{order.itemCount === 1 ? '' : 's'} to process
+                    {order.isGroupOrder ? ` across ${order.participantCount} participant orders` : ''}
                     {order.itemPreview ? ` - ${order.itemPreview}` : ''}
                   </p>
                 </div>

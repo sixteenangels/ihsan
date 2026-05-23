@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -29,6 +29,11 @@ import { logAdminAction } from '@/lib/audit-log';
 import { generateProofVerificationCode, uploadProofOfDelivery } from '@/lib/proof-of-delivery';
 import { creditWalletByAdmin } from '@/lib/wallet';
 import {
+  buildGroupedAdminOrderCards,
+  type GroupedAdminOrderCard,
+  type GroupOrderCluster,
+} from '@/lib/groupBuyAdminOrders';
+import {
   buildDeliveryWindowEmailHtml,
   buildDeliveryWindowEmailSubject,
   buildDeliveryWindowEmailText,
@@ -39,6 +44,7 @@ import {
   buildRefundEmailSubject,
   buildRefundEmailText,
 } from '@/lib/email-templates';
+import { GroupBuyParticipantList } from '@/components/groupbuy/GroupBuyParticipantList';
 
 const ORDER_STATUSES = [
   'pending',
@@ -95,6 +101,8 @@ type AdminOrder = OrderRow & {
   profiles: Pick<ProfileRow, 'user_id' | 'name' | 'email'> | null;
   refund_request: RefundRequestRow | null;
 };
+
+type OrderCard = GroupedAdminOrderCard<AdminOrder>;
 
 type RefundChannel = 'original_payment' | 'wallet_credit' | 'mixed';
 
@@ -425,7 +433,6 @@ export function AdminOrders() {
           )
         `)
         .in('status', ADMIN_VISIBLE_ORDER_STATUSES)
-        .or('is_group_buy_master.is.null,is_group_buy_master.eq.false')
         .order('created_at', { ascending: false });
 
       if (ordersError) throw ordersError;
@@ -534,25 +541,58 @@ export function AdminOrders() {
     },
   });
 
-  const filteredOrders = orders?.filter(order => {
-    // Tab filter
-    const tabMatch = activeTab === 'all' || STATUS_TABS.find(t => t.value === activeTab)?.statuses.includes(order.status as OrderStatus);
-    if (!tabMatch) return false;
-    // Search filter
+  const orderCards = useMemo(
+    () => buildGroupedAdminOrderCards(orders || []),
+    [orders],
+  );
+
+  const filteredOrders = orderCards.filter((card) => {
+    const status = card.kind === 'group' ? card.cluster.status : card.order.status;
+    const tabMatch =
+      activeTab === 'all' ||
+      STATUS_TABS.find((tab) => tab.value === activeTab)?.statuses.includes(status as OrderStatus);
+
+    if (!tabMatch) {
+      return false;
+    }
+
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      const name = order.profiles?.name?.toLowerCase() || '';
-      const email = order.profiles?.email?.toLowerCase() || '';
-      const orderNum = order.order_number?.toLowerCase() || '';
-      return name.includes(q) || email.includes(q) || orderNum.includes(q);
+      const searchText =
+        card.kind === 'group'
+          ? [
+              card.cluster.displayOrderNumber,
+              ...card.cluster.allOrders.flatMap((order) => [
+                order.order_number,
+                order.profiles?.name || '',
+                order.profiles?.email || '',
+                ...order.order_items.map((item) => item.product_name || ''),
+              ]),
+            ]
+              .join(' ')
+              .toLowerCase()
+          : [
+              card.order.order_number,
+              card.order.profiles?.name || '',
+              card.order.profiles?.email || '',
+              ...card.order.order_items.map((item) => item.product_name || ''),
+            ]
+              .join(' ')
+              .toLowerCase();
+
+      return searchText.includes(q);
     }
+
     return true;
-  }) || [];
+  });
 
   const getOrderCountForTab = (tabValue: string) => {
-    if (tabValue === 'all') return orders?.length || 0;
+    if (tabValue === 'all') return orderCards.length;
     const tabConfig = STATUS_TABS.find(t => t.value === tabValue);
-    return orders?.filter(o => tabConfig?.statuses.includes(o.status as OrderStatus)).length || 0;
+    return orderCards.filter((card) => {
+      const status = card.kind === 'group' ? card.cluster.status : card.order.status;
+      return tabConfig?.statuses.includes(status as OrderStatus);
+    }).length;
   };
 
   const sendTransactionalEmail = useCallback(async (payload: {
@@ -586,111 +626,117 @@ export function AdminOrders() {
     return data;
   }, [user?.id]);
 
-  const updateStatusMutation = useMutation({
-    mutationFn: async ({
-      orderId,
+  const applyOrderStatusChange = useCallback(async ({
+    orderId,
+    status,
+    userId,
+    orderNumber,
+    customNote,
+    customerEmail,
+    customerName,
+    notifyCustomer = true,
+  }: {
+    orderId: string;
+    status: OrderStatus;
+    userId?: string;
+    orderNumber?: string;
+    customNote?: string;
+    customerEmail?: string | null;
+    customerName?: string | null;
+    notifyCustomer?: boolean;
+  }) => {
+    const { error } = await supabase
+      .from('orders')
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq('id', orderId);
+
+    if (error) {
+      console.error('Update error:', error);
+      throw error;
+    }
+
+    const autoNotes: Record<string, string> = {
+      payment_received: "We've received your payment. Thank you!",
+      order_placed: 'Your order has been placed successfully.',
+      order_processed: 'Item verified and packed. Preparing for courier pickup.',
+      confirmed: 'Your order has been confirmed.',
+      processing: 'Your order is being processed.',
+      packed_for_delivery: 'Your order has been packed and is ready for shipping.',
+      shipped: 'Your order has been shipped!',
+      in_transit: 'Your order is on its way.',
+      in_ghana: 'Your order has arrived in Ghana!',
+      ready_for_delivery: 'Your order is ready for pickup/delivery.',
+      handed_to_courier: 'Courier has picked up your package.',
+      out_for_delivery: 'Your order is on the way to your location.',
+      delivered: 'Item received. Enjoy!',
+      cancelled: 'Your order has been cancelled.',
+      refunded: 'Your order has been refunded.',
+    };
+
+    const trackingNote = customNote
+      ? (autoNotes[status] ? `${autoNotes[status]} - ${customNote}` : customNote)
+      : (autoNotes[status] || '');
+
+    await supabase.from('order_tracking').insert({
+      order_id: orderId,
       status,
-      userId,
-      orderNumber,
-      customNote,
-      customerEmail,
-      customerName,
-    }: {
-      orderId: string;
-      status: OrderStatus;
-      userId?: string;
-      orderNumber?: string;
-      customNote?: string;
-      customerEmail?: string | null;
-      customerName?: string | null;
-    }) => {
-      const { error } = await supabase
-        .from('orders')
-        .update({ status, updated_at: new Date().toISOString() })
-        .eq('id', orderId);
-      
-      if (error) {
-        console.error('Update error:', error);
-        throw error;
-      }
+      location_name: STATUS_LABELS[status],
+      notes: trackingNote,
+    });
 
-      // Auto-create tracking entry with note
-      const autoNotes: Record<string, string> = {
-        payment_received: "We've received your payment. Thank you!",
-        order_placed: 'Your order has been placed successfully.',
-        order_processed: 'Item verified and packed. Preparing for courier pickup.',
-        confirmed: 'Your order has been confirmed.',
-        processing: 'Your order is being processed.',
-        packed_for_delivery: 'Your order has been packed and is ready for shipping.',
-        shipped: 'Your order has been shipped!',
-        in_transit: 'Your order is on its way.',
-        in_ghana: 'Your order has arrived in Ghana!',
-        ready_for_delivery: 'Your order is ready for pickup/delivery.',
-        handed_to_courier: 'Courier has picked up your package.',
-        out_for_delivery: 'Your order is on the way to your location.',
-        delivered: 'Item received. Enjoy!',
-        cancelled: 'Your order has been cancelled.',
-        refunded: 'Your order has been refunded.',
-      };
+    const statusMessages: Record<OrderStatus, string> = {
+      pending: 'Your order is pending confirmation.',
+      payment_received: 'Payment received! Processing your order.',
+      order_placed: 'Your order has been placed successfully!',
+      order_processed: 'Item verified and packed. Preparing for courier pickup.',
+      confirmed: 'Your order has been confirmed!',
+      processing: 'Your order is being processed.',
+      packed_for_delivery: 'Your order has been packed and ready for shipping!',
+      shipped: 'Your order has been shipped!',
+      in_transit: 'Your order is in transit.',
+      in_ghana: 'Your order has arrived in Ghana!',
+      ready_for_delivery: 'Your order is ready for delivery!',
+      handed_to_courier: 'Courier has picked up your package.',
+      out_for_delivery: 'Your order is out for delivery!',
+      delivered: 'Your order has been delivered!',
+      cancelled: 'Your order has been cancelled.',
+      refunded: 'Your order has been refunded.',
+    };
 
-      const trackingNote = customNote
-        ? (autoNotes[status] ? `${autoNotes[status]} - ${customNote}` : customNote)
-        : (autoNotes[status] || '');
+    let emailResult:
+      | {
+          sent?: boolean;
+          skipped?: boolean;
+        }
+      | undefined;
 
-      await supabase.from('order_tracking').insert({
-        order_id: orderId,
-        status: status,
-        location_name: STATUS_LABELS[status],
-        notes: trackingNote,
+    if (notifyCustomer && userId) {
+      const message = customNote
+        ? `${statusMessages[status]} Note: ${customNote}`
+        : statusMessages[status];
+
+      await supabase.from('notifications').insert({
+        user_id: userId,
+        title: `Order Status: ${STATUS_LABELS[status]}`,
+        message,
+        type: 'order_status',
+        data: { orderId, status },
       });
 
-      const statusMessages: Record<OrderStatus, string> = {
-        pending: 'Your order is pending confirmation.',
-        payment_received: 'Payment received! Processing your order.',
-        order_placed: 'Your order has been placed successfully!',
-        order_processed: 'Item verified and packed. Preparing for courier pickup.',
-        confirmed: 'Your order has been confirmed!',
-        processing: 'Your order is being processed.',
-        packed_for_delivery: 'Your order has been packed and ready for shipping!',
-        shipped: 'Your order has been shipped!',
-        in_transit: 'Your order is in transit.',
-        in_ghana: 'Your order has arrived in Ghana!',
-        ready_for_delivery: 'Your order is ready for delivery!',
-        handed_to_courier: 'Courier has picked up your package.',
-        out_for_delivery: 'Your order is out for delivery!',
-        delivered: 'Your order has been delivered!',
-        cancelled: 'Your order has been cancelled.',
-        refunded: 'Your order has been refunded.',
-      };
-
-      if (userId) {
-        const message = customNote 
-          ? `${statusMessages[status]} Note: ${customNote}`
-          : statusMessages[status];
-          
-        await supabase.from('notifications').insert({
-          user_id: userId,
-          title: `Order Status: ${STATUS_LABELS[status]}`,
-          message,
-          type: 'order_status',
-          data: { orderId, status },
+      try {
+        await supabase.functions.invoke('send-push-notification', {
+          body: {
+            user_id: userId,
+            title: `Order ${orderNumber || 'Update'}`,
+            body: statusMessages[status],
+            data: { orderId, status, type: 'order_status' },
+          },
         });
-
-        try {
-          await supabase.functions.invoke('send-push-notification', {
-            body: {
-              user_id: userId,
-              title: `Order ${orderNumber || 'Update'}`,
-              body: statusMessages[status],
-              data: { orderId, status, type: 'order_status' },
-            },
-          });
-        } catch (pushError) {
-          console.log('Push notification not sent:', pushError);
-        }
+      } catch (pushError) {
+        console.log('Push notification not sent:', pushError);
       }
 
-      const emailResult = await sendTransactionalEmail({
+      emailResult = await sendTransactionalEmail({
         to: customerEmail,
         subject: buildOrderStatusEmailSubject({
           orderNumber: orderNumber || 'your order',
@@ -714,19 +760,50 @@ export function AdminOrders() {
         relatedEntityId: orderId,
         metadata: { orderNumber, status, customerEmail },
       });
+    }
 
-      await logAdminAction({
-        actorUserId: user?.id,
-        action: 'order.status_updated',
-        entityType: 'order',
-        entityId: orderId,
-        summary: `Updated order ${orderNumber || orderId} to ${STATUS_LABELS[status]}.`,
-        metadata: {
-          status,
-          orderNumber,
-          customNote: customNote || null,
-          emailSent: emailResult?.sent || false,
-        },
+    await logAdminAction({
+      actorUserId: user?.id,
+      action: 'order.status_updated',
+      entityType: 'order',
+      entityId: orderId,
+      summary: `Updated order ${orderNumber || orderId} to ${STATUS_LABELS[status]}.`,
+      metadata: {
+        status,
+        orderNumber,
+        customNote: customNote || null,
+        emailSent: emailResult?.sent || false,
+        notifyCustomer,
+      },
+    });
+  }, [sendTransactionalEmail, user?.id]);
+
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({
+      orderId,
+      status,
+      userId,
+      orderNumber,
+      customNote,
+      customerEmail,
+      customerName,
+    }: {
+      orderId: string;
+      status: OrderStatus;
+      userId?: string;
+      orderNumber?: string;
+      customNote?: string;
+      customerEmail?: string | null;
+      customerName?: string | null;
+    }) => {
+      await applyOrderStatusChange({
+        orderId,
+        status,
+        userId,
+        orderNumber,
+        customNote,
+        customerEmail,
+        customerName,
       });
     },
     onSuccess: () => {
@@ -737,6 +814,55 @@ export function AdminOrders() {
     onError: (error: Error) => {
       console.error('Mutation error:', error);
       toast.error(`Failed to update: ${error.message}`);
+    },
+  });
+
+  const updateGroupStatusMutation = useMutation({
+    mutationFn: async ({
+      cluster,
+      status,
+      customNote,
+    }: {
+      cluster: GroupOrderCluster<AdminOrder>;
+      status: OrderStatus;
+      customNote?: string;
+    }) => {
+      if (cluster.masterOrder) {
+        await applyOrderStatusChange({
+          orderId: cluster.masterOrder.id,
+          status,
+          orderNumber: cluster.masterOrder.order_number,
+          notifyCustomer: false,
+        });
+      }
+
+      const participantOrders =
+        cluster.childOrders.length > 0
+          ? cluster.childOrders
+          : cluster.masterOrder
+            ? []
+            : cluster.allOrders;
+
+      for (const order of participantOrders) {
+        await applyOrderStatusChange({
+          orderId: order.id,
+          status,
+          userId: order.user_id,
+          orderNumber: order.order_number,
+          customNote,
+          customerEmail: order.profiles?.email,
+          customerName: order.profiles?.name,
+        });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
+      toast.success('Group order status updated for every participant');
+      setStatusNotes({});
+    },
+    onError: (error: Error) => {
+      console.error('Group mutation error:', error);
+      toast.error(`Failed to update group order: ${error.message}`);
     },
   });
 
@@ -1417,13 +1543,32 @@ export function AdminOrders() {
             variant="outline"
             size="sm"
             onClick={() => {
-              const data = filteredOrders.map(o => ({
-                'Order Number': o.order_number,
-                'Customer': o.profiles?.name || 'Unknown',
-                'Email': o.profiles?.email || '',
-                'Status': STATUS_LABELS[o.status as OrderStatus] || o.status,
-                'Total': Number(o.total_amount).toFixed(2),
-                'Date': format(new Date(o.created_at), 'yyyy-MM-dd HH:mm'),
+              const data = filteredOrders.map((card) => ({
+                'Order Number':
+                  card.kind === 'group'
+                    ? card.cluster.displayOrderNumber
+                    : card.order.order_number,
+                'Customer':
+                  card.kind === 'group'
+                    ? `${card.cluster.participantCount} participants`
+                    : card.order.profiles?.name || 'Unknown',
+                'Email':
+                  card.kind === 'group'
+                    ? ''
+                    : card.order.profiles?.email || '',
+                'Status':
+                  STATUS_LABELS[
+                    (card.kind === 'group' ? card.cluster.status : card.order.status) as OrderStatus
+                  ] || (card.kind === 'group' ? card.cluster.status : card.order.status),
+                'Total':
+                  Number(
+                    card.kind === 'group' ? card.cluster.totalAmount : card.order.total_amount,
+                  ).toFixed(2),
+                'Date':
+                  format(
+                    new Date(card.kind === 'group' ? card.cluster.createdAt : card.order.created_at),
+                    'yyyy-MM-dd HH:mm',
+                  ),
               }));
               const headers = Object.keys(data[0] || {}).join(',');
               const rows = data.map(row => Object.values(row).map(v => `"${v}"`).join(','));
@@ -1510,7 +1655,209 @@ export function AdminOrders() {
                 </CardContent>
               </Card>
             ) : (
-              filteredOrders.map((order) => {
+              filteredOrders.map((card) => {
+                if (card.kind === 'group') {
+                  const { cluster } = card;
+                  const groupStatus = (cluster.status || 'pending') as OrderStatus;
+                  const currentIdx = ORDER_STATUSES.indexOf(groupStatus);
+                  const nextStatus = currentIdx >= 0 && currentIdx < ORDER_STATUSES.length - 1
+                    ? ORDER_STATUSES[currentIdx + 1]
+                    : undefined;
+                  const prevStatus = currentIdx > 0 ? ORDER_STATUSES[currentIdx - 1] : undefined;
+                  const childOrders = cluster.childOrders.length > 0 ? cluster.childOrders : cluster.allOrders;
+                  const groupItems = childOrders.flatMap((order) => order.order_items || []);
+                  const primaryProductName = groupItems[0]?.product_name || 'Group buy order';
+
+                  return (
+                    <SwipeableOrderCard
+                      key={card.id}
+                      rightLabel={nextStatus ? `-> ${STATUS_LABELS[nextStatus]}` : 'No next status'}
+                      leftLabel={prevStatus ? `${STATUS_LABELS[prevStatus]} <-` : 'No previous status'}
+                      onSwipeRight={
+                        nextStatus
+                          ? () =>
+                              updateGroupStatusMutation.mutate({
+                                cluster,
+                                status: nextStatus,
+                                customNote: statusNotes[card.id],
+                              })
+                          : undefined
+                      }
+                      onSwipeLeft={
+                        prevStatus
+                          ? () =>
+                              updateGroupStatusMutation.mutate({
+                                cluster,
+                                status: prevStatus,
+                                customNote: statusNotes[card.id],
+                              })
+                          : undefined
+                      }
+                    >
+                      <Card>
+                        <Collapsible>
+                          <CardHeader className="pb-2">
+                            <CollapsibleTrigger asChild>
+                              <button
+                                type="button"
+                                className="group flex min-w-0 items-center justify-between gap-3 rounded-md px-1 py-1 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <p className="text-lg font-medium text-foreground">
+                                      Group Order #{cluster.displayOrderNumber}
+                                    </p>
+                                    <Badge variant="outline">Group Buy</Badge>
+                                    <Badge className={getStatusColor(groupStatus)}>
+                                      {STATUS_LABELS[groupStatus] || groupStatus.replace('_', ' ')}
+                                    </Badge>
+                                  </div>
+                                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                                    <span>{primaryProductName}</span>
+                                    <span>{cluster.participantCount} participants</span>
+                                    <span>{formatPrice(Number(cluster.totalAmount))}</span>
+                                    <span>{format(new Date(cluster.createdAt), 'MMM d, yyyy')}</span>
+                                  </div>
+                                </div>
+                                <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+                              </button>
+                            </CollapsibleTrigger>
+                          </CardHeader>
+                          <CollapsibleContent>
+                            <CardContent className="space-y-4">
+                              <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+                                <div>
+                                  <p className="text-sm text-muted-foreground">Product</p>
+                                  <p className="font-medium text-foreground">{primaryProductName}</p>
+                                </div>
+                                <div>
+                                  <p className="text-sm text-muted-foreground">Participants</p>
+                                  <p className="font-medium text-foreground">{cluster.participantCount}</p>
+                                </div>
+                                <div>
+                                  <p className="text-sm text-muted-foreground">Related Orders</p>
+                                  <p className="font-medium text-foreground">{childOrders.length}</p>
+                                </div>
+                                <div>
+                                  <p className="text-sm text-muted-foreground">Total</p>
+                                  <p className="text-xl font-bold text-primary">
+                                    {formatPrice(Number(cluster.totalAmount))}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="rounded-lg border border-border bg-muted/40 p-4">
+                                <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                  <div>
+                                    <p className="text-sm font-semibold text-foreground">
+                                      Master Status Control
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                      Changing this updates every participant order in the group.
+                                    </p>
+                                  </div>
+                                  <Select
+                                    onValueChange={(value) =>
+                                      updateGroupStatusMutation.mutate({
+                                        cluster,
+                                        status: value as OrderStatus,
+                                        customNote: statusNotes[card.id],
+                                      })
+                                    }
+                                  >
+                                    <SelectTrigger className="w-full sm:w-64">
+                                      <SelectValue placeholder="Update all participant orders" />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-popover z-50">
+                                      {ORDER_STATUS_OPTIONS.map((status) => (
+                                        <SelectItem key={status} value={status}>
+                                          {STATUS_LABELS[status]}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <Textarea
+                                  value={statusNotes[card.id] ?? ''}
+                                  placeholder="Optional note to send with the group status update..."
+                                  className="min-h-[60px] text-sm"
+                                  onChange={(event) =>
+                                    setStatusNotes((prev) => ({
+                                      ...prev,
+                                      [card.id]: event.target.value,
+                                    }))
+                                  }
+                                />
+                              </div>
+
+                              <div className="space-y-3 rounded-lg border border-border bg-muted/40 p-4">
+                                <div>
+                                  <p className="text-sm font-semibold text-foreground">Participants</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    Address, quantity, payment status, and join details for everyone in this group.
+                                  </p>
+                                </div>
+                                <GroupBuyParticipantList groupBuyId={cluster.groupBuyId} />
+                              </div>
+
+                              <div className="space-y-3 rounded-lg border border-border bg-muted/40 p-4">
+                                <div>
+                                  <p className="text-sm font-semibold text-foreground">Related Child Orders</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    The storefront orders linked to this master group order.
+                                  </p>
+                                </div>
+                                <div className="space-y-3">
+                                  {childOrders.map((order) => {
+                                    const shippingAddress = getShippingAddress(order.shipping_address);
+                                    const totalQuantity = order.order_items.reduce(
+                                      (sum, item) => sum + Number(item.quantity || 0),
+                                      0,
+                                    );
+
+                                    return (
+                                      <div
+                                        key={order.id}
+                                        className="rounded-lg border border-border bg-background p-3"
+                                      >
+                                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                          <div className="space-y-1">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                              <p className="font-medium text-foreground">
+                                                #{order.order_number}
+                                              </p>
+                                              <Badge className={getStatusColor((order.status || 'pending') as OrderStatus)}>
+                                                {STATUS_LABELS[(order.status || 'pending') as OrderStatus] || order.status}
+                                              </Badge>
+                                            </div>
+                                            <p className="text-sm text-muted-foreground">
+                                              {order.profiles?.name || 'Unknown customer'}
+                                              {order.profiles?.email ? ` - ${order.profiles.email}` : ''}
+                                            </p>
+                                            <p className="text-sm text-muted-foreground">
+                                              {totalQuantity} item{totalQuantity === 1 ? '' : 's'}
+                                              {shippingAddress?.city ? ` - ${shippingAddress.city}` : ''}
+                                              {shippingAddress?.phone ? ` - ${shippingAddress.phone}` : ''}
+                                            </p>
+                                          </div>
+                                          <p className="font-semibold text-primary">
+                                            {formatPrice(Number(order.total_amount))}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            </CardContent>
+                          </CollapsibleContent>
+                        </Collapsible>
+                      </Card>
+                    </SwipeableOrderCard>
+                  );
+                }
+
+                const order = card.order;
                 const currentIdx = ORDER_STATUSES.indexOf(order.status as OrderStatus);
                 const nextStatus = currentIdx >= 0 && currentIdx < ORDER_STATUSES.length - 1
                   ? ORDER_STATUSES[currentIdx + 1]

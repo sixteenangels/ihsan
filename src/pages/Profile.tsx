@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { User, MapPin, Phone, Mail, Plus, Trash2, Loader2, Edit2, Check, X, Package, RefreshCcw, ShoppingBag, Gift, Award, Copy, Cake, Wallet, Bell, Headphones, Users, Camera } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
@@ -274,6 +274,7 @@ function LoyaltyTab() {
 export default function Profile() {
   const { user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { addToCart } = useCart();
   const { formatPrice } = useCurrency();
   const { refundRequests, isLoading: refundsLoading } = useRefundRequests();
@@ -291,7 +292,7 @@ export default function Profile() {
   const [editingProfile, setEditingProfile] = useState(false);
   const [addressDialogOpen, setAddressDialogOpen] = useState(false);
   const [editingAddress, setEditingAddress] = useState<Address | null>(null);
-  const [activeTab, setActiveTab] = useState('profile');
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'profile');
   const [reviewDialogOrder, setReviewDialogOrder] = useState<Order | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
@@ -314,6 +315,13 @@ export default function Profile() {
       navigate('/auth');
     }
   }, [user, authLoading, navigate]);
+
+  useEffect(() => {
+    const requestedTab = searchParams.get('tab');
+    if (requestedTab) {
+      setActiveTab(requestedTab);
+    }
+  }, [searchParams]);
 
   const fetchProfile = useCallback(async () => {
     if (!user) return;
