@@ -487,57 +487,60 @@ export default function ProductDetail() {
             </div>
 
             <div className="rounded-[1.75rem] border border-border/70 bg-card/80 p-3.5 shadow-sm">
-              <div className="flex gap-3">
-                <div className="h-24 w-24 shrink-0 overflow-hidden rounded-[1.2rem] border border-border/70 bg-muted">
-                  <img
-                    src={heroImage}
-                    alt={product.name}
-                    className="h-full w-full object-cover"
-                  />
-                </div>
-                <div className="min-w-0 flex-1 pt-0.5">
-                  <h1 className="line-clamp-2 text-[1.15rem] font-semibold leading-tight text-foreground">
-                    {product.name}
-                  </h1>
-                  <p className="mt-1 text-xl font-bold text-primary">{formatPrice(product.base_price)}</p>
-                  <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
-                    <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">
-                      <Star className="h-3.5 w-3.5 fill-primary text-primary" />
-                      {product.rating || 0}
-                    </span>
-                    <span>{product.review_count || 0} review(s)</span>
+              <div className="space-y-3">
+                <div className="flex gap-3">
+                  <div className="h-24 w-24 shrink-0 overflow-hidden rounded-[1.2rem] border border-border/70 bg-muted">
+                    <img
+                      src={heroImage}
+                      alt={product.name}
+                      className="h-full w-full object-cover"
+                    />
                   </div>
-                  {product.group_buy_price != null && product.group_buy_price < product.base_price ? (
-                    <p className="mt-2 text-[11px] font-medium leading-4 text-primary">
-                      Group buy price {formatPrice(product.group_buy_price)} available, saving {groupBuySavings}% when the group fills.
-                    </p>
-                  ) : null}
-                  {descriptionText ? (
-                    <div className="mt-2">
-                      <div className="relative">
-                        <p
-                          className={`text-[11px] leading-5 text-muted-foreground ${
-                            !isDescriptionExpanded && hasLongDescription ? 'line-clamp-3' : ''
-                          }`}
-                        >
-                          {descriptionText}
-                        </p>
-                        {!isDescriptionExpanded && hasLongDescription ? (
-                          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-card via-card/85 to-transparent" />
-                        ) : null}
-                      </div>
-                      {hasLongDescription ? (
-                        <button
-                          type="button"
-                          className="mt-1 text-[11px] font-semibold text-primary"
-                          onClick={() => setIsDescriptionExpanded((current) => !current)}
-                        >
-                          {isDescriptionExpanded ? 'Show Less' : 'Read More'}
-                        </button>
+                  <div className="min-w-0 flex-1 pt-0.5">
+                    <h1 className="line-clamp-2 text-[1.15rem] font-semibold leading-tight text-foreground">
+                      {product.name}
+                    </h1>
+                    <p className="mt-1 text-xl font-bold text-primary">{formatPrice(product.base_price)}</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">
+                        <Star className="h-3.5 w-3.5 fill-primary text-primary" />
+                        {product.rating || 0}
+                      </span>
+                      <span>{product.review_count || 0} review(s)</span>
+                    </div>
+                    {product.group_buy_price != null && product.group_buy_price < product.base_price ? (
+                      <p className="mt-2 text-[11px] font-medium leading-4 text-primary">
+                        Group buy price {formatPrice(product.group_buy_price)} available, saving {groupBuySavings}% when the group fills.
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+
+                {descriptionText ? (
+                  <div>
+                    <div className="relative">
+                      <p
+                        className={`text-[11px] leading-5 text-muted-foreground ${
+                          !isDescriptionExpanded && hasLongDescription ? 'line-clamp-3' : ''
+                        }`}
+                      >
+                        {descriptionText}
+                      </p>
+                      {!isDescriptionExpanded && hasLongDescription ? (
+                        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-card via-card/85 to-transparent" />
                       ) : null}
                     </div>
-                  ) : null}
-                </div>
+                    {hasLongDescription ? (
+                      <button
+                        type="button"
+                        className="mt-1 text-[11px] font-semibold text-primary"
+                        onClick={() => setIsDescriptionExpanded((current) => !current)}
+                      >
+                        {isDescriptionExpanded ? 'Show Less' : 'Read More'}
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             </div>
 
@@ -904,18 +907,18 @@ export default function ProductDetail() {
 
       {isMobile && (
         <div className="fixed inset-x-0 bottom-0 z-40 px-3 pb-2">
-          <div className="mx-auto flex max-w-6xl flex-col gap-3 rounded-[1.35rem] border border-border/80 bg-background/95 px-3 pt-3 shadow-[0_18px_44px_-22px_hsl(var(--foreground)/0.75)] backdrop-blur-xl supports-[backdrop-filter]:bg-background/90 min-[430px]:flex-row min-[430px]:items-center min-[430px]:justify-between">
-            <div className="min-w-0 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)]">
-              <p className="text-xs font-medium text-muted-foreground">
+          <div className="mx-auto flex max-w-6xl flex-col gap-2 rounded-[1.15rem] border border-border/80 bg-background/95 px-2.5 pt-2.5 shadow-[0_18px_44px_-22px_hsl(var(--foreground)/0.75)] backdrop-blur-xl supports-[backdrop-filter]:bg-background/90 min-[430px]:flex-row min-[430px]:items-end min-[430px]:justify-between">
+            <div className="min-w-0 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)]">
+              <p className="text-[11px] font-medium text-muted-foreground">
                 {selectedVariants.length > 0 ? `${selectedItemCount} item${selectedItemCount === 1 ? '' : 's'} selected` : 'Ready to buy'}
               </p>
-              <p className="mt-0.5 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+              <p className="mt-0.5 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
                 Estimated total
               </p>
-              <p className="text-2xl font-semibold text-primary">
+              <p className="text-[1.45rem] font-semibold leading-none text-primary">
                 {formatPrice(mobileEstimatedTotal)}
               </p>
-              <p className="truncate text-xs text-muted-foreground">
+              <p className="truncate pt-0.5 text-[11px] text-muted-foreground">
                 {selectedVariants.length > 0
                   ? `${selectedItemCount} selected`
                   : product.variants.length > 0
@@ -925,16 +928,16 @@ export default function ProductDetail() {
                 {shippingEtaLabel}
               </p>
             </div>
-            <div className="grid w-full grid-cols-2 gap-2 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] min-[430px]:w-auto">
-              <Button size="sm" variant="outline" className="min-w-0 gap-1.5 overflow-hidden rounded-xl" onClick={handleAddToCart}>
-                <ShoppingCart className="h-4 w-4 shrink-0" />
+            <div className="grid w-full grid-cols-2 gap-2 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] min-[430px]:w-auto min-[430px]:min-w-[220px]">
+              <Button size="sm" variant="outline" className="h-10 min-w-0 gap-1.5 overflow-hidden rounded-xl px-3" onClick={handleAddToCart}>
+                <ShoppingCart className="h-3.5 w-3.5 shrink-0" />
                 <span className="truncate">Add to Cart</span>
               </Button>
               <BuyNowSheet
                 product={product}
                 selectedVariants={selectedVariants}
                 selectedShippingRuleId={selectedShipping?.id || null}
-                triggerClassName="min-w-0 gap-1.5 overflow-hidden rounded-xl"
+                triggerClassName="h-10 min-w-0 gap-1.5 overflow-hidden rounded-xl px-3"
                 triggerLabel="Buy Now"
                 triggerSize="sm"
               />
