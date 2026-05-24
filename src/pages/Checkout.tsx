@@ -1275,14 +1275,15 @@ export default function Checkout() {
 
             <div className="inline-flex shrink-0 items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary">
               <Shield className="h-3.5 w-3.5" />
-              Secure checkout
+              <span className="hidden min-[420px]:inline">Secure checkout</span>
+              <span className="min-[420px]:hidden">Secure</span>
             </div>
           </div>
 
           <div className="space-y-4">
             <Card className="rounded-2xl border-border/70 shadow-sm">
               <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-4">
+                <div className="flex flex-col gap-3 min-[420px]:flex-row min-[420px]:items-start min-[420px]:justify-between">
                   <div className="flex min-w-0 items-start gap-3">
                     <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
                     <div className="min-w-0">
@@ -1295,7 +1296,7 @@ export default function Checkout() {
                   <Button
                     type="button"
                     variant="outline"
-                    className="h-9 shrink-0 rounded-xl px-4"
+                    className="h-9 w-full shrink-0 rounded-xl px-4 min-[420px]:w-auto"
                     onClick={() => setIsAddressPickerOpen(true)}
                   >
                     Change
@@ -1306,7 +1307,7 @@ export default function Checkout() {
 
             <Card className="rounded-2xl border-border/70 shadow-sm">
               <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-4">
+                <div className="flex flex-col gap-3 min-[420px]:flex-row min-[420px]:items-start min-[420px]:justify-between">
                   <div className="flex min-w-0 items-start gap-3">
                     <div className="mt-0.5 shrink-0 text-primary">
                       {selectedShipping ? getShippingIcon(selectedShipping.shipping_type?.name || selectedShipping.name) : <Package className="h-5 w-5" />}
@@ -1332,7 +1333,7 @@ export default function Checkout() {
                   <Button
                     type="button"
                     variant="outline"
-                    className="h-9 shrink-0 rounded-xl px-4"
+                    className="h-9 w-full shrink-0 rounded-xl px-4 min-[420px]:w-auto"
                     onClick={() => setIsShippingPickerOpen(true)}
                   >
                     Change
@@ -1364,7 +1365,7 @@ export default function Checkout() {
 
             <Card className="rounded-2xl border-border/70 shadow-sm">
               <CardContent className="p-4">
-                <div className="mb-4 flex items-center justify-between gap-3">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                   <p className="text-sm font-semibold text-foreground">
                     Order Items ({selectedItems.length})
                   </p>
@@ -1478,59 +1479,59 @@ export default function Checkout() {
                 <CardTitle className="text-sm font-semibold">Order Summary</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Subtotal ({itemCount} items)</span>
-                  <span className="text-foreground">{formatPrice(selectedSubtotal)}</span>
+                <div className="flex items-start justify-between gap-3 text-sm">
+                  <span className="min-w-0 text-muted-foreground">Subtotal ({itemCount} items)</span>
+                  <span className="shrink-0 text-right text-foreground">{formatPrice(selectedSubtotal)}</span>
                 </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Shipping</span>
-                  <span className={shippingCost === 0 ? 'font-medium text-primary' : 'text-foreground'}>
+                <div className="flex items-start justify-between gap-3 text-sm">
+                  <span className="min-w-0 text-muted-foreground">Shipping</span>
+                  <span className={`shrink-0 text-right ${shippingCost === 0 ? 'font-medium text-primary' : 'text-foreground'}`}>
                     {shippingCost === 0 ? 'FREE' : formatPrice(shippingCost)}
                   </span>
                 </div>
                 {reinforcedPackagingCost > 0 ? (
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Reinforced Packaging</span>
-                    <span className="text-foreground">{formatPrice(reinforcedPackagingCost)}</span>
+                  <div className="flex items-start justify-between gap-3 text-sm">
+                    <span className="min-w-0 text-muted-foreground">Reinforced Packaging</span>
+                    <span className="shrink-0 text-right text-foreground">{formatPrice(reinforcedPackagingCost)}</span>
                   </div>
                 ) : null}
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Savings</span>
-                  <span className={totalSavings > 0 ? 'font-medium text-primary' : 'text-muted-foreground'}>
+                <div className="flex items-start justify-between gap-3 text-sm">
+                  <span className="min-w-0 text-muted-foreground">Savings</span>
+                  <span className={`shrink-0 text-right ${totalSavings > 0 ? 'font-medium text-primary' : 'text-muted-foreground'}`}>
                     -{formatPrice(totalSavings)}
                   </span>
                 </div>
                 <div className="h-px bg-border/70" />
-                <div className="flex items-center justify-between">
-                  <span className="text-base font-semibold text-foreground">Total</span>
-                  <span className="text-2xl font-bold text-primary">{formatPrice(total)}</span>
+                <div className="flex items-start justify-between gap-3">
+                  <span className="min-w-0 text-base font-semibold text-foreground">Total</span>
+                  <span className="shrink-0 text-right text-2xl font-bold text-primary">{formatPrice(total)}</span>
                 </div>
               </CardContent>
             </Card>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2">
               <Button
                 type="button"
                 variant="outline"
-                className="h-12 rounded-xl"
+                className="h-12 min-w-0 justify-center gap-2 overflow-hidden rounded-xl"
                 onClick={() => navigate('/cart')}
               >
-                Make Changes
+                <span className="truncate">Make Changes</span>
               </Button>
               <Button
                 type="button"
-                className="h-12 rounded-xl"
+                className="h-12 min-w-0 justify-center gap-2 overflow-hidden rounded-xl"
                 onClick={handlePaystackPayment}
                 disabled={isPaymentDisabled}
               >
                 {isProcessing ? 'Processing...' : (
                   <>
                     {requiresPayment ? (
-                      <CreditCard className="mr-2 h-4 w-4" />
+                      <CreditCard className="h-4 w-4 shrink-0" />
                     ) : (
-                      <Check className="mr-2 h-4 w-4" />
+                      <Check className="h-4 w-4 shrink-0" />
                     )}
-                    {paymentButtonText}
+                    <span className="truncate">{paymentButtonText}</span>
                   </>
                 )}
               </Button>

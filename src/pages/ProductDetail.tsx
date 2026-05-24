@@ -446,7 +446,7 @@ export default function ProductDetail() {
         </div>
         <div className="grid gap-2 sm:grid-cols-2">
           <StartGroupBuyDialog
-            triggerClassName="h-11 w-full rounded-2xl"
+            triggerClassName="h-11 w-full min-w-0 overflow-hidden rounded-2xl"
             product={{ id: product.id, name: product.name, base_price: product.base_price, group_buy_price: product.group_buy_price ?? null }}
           />
           {activeProductGroupBuy ? (
@@ -454,7 +454,7 @@ export default function ProductDetail() {
               disableDialogWhenJoined
               triggerLabel="Join Existing"
               joinedLabel="Joined"
-              triggerClassName="h-11 rounded-2xl"
+              triggerClassName="h-11 w-full min-w-0 overflow-hidden rounded-2xl"
               groupBuy={{
                 id: activeProductGroupBuy.id,
                 product_id: activeProductGroupBuy.product_id,
@@ -474,9 +474,9 @@ export default function ProductDetail() {
               }}
             />
           ) : (
-            <Button variant="outline" className="h-11 rounded-2xl" disabled={!hasLiveProductGroupBuy}>
-              <Users className="mr-2 h-4 w-4" />
-              Join Existing
+            <Button variant="outline" className="h-11 min-w-0 overflow-hidden rounded-2xl" disabled={!hasLiveProductGroupBuy}>
+              <Users className="mr-2 h-4 w-4 shrink-0" />
+              <span className="truncate">Join Existing</span>
             </Button>
           )}
         </div>
@@ -622,7 +622,7 @@ export default function ProductDetail() {
                     </SelectContent>
                   </Select>
 
-                  <div className="grid grid-cols-[auto,1fr] gap-2">
+                  <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-[auto,1fr]">
                     <div className="flex items-center gap-1 rounded-2xl border border-border/70 bg-background px-2">
                       <Button
                         type="button"
@@ -647,13 +647,15 @@ export default function ProductDetail() {
                       </Button>
                     </div>
                     <Button
-                      className="h-12 rounded-2xl"
+                      className="h-12 min-w-0 overflow-hidden rounded-2xl"
                       onClick={handleMobileAddSelection}
                       disabled={!mobileActiveVariant || (mobileActiveVariant.stock || 0) <= 0}
                     >
-                      {selectedVariants.some((variant) => variant.id === mobileActiveVariant?.id)
-                        ? 'Update Selection'
-                        : 'Add to Selection'}
+                      <span className="truncate">
+                        {selectedVariants.some((variant) => variant.id === mobileActiveVariant?.id)
+                          ? 'Update Selection'
+                          : 'Add to Selection'}
+                      </span>
                     </Button>
                   </div>
                 </>
@@ -662,8 +664,8 @@ export default function ProductDetail() {
 
             {selectedVariants.length > 0 ? (
               <section className="space-y-3 rounded-[1.5rem] border border-border/70 bg-card/80 p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="min-w-0">
                     <p className="font-semibold text-foreground">Selected Variants ({selectedVariants.length})</p>
                     <p className="text-xs text-muted-foreground">
                       {selectedVariants.length} variant{selectedVariants.length === 1 ? '' : 's'} • {selectedItemCount} item{selectedItemCount === 1 ? '' : 's'}
@@ -753,21 +755,21 @@ export default function ProductDetail() {
 
                 <div className="rounded-[1.35rem] border border-primary/15 bg-primary/5 p-3.5">
                   <div className="flex items-start justify-between gap-3">
-                    <div>
+                    <div className="min-w-0">
                       <p className="text-sm font-semibold text-foreground">Selected Items Total</p>
                       <p className="text-xs text-muted-foreground">
                         {selectedVariants.length} variant{selectedVariants.length === 1 ? '' : 's'} • {selectedItemCount} item{selectedItemCount === 1 ? '' : 's'}
                       </p>
                     </div>
-                    <p className="text-xl font-bold text-primary">{formatPrice(totalPrice)}</p>
+                    <p className="shrink-0 text-right text-xl font-bold text-primary">{formatPrice(totalPrice)}</p>
                   </div>
                 </div>
               </section>
             ) : null}
 
             <section className="space-y-3 rounded-[1.5rem] border border-border/70 bg-card/80 p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0">
                   <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                     Shipping Options
                   </h3>
@@ -805,19 +807,19 @@ export default function ProductDetail() {
                             <div className="h-5 w-5 rounded-full border border-border/70 bg-card" />
                           )}
                         </div>
-                        <div className="flex min-w-0 flex-1 items-start justify-between gap-3">
+                        <div className="flex min-w-0 flex-1 flex-col gap-2 min-[420px]:flex-row min-[420px]:items-start min-[420px]:justify-between">
                           <div className="flex min-w-0 gap-3">
                             <div className="rounded-xl bg-primary/10 p-2 text-primary">
                               {getShippingIcon(option.shipping_class?.shipping_type?.name)}
                             </div>
                             <div className="min-w-0">
-                              <p className="font-medium text-foreground">{option.shipping_class?.name}</p>
-                              <p className="text-xs text-muted-foreground">
+                              <p className="line-clamp-2 font-medium text-foreground">{option.shipping_class?.name}</p>
+                              <p className="line-clamp-2 text-xs text-muted-foreground">
                                 {option.shipping_class?.shipping_type?.name || 'Standard shipping'} ({option.shipping_class?.estimated_days_min}-{option.shipping_class?.estimated_days_max} days)
                               </p>
                             </div>
                           </div>
-                          <p className="text-sm font-semibold text-primary">
+                          <p className="shrink-0 text-right text-sm font-semibold text-primary">
                             {product.is_free_shipping ? 'Free' : formatPrice(option.price)}
                           </p>
                         </div>
@@ -1061,25 +1063,25 @@ export default function ProductDetail() {
                           onClick={() => setSelectedShipping(option)}
                         >
                           <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-                            <div className="flex items-center gap-3">
+                            <div className="flex min-w-0 items-center gap-3">
                               <div className="rounded-xl bg-primary/10 p-2 text-primary">
                                 {getShippingIcon(option.shipping_class?.shipping_type?.name)}
                               </div>
-                              <div>
-                                <p className="font-medium text-foreground">{option.shipping_class?.name}</p>
-                                <p className="text-sm text-muted-foreground">
+                              <div className="min-w-0">
+                                <p className="line-clamp-2 font-medium text-foreground">{option.shipping_class?.name}</p>
+                                <p className="line-clamp-2 text-sm text-muted-foreground">
                                   {option.shipping_class?.estimated_days_min}-{option.shipping_class?.estimated_days_max} days
                                 </p>
                                 {(option.shipping_class?.description ||
                                   option.shipping_class?.shipping_type?.description) && (
-                                  <p className="text-sm text-muted-foreground">
+                                  <p className="line-clamp-2 text-sm text-muted-foreground">
                                     {option.shipping_class?.description ||
                                       option.shipping_class?.shipping_type?.description}
                                   </p>
                                 )}
                               </div>
                             </div>
-                            <p className="pl-11 text-sm font-semibold text-primary sm:pl-0">{formatPrice(option.price)}</p>
+                            <p className="shrink-0 pl-11 text-right text-sm font-semibold text-primary sm:pl-0">{formatPrice(option.price)}</p>
                           </CardContent>
                         </Card>
                       ))}
@@ -1106,7 +1108,7 @@ export default function ProductDetail() {
 
       {isMobile && (
         <div className="fixed inset-x-0 bottom-0 z-40 px-3 pb-2">
-          <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 rounded-[1.35rem] border border-border/80 bg-background/95 px-3 pt-3 shadow-[0_18px_44px_-22px_hsl(var(--foreground)/0.75)] backdrop-blur-xl supports-[backdrop-filter]:bg-background/90">
+          <div className="mx-auto flex max-w-6xl flex-col gap-3 rounded-[1.35rem] border border-border/80 bg-background/95 px-3 pt-3 shadow-[0_18px_44px_-22px_hsl(var(--foreground)/0.75)] backdrop-blur-xl supports-[backdrop-filter]:bg-background/90 min-[430px]:flex-row min-[430px]:items-center min-[430px]:justify-between">
             <div className="min-w-0 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)]">
               <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
                 {selectedVariants.length > 0 ? `${selectedItemCount} item(s) selected` : 'Ready to buy'}
@@ -1124,16 +1126,16 @@ export default function ProductDetail() {
                 {shippingEtaLabel}
               </p>
             </div>
-            <div className="flex shrink-0 items-center gap-2 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)]">
-              <Button size="sm" variant="outline" className="rounded-xl" onClick={handleAddToCart}>
-                <ShoppingCart className="mr-1 h-4 w-4" />
-                Add to Cart
+            <div className="grid w-full grid-cols-2 gap-2 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] min-[430px]:w-auto">
+              <Button size="sm" variant="outline" className="min-w-0 gap-1.5 overflow-hidden rounded-xl" onClick={handleAddToCart}>
+                <ShoppingCart className="h-4 w-4 shrink-0" />
+                <span className="truncate">Add to Cart</span>
               </Button>
               <BuyNowSheet
                 product={product}
                 selectedVariants={selectedVariants}
                 selectedShippingRuleId={selectedShipping?.id || null}
-                triggerClassName="rounded-xl"
+                triggerClassName="min-w-0 gap-1.5 overflow-hidden rounded-xl"
                 triggerLabel="Buy Now"
                 triggerSize="sm"
               />

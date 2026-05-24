@@ -666,16 +666,16 @@ export function BuyNowSheet({
     <>
       <Button
         size={triggerSize}
-        className={triggerClassName}
+        className={`min-w-0 gap-1.5 overflow-hidden ${triggerClassName || ''}`}
         onClick={handleOpenQuickCheckout}
         disabled={isProcessing}
       >
         {isProcessing ? (
-          <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+          <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
         ) : (
-          <Zap className="mr-1 h-4 w-4" />
+          <Zap className="h-4 w-4 shrink-0" />
         )}
-        {triggerLabel}
+        <span className="truncate">{triggerLabel}</span>
       </Button>
 
       <Sheet open={isOpen} onOpenChange={setIsOpen}>
@@ -948,11 +948,11 @@ export function BuyNowSheet({
                           <ShippingIcon className="h-4 w-4" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center justify-between gap-3">
-                            <p className="font-medium text-foreground">
+                          <div className="flex min-w-0 flex-col gap-1 min-[420px]:flex-row min-[420px]:items-start min-[420px]:justify-between">
+                            <p className="line-clamp-2 font-medium text-foreground">
                               {rule.shipping_class?.name}
                             </p>
-                            <p className="font-semibold text-primary">
+                            <p className="shrink-0 text-right font-semibold text-primary">
                               {product.is_free_shipping ? 'Free' : formatPrice(Number(rule.price || 0))}
                             </p>
                           </div>
@@ -985,7 +985,7 @@ export function BuyNowSheet({
 
               <Separator />
 
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-medium text-foreground">Quantity</p>
                   <p className="text-xs text-muted-foreground">Single-product instant checkout</p>
@@ -1016,51 +1016,51 @@ export function BuyNowSheet({
               <div className="grid gap-3 text-sm sm:grid-cols-2">
                 <div className="rounded-2xl bg-background/70 p-3">
                   <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Shipping</p>
-                  <p className="mt-1 font-medium text-foreground">{shippingLabel}</p>
+                  <p className="mt-1 line-clamp-2 font-medium text-foreground">{shippingLabel}</p>
                 </div>
                 <div className="rounded-2xl bg-background/70 p-3">
                   <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Delivery address</p>
-                  <p className="mt-1 font-medium text-foreground">{addressLabel}</p>
+                  <p className="mt-1 line-clamp-2 font-medium text-foreground">{addressLabel}</p>
                 </div>
               </div>
 
               <div className="space-y-2 rounded-2xl bg-background/70 p-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Subtotal</span>
-                  <span className="font-medium text-foreground">{formatPrice(subtotal)}</span>
+                <div className="flex items-start justify-between gap-3 text-sm">
+                  <span className="min-w-0 text-muted-foreground">Subtotal</span>
+                  <span className="shrink-0 text-right font-medium text-foreground">{formatPrice(subtotal)}</span>
                 </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Shipping</span>
-                  <span className="font-medium text-foreground">
+                <div className="flex items-start justify-between gap-3 text-sm">
+                  <span className="min-w-0 text-muted-foreground">Shipping</span>
+                  <span className="shrink-0 text-right font-medium text-foreground">
                     {product.is_free_shipping ? 'Free' : formatPrice(effectiveShippingCost)}
                   </span>
                 </div>
                 <Separator />
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-foreground">Final total</span>
-                  <span className="text-xl font-bold text-primary">{formatPrice(total)}</span>
+                <div className="flex items-start justify-between gap-3">
+                  <span className="min-w-0 font-semibold text-foreground">Final total</span>
+                  <span className="shrink-0 text-right text-xl font-bold text-primary">{formatPrice(total)}</span>
                 </div>
               </div>
 
-              <div className="flex gap-2 pt-1">
+              <div className="grid grid-cols-1 gap-2 pt-1 min-[420px]:grid-cols-2">
                 <Button
                   variant="outline"
-                  className="flex-1 rounded-xl"
+                  className="min-w-0 justify-center gap-2 overflow-hidden rounded-xl"
                   onClick={() => setIsOpen(false)}
                 >
-                  Make Changes
+                  <span className="truncate">Make Changes</span>
                 </Button>
                 <Button
-                  className="flex-1 rounded-xl"
+                  className="min-w-0 justify-center gap-2 overflow-hidden rounded-xl"
                   onClick={() => void handlePayNow()}
                   disabled={isProcessing || hasMissingRequirements}
                 >
                   {isProcessing ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
                   ) : (
-                    <CreditCard className="mr-2 h-4 w-4" />
+                    <CreditCard className="h-4 w-4 shrink-0" />
                   )}
-                  Pay Now
+                  <span className="truncate">Pay Now</span>
                 </Button>
               </div>
 

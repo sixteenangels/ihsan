@@ -248,17 +248,17 @@ export default function Cart() {
             </p>
           </div>
 
-          <div className="mb-4 flex items-center justify-between gap-3 text-sm">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-sm">
             <button
               type="button"
-              className="font-medium text-foreground transition-colors hover:text-primary"
+              className="min-w-0 font-medium text-foreground transition-colors hover:text-primary"
               onClick={handleSelectAllGroups}
             >
               Select All ({groupedProducts.length})
             </button>
             <button
               type="button"
-              className="font-medium text-primary transition-colors hover:text-primary/80"
+              className="shrink-0 font-medium text-primary transition-colors hover:text-primary/80"
               onClick={handleUnselectAllGroups}
             >
               Unselect All
@@ -327,8 +327,8 @@ export default function Cart() {
                       </div>
                     </div>
 
-                    <div className="mt-4 flex items-center justify-between gap-3">
-                      <div className="flex min-w-0 items-center gap-2">
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-2 sm:gap-3">
+                      <div className="flex min-w-0 flex-wrap items-center gap-2">
                         <p className="text-sm font-semibold text-foreground">Selected Variants</p>
                         <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
                           {variantCount} variant{variantCount === 1 ? '' : 's'}
@@ -338,7 +338,7 @@ export default function Cart() {
                       {group.product.variants.length > 0 ? (
                         <button
                           type="button"
-                          className="text-sm font-medium text-primary"
+                          className="shrink-0 text-right text-xs font-medium text-primary sm:text-sm"
                           onClick={() => setVariantDialogProductId(group.product.id)}
                         >
                           + Add another variant
@@ -448,20 +448,20 @@ export default function Cart() {
           <Card className="mt-4 overflow-hidden rounded-[1.4rem] border border-border/70 bg-card shadow-sm">
             <CardContent className="p-0">
               <div className="space-y-3 p-4">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">
+                <div className="flex items-start justify-between gap-3 text-sm">
+                  <span className="min-w-0 text-muted-foreground">
                     Subtotal (Selected {selectedGroupCount} of {groupedProducts.length} item{groupedProducts.length === 1 ? '' : 's'})
                   </span>
-                  <span className="text-foreground">{formatPrice(checkoutSubtotal)}</span>
+                  <span className="shrink-0 text-right text-foreground">{formatPrice(checkoutSubtotal)}</span>
                 </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Shipping</span>
-                  <span className="text-muted-foreground">Calculated at checkout</span>
+                <div className="flex items-start justify-between gap-3 text-sm">
+                  <span className="min-w-0 text-muted-foreground">Shipping</span>
+                  <span className="shrink-0 text-right text-muted-foreground">Calculated at checkout</span>
                 </div>
                 <div className="h-px bg-border/70" />
-                <div className="flex items-center justify-between">
-                  <span className="text-base font-semibold text-foreground">Total</span>
-                  <span className="text-3xl font-bold text-primary">
+                <div className="flex items-start justify-between gap-3">
+                  <span className="min-w-0 text-base font-semibold text-foreground">Total</span>
+                  <span className="shrink-0 text-right text-3xl font-bold text-primary">
                     {formatPrice(checkoutSubtotal)}
                   </span>
                 </div>
@@ -469,25 +469,25 @@ export default function Cart() {
             </CardContent>
           </Card>
 
-          <div className="mt-4 grid grid-cols-2 gap-3">
+          <div className="mt-4 grid grid-cols-[minmax(0,0.84fr)_minmax(0,1.16fr)] gap-3">
             <Button
               type="button"
               variant="outline"
-              className="h-12 min-w-0 rounded-xl border-primary/40 px-3 text-primary"
+              className="h-12 min-w-0 justify-center gap-2 overflow-hidden rounded-xl border-primary/40 px-3 text-primary"
               onClick={clearCart}
             >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Clear Cart
+              <Trash2 className="h-4 w-4 shrink-0" />
+              <span className="truncate">Clear Cart</span>
             </Button>
             <Button
               type="button"
-              className="h-12 min-w-0 rounded-xl px-3 text-center text-xs sm:text-sm"
+              className="h-12 min-w-0 justify-between gap-2 overflow-hidden rounded-xl px-3 text-left text-[11px] sm:text-sm"
               onClick={handleCheckout}
             >
               <span className="truncate">
                 Checkout ({selectedGroupCount} item{selectedGroupCount === 1 ? '' : 's'}) ({formatPrice(checkoutSubtotal)})
               </span>
-              <ArrowRight className="ml-2 h-4 w-4" />
+              <ArrowRight className="h-4 w-4 shrink-0" />
             </Button>
           </div>
 

@@ -69,7 +69,7 @@ export function GroupBuyCard({ groupBuy }: GroupBuyCardProps) {
 
   return (
     <Card className="overflow-hidden rounded-[1.35rem] border-border/70 bg-card/95 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg">
-      <CardContent className="grid grid-cols-[minmax(104px,36%)_minmax(0,1fr)] gap-0 p-0 sm:grid-cols-[190px_minmax(0,1fr)]">
+      <CardContent className="grid grid-cols-[minmax(104px,36%)_minmax(0,1fr)] gap-0 p-0 sm:grid-cols-[172px_minmax(0,1fr)] lg:grid-cols-[200px_minmax(0,1fr)]">
         <Link to={`/group-buy/${groupBuy.id}`} className="relative min-h-[184px] overflow-hidden bg-muted sm:min-h-[230px]">
           <img
             src={groupBuy.product.images[0] || '/placeholder.svg'}
@@ -84,10 +84,10 @@ export function GroupBuyCard({ groupBuy }: GroupBuyCardProps) {
           ) : null}
         </Link>
 
-        <div className="flex min-w-0 flex-col justify-between gap-3 overflow-hidden p-2.5 sm:p-4">
+        <div className="flex min-w-0 flex-col justify-between gap-2.5 overflow-hidden p-2.5 sm:gap-3 sm:p-4">
           <div className="min-w-0">
-            <div className="mb-1 flex items-center justify-between gap-2">
-              <Badge className="h-6 min-w-0 max-w-[62%] truncate rounded-full bg-primary/15 px-2 text-[10px] font-bold text-primary hover:bg-primary/15">
+            <div className="mb-1 flex items-start justify-between gap-2">
+              <Badge className="h-6 min-w-0 max-w-[58%] truncate rounded-full bg-primary/15 px-2 text-[10px] font-bold text-primary hover:bg-primary/15 sm:max-w-[54%]">
                 {hasRating ? (
                   <Star className="mr-1 h-3 w-3 flex-shrink-0 fill-primary" />
                 ) : (
@@ -95,7 +95,7 @@ export function GroupBuyCard({ groupBuy }: GroupBuyCardProps) {
                 )}
                 <span className="truncate">{ratingLabel}</span>
               </Badge>
-              <div className="min-w-[3.5rem] text-right leading-none">
+              <div className="w-[4.4rem] flex-shrink-0 text-right leading-none sm:w-[4.8rem]">
                 <p className="text-[11px] text-muted-foreground line-through">
                   {formatPrice(groupBuy.product.base_price)}
                 </p>
@@ -104,7 +104,7 @@ export function GroupBuyCard({ groupBuy }: GroupBuyCardProps) {
             </div>
 
             <Link to={`/group-buy/${groupBuy.id}`} className="group block min-w-0">
-              <h3 className="line-clamp-1 text-sm font-bold text-foreground transition-colors group-hover:text-primary sm:text-base">
+              <h3 className="line-clamp-2 text-sm font-bold leading-tight text-foreground transition-colors group-hover:text-primary sm:text-base">
                 {groupBuy.title || groupBuy.product.name}
               </h3>
             </Link>
@@ -118,9 +118,9 @@ export function GroupBuyCard({ groupBuy }: GroupBuyCardProps) {
                     {currentParticipants}/{participantGoal} joined
                   </p>
                   <p className="text-[10px] font-semibold text-foreground">{inviteText}</p>
-                  <p className="text-[10px] text-muted-foreground">{inviteSubtext}</p>
+                  <p className="line-clamp-2 text-[10px] text-muted-foreground">{inviteSubtext}</p>
                 </div>
-                <div className="text-right">
+                <div className="w-12 flex-shrink-0 text-right sm:w-14">
                   <p className="text-base font-black text-primary sm:text-lg">{Math.round(progressPercent)}%</p>
                   <p className="text-[9px] text-muted-foreground">of goal reached</p>
                 </div>
@@ -147,7 +147,7 @@ export function GroupBuyCard({ groupBuy }: GroupBuyCardProps) {
                 triggerLabel="Join"
                 signedOutLabel="Join"
                 joinedLabel="Joined"
-                triggerClassName="h-8 min-w-0 rounded-xl border border-primary/30 bg-background px-2 text-xs font-bold text-foreground hover:bg-primary/10"
+                triggerClassName="h-8 min-w-0 justify-center overflow-hidden rounded-xl border border-primary/30 bg-background px-2 text-xs font-bold text-foreground hover:bg-primary/10"
                 groupBuy={{
                   id: groupBuy.id,
                   product_id: groupBuy.product_id,
@@ -165,10 +165,10 @@ export function GroupBuyCard({ groupBuy }: GroupBuyCardProps) {
                   },
                 }}
               />
-              <Button className="h-8 min-w-0 rounded-xl px-2 text-xs font-bold" onClick={handleShare}>
+              <Button className="h-8 min-w-0 gap-1.5 overflow-hidden rounded-xl px-2 text-xs font-bold sm:gap-2" onClick={handleShare}>
                 <LockKeyhole className="h-3.5 w-3.5" />
-                <span className="sm:hidden">Invite</span>
-                <span className="hidden sm:inline">Invite friends</span>
+                <span className="truncate lg:hidden">Invite</span>
+                <span className="hidden truncate lg:inline">Invite friends</span>
               </Button>
             </div>
           </div>

@@ -366,7 +366,7 @@ export function VariantSelector({
             {selectedVariants.map((variant) => (
               <div
                 key={variant.id}
-                className="flex items-center justify-between gap-3 rounded-xl border border-primary/10 bg-background/80 p-2.5"
+                className="flex items-start justify-between gap-3 rounded-xl border border-primary/10 bg-background/80 p-2.5"
               >
                 <div className="flex min-w-0 items-center gap-3">
                   <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-muted">
@@ -380,12 +380,12 @@ export function VariantSelector({
                       <div className="h-full w-full bg-muted" />
                     )}
                   </div>
-                  <span className="min-w-0 text-sm text-muted-foreground">
+                  <span className="min-w-0 line-clamp-2 text-sm text-muted-foreground">
                     {variant.color || 'Default variant'}
                     {variant.size && ` - ${variant.size}`} x {variant.quantity}
                   </span>
                 </div>
-                <span className="shrink-0 font-medium text-foreground">
+                <span className="shrink-0 text-right font-medium text-foreground">
                   {formatPrice(variant.price * variant.quantity)}
                 </span>
               </div>

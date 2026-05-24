@@ -57,8 +57,8 @@ export default function GroupBuys() {
       <Header />
       <main className="container px-3 py-5 pb-28 sm:px-6 md:py-8 md:pb-8">
         <div className="mx-auto max-w-2xl">
-          <div className="mb-4 flex items-start justify-between gap-3">
-            <div>
+          <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
+            <div className="min-w-0">
               <h1 className="flex items-center gap-2 text-xl font-black tracking-tight text-foreground sm:text-3xl">
                 <span>Active Group Buys</span>
                 <Sparkles className="h-4 w-4 text-primary sm:h-5 sm:w-5" />
