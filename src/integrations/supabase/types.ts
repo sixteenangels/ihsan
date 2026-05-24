@@ -1134,6 +1134,7 @@ export type Database = {
           sku: string | null
           stock: number | null
           updated_at: string
+          variant_image_url: string | null
         }
         Insert: {
           color?: string | null
@@ -1146,6 +1147,7 @@ export type Database = {
           sku?: string | null
           stock?: number | null
           updated_at?: string
+          variant_image_url?: string | null
         }
         Update: {
           color?: string | null
@@ -1158,6 +1160,7 @@ export type Database = {
           sku?: string | null
           stock?: number | null
           updated_at?: string
+          variant_image_url?: string | null
         }
         Relationships: [
           {

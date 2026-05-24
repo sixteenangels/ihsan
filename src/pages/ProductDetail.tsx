@@ -1,6 +1,24 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
-import { Star, Truck, Users, Zap, Ship, Plane, Package, ShoppingCart, ArrowLeft, Loader2, Share2, Copy, Link as LinkIcon } from 'lucide-react';
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Copy,
+  Link as LinkIcon,
+  Loader2,
+  Minus,
+  Package,
+  Plane,
+  Plus,
+  Share2,
+  Ship,
+  ShoppingCart,
+  Star,
+  Trash2,
+  Truck,
+  Users,
+  Zap,
+} from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { useProduct, ProductWithDetails } from '@/hooks/useProducts';
@@ -33,6 +51,12 @@ import { formatGroupBuyTimeRemaining } from '@/lib/groupBuyTiming';
 import { useGroupBuySettings } from '@/hooks/useGroupBuySettings';
 import { formatGroupBuyDuration } from '@/lib/groupBuyConfig';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from '@/components/ui/select';
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -55,6 +79,7 @@ function toCartProduct(product: ProductWithDetails): Product {
       color: v.color || undefined,
       price: v.price,
       stock: v.stock || 0,
+      image_url: v.image_url || null,
     })),
     shippingOptions: product.shipping_rules
       .filter((r) => r.is_allowed && r.shipping_class)
@@ -89,6 +114,7 @@ interface SelectedVariant {
   price: number;
   stock: number | null;
   quantity: number;
+  image_url?: string | null;
 }
 
 interface ShippingRule {
@@ -110,12 +136,28 @@ interface ShippingRule {
   } | null;
 }
 
+function getVariantSummaryLabel(variant: { color: string | null; size: string | null }) {
+  return [variant.color, variant.size].filter(Boolean).join(' / ') || 'Standard option';
+}
+
+function getVariantPrimaryLabel(variant: { color: string | null; size: string | null }) {
+  return variant.color || variant.size || 'Standard option';
+}
+
+function getVariantSecondaryLabel(variant: { color: string | null; size: string | null }) {
+  if (variant.color && variant.size) {
+    return variant.size;
+  }
+
+  return null;
+}
+
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const { data: product, isLoading } = useProduct(id);
   const { user } = useAuth();
-  const { addToCart } = useCart();
+  const { addToCart, totalItems } = useCart();
   const { formatPrice } = useCurrency();
   const { addProduct } = useRecentlyViewed();
   const { settings: groupBuySettings } = useGroupBuySettings();
@@ -123,6 +165,10 @@ export default function ProductDetail() {
 
   const [selectedVariants, setSelectedVariants] = useState<SelectedVariant[]>([]);
   const [selectedShipping, setSelectedShipping] = useState<ShippingRule | null>(null);
+  const [desktopPreviewVariantId, setDesktopPreviewVariantId] = useState<string | null>(null);
+  const [mobileVariantId, setMobileVariantId] = useState<string | null>(null);
+  const [mobileVariantQuantity, setMobileVariantQuantity] = useState(1);
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const preferredGroupBuyId = searchParams.get('groupBuy');
 
   const { data: activeProductGroupBuys = [] } = useProductActiveGroupBuys({
@@ -148,7 +194,7 @@ export default function ProductDetail() {
     });
   }, [product, user?.id]);
 
-  const handleVariantToggle = (variant: { id: string; size: string | null; color: string | null; price: number; stock: number | null }) => {
+  const handleVariantToggle = (variant: { id: string; size: string | null; color: string | null; price: number; stock: number | null; image_url?: string | null }) => {
     const isSelected = selectedVariants.some((v) => v.id === variant.id);
     if (isSelected) {
       setSelectedVariants((prev) => prev.filter((v) => v.id !== variant.id));
@@ -161,6 +207,32 @@ export default function ProductDetail() {
     setSelectedVariants((prev) =>
       prev.map((v) => (v.id === variantId ? { ...v, quantity } : v))
     );
+  };
+
+  const handleRemoveSelectedVariant = (variantId: string) => {
+    setSelectedVariants((prev) => prev.filter((variant) => variant.id !== variantId));
+  };
+
+  const handleClearSelectedVariants = () => {
+    setSelectedVariants([]);
+  };
+
+  const handleMobileAddSelection = () => {
+    if (!mobileActiveVariant) {
+      return;
+    }
+
+    const quantity = Math.max(1, mobileVariantQuantity);
+    const existingSelection = selectedVariants.find((variant) => variant.id === mobileActiveVariant.id);
+
+    if (existingSelection) {
+      handleQuantityChange(mobileActiveVariant.id, quantity);
+      toast.success('Selection updated.');
+      return;
+    }
+
+    setSelectedVariants((prev) => [...prev, { ...mobileActiveVariant, quantity }]);
+    toast.success('Added to selection.');
   };
 
   const totalPrice = useMemo(() => {
@@ -178,6 +250,10 @@ export default function ProductDetail() {
     () => product?.variants.reduce((sum, variant) => sum + Math.max(0, variant.stock || 0), 0) || 0,
     [product],
   );
+  const defaultMobileVariant = useMemo(
+    () => product?.variants.find((variant) => (variant.stock || 0) > 0) || product?.variants[0] || null,
+    [product],
+  );
 
   const hasAnyStock = totalAvailableStock > 0;
   const selectedVariantOutOfStock = selectedVariants.length === 1
@@ -191,6 +267,48 @@ export default function ProductDetail() {
       : null;
   const highlightedShipping = selectedShipping || availableShipping[0] || null;
   const selectedItemCount = selectedVariants.reduce((sum, variant) => sum + variant.quantity, 0);
+
+  useEffect(() => {
+    if (!product) {
+      return;
+    }
+
+    setMobileVariantId((current) =>
+      current && product.variants.some((variant) => variant.id === current)
+        ? current
+        : defaultMobileVariant?.id || null,
+    );
+  }, [defaultMobileVariant, product]);
+
+  const mobileActiveVariant = useMemo(() => {
+    if (!product) {
+      return null;
+    }
+
+    return (
+      product.variants.find((variant) => variant.id === mobileVariantId) ||
+      defaultMobileVariant ||
+      null
+    );
+  }, [defaultMobileVariant, mobileVariantId, product]);
+
+  useEffect(() => {
+    if (!mobileActiveVariant) {
+      setMobileVariantQuantity(1);
+      return;
+    }
+
+    const existingSelection = selectedVariants.find((variant) => variant.id === mobileActiveVariant.id);
+    setMobileVariantQuantity(existingSelection?.quantity ?? 1);
+  }, [mobileActiveVariant, selectedVariants]);
+
+  const desktopPreviewVariant = useMemo(() => {
+    if (!product) {
+      return null;
+    }
+
+    return product.variants.find((variant) => variant.id === desktopPreviewVariantId) || null;
+  }, [desktopPreviewVariantId, product]);
 
   const handleAddToCart = () => {
     if (!product) return;
@@ -217,6 +335,7 @@ export default function ProductDetail() {
         color: variant.color || undefined,
         price: variant.price,
         stock: variant.stock || 0,
+        image_url: variant.image_url || null,
       };
       addToCart(cartProduct, cartVariant, variant.quantity);
     });
@@ -292,7 +411,11 @@ export default function ProductDetail() {
   const groupBuySavings = product.group_buy_price != null && product.base_price > 0
     ? Math.max(0, Math.round(((product.base_price - product.group_buy_price) / product.base_price) * 100))
     : 0;
-  const purchaseDisplayPrice = selectedVariants.length > 0 ? totalPrice : product.base_price;
+  const mobilePreviewUnitPrice = mobileActiveVariant?.price ?? product.base_price;
+  const previewShippingCost =
+    product.is_free_shipping || !highlightedShipping ? 0 : Number(highlightedShipping.price || 0);
+  const mobileEstimatedTotal =
+    (selectedVariants.length > 0 ? totalPrice : mobilePreviewUnitPrice) + previewShippingCost;
   const shippingEtaLabel = highlightedShipping?.shipping_class
     ? `${highlightedShipping.shipping_class.estimated_days_min}-${highlightedShipping.shipping_class.estimated_days_max} days`
     : 'Shipping set at checkout';
@@ -300,183 +423,412 @@ export default function ProductDetail() {
   const joinedProductGroupBuy = activeProductGroupBuys.find((groupBuy) => groupBuy.viewer_has_joined) || null;
   const activeProductGroupBuy = preferredProductGroupBuy || joinedProductGroupBuy || activeProductGroupBuys[0] || null;
   const hasLiveProductGroupBuy = activeProductGroupBuys.length > 0;
+  const descriptionText = product.description?.trim() || '';
+  const hasLongDescription = descriptionText.length > 180;
+  const previewVariant = isMobile ? mobileActiveVariant : desktopPreviewVariant;
+  const heroImage = previewVariant?.image_url || selectedVariants[0]?.image_url || product.images[0] || '/placeholder.svg';
+  const galleryImages = heroImage
+    ? [heroImage, ...product.images.filter((image) => image !== heroImage)]
+    : product.images;
+  const groupBuyPanel = product.is_group_buy_eligible ? (
+    <div className="rounded-[1.5rem] border border-accent/20 bg-accent/10 p-4">
+      <div className="space-y-3">
+        <div className="space-y-1">
+          <p className="font-medium text-foreground">Start a Group Buy</p>
+          <p className="text-sm text-muted-foreground">
+            Lock in the group price for {formatGroupBuyDuration(groupBuySettings.countdownDurationValue, groupBuySettings.countdownDurationUnit)} and invite others to fill the target.
+          </p>
+          {activeProductGroupBuy ? (
+            <p className="text-xs text-primary">
+              An open group is already live for this item. {formatGroupBuyTimeRemaining(activeProductGroupBuy.expires_at)}.
+            </p>
+          ) : null}
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <StartGroupBuyDialog
+            triggerClassName="h-11 w-full rounded-2xl"
+            product={{ id: product.id, name: product.name, base_price: product.base_price, group_buy_price: product.group_buy_price ?? null }}
+          />
+          {activeProductGroupBuy ? (
+            <JoinGroupBuyDialog
+              disableDialogWhenJoined
+              triggerLabel="Join Existing"
+              joinedLabel="Joined"
+              triggerClassName="h-11 rounded-2xl"
+              groupBuy={{
+                id: activeProductGroupBuy.id,
+                product_id: activeProductGroupBuy.product_id,
+                min_participants: activeProductGroupBuy.min_participants,
+                max_participants: activeProductGroupBuy.max_participants,
+                current_participants: activeProductGroupBuy.current_participants,
+                discount_percentage: activeProductGroupBuy.discount_percentage,
+                group_price: activeProductGroupBuy.group_price,
+                expires_at: activeProductGroupBuy.expires_at,
+                settings: activeProductGroupBuy.settings,
+                status: activeProductGroupBuy.status,
+                product: {
+                  name: product.name,
+                  base_price: product.base_price,
+                },
+                tiers: activeProductGroupBuy.tiers,
+              }}
+            />
+          ) : (
+            <Button variant="outline" className="h-11 rounded-2xl" disabled={!hasLiveProductGroupBuy}>
+              <Users className="mr-2 h-4 w-4" />
+              Join Existing
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  ) : null;
 
   return (
     <div className="min-h-screen bg-background">
-      <Header />
+      {!isMobile && <Header />}
       <main className="container px-3 py-5 pb-36 sm:px-6 md:py-8 md:pb-8">
-        <Link to="/products" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary mb-6">
-          <ArrowLeft className="h-4 w-4 mr-1" />
-          Back to Products
-        </Link>
-
-        <div className="grid gap-5 lg:grid-cols-2 lg:gap-12">
-          <ProductImageGallery images={product.images} productName={product.name} />
-
-          <div className="space-y-6">
-            {/* Badges + Share */}
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div className="flex flex-wrap gap-2">
-                {product.is_flash_deal && (
-                  <Badge className="bg-destructive text-destructive-foreground">
-                    <Zap className="h-3 w-3 mr-1" />
-                    Flash Deal
-                  </Badge>
-                )}
-                {product.is_group_buy_eligible && (
-                  <Badge variant="secondary" className="bg-accent text-accent-foreground">
-                    <Users className="h-3 w-3 mr-1" />
-                    Group Buy Eligible
-                  </Badge>
-                )}
-                {product.is_free_shipping && (
-                  <Badge className="bg-primary text-primary-foreground">
-                    <Truck className="h-3 w-3 mr-1" />
-                    Free Shipping Available
-                  </Badge>
-                )}
-              </div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="icon" className="self-start">
-                    <Share2 className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={handleCopyLink}>
-                    <Copy className="h-4 w-4 mr-2" />
-                    Copy Link
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleShareWhatsApp}>
-                    <LinkIcon className="h-4 w-4 mr-2" />
-                    Share on WhatsApp
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-
-            {/* Start Group Buy Button */}
-            {product.is_group_buy_eligible && (
-              <div className="rounded-2xl border border-accent/20 bg-accent/10 p-3.5 sm:p-4">
-                <div className="flex flex-col gap-4">
-                  <div className="space-y-1">
-                    <p className="font-medium text-foreground">Start a Group Buy</p>
-                    <p className="text-sm text-muted-foreground">
-                      Lock in the group price for {formatGroupBuyDuration(groupBuySettings.countdownDurationValue, groupBuySettings.countdownDurationUnit)} and invite others to fill the target.
-                    </p>
-                    {activeProductGroupBuy ? (
-                      <p className="text-xs text-primary">
-                        An open group is already live for this item. {formatGroupBuyTimeRemaining(activeProductGroupBuy.expires_at)}.
-                      </p>
-                    ) : null}
-                  </div>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    <StartGroupBuyDialog
-                      triggerClassName="h-10 w-full rounded-xl"
-                      product={{ id: product.id, name: product.name, base_price: product.base_price, group_buy_price: product.group_buy_price ?? null }}
-                    />
-                    {activeProductGroupBuy ? (
-                      <JoinGroupBuyDialog
-                        disableDialogWhenJoined
-                        triggerLabel="Join Existing"
-                        joinedLabel="Joined"
-                        triggerClassName="h-10 rounded-xl"
-                        groupBuy={{
-                          id: activeProductGroupBuy.id,
-                          product_id: activeProductGroupBuy.product_id,
-                          min_participants: activeProductGroupBuy.min_participants,
-                          max_participants: activeProductGroupBuy.max_participants,
-                          current_participants: activeProductGroupBuy.current_participants,
-                          discount_percentage: activeProductGroupBuy.discount_percentage,
-                          group_price: activeProductGroupBuy.group_price,
-                          expires_at: activeProductGroupBuy.expires_at,
-                          settings: activeProductGroupBuy.settings,
-                          status: activeProductGroupBuy.status,
-                          product: {
-                            name: product.name,
-                            base_price: product.base_price,
-                          },
-                          tiers: activeProductGroupBuy.tiers,
-                        }}
-                      />
-                    ) : (
-                      <Button variant="outline" className="h-10 rounded-xl" disabled={!hasLiveProductGroupBuy}>
-                        <Users className="mr-2 h-4 w-4" />
-                        Join Existing
+        {isMobile ? (
+          <div className="space-y-4">
+            <div className="sticky top-0 z-40 -mx-3 mb-4 border-b border-border/70 bg-background/95 px-3 py-3 backdrop-blur-xl">
+              <div className="flex items-center justify-between gap-3">
+                <Link
+                  to="/products"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border/70 bg-card text-foreground transition-colors hover:border-primary/50 hover:text-primary"
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </Link>
+                <div className="flex items-center gap-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="icon" className="h-10 w-10 rounded-full">
+                        <Share2 className="h-4 w-4" />
                       </Button>
-                    )}
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={handleCopyLink}>
+                        <Copy className="mr-2 h-4 w-4" />
+                        Copy Link
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleShareWhatsApp}>
+                        <LinkIcon className="mr-2 h-4 w-4" />
+                        Share on WhatsApp
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <Link to="/cart">
+                    <Button variant="outline" size="icon" className="relative h-10 w-10 rounded-full">
+                      <ShoppingCart className="h-4 w-4" />
+                      {totalItems > 0 ? (
+                        <Badge className="absolute -right-1 -top-1 h-5 w-5 justify-center p-0 text-[11px]">
+                          {totalItems}
+                        </Badge>
+                      ) : null}
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-[1.75rem] border border-border/70 bg-card/80 p-4 shadow-sm">
+              <div className="flex gap-3">
+                <div className="h-28 w-28 shrink-0 overflow-hidden rounded-[1.35rem] border border-border/70 bg-muted">
+                  <img
+                    src={heroImage}
+                    alt={product.name}
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h1 className="line-clamp-2 text-xl font-semibold leading-tight text-foreground">
+                    {product.name}
+                  </h1>
+                  <p className="mt-1 text-2xl font-bold text-primary">{formatPrice(product.base_price)}</p>
+                  <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                    <span className="inline-flex items-center gap-1">
+                      <Star className="h-3.5 w-3.5 fill-primary text-primary" />
+                      {product.rating || 0}
+                    </span>
+                    <span>|</span>
+                    <span>{product.review_count || 0} review(s)</span>
+                  </div>
+                  {product.group_buy_price != null && product.group_buy_price < product.base_price ? (
+                    <p className="mt-2 text-xs font-medium text-primary">
+                      Group buy price {formatPrice(product.group_buy_price)} available, saving {groupBuySavings}% when the group fills.
+                    </p>
+                  ) : null}
+                  {descriptionText ? (
+                    <div className="mt-2">
+                      <div className="relative">
+                        <p
+                          className={`text-xs leading-5 text-muted-foreground ${
+                            !isDescriptionExpanded && hasLongDescription ? 'line-clamp-3' : ''
+                          }`}
+                        >
+                          {descriptionText}
+                        </p>
+                        {!isDescriptionExpanded && hasLongDescription ? (
+                          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-card via-card/85 to-transparent" />
+                        ) : null}
+                      </div>
+                      {hasLongDescription ? (
+                        <button
+                          type="button"
+                          className="mt-1 text-xs font-semibold text-primary"
+                          onClick={() => setIsDescriptionExpanded((current) => !current)}
+                        >
+                          {isDescriptionExpanded ? 'Show Less' : 'Read More'}
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+
+            <section className="space-y-3 rounded-[1.5rem] border border-border/70 bg-card/80 p-4">
+              <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                Select Variant
+              </h3>
+              {product.variants.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No variants available</p>
+              ) : (
+                <>
+                  <Select
+                    value={mobileActiveVariant?.id || ''}
+                    onValueChange={(value) => setMobileVariantId(value)}
+                  >
+                    <SelectTrigger className="h-auto rounded-2xl border-border/70 bg-background px-4 py-3">
+                      <div className="min-w-0 flex-1 text-left">
+                        <p className="truncate font-medium text-foreground">
+                          {mobileActiveVariant ? getVariantPrimaryLabel(mobileActiveVariant) : 'Choose a variant'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {mobileActiveVariant
+                            ? getVariantSecondaryLabel(mobileActiveVariant) ||
+                              ((mobileActiveVariant.stock || 0) > 0
+                                ? `${mobileActiveVariant.stock || 0} in stock`
+                                : 'Out of stock')
+                            : 'Select one exact option'}
+                        </p>
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {product.variants.map((variant) => (
+                        <SelectItem key={variant.id} value={variant.id}>
+                          {getVariantSummaryLabel(variant)} - {formatPrice(variant.price)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <div className="grid grid-cols-[auto,1fr] gap-2">
+                    <div className="flex items-center gap-1 rounded-2xl border border-border/70 bg-background px-2">
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="h-10 w-10 rounded-xl"
+                        onClick={() => setMobileVariantQuantity((current) => Math.max(1, current - 1))}
+                        disabled={mobileVariantQuantity <= 1}
+                      >
+                        <Minus className="h-4 w-4" />
+                      </Button>
+                      <span className="w-6 text-center font-semibold text-foreground">{mobileVariantQuantity}</span>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="h-10 w-10 rounded-xl"
+                        onClick={() => setMobileVariantQuantity((current) => current + 1)}
+                        disabled={mobileActiveVariant ? mobileVariantQuantity >= (mobileActiveVariant.stock || 0) : true}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <Button
+                      className="h-12 rounded-2xl"
+                      onClick={handleMobileAddSelection}
+                      disabled={!mobileActiveVariant || (mobileActiveVariant.stock || 0) <= 0}
+                    >
+                      {selectedVariants.some((variant) => variant.id === mobileActiveVariant?.id)
+                        ? 'Update Selection'
+                        : 'Add to Selection'}
+                    </Button>
+                  </div>
+                </>
+              )}
+            </section>
+
+            {selectedVariants.length > 0 ? (
+              <section className="space-y-3 rounded-[1.5rem] border border-border/70 bg-card/80 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-foreground">Selected Variants ({selectedVariants.length})</p>
+                    <p className="text-xs text-muted-foreground">
+                      {selectedVariants.length} variant{selectedVariants.length === 1 ? '' : 's'} • {selectedItemCount} item{selectedItemCount === 1 ? '' : 's'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="text-xs font-semibold text-primary"
+                    onClick={handleClearSelectedVariants}
+                  >
+                    Clear All
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  {selectedVariants.map((variant) => (
+                    <div
+                      key={variant.id}
+                      className="rounded-[1.35rem] border border-border/70 bg-background/80 p-3"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-muted">
+                          <img
+                            src={variant.image_url || product.images[0] || '/placeholder.svg'}
+                            alt={product.name}
+                            className="h-full w-full object-cover"
+                          />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="truncate font-medium text-foreground">
+                                {getVariantPrimaryLabel(variant)}
+                              </p>
+                              {getVariantSecondaryLabel(variant) ? (
+                                <p className="text-xs text-muted-foreground">
+                                  {getVariantSecondaryLabel(variant)}
+                                </p>
+                              ) : null}
+                              <p className="mt-1 text-xs font-medium text-primary">
+                                {formatPrice(variant.price)} each
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              className="rounded-full p-1 text-muted-foreground transition-colors hover:text-destructive"
+                              onClick={() => handleRemoveSelectedVariant(variant.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                          <div className="mt-3 flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-1 rounded-2xl border border-border/70 bg-card px-2">
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                className="h-9 w-9 rounded-xl"
+                                onClick={() =>
+                                  handleQuantityChange(variant.id, Math.max(1, variant.quantity - 1))
+                                }
+                                disabled={variant.quantity <= 1}
+                              >
+                                <Minus className="h-4 w-4" />
+                              </Button>
+                              <span className="w-6 text-center font-semibold text-foreground">{variant.quantity}</span>
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                className="h-9 w-9 rounded-xl"
+                                onClick={() => handleQuantityChange(variant.id, variant.quantity + 1)}
+                                disabled={variant.stock != null ? variant.quantity >= variant.stock : false}
+                              >
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            <p className="text-sm font-semibold text-primary">
+                              {formatPrice(variant.price * variant.quantity)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="rounded-[1.35rem] border border-primary/15 bg-primary/5 p-3.5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">Selected Items Total</p>
+                      <p className="text-xs text-muted-foreground">
+                        {selectedVariants.length} variant{selectedVariants.length === 1 ? '' : 's'} • {selectedItemCount} item{selectedItemCount === 1 ? '' : 's'}
+                      </p>
+                    </div>
+                    <p className="text-xl font-bold text-primary">{formatPrice(totalPrice)}</p>
                   </div>
                 </div>
-              </div>
-            )}
+              </section>
+            ) : null}
 
-            {/* Title & Rating */}
-            <div>
-              <p className="text-sm text-muted-foreground mb-1">{product.category_name || 'Uncategorized'}</p>
-              <h1 className="mb-2 text-[1.65rem] font-bold font-serif leading-tight text-foreground sm:text-3xl">{product.name}</h1>
-              <div className="flex items-center gap-2">
-                <div className="flex items-center">
-                  <Star className="h-5 w-5 fill-accent-foreground text-accent-foreground" />
-                  <span className="ml-1 font-medium text-foreground">{product.rating || 0}</span>
+            <section className="space-y-3 rounded-[1.5rem] border border-border/70 bg-card/80 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                    Shipping Options
+                  </h3>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Choose how this product should move.
+                  </p>
                 </div>
-                <span className="text-muted-foreground">({product.review_count || 0} reviews)</span>
+                {product.is_free_shipping ? (
+                  <Badge className="rounded-full bg-primary text-primary-foreground">Free Shipping</Badge>
+                ) : null}
               </div>
-            </div>
 
-            <div>
-              <p className="text-3xl font-bold text-primary">{formatPrice(product.base_price)}</p>
-              <p className="text-sm text-muted-foreground mt-1">Starting from</p>
-              {product.group_buy_price != null && product.group_buy_price < product.base_price && (
-                <p className="text-sm text-primary mt-2">
-                  Group buy price {formatPrice(product.group_buy_price)} available, saving {groupBuySavings}% when the group fills.
-                </p>
+              {availableShipping.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No shipping options available</p>
+              ) : (
+                <div className="space-y-2">
+                  {availableShipping.map((option) => {
+                    const isSelected = (selectedShipping?.id || availableShipping[0]?.id) === option.id;
+
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        className={`flex w-full items-start gap-3 rounded-[1.35rem] border px-4 py-3 text-left transition-all ${
+                          isSelected
+                            ? 'border-primary bg-primary/6 shadow-sm'
+                            : 'border-border/70 bg-background hover:border-primary/40'
+                        }`}
+                        onClick={() => setSelectedShipping(option)}
+                      >
+                        <div className="mt-1 shrink-0">
+                          {isSelected ? (
+                            <CheckCircle2 className="h-5 w-5 text-primary" />
+                          ) : (
+                            <div className="h-5 w-5 rounded-full border border-border/70 bg-card" />
+                          )}
+                        </div>
+                        <div className="flex min-w-0 flex-1 items-start justify-between gap-3">
+                          <div className="flex min-w-0 gap-3">
+                            <div className="rounded-xl bg-primary/10 p-2 text-primary">
+                              {getShippingIcon(option.shipping_class?.shipping_type?.name)}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-medium text-foreground">{option.shipping_class?.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {option.shipping_class?.shipping_type?.name || 'Standard shipping'} ({option.shipping_class?.estimated_days_min}-{option.shipping_class?.estimated_days_max} days)
+                              </p>
+                            </div>
+                          </div>
+                          <p className="text-sm font-semibold text-primary">
+                            {product.is_free_shipping ? 'Free' : formatPrice(option.price)}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               )}
-            </div>
+            </section>
 
-            <p className="text-sm leading-6 text-muted-foreground sm:text-base">{product.description}</p>
-
-            <Card className="rounded-2xl border-primary/15 bg-primary/5 shadow-sm">
-              <CardContent className="grid gap-4 p-3.5 sm:p-4 md:grid-cols-3">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Availability</p>
-                  <p className="mt-1 font-semibold text-foreground">
-                    {hasAnyStock ? `${totalAvailableStock} unit(s) available across active variants` : 'Currently out of stock'}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {hasAnyStock
-                      ? 'Add to cart without locking the final shipping method. You can finish the choices at checkout.'
-                      : 'Set a restock alert and we will notify you as soon as this item is available again.'}
-                  </p>
-                  {!hasAnyStock && expectedRestockDateLabel && (
-                    <p className="mt-2 text-sm font-medium text-primary">
-                      Expected restock: {expectedRestockDateLabel}
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Delivery Window</p>
-                  <p className="mt-1 font-semibold text-foreground">
-                    {highlightedShipping?.shipping_class
-                      ? `${highlightedShipping.shipping_class.estimated_days_min}-${highlightedShipping.shipping_class.estimated_days_max} days`
-                      : 'Shipping estimate set at checkout'}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {highlightedShipping?.shipping_class?.description ||
-                      highlightedShipping?.shipping_class?.shipping_type?.description ||
-                      `${highlightedShipping?.shipping_class?.name || 'Choose your preferred shipping class'}.`}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Checkout Protection</p>
-                  <p className="mt-1 font-semibold text-foreground">
-                    Wallet credit, fragile packaging, and retry-safe checkout are available.
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Payment interruptions keep your selected items in place so you can retry.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+            {groupBuyPanel}
 
             <div className="flex flex-wrap gap-2">
               <PriceDropAlert
@@ -499,75 +851,248 @@ export default function ProductDetail() {
                   variantLabel={reservationVariantLabel}
                 />
               ) : null}
-              {showRestockAlert && expectedRestockDateLabel && (
-                <p className="w-full text-sm text-muted-foreground">
-                  We are currently expecting more stock around {expectedRestockDateLabel}.
-                </p>
-              )}
-            </div>
-
-            <Separator />
-
-            <div className="space-y-4">
-              <h3 className="font-semibold text-foreground">Select Options</h3>
-              {product.variants.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No variants available</p>
-              ) : (
-                <VariantSelector
-                  variants={product.variants}
-                  selectedVariants={selectedVariants}
-                  onVariantToggle={handleVariantToggle}
-                  onQuantityChange={handleQuantityChange}
-                />
-              )}
-            </div>
-
-            <Separator />
-
-            <div className="space-y-4">
-              <h3 className="font-semibold text-foreground">Shipping Options</h3>
-              {availableShipping.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No shipping options available</p>
-              ) : (
-                <div className="space-y-3">
-                  {availableShipping.map((option) => (
-                    <Card
-                      key={option.id}
-                      className={`cursor-pointer rounded-2xl border-border/70 shadow-sm transition-all hover:border-primary/50 ${
-                        selectedShipping?.id === option.id ? 'border-primary' : ''
-                      }`}
-                      onClick={() => setSelectedShipping(option)}
-                    >
-                      <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="rounded-xl bg-primary/10 p-2 text-primary">
-                            {getShippingIcon(option.shipping_class?.shipping_type?.name)}
-                          </div>
-                          <div>
-                            <p className="font-medium text-foreground">{option.shipping_class?.name}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {option.shipping_class?.estimated_days_min}-{option.shipping_class?.estimated_days_max} days
-                            </p>
-                            {(option.shipping_class?.description ||
-                              option.shipping_class?.shipping_type?.description) && (
-                              <p className="text-sm text-muted-foreground">
-                                {option.shipping_class?.description ||
-                                  option.shipping_class?.shipping_type?.description}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                        <p className="pl-11 text-sm font-semibold text-primary sm:pl-0">{formatPrice(option.price)}</p>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
             </div>
           </div>
-        </div>
+        ) : (
+          <>
+            <Link to="/products" className="mb-6 inline-flex items-center text-sm text-muted-foreground hover:text-primary">
+              <ArrowLeft className="mr-1 h-4 w-4" />
+              Back to Products
+            </Link>
 
-        {/* Frequently Bought Together */}
+            <div className="grid gap-5 lg:grid-cols-2 lg:gap-12">
+              <ProductImageGallery
+                key={galleryImages[0] || product.id}
+                images={galleryImages}
+                productName={product.name}
+              />
+
+              <div className="space-y-6">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex flex-wrap gap-2">
+                    {product.is_flash_deal && (
+                      <Badge className="bg-destructive text-destructive-foreground">
+                        <Zap className="mr-1 h-3 w-3" />
+                        Flash Deal
+                      </Badge>
+                    )}
+                    {product.is_group_buy_eligible && (
+                      <Badge variant="secondary" className="bg-accent text-accent-foreground">
+                        <Users className="mr-1 h-3 w-3" />
+                        Group Buy Eligible
+                      </Badge>
+                    )}
+                    {product.is_free_shipping && (
+                      <Badge className="bg-primary text-primary-foreground">
+                        <Truck className="mr-1 h-3 w-3" />
+                        Free Shipping Available
+                      </Badge>
+                    )}
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="icon" className="self-start">
+                        <Share2 className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={handleCopyLink}>
+                        <Copy className="mr-2 h-4 w-4" />
+                        Copy Link
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleShareWhatsApp}>
+                        <LinkIcon className="mr-2 h-4 w-4" />
+                        Share on WhatsApp
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
+                <div>
+                  <p className="mb-1 text-sm text-muted-foreground">{product.category_name || 'Uncategorized'}</p>
+                  <h1 className="mb-2 text-[1.65rem] font-bold font-serif leading-tight text-foreground sm:text-3xl">{product.name}</h1>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center">
+                      <Star className="h-5 w-5 fill-accent-foreground text-accent-foreground" />
+                      <span className="ml-1 font-medium text-foreground">{product.rating || 0}</span>
+                    </div>
+                    <span className="text-muted-foreground">({product.review_count || 0} reviews)</span>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-3xl font-bold text-primary">{formatPrice(product.base_price)}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Starting from</p>
+                  {product.group_buy_price != null && product.group_buy_price < product.base_price && (
+                    <p className="mt-2 text-sm text-primary">
+                      Group buy price {formatPrice(product.group_buy_price)} available, saving {groupBuySavings}% when the group fills.
+                    </p>
+                  )}
+                </div>
+
+                {descriptionText ? (
+                  <div>
+                    <div className="relative">
+                      <p
+                        className={`text-sm leading-6 text-muted-foreground sm:text-base ${
+                          !isDescriptionExpanded && hasLongDescription ? 'line-clamp-3' : ''
+                        }`}
+                      >
+                        {descriptionText}
+                      </p>
+                      {!isDescriptionExpanded && hasLongDescription ? (
+                        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-background via-background/90 to-transparent" />
+                      ) : null}
+                    </div>
+                    {hasLongDescription ? (
+                      <button
+                        type="button"
+                        className="mt-2 text-sm font-semibold text-primary"
+                        onClick={() => setIsDescriptionExpanded((current) => !current)}
+                      >
+                        {isDescriptionExpanded ? 'Show Less' : 'Read More'}
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                <Card className="rounded-2xl border-primary/15 bg-primary/5 shadow-sm">
+                  <CardContent className="grid gap-4 p-3.5 sm:p-4 md:grid-cols-3">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Availability</p>
+                      <p className="mt-1 font-semibold text-foreground">
+                        {hasAnyStock ? `${totalAvailableStock} unit(s) available across active variants` : 'Currently out of stock'}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {hasAnyStock
+                          ? 'Add to cart without locking the final shipping method. You can finish the choices at checkout.'
+                          : 'Set a restock alert and we will notify you as soon as this item is available again.'}
+                      </p>
+                      {!hasAnyStock && expectedRestockDateLabel && (
+                        <p className="mt-2 text-sm font-medium text-primary">
+                          Expected restock: {expectedRestockDateLabel}
+                        </p>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Delivery Window</p>
+                      <p className="mt-1 font-semibold text-foreground">
+                        {highlightedShipping?.shipping_class
+                          ? `${highlightedShipping.shipping_class.estimated_days_min}-${highlightedShipping.shipping_class.estimated_days_max} days`
+                          : 'Shipping estimate set at checkout'}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {highlightedShipping?.shipping_class?.description ||
+                          highlightedShipping?.shipping_class?.shipping_type?.description ||
+                          `${highlightedShipping?.shipping_class?.name || 'Choose your preferred shipping class'}.`}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Checkout Protection</p>
+                      <p className="mt-1 font-semibold text-foreground">
+                        Wallet credit, fragile packaging, and retry-safe checkout are available.
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Payment interruptions keep your selected items in place so you can retry.
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <div className="flex flex-wrap gap-2">
+                  <PriceDropAlert
+                    productId={product.id}
+                    productName={product.name}
+                    currentPrice={product.base_price}
+                  />
+                  <BackInStockAlert
+                    productId={product.id}
+                    productName={product.name}
+                    variantId={alertVariantId}
+                    isOutOfStock={showRestockAlert}
+                  />
+                  {showRestockAlert ? (
+                    <RestockReservationDialog
+                      productId={product.id}
+                      productName={product.name}
+                      expectedRestockDate={product.expected_restock_date}
+                      productVariantId={alertVariantId}
+                      variantLabel={reservationVariantLabel}
+                    />
+                  ) : null}
+                  {showRestockAlert && expectedRestockDateLabel && (
+                    <p className="w-full text-sm text-muted-foreground">
+                      We are currently expecting more stock around {expectedRestockDateLabel}.
+                    </p>
+                  )}
+                </div>
+
+                <Separator />
+
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-foreground">Select Options</h3>
+                  {product.variants.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No variants available</p>
+                  ) : (
+                    <VariantSelector
+                      variants={product.variants}
+                      selectedVariants={selectedVariants}
+                      onVariantToggle={handleVariantToggle}
+                      onQuantityChange={handleQuantityChange}
+                      onCurrentVariantChange={(variant) => setDesktopPreviewVariantId(variant?.id || null)}
+                    />
+                  )}
+                </div>
+
+                <Separator />
+
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-foreground">Shipping Options</h3>
+                  {availableShipping.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No shipping options available</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {availableShipping.map((option) => (
+                        <Card
+                          key={option.id}
+                          className={`cursor-pointer rounded-2xl border-border/70 shadow-sm transition-all hover:border-primary/50 ${
+                            selectedShipping?.id === option.id ? 'border-primary' : ''
+                          }`}
+                          onClick={() => setSelectedShipping(option)}
+                        >
+                          <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="rounded-xl bg-primary/10 p-2 text-primary">
+                                {getShippingIcon(option.shipping_class?.shipping_type?.name)}
+                              </div>
+                              <div>
+                                <p className="font-medium text-foreground">{option.shipping_class?.name}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {option.shipping_class?.estimated_days_min}-{option.shipping_class?.estimated_days_max} days
+                                </p>
+                                {(option.shipping_class?.description ||
+                                  option.shipping_class?.shipping_type?.description) && (
+                                  <p className="text-sm text-muted-foreground">
+                                    {option.shipping_class?.description ||
+                                      option.shipping_class?.shipping_type?.description}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <p className="pl-11 text-sm font-semibold text-primary sm:pl-0">{formatPrice(option.price)}</p>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {groupBuyPanel}
+              </div>
+            </div>
+          </>
+        )}
+
         <FrequentlyBoughtTogether productId={product.id} />
 
         <div className="mt-10 space-y-8 sm:mt-12">
@@ -575,10 +1100,7 @@ export default function ProductDetail() {
           <ProductQA productId={product.id} />
         </div>
 
-        {/* Related Products */}
         <RelatedProducts productId={product.id} categoryId={product.category_id} />
-
-        {/* Recently Viewed */}
         <RecentlyViewedProducts currentProductId={product.id} />
       </main>
 
@@ -586,9 +1108,11 @@ export default function ProductDetail() {
         <div className="fixed inset-x-0 bottom-0 z-40 px-3 pb-2">
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 rounded-[1.35rem] border border-border/80 bg-background/95 px-3 pt-3 shadow-[0_18px_44px_-22px_hsl(var(--foreground)/0.75)] backdrop-blur-xl supports-[backdrop-filter]:bg-background/90">
             <div className="min-w-0 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)]">
-              <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Ready to buy</p>
+              <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                {selectedVariants.length > 0 ? `${selectedItemCount} item(s) selected` : 'Ready to buy'}
+              </p>
               <p className="text-lg font-semibold text-foreground">
-                {formatPrice(purchaseDisplayPrice)}
+                {formatPrice(mobileEstimatedTotal)}
               </p>
               <p className="truncate text-xs text-muted-foreground">
                 {selectedVariants.length > 0
@@ -603,20 +1127,21 @@ export default function ProductDetail() {
             <div className="flex shrink-0 items-center gap-2 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)]">
               <Button size="sm" variant="outline" className="rounded-xl" onClick={handleAddToCart}>
                 <ShoppingCart className="mr-1 h-4 w-4" />
-                Add
+                Add to Cart
               </Button>
               <BuyNowSheet
                 product={product}
                 selectedVariants={selectedVariants}
                 selectedShippingRuleId={selectedShipping?.id || null}
                 triggerClassName="rounded-xl"
+                triggerLabel="Buy Now"
                 triggerSize="sm"
               />
             </div>
           </div>
         </div>
       )}
-      <Footer />
+      {!isMobile && <Footer />}
     </div>
   );
 }

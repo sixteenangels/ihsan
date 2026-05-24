@@ -1,10 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2 } from 'lucide-react';
+import { ImagePlus, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export interface VariantData {
@@ -14,6 +14,9 @@ export interface VariantData {
   price_override: string;
   stock: string;
   sku: string;
+  image_url?: string | null;
+  image_file?: File | null;
+  image_preview_url?: string | null;
 }
 
 interface ProductVariantsManagerProps {
@@ -36,6 +39,9 @@ const defaultVariant: VariantData = {
   price_override: '',
   stock: '0',
   sku: '',
+  image_url: null,
+  image_file: null,
+  image_preview_url: null,
 };
 
 function splitCommaValues(value: string) {
@@ -125,6 +131,7 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
   const [showForm, setShowForm] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [currentVariant, setCurrentVariant] = useState<VariantData>(defaultVariant);
+  const variantImageInputRef = useRef<HTMLInputElement>(null);
   const draftCombinations = useMemo(
     () => buildDraftCombinations(currentVariant),
     [currentVariant],
@@ -195,6 +202,42 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
     setCurrentVariant(defaultVariant);
     setShowForm(false);
     setEditingIndex(null);
+  };
+
+  const handleVariantImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please choose an image file.');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Variant image is too large. Max 5MB.');
+      return;
+    }
+
+    setCurrentVariant((prev) => ({
+      ...prev,
+      image_file: file,
+      image_preview_url: URL.createObjectURL(file),
+    }));
+
+    if (variantImageInputRef.current) {
+      variantImageInputRef.current.value = '';
+    }
+  };
+
+  const clearVariantImage = () => {
+    setCurrentVariant((prev) => ({
+      ...prev,
+      image_url: null,
+      image_file: null,
+      image_preview_url: null,
+    }));
   };
 
   const getVariantDisplayPrice = (variant: VariantData) => {
@@ -300,6 +343,53 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
               </div>
             </div>
 
+            <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">
+              <div className="space-y-1">
+                <Label>Variant Image</Label>
+                <p className="text-xs text-muted-foreground">
+                  Upload a variant-specific image. If you create multiple combinations at once, the same image will be applied to those new rows until you edit them individually.
+                </p>
+              </div>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="h-20 w-20 overflow-hidden rounded-xl border border-border bg-background">
+                  {currentVariant.image_preview_url || currentVariant.image_url ? (
+                    <img
+                      src={currentVariant.image_preview_url || currentVariant.image_url || ''}
+                      alt="Variant preview"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                      <ImagePlus className="h-5 w-5" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-1 flex-col gap-2 sm:flex-row">
+                  <input
+                    ref={variantImageInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleVariantImageSelect}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => variantImageInputRef.current?.click()}
+                  >
+                    <ImagePlus className="mr-2 h-4 w-4" />
+                    {currentVariant.image_preview_url || currentVariant.image_url ? 'Replace Image' : 'Upload Image'}
+                  </Button>
+                  {(currentVariant.image_preview_url || currentVariant.image_url) ? (
+                    <Button type="button" variant="outline" className="flex-1" onClick={clearVariantImage}>
+                      Remove Image
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+
             {draftCombinations.length > 0 && (
               <div className="rounded-lg border border-border bg-muted/20 p-3">
                 <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
@@ -390,7 +480,21 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
                     key={`${variant.color}-${variant.size}-${index}`}
                     className="flex flex-col gap-2 rounded-md border border-border bg-background p-3 sm:flex-row sm:items-center sm:justify-between"
                   >
-                    <div className="min-w-0">
+                    <div className="flex min-w-0 items-start gap-3">
+                      <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-border bg-muted">
+                        {variant.image_preview_url || variant.image_url ? (
+                          <img
+                            src={variant.image_preview_url || variant.image_url || ''}
+                            alt={`${variant.color || 'Default'} variant`}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                            <ImagePlus className="h-4 w-4" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0">
                       <div className="mb-1 flex flex-wrap gap-2">
                         <Badge variant="outline">Size: {variant.size || 'Default'}</Badge>
                         <Badge variant={parseStock(variant.stock) > 0 ? 'secondary' : 'destructive'}>
@@ -401,6 +505,7 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
                         ${getVariantDisplayPrice(variant).toFixed(2)}
                         {variant.sku ? ` - SKU: ${variant.sku}` : ''}
                       </p>
+                    </div>
                     </div>
                     <div className="flex items-center gap-1">
                       <Button type="button" variant="ghost" size="sm" onClick={() => handleEditVariant(index)}>

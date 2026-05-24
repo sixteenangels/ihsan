@@ -190,6 +190,7 @@ function buildCartProduct(
           ? Number(variant.price_override)
           : Number(product.base_price),
       stock: variant.stock || 0,
+      image_url: variant.variant_image_url || null,
     })),
     shippingOptions: shippingRules
       .filter((rule) => rule.is_allowed && rule.shipping_classes)
@@ -367,6 +368,7 @@ async function loadRemoteCartItems(localItems: CartItem[], userId: string): Prom
           ? Number(variant.price_override)
           : Number(product.base_price),
       stock: variant.stock || 0,
+      image_url: variant.variant_image_url || null,
     };
 
     return [

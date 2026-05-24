@@ -34,6 +34,7 @@ export interface ProductWithDetails {
     price: number;
     stock: number | null;
     sku: string | null;
+    image_url: string | null;
   }[];
   shipping_rules: {
     id: string;
@@ -186,6 +187,7 @@ async function fetchProducts(): Promise<ProductWithDetails[]> {
       price: v.price_override ? Number(v.price_override) : Number(product.base_price),
       stock: v.stock,
       sku: v.sku,
+      image_url: v.variant_image_url,
     })),
     shipping_rules: (shippingMap.get(product.id) || []).map((rule) => ({
       id: rule.id,
@@ -296,6 +298,7 @@ async function fetchProductById(id: string): Promise<ProductWithDetails | null> 
       price: v.price_override ? Number(v.price_override) : Number(product.base_price),
       stock: v.stock,
       sku: v.sku,
+      image_url: v.variant_image_url,
     })),
     shipping_rules: (shippingRules || []).map((rule) => ({
       id: rule.id,

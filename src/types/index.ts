@@ -4,6 +4,7 @@ export interface ProductVariant {
   color?: string;
   price: number;
   stock: number;
+  image_url?: string | null;
 }
 
 export interface ShippingOption {

@@ -44,6 +44,7 @@ interface SelectedVariantChoice {
   price: number;
   stock: number | null;
   quantity: number;
+  image_url?: string | null;
 }
 
 interface Address {
@@ -65,6 +66,7 @@ interface BuyNowSheetProps {
   selectedVariants: SelectedVariantChoice[];
   selectedShippingRuleId?: string | null;
   triggerClassName?: string;
+  triggerLabel?: string;
   triggerSize?: React.ComponentProps<typeof Button>['size'];
 }
 
@@ -115,6 +117,7 @@ export function BuyNowSheet({
   selectedVariants,
   selectedShippingRuleId,
   triggerClassName,
+  triggerLabel = 'Buy',
   triggerSize = 'sm',
 }: BuyNowSheetProps) {
   const navigate = useNavigate();
@@ -672,7 +675,7 @@ export function BuyNowSheet({
         ) : (
           <Zap className="mr-1 h-4 w-4" />
         )}
-        Buy
+        {triggerLabel}
       </Button>
 
       <Sheet open={isOpen} onOpenChange={setIsOpen}>
@@ -968,7 +971,7 @@ export function BuyNowSheet({
               <div className="flex items-start gap-3">
                 <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-muted">
                   <img
-                    src={product.images[0] || '/placeholder.svg'}
+                    src={selectedVariant?.image_url || product.images[0] || '/placeholder.svg'}
                     alt={product.name}
                     className="h-full w-full object-cover"
                   />

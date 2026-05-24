@@ -104,6 +104,25 @@ const defaultForm: ProductForm = {
   expected_restock_date: '',
 };
 
+async function uploadVariantImage(productId: string, file: File): Promise<string> {
+  const fileExt = file.name.split('.').pop() || 'jpg';
+  const fileName = `${productId}/variants/${Date.now()}-${Math.random().toString(36).slice(2, 11)}.${fileExt}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('product-images')
+    .upload(fileName, file);
+
+  if (uploadError) {
+    throw uploadError;
+  }
+
+  const { data } = supabase.storage
+    .from('product-images')
+    .getPublicUrl(fileName);
+
+  return data.publicUrl;
+}
+
 export function AdminProducts() {
   const queryClient = useQueryClient();
   const { formatPrice } = useCurrency();
@@ -175,14 +194,19 @@ export function AdminProducts() {
 
       // Create variants if any
       if (variants.length > 0 && product) {
-        const variantRecords: Database['public']['Tables']['product_variants']['Insert'][] = variants.map((v) => ({
-          product_id: product.id,
-          size: v.size || null,
-          color: v.color || null,
-          price_override: v.price_override ? parseFloat(v.price_override) : null,
-          stock: parseInt(v.stock) || 0,
-          sku: v.sku || null,
-        }));
+        const variantRecords: Database['public']['Tables']['product_variants']['Insert'][] = await Promise.all(
+          variants.map(async (v) => ({
+            product_id: product.id,
+            size: v.size || null,
+            color: v.color || null,
+            price_override: v.price_override ? parseFloat(v.price_override) : null,
+            stock: parseInt(v.stock) || 0,
+            sku: v.sku || null,
+            variant_image_url: v.image_file
+              ? await uploadVariantImage(product.id, v.image_file)
+              : v.image_url || null,
+          })),
+        );
         await supabase.from('product_variants').insert(variantRecords);
       }
 
@@ -269,14 +293,19 @@ export function AdminProducts() {
       // Handle variants: delete existing and insert new
       await supabase.from('product_variants').delete().eq('product_id', id);
       if (variants.length > 0) {
-        const variantRecords: Database['public']['Tables']['product_variants']['Insert'][] = variants.map((v) => ({
-          product_id: id,
-          size: v.size || null,
-          color: v.color || null,
-          price_override: v.price_override ? parseFloat(v.price_override) : null,
-          stock: parseInt(v.stock) || 0,
-          sku: v.sku || null,
-        }));
+        const variantRecords: Database['public']['Tables']['product_variants']['Insert'][] = await Promise.all(
+          variants.map(async (v) => ({
+            product_id: id,
+            size: v.size || null,
+            color: v.color || null,
+            price_override: v.price_override ? parseFloat(v.price_override) : null,
+            stock: parseInt(v.stock) || 0,
+            sku: v.sku || null,
+            variant_image_url: v.image_file
+              ? await uploadVariantImage(id, v.image_file)
+              : v.image_url || null,
+          })),
+        );
         await supabase.from('product_variants').insert(variantRecords);
       }
 
@@ -387,6 +416,9 @@ export function AdminProducts() {
           price_override: v.price_override ? String(v.price_override) : '',
           stock: String(v.stock || 0),
           sku: v.sku || '',
+          image_url: v.variant_image_url || null,
+          image_file: null,
+          image_preview_url: null,
         })));
       } else {
         setVariants([]);

@@ -11,6 +11,7 @@ interface Variant {
   color: string | null;
   price: number;
   stock: number | null;
+  image_url?: string | null;
 }
 
 interface SelectedVariant extends Variant {
@@ -22,6 +23,7 @@ interface VariantSelectorProps {
   selectedVariants: SelectedVariant[];
   onVariantToggle: (variant: Variant) => void;
   onQuantityChange: (variantId: string, quantity: number) => void;
+  onCurrentVariantChange?: (variant: Variant | null) => void;
 }
 
 const colorMap: Record<string, string> = {
@@ -67,6 +69,7 @@ export function VariantSelector({
   selectedVariants,
   onVariantToggle,
   onQuantityChange,
+  onCurrentVariantChange,
 }: VariantSelectorProps) {
   const { formatPrice } = useCurrency();
 
@@ -125,6 +128,10 @@ export function VariantSelector({
 
     return variantsForSelectedColor.find((variant) => variant.size === selectedSize);
   }, [selectedSize, sizesForSelectedColor.length, variantsForSelectedColor]);
+
+  useEffect(() => {
+    onCurrentVariantChange?.(currentVariant || null);
+  }, [currentVariant, onCurrentVariantChange]);
 
   const isVariantSelected = (variantId: string) => {
     return selectedVariants.some((variant) => variant.id === variantId);
@@ -287,6 +294,15 @@ export function VariantSelector({
 
       {currentVariant && (
         <div className="space-y-3 rounded-2xl border border-border/70 bg-muted/50 p-3.5 sm:p-4">
+          {currentVariant.image_url ? (
+            <div className="overflow-hidden rounded-2xl border border-border/70 bg-background">
+              <img
+                src={currentVariant.image_url}
+                alt={`${currentVariant.color || currentVariant.size || 'Selected'} variant`}
+                className="h-44 w-full object-cover"
+              />
+            </div>
+          ) : null}
           <div className="flex items-center justify-between">
             <div>
               <p className="text-2xl font-bold text-primary">{formatPrice(currentVariant.price)}</p>
@@ -346,14 +362,30 @@ export function VariantSelector({
       {selectedVariants.length > 0 && (
         <div className="space-y-2 rounded-2xl border border-primary/20 bg-primary/5 p-3.5 sm:p-4">
           <h4 className="font-medium text-foreground">{selectedVariants.length} variant(s) selected</h4>
-          <div className="space-y-1">
+          <div className="space-y-2">
             {selectedVariants.map((variant) => (
-              <div key={variant.id} className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">
-                  {variant.color || 'Default variant'}
-                  {variant.size && ` - ${variant.size}`} x {variant.quantity}
-                </span>
-                <span className="font-medium text-foreground">
+              <div
+                key={variant.id}
+                className="flex items-center justify-between gap-3 rounded-xl border border-primary/10 bg-background/80 p-2.5"
+              >
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-muted">
+                    {variant.image_url ? (
+                      <img
+                        src={variant.image_url}
+                        alt={`${variant.color || variant.size || 'Variant'} preview`}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="h-full w-full bg-muted" />
+                    )}
+                  </div>
+                  <span className="min-w-0 text-sm text-muted-foreground">
+                    {variant.color || 'Default variant'}
+                    {variant.size && ` - ${variant.size}`} x {variant.quantity}
+                  </span>
+                </div>
+                <span className="shrink-0 font-medium text-foreground">
                   {formatPrice(variant.price * variant.quantity)}
                 </span>
               </div>
