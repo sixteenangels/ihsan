@@ -51,12 +51,6 @@ import { formatGroupBuyTimeRemaining } from '@/lib/groupBuyTiming';
 import { useGroupBuySettings } from '@/hooks/useGroupBuySettings';
 import { formatGroupBuyDuration } from '@/lib/groupBuyConfig';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from '@/components/ui/select';
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -140,18 +134,6 @@ function getVariantSummaryLabel(variant: { color: string | null; size: string | 
   return [variant.color, variant.size].filter(Boolean).join(' / ') || 'Standard option';
 }
 
-function getVariantPrimaryLabel(variant: { color: string | null; size: string | null }) {
-  return variant.color || variant.size || 'Standard option';
-}
-
-function getVariantSecondaryLabel(variant: { color: string | null; size: string | null }) {
-  if (variant.color && variant.size) {
-    return variant.size;
-  }
-
-  return null;
-}
-
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
@@ -167,7 +149,6 @@ export default function ProductDetail() {
   const [selectedShipping, setSelectedShipping] = useState<ShippingRule | null>(null);
   const [desktopPreviewVariantId, setDesktopPreviewVariantId] = useState<string | null>(null);
   const [mobileVariantId, setMobileVariantId] = useState<string | null>(null);
-  const [mobileVariantQuantity, setMobileVariantQuantity] = useState(1);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const preferredGroupBuyId = searchParams.get('groupBuy');
 
@@ -194,13 +175,16 @@ export default function ProductDetail() {
     });
   }, [product, user?.id]);
 
-  const handleVariantToggle = (variant: { id: string; size: string | null; color: string | null; price: number; stock: number | null; image_url?: string | null }) => {
-    const isSelected = selectedVariants.some((v) => v.id === variant.id);
-    if (isSelected) {
-      setSelectedVariants((prev) => prev.filter((v) => v.id !== variant.id));
-    } else {
-      setSelectedVariants((prev) => [...prev, { ...variant, quantity: 1 }]);
+  const handleAddVariantSelection = (variant: { id: string; size: string | null; color: string | null; price: number; stock: number | null; image_url?: string | null }, quantity: number) => {
+    const normalizedQuantity = Math.max(1, quantity);
+    const existingSelection = selectedVariants.find((selectedVariant) => selectedVariant.id === variant.id);
+
+    if (existingSelection) {
+      handleQuantityChange(variant.id, normalizedQuantity);
+      return;
     }
+
+    setSelectedVariants((prev) => [...prev, { ...variant, quantity: normalizedQuantity }]);
   };
 
   const handleQuantityChange = (variantId: string, quantity: number) => {
@@ -215,24 +199,6 @@ export default function ProductDetail() {
 
   const handleClearSelectedVariants = () => {
     setSelectedVariants([]);
-  };
-
-  const handleMobileAddSelection = () => {
-    if (!mobileActiveVariant) {
-      return;
-    }
-
-    const quantity = Math.max(1, mobileVariantQuantity);
-    const existingSelection = selectedVariants.find((variant) => variant.id === mobileActiveVariant.id);
-
-    if (existingSelection) {
-      handleQuantityChange(mobileActiveVariant.id, quantity);
-      toast.success('Selection updated.');
-      return;
-    }
-
-    setSelectedVariants((prev) => [...prev, { ...mobileActiveVariant, quantity }]);
-    toast.success('Added to selection.');
   };
 
   const totalPrice = useMemo(() => {
@@ -291,16 +257,6 @@ export default function ProductDetail() {
       null
     );
   }, [defaultMobileVariant, mobileVariantId, product]);
-
-  useEffect(() => {
-    if (!mobileActiveVariant) {
-      setMobileVariantQuantity(1);
-      return;
-    }
-
-    const existingSelection = selectedVariants.find((variant) => variant.id === mobileActiveVariant.id);
-    setMobileVariantQuantity(existingSelection?.quantity ?? 1);
-  }, [mobileActiveVariant, selectedVariants]);
 
   const desktopPreviewVariant = useMemo(() => {
     if (!product) {
@@ -587,201 +543,23 @@ export default function ProductDetail() {
 
             <section className="space-y-3">
               <h3 className="text-sm font-semibold text-foreground">
-                Select Variant
+                Select Options
               </h3>
               {product.variants.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No variants available</p>
               ) : (
-                <>
-                  <Select
-                    value={mobileActiveVariant?.id || ''}
-                    onValueChange={(value) => setMobileVariantId(value)}
-                  >
-                    <SelectTrigger className="h-auto rounded-[1.35rem] border-border/70 bg-card/80 px-3 py-2.5">
-                      <div className="flex min-w-0 flex-1 items-center gap-3 text-left">
-                        <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-muted">
-                          <img
-                            src={mobileActiveVariant?.image_url || heroImage}
-                            alt={mobileActiveVariant ? getVariantSummaryLabel(mobileActiveVariant) : product.name}
-                            className="h-full w-full object-cover"
-                          />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate font-medium text-foreground">
-                          {mobileActiveVariant ? getVariantPrimaryLabel(mobileActiveVariant) : 'Choose a variant'}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {mobileActiveVariant
-                              ? getVariantSecondaryLabel(mobileActiveVariant) ||
-                                ((mobileActiveVariant.stock || 0) > 0
-                                  ? `${mobileActiveVariant.stock || 0} in stock`
-                                  : 'Out of stock')
-                              : 'Select one exact option'}
-                          </p>
-                        </div>
-                      </div>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {product.variants.map((variant) => (
-                        <SelectItem key={variant.id} value={variant.id}>
-                          {getVariantSummaryLabel(variant)} - {formatPrice(variant.price)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground">Quantity</p>
-                    <div className="grid grid-cols-[auto,1fr] gap-2">
-                      <div className="flex items-center gap-1 rounded-[1.15rem] border border-border/70 bg-card/80 px-2">
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          className="h-10 w-10 rounded-xl"
-                          onClick={() => setMobileVariantQuantity((current) => Math.max(1, current - 1))}
-                          disabled={mobileVariantQuantity <= 1}
-                        >
-                          <Minus className="h-4 w-4" />
-                        </Button>
-                        <span className="w-6 text-center font-semibold text-foreground">{mobileVariantQuantity}</span>
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          className="h-10 w-10 rounded-xl"
-                          onClick={() => setMobileVariantQuantity((current) => current + 1)}
-                          disabled={mobileActiveVariant ? mobileVariantQuantity >= (mobileActiveVariant.stock || 0) : true}
-                        >
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      <Button
-                        className="h-12 min-w-0 overflow-hidden rounded-[1.15rem]"
-                        onClick={handleMobileAddSelection}
-                        disabled={!mobileActiveVariant || (mobileActiveVariant.stock || 0) <= 0}
-                      >
-                        <span className="truncate">
-                          {selectedVariants.some((variant) => variant.id === mobileActiveVariant?.id)
-                            ? 'Update Selection'
-                            : 'Add to Selection'}
-                        </span>
-                      </Button>
-                    </div>
-                  </div>
-                </>
+                <VariantSelector
+                  mode="mobile"
+                  variants={product.variants}
+                  selectedVariants={selectedVariants}
+                  onAddVariantSelection={handleAddVariantSelection}
+                  onRemoveVariantSelection={handleRemoveSelectedVariant}
+                  onQuantityChange={handleQuantityChange}
+                  onClearAll={handleClearSelectedVariants}
+                  onCurrentVariantChange={(variant) => setMobileVariantId(variant?.id || null)}
+                />
               )}
             </section>
-
-            {selectedVariants.length > 0 ? (
-              <section className="space-y-3 rounded-[1.5rem] border border-border/70 bg-card/80 p-3.5">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="font-semibold text-foreground">Selected Variants ({selectedVariants.length})</p>
-                    <p className="text-xs text-muted-foreground">
-                      {selectedVariants.length} variant{selectedVariants.length === 1 ? '' : 's'} / {selectedItemCount} item{selectedItemCount === 1 ? '' : 's'}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    className="text-xs font-semibold text-primary"
-                    onClick={handleClearSelectedVariants}
-                  >
-                    Clear All
-                  </button>
-                </div>
-
-                <div className="space-y-2">
-                  {selectedVariants.map((variant) => (
-                    <div
-                      key={variant.id}
-                      className="rounded-[1.35rem] border border-border/70 bg-background/80 p-3"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-muted">
-                          <img
-                            src={variant.image_url || product.images[0] || '/placeholder.svg'}
-                            alt={product.name}
-                            className="h-full w-full object-cover"
-                          />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
-                              <p className="line-clamp-2 font-medium leading-tight text-foreground">
-                                {getVariantSummaryLabel(variant)}
-                              </p>
-                              {getVariantSecondaryLabel(variant) ? (
-                                <p className="text-xs text-muted-foreground">
-                                  {getVariantSecondaryLabel(variant)}
-                                </p>
-                              ) : null}
-                              <p className="mt-1 text-xs font-medium text-primary">
-                                {formatPrice(variant.price)} each
-                              </p>
-                            </div>
-                            <button
-                              type="button"
-                              className="rounded-full p-1 text-muted-foreground transition-colors hover:text-destructive"
-                              onClick={() => handleRemoveSelectedVariant(variant.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                          <div className="mt-3 flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-1 rounded-2xl border border-border/70 bg-card px-2">
-                              <Button
-                                type="button"
-                                size="icon"
-                                variant="ghost"
-                                className="h-9 w-9 rounded-xl"
-                                onClick={() =>
-                                  handleQuantityChange(variant.id, Math.max(1, variant.quantity - 1))
-                                }
-                                disabled={variant.quantity <= 1}
-                              >
-                                <Minus className="h-4 w-4" />
-                              </Button>
-                              <span className="w-6 text-center font-semibold text-foreground">{variant.quantity}</span>
-                              <Button
-                                type="button"
-                                size="icon"
-                                variant="ghost"
-                                className="h-9 w-9 rounded-xl"
-                                onClick={() => handleQuantityChange(variant.id, variant.quantity + 1)}
-                                disabled={variant.stock != null ? variant.quantity >= variant.stock : false}
-                              >
-                                <Plus className="h-4 w-4" />
-                              </Button>
-                            </div>
-                            <p className="text-sm font-semibold text-primary">
-                              {formatPrice(variant.price * variant.quantity)}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="rounded-[1.35rem] border border-primary/15 bg-primary/5 p-3.5">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex min-w-0 items-start gap-2.5">
-                      <div className="mt-0.5 rounded-full bg-primary/10 p-1.5 text-primary">
-                        <Package className="h-4 w-4" />
-                      </div>
-                      <div className="min-w-0">
-                      <p className="text-sm font-semibold text-foreground">Selected Items Total</p>
-                      <p className="text-xs text-muted-foreground">
-                        {selectedVariants.length} variant{selectedVariants.length === 1 ? '' : 's'} / {selectedItemCount} item{selectedItemCount === 1 ? '' : 's'}
-                      </p>
-                      </div>
-                    </div>
-                    <p className="shrink-0 text-right text-xl font-bold text-primary">{formatPrice(totalPrice)}</p>
-                  </div>
-                </div>
-              </section>
-            ) : null}
 
             <section className="space-y-3">
               <div className="flex flex-wrap items-start justify-between gap-2">
@@ -1055,8 +833,10 @@ export default function ProductDetail() {
                     <VariantSelector
                       variants={product.variants}
                       selectedVariants={selectedVariants}
-                      onVariantToggle={handleVariantToggle}
+                      onAddVariantSelection={handleAddVariantSelection}
+                      onRemoveVariantSelection={handleRemoveSelectedVariant}
                       onQuantityChange={handleQuantityChange}
+                      onClearAll={handleClearSelectedVariants}
                       onCurrentVariantChange={(variant) => setDesktopPreviewVariantId(variant?.id || null)}
                     />
                   )}
