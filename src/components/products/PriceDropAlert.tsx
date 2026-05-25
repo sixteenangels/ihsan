@@ -19,11 +19,15 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { cn } from '@/lib/utils';
 
 interface Props {
   productId: string;
   productName?: string;
   currentPrice?: number;
+  triggerMode?: 'button' | 'row';
+  className?: string;
 }
 
 interface PriceDropAlertRecord {
@@ -32,7 +36,13 @@ interface PriceDropAlertRecord {
   target_price: number | null;
 }
 
-export function PriceDropAlert({ productId, productName, currentPrice }: Props) {
+export function PriceDropAlert({
+  productId,
+  productName,
+  currentPrice,
+  triggerMode = 'button',
+  className,
+}: Props) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { formatPrice } = useCurrency();
@@ -168,29 +178,79 @@ export function PriceDropAlert({ productId, productName, currentPrice }: Props) 
 
   const productLabel = productName || 'this product';
   const currentPriceLabel = typeof currentPrice === 'number' ? formatPrice(currentPrice) : null;
+  const isBusy = saveAlertMutation.isPending || removeAlertMutation.isPending;
+
+  const handleRowToggle = (checked: boolean) => {
+    if (checked) {
+      handleOpen();
+      return;
+    }
+
+    if (!alert) return;
+    removeAlertMutation.mutate();
+  };
 
   return (
     <>
-      <Button
-        variant={alert ? 'default' : 'outline'}
-        size="sm"
-        onClick={handleOpen}
-        disabled={saveAlertMutation.isPending || removeAlertMutation.isPending}
-      >
-        {saveAlertMutation.isPending || removeAlertMutation.isPending ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : alert ? (
-          <>
-            <BellOff className="mr-1 h-4 w-4" />
-            Manage Price Alert
-          </>
-        ) : (
-          <>
-            <Bell className="mr-1 h-4 w-4" />
-            Alert on Price Drop
-          </>
-        )}
-      </Button>
+      {triggerMode === 'row' ? (
+        <div
+          className={cn(
+            'flex items-center justify-between gap-3 rounded-[1.35rem] border border-border/70 bg-card/80 px-4 py-3',
+            className,
+          )}
+        >
+          <button
+            type="button"
+            className="flex min-w-0 flex-1 items-center gap-3 text-left"
+            onClick={handleOpen}
+            disabled={isBusy}
+          >
+            <div className="rounded-full bg-primary/10 p-2 text-primary">
+              {isBusy ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : alert ? (
+                <BellOff className="h-4 w-4" />
+              ) : (
+                <Bell className="h-4 w-4" />
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground">Alert on Price Drop</p>
+              <p className="text-xs text-muted-foreground">
+                Get notified when the price goes down.
+              </p>
+            </div>
+          </button>
+          <Switch
+            checked={!!alert}
+            onCheckedChange={handleRowToggle}
+            disabled={isBusy}
+            aria-label="Toggle price drop alert"
+          />
+        </div>
+      ) : (
+        <Button
+          variant={alert ? 'default' : 'outline'}
+          size="sm"
+          onClick={handleOpen}
+          disabled={isBusy}
+          className={className}
+        >
+          {isBusy ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : alert ? (
+            <>
+              <BellOff className="mr-1 h-4 w-4" />
+              Manage Price Alert
+            </>
+          ) : (
+            <>
+              <Bell className="mr-1 h-4 w-4" />
+              Alert on Price Drop
+            </>
+          )}
+        </Button>
+      )}
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-md">

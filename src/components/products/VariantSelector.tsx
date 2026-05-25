@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Check, Minus, Plus, Trash2 } from 'lucide-react';
+import { Check, CheckCircle2, Minus, Plus, ShoppingBag, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -217,10 +217,10 @@ export function VariantSelector({
     <div className="space-y-4">
       {visualOptions.length > 0 ? (
         <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-            {hasColorDimension ? '1. Color' : '1. Style'}
+          <p className="text-xs font-semibold text-foreground">
+            {hasColorDimension ? 'Select Color' : 'Select Style'}
           </p>
-          <div className="no-scrollbar -mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-1 scroll-smooth [scrollbar-width:none]">
+          <div className="no-scrollbar -mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto overscroll-x-contain px-1 pb-2 scroll-smooth [scrollbar-width:none] [touch-action:pan-x]">
             {visualOptions.map((option) => {
               const isSelected = selectedVisualKey === option.key;
 
@@ -265,10 +265,10 @@ export function VariantSelector({
 
       {sizeOptions.length > 0 ? (
         <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-            {visualOptions.length > 0 ? '2. Size' : '1. Size'}
+          <p className="text-xs font-semibold text-foreground">
+            Select Size
           </p>
-          <div className="no-scrollbar -mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-1 scroll-smooth [scrollbar-width:none]">
+          <div className="no-scrollbar -mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto overscroll-x-contain px-1 pb-2 scroll-smooth [scrollbar-width:none] [touch-action:pan-x]">
             {sizeOptions.map((size) => {
               const variantForSize = variantsForSelectedVisual.find((variant) => variant.size === size);
               const isSelected = selectedSize === size;
@@ -290,13 +290,6 @@ export function VariantSelector({
                   )}
                 >
                   <p className="font-medium">{size}</p>
-                  {variantForSize ? (
-                    <p className="mt-1 text-[11px] text-muted-foreground">
-                      {getVariantStock(variantForSize) > 0
-                        ? `${getVariantStock(variantForSize)} in stock`
-                        : 'Out of stock'}
-                    </p>
-                  ) : null}
                 </button>
               );
             })}
@@ -342,9 +335,10 @@ export function VariantSelector({
           </div>
 
           {selectedCurrentVariant && helperLabel ? (
-            <p className="text-xs text-primary">
-              {helperLabel} added to your selection
-            </p>
+            <div className="flex items-center gap-1.5 text-xs text-emerald-500">
+              <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">{helperLabel} added to your selection</span>
+            </div>
           ) : null}
         </div>
       ) : null}
@@ -445,20 +439,39 @@ export function VariantSelector({
             ))}
           </div>
 
-          <div className="rounded-[1.35rem] border border-primary/15 bg-primary/5 p-3.5">
+          <div
+            className={cn(
+              'rounded-[1.35rem] border p-3.5',
+              isMobile
+                ? 'border-border/70 bg-background/90'
+                : 'border-primary/15 bg-primary/5',
+            )}
+          >
             <div className="flex items-start justify-between gap-3">
               <div className="flex min-w-0 items-start gap-2.5">
-                <div className="mt-0.5 rounded-full bg-primary/10 p-1.5 text-primary">
-                  <Check className="h-4 w-4" />
+                <div
+                  className={cn(
+                    'mt-0.5 rounded-full p-1.5',
+                    isMobile ? 'bg-primary/12 text-primary' : 'bg-primary/10 text-primary',
+                  )}
+                >
+                  <ShoppingBag className="h-4 w-4" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-foreground">Selected Items Total</p>
+                  <p className="text-sm font-semibold text-foreground">
+                    {isMobile ? `${selectedItemCount} item${selectedItemCount === 1 ? '' : 's'} selected` : 'Selected Items Total'}
+                  </p>
                   <p className="text-xs text-muted-foreground">
                     {selectedVariantCount} variant{selectedVariantCount === 1 ? '' : 's'} / {selectedItemCount} item{selectedItemCount === 1 ? '' : 's'}
                   </p>
                 </div>
               </div>
-              <p className="shrink-0 text-right text-xl font-bold text-primary">{formatPrice(selectedTotal)}</p>
+              <div className="shrink-0 text-right">
+                {isMobile ? (
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Total (Est.)</p>
+                ) : null}
+                <p className="text-right text-xl font-bold text-primary">{formatPrice(selectedTotal)}</p>
+              </div>
             </div>
           </div>
         </div>

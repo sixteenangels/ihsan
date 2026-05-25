@@ -4,12 +4,14 @@ import {
   ArrowLeft,
   CheckCircle2,
   Copy,
+  Ellipsis,
   Link as LinkIcon,
   Loader2,
   Minus,
   Package,
   Plane,
   Plus,
+  Search,
   Share2,
   Ship,
   ShoppingCart,
@@ -317,6 +319,30 @@ export default function ProductDetail() {
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
   };
 
+  const handleMobileShare = async () => {
+    if (!product) return;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: product.name,
+          text: `Check out ${product.name} on AJYN!`,
+          url: window.location.href,
+        });
+        return;
+      } catch {
+        return;
+      }
+    }
+
+    handleCopyLink();
+  };
+
+  const handlePreviewImage = () => {
+    if (!heroImage) return;
+    window.open(heroImage, '_blank', 'noopener,noreferrer');
+  };
+
   const getShippingIcon = (typeName: string | undefined) => {
     if (!typeName) return <Plane className="h-5 w-5" />;
     const name = typeName.toLowerCase();
@@ -372,9 +398,6 @@ export default function ProductDetail() {
     product.is_free_shipping || !highlightedShipping ? 0 : Number(highlightedShipping.price || 0);
   const mobileEstimatedTotal =
     (selectedVariants.length > 0 ? totalPrice : mobilePreviewUnitPrice) + previewShippingCost;
-  const shippingEtaLabel = highlightedShipping?.shipping_class
-    ? `${highlightedShipping.shipping_class.estimated_days_min}-${highlightedShipping.shipping_class.estimated_days_max} days`
-    : 'Shipping set at checkout';
   const preferredProductGroupBuy = activeProductGroupBuys.find((groupBuy) => groupBuy.id === preferredGroupBuyId) || null;
   const joinedProductGroupBuy = activeProductGroupBuys.find((groupBuy) => groupBuy.viewer_has_joined) || null;
   const activeProductGroupBuy = preferredProductGroupBuy || joinedProductGroupBuy || activeProductGroupBuys[0] || null;
@@ -387,22 +410,27 @@ export default function ProductDetail() {
     ? [heroImage, ...product.images.filter((image) => image !== heroImage)]
     : product.images;
   const groupBuyPanel = product.is_group_buy_eligible ? (
-    <div className="rounded-[1.5rem] border border-accent/20 bg-accent/10 p-4">
-      <div className="space-y-3">
-        <div className="space-y-1">
-          <p className="font-medium text-foreground">Start a Group Buy</p>
-          <p className="text-sm text-muted-foreground">
-            Lock in the group price for {formatGroupBuyDuration(groupBuySettings.countdownDurationValue, groupBuySettings.countdownDurationUnit)} and invite others to fill the target.
-          </p>
-          {activeProductGroupBuy ? (
-            <p className="text-xs text-primary">
-              An open group is already live for this item. {formatGroupBuyTimeRemaining(activeProductGroupBuy.expires_at)}.
-            </p>
-          ) : null}
-        </div>
-        <div className="grid gap-2 sm:grid-cols-2">
+    isMobile ? (
+      <div className="rounded-[1.45rem] border border-border/70 bg-card/80 p-3.5 shadow-sm">
+        <div className="grid grid-cols-[minmax(0,1fr),auto] items-start gap-2.5">
+          <div className="row-span-2 flex min-w-0 items-start gap-3 rounded-[1.15rem] bg-background/70 p-3">
+            <div className="rounded-2xl bg-primary/10 p-2.5 text-primary">
+              <Users className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-foreground">Start a Group Buy</p>
+              <p className="mt-1 text-[11px] leading-[18px] text-muted-foreground">
+                Lock in the group price for {formatGroupBuyDuration(groupBuySettings.countdownDurationValue, groupBuySettings.countdownDurationUnit)} and invite others to fill the target.
+              </p>
+              {activeProductGroupBuy ? (
+                <p className="mt-1 text-[11px] text-primary">
+                  Live group ends {formatGroupBuyTimeRemaining(activeProductGroupBuy.expires_at)}.
+                </p>
+              ) : null}
+            </div>
+          </div>
           <StartGroupBuyDialog
-            triggerClassName="h-11 w-full min-w-0 overflow-hidden rounded-2xl"
+            triggerClassName="h-10 min-w-[126px] overflow-hidden rounded-xl px-4 text-xs font-semibold"
             product={{ id: product.id, name: product.name, base_price: product.base_price, group_buy_price: product.group_buy_price ?? null }}
           />
           {activeProductGroupBuy ? (
@@ -410,7 +438,7 @@ export default function ProductDetail() {
               disableDialogWhenJoined
               triggerLabel="Join Existing"
               joinedLabel="Joined"
-              triggerClassName="h-11 w-full min-w-0 overflow-hidden rounded-2xl"
+              triggerClassName="h-9 min-w-[126px] overflow-hidden rounded-xl border-border/70 bg-background/70 text-xs font-medium"
               groupBuy={{
                 id: activeProductGroupBuy.id,
                 product_id: activeProductGroupBuy.product_id,
@@ -430,14 +458,66 @@ export default function ProductDetail() {
               }}
             />
           ) : (
-            <Button variant="outline" className="h-11 min-w-0 overflow-hidden rounded-2xl" disabled={!hasLiveProductGroupBuy}>
-              <Users className="mr-2 h-4 w-4 shrink-0" />
+            <Button variant="outline" className="h-9 min-w-[126px] overflow-hidden rounded-xl border-border/70 bg-background/70 text-xs font-medium" disabled={!hasLiveProductGroupBuy}>
+              <Users className="mr-1.5 h-3.5 w-3.5 shrink-0" />
               <span className="truncate">Join Existing</span>
             </Button>
           )}
         </div>
       </div>
-    </div>
+    ) : (
+      <div className="rounded-[1.5rem] border border-accent/20 bg-accent/10 p-4">
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <p className="font-medium text-foreground">Start a Group Buy</p>
+            <p className="text-sm text-muted-foreground">
+              Lock in the group price for {formatGroupBuyDuration(groupBuySettings.countdownDurationValue, groupBuySettings.countdownDurationUnit)} and invite others to fill the target.
+            </p>
+            {activeProductGroupBuy ? (
+              <p className="text-xs text-primary">
+                An open group is already live for this item. {formatGroupBuyTimeRemaining(activeProductGroupBuy.expires_at)}.
+              </p>
+            ) : null}
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <StartGroupBuyDialog
+              triggerClassName="h-11 w-full min-w-0 overflow-hidden rounded-2xl"
+              product={{ id: product.id, name: product.name, base_price: product.base_price, group_buy_price: product.group_buy_price ?? null }}
+            />
+            {activeProductGroupBuy ? (
+              <JoinGroupBuyDialog
+                disableDialogWhenJoined
+                triggerLabel="Join Existing"
+                joinedLabel="Joined"
+                triggerClassName="h-11 w-full min-w-0 overflow-hidden rounded-2xl"
+                groupBuy={{
+                  id: activeProductGroupBuy.id,
+                  product_id: activeProductGroupBuy.product_id,
+                  min_participants: activeProductGroupBuy.min_participants,
+                  max_participants: activeProductGroupBuy.max_participants,
+                  current_participants: activeProductGroupBuy.current_participants,
+                  discount_percentage: activeProductGroupBuy.discount_percentage,
+                  group_price: activeProductGroupBuy.group_price,
+                  expires_at: activeProductGroupBuy.expires_at,
+                  settings: activeProductGroupBuy.settings,
+                  status: activeProductGroupBuy.status,
+                  product: {
+                    name: product.name,
+                    base_price: product.base_price,
+                  },
+                  tiers: activeProductGroupBuy.tiers,
+                }}
+              />
+            ) : (
+              <Button variant="outline" className="h-11 min-w-0 overflow-hidden rounded-2xl" disabled={!hasLiveProductGroupBuy}>
+                <Users className="mr-2 h-4 w-4 shrink-0" />
+                <span className="truncate">Join Existing</span>
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+    )
   ) : null;
 
   return (
@@ -446,108 +526,155 @@ export default function ProductDetail() {
       <main className="container px-3 py-5 pb-36 sm:px-6 md:py-8 md:pb-8">
         {isMobile ? (
           <div className="space-y-4">
-            <div className="sticky top-0 z-40 -mx-3 mb-4 border-b border-border/70 bg-background/95 px-3 py-3 backdrop-blur-xl">
-              <div className="flex items-center justify-between gap-3">
-                <Link
-                  to="/products"
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border/70 bg-card text-foreground transition-colors hover:border-primary/50 hover:text-primary"
-                >
-                  <ArrowLeft className="h-5 w-5" />
-                </Link>
-                <div className="flex items-center gap-2">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="icon" className="h-10 w-10 rounded-full">
-                        <Share2 className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={handleCopyLink}>
-                        <Copy className="mr-2 h-4 w-4" />
-                        Copy Link
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={handleShareWhatsApp}>
-                        <LinkIcon className="mr-2 h-4 w-4" />
-                        Share on WhatsApp
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                  <Link to="/cart">
-                    <Button variant="outline" size="icon" className="relative h-10 w-10 rounded-full">
-                      <ShoppingCart className="h-4 w-4" />
-                      {totalItems > 0 ? (
-                        <Badge className="absolute -right-1 -top-1 h-5 w-5 justify-center p-0 text-[11px]">
-                          {totalItems}
-                        </Badge>
-                      ) : null}
-                    </Button>
+            <div className="overflow-hidden rounded-[1.8rem] border border-border/70 bg-card/80 shadow-sm">
+              <div className="relative overflow-hidden rounded-[1.65rem] bg-muted">
+                <img
+                  src={heroImage}
+                  alt={product.name}
+                  className="h-[320px] w-full object-cover"
+                />
+                <div className="absolute inset-x-0 top-0 flex items-center justify-between p-3">
+                  <Link
+                    to="/products"
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-background/75 text-foreground backdrop-blur-md transition-colors hover:border-primary/50 hover:text-primary"
+                  >
+                    <ArrowLeft className="h-5 w-5" />
                   </Link>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-10 w-10 rounded-full border-white/20 bg-background/75 backdrop-blur-md"
+                      onClick={handleMobileShare}
+                    >
+                      <Share2 className="h-4 w-4" />
+                    </Button>
+                    <Link to="/cart">
+                      <Button variant="outline" size="icon" className="relative h-10 w-10 rounded-full border-white/20 bg-background/75 backdrop-blur-md">
+                        <ShoppingCart className="h-4 w-4" />
+                        {totalItems > 0 ? (
+                          <Badge className="absolute -right-1 -top-1 h-5 w-5 justify-center p-0 text-[11px]">
+                            {totalItems}
+                          </Badge>
+                        ) : null}
+                      </Button>
+                    </Link>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="icon" className="h-10 w-10 rounded-full border-white/20 bg-background/75 backdrop-blur-md">
+                          <Ellipsis className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={handleCopyLink}>
+                          <Copy className="mr-2 h-4 w-4" />
+                          Copy Link
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={handleShareWhatsApp}>
+                          <LinkIcon className="mr-2 h-4 w-4" />
+                          Share on WhatsApp
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+                <div className="absolute inset-x-0 bottom-0 flex items-end justify-between p-3">
+                  <span className="rounded-full border border-white/15 bg-background/75 px-2.5 py-1 text-[11px] font-medium text-foreground backdrop-blur-md">
+                    1/{Math.max(1, galleryImages.length)}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-9 w-9 rounded-full border-white/20 bg-background/75 backdrop-blur-md"
+                    onClick={handlePreviewImage}
+                  >
+                    <Search className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
             </div>
 
-            <div className="rounded-[1.75rem] border border-border/70 bg-card/80 p-3.5 shadow-sm">
-              <div className="space-y-3">
-                <div className="flex gap-3">
-                  <div className="h-24 w-24 shrink-0 overflow-hidden rounded-[1.2rem] border border-border/70 bg-muted">
-                    <img
-                      src={heroImage}
-                      alt={product.name}
-                      className="h-full w-full object-cover"
-                    />
-                  </div>
-                  <div className="min-w-0 flex-1 pt-0.5">
-                    <h1 className="line-clamp-2 text-[1.15rem] font-semibold leading-tight text-foreground">
-                      {product.name}
-                    </h1>
-                    <p className="mt-1 text-xl font-bold text-primary">{formatPrice(product.base_price)}</p>
-                    <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">
-                        <Star className="h-3.5 w-3.5 fill-primary text-primary" />
-                        {product.rating || 0}
-                      </span>
-                      <span>{product.review_count || 0} review(s)</span>
-                    </div>
-                    {product.group_buy_price != null && product.group_buy_price < product.base_price ? (
-                      <p className="mt-2 text-[11px] font-medium leading-4 text-primary">
-                        Group buy price {formatPrice(product.group_buy_price)} available, saving {groupBuySavings}% when the group fills.
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
-
-                {descriptionText ? (
-                  <div>
-                    <div className="relative">
-                      <p
-                        className={`text-[11px] leading-5 text-muted-foreground ${
-                          !isDescriptionExpanded && hasLongDescription ? 'line-clamp-3' : ''
-                        }`}
-                      >
-                        {descriptionText}
-                      </p>
-                      {!isDescriptionExpanded && hasLongDescription ? (
-                        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-card via-card/85 to-transparent" />
-                      ) : null}
-                    </div>
-                    {hasLongDescription ? (
-                      <button
-                        type="button"
-                        className="mt-1 text-[11px] font-semibold text-primary"
-                        onClick={() => setIsDescriptionExpanded((current) => !current)}
-                      >
-                        {isDescriptionExpanded ? 'Show Less' : 'Read More'}
-                      </button>
-                    ) : null}
-                  </div>
+            <section className="space-y-2 px-0.5">
+              <h1 className="text-[1.32rem] font-semibold leading-tight text-foreground">
+                {product.name}
+              </h1>
+              <div className="flex items-end gap-2">
+                <p className="text-[1.75rem] font-bold leading-none text-primary">{formatPrice(product.base_price)}</p>
+                {product.group_buy_price != null && product.group_buy_price < product.base_price ? (
+                  <p className="pb-0.5 text-[11px] font-medium text-primary">
+                    Save {groupBuySavings}%
+                  </p>
                 ) : null}
               </div>
+              <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                <span className="inline-flex items-center gap-1 font-medium text-primary">
+                  <Star className="h-3.5 w-3.5 fill-primary text-primary" />
+                  {product.rating || 0}
+                </span>
+                <span>({product.review_count || 0} reviews)</span>
+                <span className={hasAnyStock ? 'text-emerald-500' : 'text-destructive'}>
+                  {hasAnyStock ? 'In stock' : 'Out of stock'}
+                </span>
+              </div>
+              {descriptionText ? (
+                <div>
+                  <div className="relative">
+                    <p
+                      className={`text-[11px] leading-5 text-muted-foreground ${
+                        !isDescriptionExpanded && hasLongDescription ? 'line-clamp-3' : ''
+                      }`}
+                    >
+                      {descriptionText}
+                    </p>
+                    {!isDescriptionExpanded && hasLongDescription ? (
+                      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-background via-background/85 to-transparent" />
+                    ) : null}
+                  </div>
+                  {hasLongDescription ? (
+                    <button
+                      type="button"
+                      className="mt-1 text-[11px] font-semibold text-primary"
+                      onClick={() => setIsDescriptionExpanded((current) => !current)}
+                    >
+                      {isDescriptionExpanded ? 'Show Less' : 'Read More'}
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+            </section>
+
+            {groupBuyPanel}
+
+            <div className="space-y-2">
+              <PriceDropAlert
+                productId={product.id}
+                productName={product.name}
+                currentPrice={product.base_price}
+                triggerMode="row"
+              />
+              {showRestockAlert ? (
+                <div className="rounded-[1.35rem] border border-border/70 bg-card/80 p-3.5">
+                  <BackInStockAlert
+                    productId={product.id}
+                    productName={product.name}
+                    variantId={alertVariantId}
+                    isOutOfStock={showRestockAlert}
+                  />
+                  <div className="mt-2">
+                    <RestockReservationDialog
+                      productId={product.id}
+                      productName={product.name}
+                      expectedRestockDate={product.expected_restock_date}
+                      productVariantId={alertVariantId}
+                      variantLabel={reservationVariantLabel}
+                    />
+                  </div>
+                </div>
+              ) : null}
             </div>
 
             <section className="space-y-3">
-              <h3 className="text-sm font-semibold text-foreground">
-                Select Options
-              </h3>
               {product.variants.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No variants available</p>
               ) : (
@@ -627,30 +754,6 @@ export default function ProductDetail() {
               )}
             </section>
 
-            {groupBuyPanel}
-
-            <div className="flex flex-wrap gap-2">
-              <PriceDropAlert
-                productId={product.id}
-                productName={product.name}
-                currentPrice={product.base_price}
-              />
-              <BackInStockAlert
-                productId={product.id}
-                productName={product.name}
-                variantId={alertVariantId}
-                isOutOfStock={showRestockAlert}
-              />
-              {showRestockAlert ? (
-                <RestockReservationDialog
-                  productId={product.id}
-                  productName={product.name}
-                  expectedRestockDate={product.expected_restock_date}
-                  productVariantId={alertVariantId}
-                  variantLabel={reservationVariantLabel}
-                />
-              ) : null}
-            </div>
           </div>
         ) : (
           <>
@@ -907,29 +1010,31 @@ export default function ProductDetail() {
 
       {isMobile && (
         <div className="fixed inset-x-0 bottom-0 z-40 px-3 pb-2">
-          <div className="mx-auto flex max-w-6xl flex-col gap-2 rounded-[1.15rem] border border-border/80 bg-background/95 px-2.5 pt-2.5 shadow-[0_18px_44px_-22px_hsl(var(--foreground)/0.75)] backdrop-blur-xl supports-[backdrop-filter]:bg-background/90 min-[430px]:flex-row min-[430px]:items-end min-[430px]:justify-between">
-            <div className="min-w-0 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)]">
-              <p className="text-[11px] font-medium text-muted-foreground">
+          <div className="mx-auto rounded-[1.2rem] border border-border/80 bg-background/95 px-3 pt-3 shadow-[0_18px_44px_-22px_hsl(var(--foreground)/0.75)] backdrop-blur-xl supports-[backdrop-filter]:bg-background/90">
+            <div className="grid grid-cols-[minmax(0,1fr),auto,auto] items-end gap-2 pb-[calc(env(safe-area-inset-bottom,0px)+0.55rem)]">
+              <div className="min-w-0">
+                <p className="text-[11px] font-medium text-muted-foreground">
                 {selectedVariants.length > 0 ? `${selectedItemCount} item${selectedItemCount === 1 ? '' : 's'} selected` : 'Ready to buy'}
-              </p>
-              <p className="mt-0.5 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-                Estimated total
-              </p>
-              <p className="text-[1.45rem] font-semibold leading-none text-primary">
-                {formatPrice(mobileEstimatedTotal)}
-              </p>
-              <p className="truncate pt-0.5 text-[11px] text-muted-foreground">
-                {selectedVariants.length > 0
-                  ? `${selectedItemCount} selected`
-                  : product.variants.length > 0
-                    ? 'Choose now or at checkout'
-                    : 'Standard configuration'}
-                {' - '}
-                {shippingEtaLabel}
-              </p>
-            </div>
-            <div className="grid w-full grid-cols-2 gap-2 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] min-[430px]:w-auto min-[430px]:min-w-[220px]">
-              <Button size="sm" variant="outline" className="h-10 min-w-0 gap-1.5 overflow-hidden rounded-xl px-3" onClick={handleAddToCart}>
+                </p>
+                <p className="mt-0.5 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+                  Total (Est.)
+                </p>
+                <div className="flex items-end gap-1.5">
+                  <p className="text-[1.55rem] font-semibold leading-none text-primary">
+                    {formatPrice(mobileEstimatedTotal)}
+                  </p>
+                </div>
+                <p className="truncate pt-0.5 text-[11px] text-muted-foreground">
+                  {selectedVariants.length > 0 ? `${selectedItemCount} selected` : 'Choose now or at checkout'} {' '}
+                  <span className="text-primary">^</span>
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-11 min-w-[98px] gap-1.5 overflow-hidden rounded-xl border-border/70 bg-background/70 px-3"
+                onClick={handleAddToCart}
+              >
                 <ShoppingCart className="h-3.5 w-3.5 shrink-0" />
                 <span className="truncate">Add to Cart</span>
               </Button>
@@ -937,7 +1042,7 @@ export default function ProductDetail() {
                 product={product}
                 selectedVariants={selectedVariants}
                 selectedShippingRuleId={selectedShipping?.id || null}
-                triggerClassName="h-10 min-w-0 gap-1.5 overflow-hidden rounded-xl px-3"
+                triggerClassName="h-11 min-w-[98px] gap-1.5 overflow-hidden rounded-xl px-3"
                 triggerLabel="Buy Now"
                 triggerSize="sm"
               />
