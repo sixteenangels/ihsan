@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -151,7 +151,9 @@ export default function ProductDetail() {
   const [selectedShipping, setSelectedShipping] = useState<ShippingRule | null>(null);
   const [desktopPreviewVariantId, setDesktopPreviewVariantId] = useState<string | null>(null);
   const [mobileVariantId, setMobileVariantId] = useState<string | null>(null);
+  const [activeMobileImageIndex, setActiveMobileImageIndex] = useState(0);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const mobileGalleryRef = useRef<HTMLDivElement | null>(null);
   const preferredGroupBuyId = searchParams.get('groupBuy');
 
   const { data: activeProductGroupBuys = [] } = useProductActiveGroupBuys({
@@ -339,8 +341,22 @@ export default function ProductDetail() {
   };
 
   const handlePreviewImage = () => {
-    if (!heroImage) return;
-    window.open(heroImage, '_blank', 'noopener,noreferrer');
+    const image = galleryImages[activeMobileImageIndex] || heroImage;
+    if (!image) return;
+    window.open(image, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleMobileGalleryScroll = () => {
+    const container = mobileGalleryRef.current;
+    if (!container || container.clientWidth === 0) return;
+
+    const nextIndex = Math.round(container.scrollLeft / container.clientWidth);
+    setActiveMobileImageIndex(Math.min(Math.max(nextIndex, 0), Math.max(0, galleryImages.length - 1)));
+  };
+
+  const resetMobileGallery = () => {
+    setActiveMobileImageIndex(0);
+    mobileGalleryRef.current?.scrollTo({ left: 0, behavior: 'smooth' });
   };
 
   const getShippingIcon = (typeName: string | undefined) => {
@@ -526,61 +542,77 @@ export default function ProductDetail() {
       <main className="container px-3 py-5 pb-36 sm:px-6 md:py-8 md:pb-8">
         {isMobile ? (
           <div className="space-y-4">
+            <div className="sticky top-0 z-40 -mx-3 border-b border-border/70 bg-background/95 px-3 py-3 backdrop-blur-xl">
+              <div className="flex items-center justify-between gap-3">
+                <Link
+                  to="/products"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border/70 bg-card text-foreground transition-colors hover:border-primary/50 hover:text-primary"
+                  aria-label="Back to products"
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </Link>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-10 w-10 rounded-full"
+                    onClick={handleMobileShare}
+                    aria-label="Share product"
+                  >
+                    <Share2 className="h-4 w-4" />
+                  </Button>
+                  <Link to="/cart">
+                    <Button variant="outline" size="icon" className="relative h-10 w-10 rounded-full" aria-label="Open cart">
+                      <ShoppingCart className="h-4 w-4" />
+                      {totalItems > 0 ? (
+                        <Badge className="absolute -right-1 -top-1 h-5 w-5 justify-center p-0 text-[11px]">
+                          {totalItems}
+                        </Badge>
+                      ) : null}
+                    </Button>
+                  </Link>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="icon" className="h-10 w-10 rounded-full" aria-label="More product actions">
+                        <Ellipsis className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={handleCopyLink}>
+                        <Copy className="mr-2 h-4 w-4" />
+                        Copy Link
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleShareWhatsApp}>
+                        <LinkIcon className="mr-2 h-4 w-4" />
+                        Share on WhatsApp
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+            </div>
+
             <div className="overflow-hidden rounded-[1.8rem] border border-border/70 bg-card/80 shadow-sm">
               <div className="relative overflow-hidden rounded-[1.65rem] bg-muted">
-                <img
-                  src={heroImage}
-                  alt={product.name}
-                  className="h-[320px] w-full object-cover"
-                />
-                <div className="absolute inset-x-0 top-0 flex items-center justify-between p-3">
-                  <Link
-                    to="/products"
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-background/75 text-foreground backdrop-blur-md transition-colors hover:border-primary/50 hover:text-primary"
-                  >
-                    <ArrowLeft className="h-5 w-5" />
-                  </Link>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-10 w-10 rounded-full border-white/20 bg-background/75 backdrop-blur-md"
-                      onClick={handleMobileShare}
-                    >
-                      <Share2 className="h-4 w-4" />
-                    </Button>
-                    <Link to="/cart">
-                      <Button variant="outline" size="icon" className="relative h-10 w-10 rounded-full border-white/20 bg-background/75 backdrop-blur-md">
-                        <ShoppingCart className="h-4 w-4" />
-                        {totalItems > 0 ? (
-                          <Badge className="absolute -right-1 -top-1 h-5 w-5 justify-center p-0 text-[11px]">
-                            {totalItems}
-                          </Badge>
-                        ) : null}
-                      </Button>
-                    </Link>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="icon" className="h-10 w-10 rounded-full border-white/20 bg-background/75 backdrop-blur-md">
-                          <Ellipsis className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={handleCopyLink}>
-                          <Copy className="mr-2 h-4 w-4" />
-                          Copy Link
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={handleShareWhatsApp}>
-                          <LinkIcon className="mr-2 h-4 w-4" />
-                          Share on WhatsApp
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
+                <div
+                  ref={mobileGalleryRef}
+                  className="no-scrollbar flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain scroll-smooth [scrollbar-width:none] [touch-action:pan-x]"
+                  onScroll={handleMobileGalleryScroll}
+                >
+                  {galleryImages.map((image, index) => (
+                    <div key={`${image}-${index}`} className="w-full flex-none snap-center">
+                      <img
+                        src={image}
+                        alt={`${product.name} image ${index + 1}`}
+                        className="h-[320px] w-full object-cover"
+                        draggable={false}
+                      />
+                    </div>
+                  ))}
                 </div>
                 <div className="absolute inset-x-0 bottom-0 flex items-end justify-between p-3">
                   <span className="rounded-full border border-white/15 bg-background/75 px-2.5 py-1 text-[11px] font-medium text-foreground backdrop-blur-md">
-                    1/{Math.max(1, galleryImages.length)}
+                    {Math.min(activeMobileImageIndex + 1, Math.max(1, galleryImages.length))}/{Math.max(1, galleryImages.length)}
                   </span>
                   <Button
                     type="button"
@@ -686,7 +718,10 @@ export default function ProductDetail() {
                   onRemoveVariantSelection={handleRemoveSelectedVariant}
                   onQuantityChange={handleQuantityChange}
                   onClearAll={handleClearSelectedVariants}
-                  onCurrentVariantChange={(variant) => setMobileVariantId(variant?.id || null)}
+                  onCurrentVariantChange={(variant) => {
+                    setMobileVariantId(variant?.id || null);
+                    resetMobileGallery();
+                  }}
                 />
               )}
             </section>

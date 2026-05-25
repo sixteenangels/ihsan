@@ -281,7 +281,8 @@ export function VariantSelector({
                   disabled={!isAvailable}
                   onClick={() => setSelectedSize(size)}
                   className={cn(
-                    'min-w-[78px] snap-start rounded-2xl border px-4 py-3 text-left transition-all',
+                    'snap-start rounded-2xl border px-4 py-3 text-left transition-all',
+                    isMobile ? 'min-h-[74px] min-w-[132px] max-w-[150px]' : 'min-w-[96px]',
                     isSelected
                       ? 'border-primary bg-primary/10 text-primary shadow-[0_0_0_1px_hsl(var(--primary))]'
                       : isAvailable
@@ -289,7 +290,9 @@ export function VariantSelector({
                         : 'cursor-not-allowed border-border/50 bg-muted text-muted-foreground',
                   )}
                 >
-                  <p className="font-medium">{size}</p>
+                  <p className="line-clamp-2 text-sm font-medium leading-5 [overflow-wrap:anywhere]">
+                    {size}
+                  </p>
                 </button>
               );
             })}
