@@ -134,15 +134,11 @@ export function BuyNowSheet({
   );
   const requiresVariantSelection = product.variants.length > 0;
   const seededVariant = selectedVariants.length === 1 ? selectedVariants[0] : null;
-  const fallbackVariant = useMemo(
-    () => product.variants.find((variant) => (variant.stock || 0) > 0) || product.variants[0] || null,
-    [product.variants],
-  );
 
   const [isOpen, setIsOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(
-    seededVariant?.id ?? fallbackVariant?.id ?? null,
+    seededVariant?.id ?? (product.variants.length === 1 ? product.variants[0].id : null),
   );
   const [quantity, setQuantity] = useState<number>(Math.max(1, seededVariant?.quantity ?? 1));
   const [selectedAddressId, setSelectedAddressId] = useState('');
@@ -194,7 +190,7 @@ export function BuyNowSheet({
   const unitPrice = selectedVariant?.price ?? product.base_price;
   const subtotal = unitPrice * quantity;
   const total = subtotal + effectiveShippingCost;
-  const variantLabel = selectedVariant ? buildVariantLabel(selectedVariant) : 'Standard option';
+  const variantLabel = selectedVariant ? buildVariantLabel(selectedVariant) : 'Choose a variant';
   const addressLabel = resolvedAddress
     ? [resolvedAddress.full_name, resolvedAddress.city, resolvedAddress.country]
         .filter(Boolean)
@@ -220,13 +216,15 @@ export function BuyNowSheet({
     setSelectedVariantId(
       selectedVariants.length === 1
         ? selectedVariants[0].id
-        : fallbackVariant?.id ?? null,
+        : product.variants.length === 1
+          ? product.variants[0].id
+          : null,
     );
     setQuantity(Math.max(1, selectedVariants.length === 1 ? selectedVariants[0].quantity : 1));
     setSelectedShippingId(
       selectedShippingRuleId || (availableShippingRules.length === 1 ? availableShippingRules[0].id : ''),
     );
-  }, [availableShippingRules, fallbackVariant?.id, isOpen, selectedShippingRuleId, selectedVariants]);
+  }, [availableShippingRules, isOpen, product.variants, selectedShippingRuleId, selectedVariants]);
 
   useEffect(() => {
     if (!defaultAddress) {
@@ -689,6 +687,53 @@ export function BuyNowSheet({
           </SheetHeader>
 
           <div className="mt-6 space-y-4">
+            {variantMissing && (
+              <section className="space-y-3 rounded-2xl border border-border/70 bg-card p-4 shadow-sm">
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-foreground">Select variant</p>
+                  <p className="text-xs text-muted-foreground">
+                    Buy Now checks out one exact option at a time.
+                  </p>
+                </div>
+                <RadioGroup
+                  value={selectedVariantId || ''}
+                  onValueChange={(value) => {
+                    setSelectedVariantId(value);
+                    setQuantity(1);
+                  }}
+                  className="space-y-2"
+                >
+                  {product.variants.map((variant) => {
+                    const stock = variant.stock || 0;
+                    const disabled = stock <= 0;
+                    const label = buildVariantLabel(variant);
+
+                    return (
+                      <label
+                        key={variant.id}
+                        className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-3 transition-all ${
+                          selectedVariantId === variant.id
+                            ? 'border-primary bg-primary/5'
+                            : 'border-border/70'
+                        } ${disabled ? 'cursor-not-allowed opacity-50' : 'hover:border-primary/40'}`}
+                      >
+                        <RadioGroupItem value={variant.id} disabled={disabled} className="mt-1" />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="font-medium text-foreground">{label}</p>
+                            <p className="font-semibold text-primary">{formatPrice(variant.price)}</p>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {stock > 0 ? `${stock} in stock` : 'Out of stock'}
+                          </p>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </RadioGroup>
+              </section>
+            )}
+
             {addressMissing && (
               <section className="space-y-3 rounded-2xl border border-border/70 bg-card p-4 shadow-sm">
                 <div className="space-y-1">
