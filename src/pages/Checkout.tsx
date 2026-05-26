@@ -1,13 +1,12 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, MapPin, Plus, Ship, Plane, Package, CreditCard, Check, Tag, X, AlertTriangle, Wallet, Shield, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Check, ChevronRight, Lock, MapPin, Package, PencilLine, Plane, Plus, Ship, ShoppingBag, Tag, X, AlertTriangle, Wallet, Shield } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { isVariantPlaceholder, useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCurrency } from '@/hooks/useCurrency';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -1241,208 +1240,167 @@ export default function Checkout() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header />
       <main className="container px-3 py-5 pb-10 sm:px-6 md:py-8">
-        <div className="mx-auto max-w-3xl">
-          <div className="mb-5 flex items-start justify-between gap-3 border-b border-border/60 pb-4">
-            <div className="flex min-w-0 items-start gap-3">
-              <Link
-                to="/cart"
-                className="mt-1 inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/70 text-muted-foreground transition-colors hover:text-primary"
-                aria-label="Back to cart"
-              >
-                <ArrowLeft className="h-4 w-4" />
-              </Link>
-              <div className="min-w-0">
-                <h1 className="text-2xl font-bold text-foreground">Checkout</h1>
-                <p className="text-sm text-muted-foreground">Review and place your order</p>
-              </div>
-            </div>
-
-            <div className="inline-flex shrink-0 items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary">
-              <Shield className="h-3.5 w-3.5" />
-              <span className="hidden min-[420px]:inline">Secure checkout</span>
-              <span className="min-[420px]:hidden">Secure</span>
+        <div className="mx-auto max-w-md">
+          <div className="mb-5 flex items-start gap-4">
+            <Link
+              to="/cart"
+              className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-card hover:text-primary"
+              aria-label="Back to cart"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+            <div className="min-w-0">
+              <h1 className="text-xl font-semibold tracking-tight text-foreground">Instant Checkout</h1>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Review your order details and pay in one step.
+              </p>
             </div>
           </div>
 
-          <div className="space-y-4">
-            <Card className="rounded-2xl border-border/70 shadow-sm">
-              <CardContent className="p-4">
-                <div className="flex flex-col gap-3 min-[420px]:flex-row min-[420px]:items-start min-[420px]:justify-between">
-                  <div className="flex min-w-0 items-start gap-3">
-                    <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-foreground">Delivery</p>
-                      <p className="mt-1 text-sm text-foreground">{formatAddressLine(selectedAddressDetails)}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">{formatAddressReference(selectedAddressDetails)}</p>
-                    </div>
-                  </div>
-
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-9 w-full shrink-0 rounded-xl px-4 min-[420px]:w-auto"
-                    onClick={() => setIsAddressPickerOpen(true)}
-                  >
-                    Change
-                  </Button>
+          <div className="space-y-3">
+            <button
+              type="button"
+              className="w-full rounded-2xl border border-border/70 bg-card/90 p-4 text-left shadow-sm transition-colors hover:border-primary/45"
+              onClick={() => setIsShippingPickerOpen(true)}
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/25 bg-primary/10 text-primary">
+                  {selectedShipping ? getShippingIcon(selectedShipping.shipping_type?.name || selectedShipping.name) : <Package className="h-5 w-5" />}
                 </div>
-              </CardContent>
-            </Card>
-
-            <Card className="rounded-2xl border-border/70 shadow-sm">
-              <CardContent className="p-4">
-                <div className="flex flex-col gap-3 min-[420px]:flex-row min-[420px]:items-start min-[420px]:justify-between">
-                  <div className="flex min-w-0 items-start gap-3">
-                    <div className="mt-0.5 shrink-0 text-primary">
-                      {selectedShipping ? getShippingIcon(selectedShipping.shipping_type?.name || selectedShipping.name) : <Package className="h-5 w-5" />}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-foreground">Shipping Method</p>
-                      <p className="mt-1 text-sm text-foreground">
-                        {selectedShipping ? selectedShipping.name : 'Choose a shipping method'}
-                      </p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {selectedShipping
-                          ? `${selectedShipping.estimated_days_min}-${selectedShipping.estimated_days_max} days delivery`
-                          : 'Select the shared delivery method for these items.'}
-                        {selectedShipping ? (
-                          <span className="ml-1 font-medium text-primary">
-                            {shippingCost === 0 ? 'FREE' : formatPrice(shippingCost)}
-                          </span>
-                        ) : null}
-                      </p>
-                    </div>
-                  </div>
-
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-9 w-full shrink-0 rounded-xl px-4 min-[420px]:w-auto"
-                    onClick={() => setIsShippingPickerOpen(true)}
-                  >
-                    Change
-                  </Button>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-foreground">Shipping Method</p>
+                  <p className="mt-0.5 truncate text-xs font-medium text-muted-foreground">
+                    {selectedShipping
+                      ? `${selectedShipping.name} (${selectedShipping.estimated_days_min}-${selectedShipping.estimated_days_max} days)`
+                      : 'Choose a shipping method'}
+                  </p>
                 </div>
-              </CardContent>
-            </Card>
+                <p className="shrink-0 text-xs font-semibold text-primary">
+                  {selectedShipping ? (shippingCost === 0 ? 'FREE' : formatPrice(shippingCost)) : ''}
+                </p>
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+              </div>
+            </button>
 
             <button
               type="button"
-              className="w-full text-left"
-              onClick={() => setIsSavingsDialogOpen(true)}
+              className="w-full rounded-2xl border border-border/70 bg-card/90 p-4 text-left shadow-sm transition-colors hover:border-primary/45"
+              onClick={() => setIsAddressPickerOpen(true)}
             >
-              <Card className="rounded-2xl border-border/70 shadow-sm transition-colors hover:border-primary/40">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex min-w-0 items-start gap-3">
-                      <Tag className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-foreground">Savings & Credits</p>
-                        <p className="mt-1 text-xs text-muted-foreground">{savingsSummaryText}</p>
-                      </div>
-                    </div>
-                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/25 bg-primary/10 text-primary">
+                  <MapPin className="h-5 w-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-foreground">Delivery Address</p>
+                  <p className="mt-0.5 truncate text-xs font-medium text-muted-foreground">
+                    {formatAddressLine(selectedAddressDetails)}
+                  </p>
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                    {formatAddressReference(selectedAddressDetails)}
+                  </p>
+                </div>
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+              </div>
             </button>
 
-            <Card className="rounded-2xl border-border/70 shadow-sm">
-              <CardContent className="p-4">
-                <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-sm font-semibold text-foreground">
-                    Order Items ({selectedItems.length})
-                  </p>
-                  <Link
-                    to="/cart"
-                    className="inline-flex items-center gap-1 text-sm font-medium text-primary"
-                  >
-                    Edit Cart
-                    <ChevronRight className="h-4 w-4" />
-                  </Link>
+            <section className="rounded-2xl border border-border/70 bg-card/90 p-4 shadow-sm">
+              <div className="mb-3 flex items-start gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/25 bg-primary/10 text-primary">
+                  <ShoppingBag className="h-5 w-5" />
                 </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground">
+                    Selected Variants ({selectedItems.length})
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    You've selected {itemCount} item{itemCount === 1 ? '' : 's'}
+                  </p>
+                </div>
+              </div>
 
-                {unresolvedVariantItems.length > 0 ? (
-                  <div className="mb-4 rounded-2xl border border-amber-500/30 bg-amber-500/5 p-3 text-sm">
-                    <p className="font-medium text-foreground">Variants still need your selection</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Select the remaining options on the product page to unlock payment.
-                    </p>
-                  </div>
-                ) : null}
+              {unresolvedVariantItems.length > 0 ? (
+                <div className="mb-3 rounded-2xl border border-amber-500/30 bg-amber-500/5 p-3 text-sm">
+                  <p className="font-medium text-foreground">Variants still need your selection</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Select the remaining options on the product page to unlock payment.
+                  </p>
+                </div>
+              ) : null}
 
-                <div className="space-y-4">
-                  {selectedItems.map((item, index) => {
-                    const needsVariant = unresolvedVariantItems.some((unresolvedItem) => unresolvedItem.id === item.id);
+              <div className="space-y-3">
+                {selectedItems.map((item) => {
+                  const needsVariant = unresolvedVariantItems.some((unresolvedItem) => unresolvedItem.id === item.id);
+                  const variantName = needsVariant
+                    ? 'Variant not selected'
+                    : formatVariantLabel(item.variant.color, item.variant.size);
+                  const variantImage = item.variant.image_url || item.product.images[0] || '/placeholder.svg';
 
-                    return (
-                      <div
-                        key={item.id}
-                        className={index === 0 ? '' : 'border-t border-border/60 pt-4'}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-muted">
-                            <img
-                              src={item.product.images[0]}
-                              alt={item.product.name}
-                              className="h-full w-full object-cover"
-                            />
-                          </div>
+                  return (
+                    <div
+                      key={item.id}
+                      className="rounded-2xl border border-border/70 bg-background/70 p-2.5"
+                    >
+                      <div className="flex gap-3">
+                        <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-muted">
+                          <img
+                            src={variantImage}
+                            alt={item.product.name}
+                            className="h-full w-full object-cover"
+                          />
+                        </div>
 
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <h3 className="line-clamp-2 text-sm font-semibold text-foreground">
-                                  {item.product.name}
-                                </h3>
-                                <p className={`mt-1 text-sm ${needsVariant ? 'text-destructive' : 'text-muted-foreground'}`}>
-                                  {needsVariant
-                                    ? 'Variant not selected'
-                                    : formatVariantLabel(item.variant.color, item.variant.size)}
-                                </p>
-                                <p className="mt-1 text-xs text-muted-foreground">Qty: {item.quantity}</p>
-                              </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <h3 className="line-clamp-2 text-sm font-semibold text-foreground">
+                                {item.product.name}
+                              </h3>
+                              <p className={`mt-1 text-[11px] ${needsVariant ? 'text-destructive' : 'text-muted-foreground'}`}>
+                                {item.variant.color ? `Color: ${item.variant.color}` : variantName}
+                              </p>
+                              {item.variant.size ? (
+                                <p className="text-[11px] text-muted-foreground">Size: {item.variant.size}</p>
+                              ) : null}
+                            </div>
 
-                              <p className="shrink-0 text-sm font-semibold text-foreground">
+                            <div className="shrink-0 text-right">
+                              <p className="text-xs font-medium text-foreground">Qty: {item.quantity}</p>
+                              <p className="mt-4 text-sm font-semibold text-primary">
                                 {formatPrice(item.variant.price * item.quantity)}
                               </p>
                             </div>
-
-                            {needsVariant ? (
-                              <div className="mt-3">
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  className="h-11 rounded-xl"
-                                  onClick={() => sendToProductVariantSelection(item.product.id)}
-                                >
-                                  Select on product page
-                                </Button>
-                              </div>
-                            ) : null}
                           </div>
+
+                          {needsVariant ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="mt-3 h-9 rounded-xl"
+                              onClick={() => sendToProductVariantSelection(item.product.id)}
+                            >
+                              Select on product page
+                            </Button>
+                          ) : null}
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
 
-            <Card className="rounded-2xl border-border/70 shadow-sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-semibold">Order Summary</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
+            <section className="rounded-2xl border border-border/70 bg-card/90 p-4 shadow-sm">
+              <p className="mb-4 text-sm font-semibold text-foreground">Order Summary</p>
+              <div className="space-y-3">
                 <div className="flex items-start justify-between gap-3 text-sm">
                   <span className="min-w-0 text-muted-foreground">Subtotal ({itemCount} items)</span>
                   <span className="shrink-0 text-right text-foreground">{formatPrice(selectedSubtotal)}</span>
                 </div>
                 <div className="flex items-start justify-between gap-3 text-sm">
                   <span className="min-w-0 text-muted-foreground">Shipping</span>
-                  <span className={`shrink-0 text-right ${shippingCost === 0 ? 'font-medium text-primary' : 'text-foreground'}`}>
+                  <span className="shrink-0 text-right text-foreground">
                     {shippingCost === 0 ? 'FREE' : formatPrice(shippingCost)}
                   </span>
                 </div>
@@ -1452,39 +1410,40 @@ export default function Checkout() {
                     <span className="shrink-0 text-right text-foreground">{formatPrice(reinforcedPackagingCost)}</span>
                   </div>
                 ) : null}
-                <div className="flex items-start justify-between gap-3 text-sm">
-                  <span className="min-w-0 text-muted-foreground">Savings</span>
-                  <span className={`shrink-0 text-right ${totalSavings > 0 ? 'font-medium text-primary' : 'text-muted-foreground'}`}>
-                    -{formatPrice(totalSavings)}
-                  </span>
-                </div>
+                {totalSavings > 0 ? (
+                  <div className="flex items-start justify-between gap-3 text-sm">
+                    <span className="min-w-0 text-muted-foreground">Savings</span>
+                    <span className="shrink-0 text-right font-medium text-primary">-{formatPrice(totalSavings)}</span>
+                  </div>
+                ) : null}
                 <div className="h-px bg-border/70" />
                 <div className="flex items-start justify-between gap-3">
                   <span className="min-w-0 text-base font-semibold text-foreground">Total</span>
                   <span className="shrink-0 text-right text-2xl font-bold text-primary">{formatPrice(total)}</span>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </section>
 
-            <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2">
+            <div className="space-y-2 pt-1">
               <Button
                 type="button"
                 variant="outline"
-                className="h-12 min-w-0 justify-center gap-2 overflow-hidden rounded-xl"
+                className="h-12 w-full min-w-0 justify-center gap-2 overflow-hidden rounded-xl border-border/70 bg-card/90"
                 onClick={() => navigate('/cart')}
               >
+                <PencilLine className="h-4 w-4 shrink-0" />
                 <span className="truncate">Make Changes</span>
               </Button>
               <Button
                 type="button"
-                className="h-12 min-w-0 justify-center gap-2 overflow-hidden rounded-xl"
+                className="h-12 w-full min-w-0 justify-center gap-2 overflow-hidden rounded-xl"
                 onClick={handlePaystackPayment}
                 disabled={isPaymentDisabled}
               >
                 {isProcessing ? 'Processing...' : (
                   <>
                     {requiresPayment ? (
-                      <CreditCard className="h-4 w-4 shrink-0" />
+                      <Lock className="h-4 w-4 shrink-0" />
                     ) : (
                       <Check className="h-4 w-4 shrink-0" />
                     )}
@@ -1495,12 +1454,6 @@ export default function Checkout() {
             </div>
 
             <p className="text-center text-xs text-muted-foreground">{paymentSupportText}</p>
-
-            <div className="grid grid-cols-3 gap-2 text-center text-[11px] text-muted-foreground">
-              <div className="rounded-full border border-border/60 px-2 py-2">Secure payments</div>
-              <div className="rounded-full border border-border/60 px-2 py-2">Easy returns</div>
-              <div className="rounded-full border border-border/60 px-2 py-2">24/7 support</div>
-            </div>
           </div>
         </div>
       </main>
