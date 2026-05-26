@@ -13,15 +13,6 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
 import { toast } from 'sonner';
@@ -129,18 +120,6 @@ interface ProductVariantRow {
 
 type WalletTransactionInsert = Database['public']['Tables']['wallet_transactions']['Insert'];
 
-function groupVariantOptionsByColor(variants: VariantOption[]) {
-  return variants.reduce<Record<string, VariantOption[]>>((groups, variant) => {
-    const color = variant.color || 'Default variant';
-    if (!groups[color]) {
-      groups[color] = [];
-    }
-
-    groups[color].push(variant);
-    return groups;
-  }, {});
-}
-
 function formatVariantLabel(color?: string | null, size?: string | null) {
   const parts = [color, size].filter(Boolean);
   return parts.length > 0 ? parts.join(' / ') : 'Standard option';
@@ -172,7 +151,6 @@ export default function Checkout() {
     selectedItemIds,
     selectedSubtotal,
     setSelectedItemIds,
-    updateVariant,
     clearSelectedItems,
   } = useCart();
   const { formatPrice } = useCurrency();
@@ -784,6 +762,7 @@ export default function Checkout() {
   const unresolvedVariantItems = selectedItems.filter((item) =>
     isVariantPlaceholder(item.variant.id) && (productVariantOptions[item.product.id] || []).length > 0
   );
+  const firstUnresolvedVariantItem = unresolvedVariantItems[0];
   const showSavingsSection = true;
   const accordionDefaultSections = [
     'items',
@@ -864,6 +843,11 @@ export default function Checkout() {
     setCourierAcknowledged(false);
   };
 
+  const sendToProductVariantSelection = (productId: string) => {
+    toast.info('Select a variant on the product page before checkout.');
+    navigate(`/product/${productId}?selectVariant=1`);
+  };
+
   const handlePaystackPayment = async () => {
     if (!selectedAddressId) {
       toast.error('Please select a delivery address');
@@ -874,7 +858,9 @@ export default function Checkout() {
       return;
     }
     if (unresolvedVariantItems.length > 0) {
-      toast.error('Choose variants for all selected items before payment');
+      if (firstUnresolvedVariantItem) {
+        sendToProductVariantSelection(firstUnresolvedVariantItem.product.id);
+      }
       return;
     }
 
@@ -1382,15 +1368,13 @@ export default function Checkout() {
                   <div className="mb-4 rounded-2xl border border-amber-500/30 bg-amber-500/5 p-3 text-sm">
                     <p className="font-medium text-foreground">Variants still need your selection</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Choose the remaining options below to unlock payment.
+                      Select the remaining options on the product page to unlock payment.
                     </p>
                   </div>
                 ) : null}
 
                 <div className="space-y-4">
                   {selectedItems.map((item, index) => {
-                    const variantOptions = productVariantOptions[item.product.id] || [];
-                    const groupedVariantOptions = groupVariantOptionsByColor(variantOptions);
                     const needsVariant = unresolvedVariantItems.some((unresolvedItem) => unresolvedItem.id === item.id);
 
                     return (
@@ -1428,41 +1412,14 @@ export default function Checkout() {
 
                             {needsVariant ? (
                               <div className="mt-3">
-                                <Select
-                                  value=""
-                                  onValueChange={(variantId) => {
-                                    const variant = variantOptions.find((option) => option.id === variantId);
-                                    if (!variant) return;
-
-                                    updateVariant(item.id, {
-                                      id: variant.id,
-                                      color: variant.color || undefined,
-                                      size: variant.size || undefined,
-                                      price: variant.price_override ?? item.product.basePrice,
-                                      stock: variant.stock || 0,
-                                    });
-                                  }}
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  className="h-11 rounded-xl"
+                                  onClick={() => sendToProductVariantSelection(item.product.id)}
                                 >
-                                  <SelectTrigger className="h-11 rounded-xl">
-                                    <SelectValue placeholder="Select variant" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {Object.entries(groupedVariantOptions).map(([color, options]) => (
-                                      <SelectGroup key={color}>
-                                        <SelectLabel>{color}</SelectLabel>
-                                        {options.map((variant) => {
-                                          const stock = variant.stock || 0;
-
-                                          return (
-                                            <SelectItem key={variant.id} value={variant.id} disabled={stock <= 0}>
-                                              {formatVariantLabel(color, variant.size)} - {stock > 0 ? `${stock} in stock` : 'Out of stock'}
-                                            </SelectItem>
-                                          );
-                                        })}
-                                      </SelectGroup>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
+                                  Select on product page
+                                </Button>
                               </div>
                             ) : null}
                           </div>

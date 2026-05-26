@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -154,7 +154,9 @@ export default function ProductDetail() {
   const [activeMobileImageIndex, setActiveMobileImageIndex] = useState(0);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const mobileGalleryRef = useRef<HTMLDivElement | null>(null);
+  const variantSectionRef = useRef<HTMLElement | null>(null);
   const preferredGroupBuyId = searchParams.get('groupBuy');
+  const shouldFocusVariantSelector = searchParams.get('selectVariant') === '1';
 
   const { data: activeProductGroupBuys = [] } = useProductActiveGroupBuys({
     productId: id,
@@ -165,6 +167,40 @@ export default function ProductDetail() {
   useEffect(() => {
     if (id) addProduct(id);
   }, [id, addProduct]);
+
+  const scrollVariantSelectorIntoView = useCallback(() => {
+    variantSectionRef.current?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'center',
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!product || !shouldFocusVariantSelector) {
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(scrollVariantSelectorIntoView);
+    return () => window.cancelAnimationFrame(frame);
+  }, [product, scrollVariantSelectorIntoView, shouldFocusVariantSelector]);
+
+  useEffect(() => {
+    if (!product) {
+      return;
+    }
+
+    const handleVariantFocus = (event: Event) => {
+      const detail = (event as CustomEvent<{ productId?: string }>).detail;
+      if (detail?.productId && detail.productId !== product.id) {
+        return;
+      }
+
+      window.requestAnimationFrame(scrollVariantSelectorIntoView);
+    };
+
+    window.addEventListener('ajyn:focus-product-variants', handleVariantFocus);
+    return () => window.removeEventListener('ajyn:focus-product-variants', handleVariantFocus);
+  }, [product, scrollVariantSelectorIntoView]);
 
   useEffect(() => {
     if (!product) {
@@ -815,7 +851,7 @@ export default function ProductDetail() {
               ) : null}
             </div>
 
-            <section className="space-y-3">
+            <section ref={variantSectionRef} className="space-y-3">
               {product.variants.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No variants available</p>
               ) : (
@@ -1078,7 +1114,7 @@ export default function ProductDetail() {
 
                 <Separator />
 
-                <div className="space-y-4">
+                <section ref={variantSectionRef} className="space-y-4">
                   <h3 className="font-semibold text-foreground">Select Options</h3>
                   {product.variants.length === 0 ? (
                     <p className="text-sm text-muted-foreground">No variants available</p>
@@ -1093,7 +1129,7 @@ export default function ProductDetail() {
                       onCurrentVariantChange={(variant) => setDesktopPreviewVariantId(variant?.id || null)}
                     />
                   )}
-                </div>
+                </section>
 
                 <Separator />
 

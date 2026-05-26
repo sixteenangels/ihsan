@@ -145,9 +145,23 @@ export default function Cart() {
     groupSelectionMap.get(group.product.id),
   ).length;
 
+  const sendToProductVariantSelection = (productId: string) => {
+    toast.info('Select a variant on the product page before checkout.');
+    navigate(`/product/${productId}?selectVariant=1`);
+  };
+
   const handleCheckout = () => {
     if (visibleSelectedItemIds.length === 0) {
       toast.error('Select at least one item to continue');
+      return;
+    }
+
+    const firstUnresolvedVariant = visibleSelectedItems.find(
+      (item) => isVariantPlaceholder(item.variant.id) && item.product.variants.length > 0,
+    );
+
+    if (firstUnresolvedVariant) {
+      sendToProductVariantSelection(firstUnresolvedVariant.product.id);
       return;
     }
 
@@ -397,7 +411,7 @@ export default function Cart() {
                                       type="button"
                                       variant="outline"
                                       className="h-9 rounded-xl"
-                                      onClick={() => setVariantDialogProductId(group.product.id)}
+                                      onClick={() => sendToProductVariantSelection(group.product.id)}
                                     >
                                       Select variant
                                     </Button>
