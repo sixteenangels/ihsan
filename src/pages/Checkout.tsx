@@ -13,7 +13,6 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
-import type { Database } from '@/integrations/supabase/types';
 import { toast } from 'sonner';
 import { useWalletBalance } from '@/hooks/useWallet';
 import { useLoyaltyPoints } from '@/hooks/useLoyaltyPoints';
@@ -116,8 +115,6 @@ interface ProductVariantRow {
   price_override: number | null;
   stock: number | null;
 }
-
-type WalletTransactionInsert = Database['public']['Tables']['wallet_transactions']['Insert'];
 
 function formatVariantLabel(color?: string | null, size?: string | null) {
   const parts = [color, size].filter(Boolean);
@@ -949,112 +946,40 @@ export default function Checkout() {
     const selectedAddress = addresses.find(a => a.id === selectedAddressId);
 
     try {
-      const { data: order, error: orderError } = await supabase
-        .from('orders')
-        .insert([{
-          order_number: `AJYN-${Date.now()}`,
-          user_id: user?.id as string,
-          subtotal: selectedSubtotal,
-          shipping_price: shippingCost,
-          total_amount: total,
-          shipping_class_id: selectedShippingId,
-          shipping_address: JSON.parse(JSON.stringify(selectedAddress || {})),
-          status: 'payment_received' as const,
-          payment_reference: paymentReference,
-          notes: loyaltyPointsApplied > 0 ? `Loyalty redeemed: ${loyaltyPointsApplied} points` : null,
-          estimated_delivery_start: new Date(Date.now() + (selectedShipping?.estimated_days_min || 7) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          estimated_delivery_end: new Date(Date.now() + (selectedShipping?.estimated_days_max || 14) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          packaging_type: hasFragile ? packagingChoice : null,
-          packaging_cost: reinforcedPackagingCost,
-          wallet_credit_used: walletApplied,
-        }])
-        .select()
-        .single();
-
-      if (orderError) throw orderError;
-
-      if (walletApplied > 0 && user?.id) {
-        try {
-          const walletTransaction: WalletTransactionInsert = {
-            user_id: user.id,
-            amount: walletApplied,
-            type: 'debit',
-            description: `Used for order ${order.order_number}`,
-            order_id: order.id,
-            created_by: user.id,
-          };
-          await supabase.from('wallet_transactions').insert(walletTransaction);
-        } catch (e) {
-          console.error('Wallet debit failed (non-blocking):', e);
-        }
+      if (!selectedAddress) {
+        throw new Error('Choose a delivery address before payment.');
       }
 
-      if (loyaltyPointsApplied > 0 && user?.id) {
-        try {
-          await supabase.from('loyalty_points').insert({
-            user_id: user.id,
-            points: loyaltyPointsApplied,
-            type: 'redeem',
-            description: `Order #${order.order_number} - redeemed ${loyaltyPointsApplied} points`,
-            order_id: order.id,
-          });
-        } catch (e) {
-          console.error('Loyalty redemption failed (non-blocking):', e);
-        }
-      }
+      const { data, error } = await supabase.functions.invoke('create-checkout-order', {
+        body: {
+          flow: 'cart',
+          paymentReference,
+          addressId: selectedAddress.id,
+          shippingClassId: selectedShippingId,
+          packagingChoice: hasFragile ? packagingChoice : null,
+          couponId: appliedCoupon?.id ?? null,
+          loyaltyPointsToRedeem: loyaltyPointsApplied,
+          useWalletCredit,
+          recoverySnapshotId: checkoutRecoverySnapshotIdRef.current,
+          expectedTotal: total,
+          items: selectedItems.map((item) => ({
+            productId: item.product.id,
+            productVariantId: isVariantPlaceholder(item.variant.id) ? null : item.variant.id,
+            quantity: item.quantity,
+          })),
+        },
+      });
 
-      const orderItems = selectedItems.map(item => ({
-        order_id: order.id,
-        product_id: item.product.id,
-        product_variant_id: isVariantPlaceholder(item.variant.id) ? null : item.variant.id,
-        product_name: item.product.name,
-        variant_details: [item.variant.color, item.variant.size].filter(Boolean).join(' - '),
-        quantity: item.quantity,
-        unit_price: item.variant.price,
-        total_price: item.variant.price * item.quantity,
-      }));
+      if (error) throw error;
 
-      const { error: itemsError } = await supabase
-        .from('order_items')
-        .insert(orderItems);
+      const order = (data as {
+        order?: { id: string; order_number?: string; total_amount?: number };
+        alreadyExists?: boolean;
+        error?: string;
+      } | null)?.order;
 
-      if (itemsError) throw itemsError;
-
-      await supabase
-        .from('order_tracking')
-        .insert({
-          order_id: order.id,
-          status: 'payment_received',
-          location_name: paymentReference ? 'Payment Gateway' : 'Checkout',
-          notes: paymentReference ? 'Payment verified successfully.' : 'Order covered by wallet and loyalty credits.',
-        });
-
-      if (appliedCoupon) {
-        const { error: couponRedemptionError } = await supabase.rpc('mark_coupon_redeemed' as never, {
-          coupon_id_input: appliedCoupon.id,
-          order_id_input: order.id,
-          discount_amount_input: discount,
-        } as never);
-
-        if (couponRedemptionError) {
-          console.error('Coupon redemption logging failed:', couponRedemptionError);
-        }
-      }
-
-      if (user) {
-        const recoveryUpdate = supabase
-          .from('checkout_recovery_snapshots' as never)
-          .update({
-            status: 'recovered',
-            recovered_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          } as never);
-
-        if (checkoutRecoverySnapshotIdRef.current) {
-          await recoveryUpdate.eq('id', checkoutRecoverySnapshotIdRef.current);
-        } else {
-          await recoveryUpdate.eq('user_id', user.id);
-        }
+      if (!order?.id) {
+        throw new Error((data as { error?: string } | null)?.error || 'Order could not be created.');
       }
 
       selectedItems.forEach((item) => {
@@ -1063,55 +988,15 @@ export default function Checkout() {
           eventType: 'order_complete',
           source: 'checkout',
           weight: item.quantity,
-          productVariantId: item.variant.id,
+          productVariantId: isVariantPlaceholder(item.variant.id) ? null : item.variant.id,
           orderId: order.id,
         });
       });
 
-      try {
-        const loyaltyEnabled = storeSettings?.loyaltyEnabled !== false;
-        const pointsPerGhs = typeof storeSettings?.loyaltyPointsPerOrder === 'number' ? storeSettings.loyaltyPointsPerOrder : 1;
-        const minAmount = typeof storeSettings?.loyaltyMinOrderAmount === 'number' ? storeSettings.loyaltyMinOrderAmount : 0;
-
-        if (loyaltyEnabled && total >= minAmount && user?.id) {
-          const pointsToAward = Math.floor(total * pointsPerGhs);
-          if (pointsToAward > 0) {
-            await supabase.from('loyalty_points').insert({
-              user_id: user.id,
-              points: pointsToAward,
-              type: 'earn',
-              description: `Order #${order.order_number} - ${pointsToAward} points earned`,
-              order_id: order.id,
-            });
-          }
-        }
-      } catch (loyaltyErr) {
-        console.error('Loyalty points error (non-blocking):', loyaltyErr);
-      }
-
-      try {
-        const { data: adminRoles } = await supabase
-          .from('user_roles')
-          .select('user_id')
-          .in('role', ['admin', 'manager']);
-
-        if (adminRoles && adminRoles.length > 0) {
-          const adminNotifications = adminRoles.map(r => ({
-            user_id: r.user_id,
-            title: 'New Order Received',
-            message: `Order ${order.order_number} - ${formatPrice(total)} placed.`,
-            type: 'new_order',
-            data: { orderId: order.id, orderNumber: order.order_number, total },
-          }));
-          await supabase.from('notifications').insert(adminNotifications);
-        }
-      } catch (notifErr) {
-        console.error('Admin notification error (non-blocking):', notifErr);
-      }
-
       setPendingPaymentRef(null);
+      clearCheckoutRecoverySnapshot();
       clearSelectedItems();
-      toast.success('Order placed successfully!');
+      toast.success((data as { alreadyExists?: boolean } | null)?.alreadyExists ? 'Order already created!' : 'Order placed successfully!');
       navigate(`/order-confirmation/${order.id}`);
       setIsProcessing(false);
       setOrderCreationInProgress(false);
@@ -1126,7 +1011,6 @@ export default function Checkout() {
   };
 
   const verifyAndCreateOrder = async (paymentReference: string) => {
-    // Fix #8: Duplicate order guard
     if (orderCreationInProgress) {
       console.warn('Order creation already in progress, ignoring duplicate call');
       return;
@@ -1134,64 +1018,6 @@ export default function Checkout() {
     setOrderCreationInProgress(true);
     
     try {
-      // Step 1: Server-side verification (Fix #1)
-      const { data: verification, error: verifyError } = await supabase.functions.invoke(
-        'verify-paystack-payment',
-        { body: { reference: paymentReference } }
-      );
-
-      if (verifyError) {
-        console.error('Verification call failed:', verifyError);
-        toast.error('Payment verification failed. Contact support with ref: ' + paymentReference);
-        setIsProcessing(false);
-        setOrderCreationInProgress(false);
-        return;
-      }
-
-      if (!verification?.verified) {
-        console.error('Payment not verified:', verification);
-        toast.error('Payment could not be confirmed. If you were charged, contact support with ref: ' + paymentReference);
-        setIsProcessing(false);
-        setOrderCreationInProgress(false);
-        return;
-      }
-
-      // Step 2: Verify amount matches
-      const expectedAmount = Math.round(total * 100);
-      if (verification.amount !== expectedAmount) {
-        console.error(`Amount mismatch: expected ${expectedAmount}, got ${verification.amount}`);
-        toast.error('Payment amount mismatch. Contact support with ref: ' + paymentReference);
-        setIsProcessing(false);
-        setOrderCreationInProgress(false);
-        return;
-      }
-
-      if (verification.currency !== 'GHS') {
-        console.error(`Currency mismatch: expected GHS, got ${verification.currency}`);
-        toast.error('Payment currency mismatch. Contact support with ref: ' + paymentReference);
-        setIsProcessing(false);
-        setOrderCreationInProgress(false);
-        return;
-      }
-
-      // Step 3: Check no order already exists with this reference (Fix #8)
-      const { data: existingOrder } = await supabase
-        .from('orders')
-        .select('id')
-        .eq('payment_reference', paymentReference)
-        .maybeSingle();
-
-      if (existingOrder) {
-        console.warn('Order already exists for this payment reference');
-        toast.success('Order already created!');
-        clearSelectedItems();
-        setPendingPaymentRef(null);
-        setIsProcessing(false);
-        setOrderCreationInProgress(false);
-        navigate(`/order-confirmation/${existingOrder.id}`);
-        return;
-      }
-
       await finalizeOrder(paymentReference);
       return;
     } catch (error) {

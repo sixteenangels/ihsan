@@ -17,6 +17,9 @@ verify_jwt = false
 [functions.verify-paystack-payment]
 verify_jwt = true
 
+[functions.create-checkout-order]
+verify_jwt = true
+
 [functions.check-birthdays]
 verify_jwt = false
 

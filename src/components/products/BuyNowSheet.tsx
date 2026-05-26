@@ -28,7 +28,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { useStoreSettings } from '@/hooks/useStoreSettings';
 import type { ProductWithDetails } from '@/hooks/useProducts';
 import { getErrorMessage } from '@/lib/errors';
 import { hasRequiredGroupBuyDeliveryDetails } from '@/lib/groupBuyCheckout';
@@ -123,7 +122,6 @@ export function BuyNowSheet({
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { formatPrice } = useCurrency();
-  const { data: storeSettings } = useStoreSettings();
   const isMobile = useIsMobile();
   const callbackFiredRef = useRef(false);
   const orderCreationInProgressRef = useRef(false);
@@ -351,65 +349,34 @@ export function BuyNowSheet({
     variant: ProductWithDetails['variants'][number] | null,
   ) => {
     try {
-      const estimatedDaysMin = shippingRule?.shipping_class?.estimated_days_min || 7;
-      const estimatedDaysMax = shippingRule?.shipping_class?.estimated_days_max || 14;
-      const shippingPrice = product.is_free_shipping ? 0 : Number(shippingRule?.price || 0);
-
-      const { data: order, error: orderError } = await supabase
-        .from('orders')
-        .insert([
-          {
-            order_number: `AJYN-${Date.now()}`,
-            user_id: user?.id as string,
-            subtotal,
-            shipping_price: shippingPrice,
-            total_amount: total,
-            shipping_class_id: shippingRule?.shipping_class_id || null,
-            shipping_address: JSON.parse(JSON.stringify(orderAddress)),
-            status: 'payment_received' as const,
-            payment_reference: paymentReference,
-            notes: 'Instant checkout via Buy Now',
-            estimated_delivery_start: new Date(
-              Date.now() + estimatedDaysMin * 24 * 60 * 60 * 1000,
-            )
-              .toISOString()
-              .split('T')[0],
-            estimated_delivery_end: new Date(
-              Date.now() + estimatedDaysMax * 24 * 60 * 60 * 1000,
-            )
-              .toISOString()
-              .split('T')[0],
-            packaging_type: null,
-            packaging_cost: 0,
-            wallet_credit_used: 0,
-          },
-        ])
-        .select()
-        .single();
-
-      if (orderError) throw orderError;
-
-      const { error: orderItemError } = await supabase.from('order_items').insert({
-        order_id: order.id,
-        product_id: product.id,
-        product_variant_id: variant?.id || null,
-        product_name: product.name,
-        variant_details: variant ? buildVariantLabel(variant) : 'Standard option',
-        quantity,
-        unit_price: unitPrice,
-        total_price: subtotal,
+      const { data, error } = await supabase.functions.invoke('create-checkout-order', {
+        body: {
+          flow: 'buy_now',
+          paymentReference,
+          addressId: orderAddress.id,
+          shippingClassId: shippingRule?.shipping_class_id || null,
+          expectedTotal: total,
+          items: [
+            {
+              productId: product.id,
+              productVariantId: variant?.id || null,
+              quantity,
+            },
+          ],
+        },
       });
 
-      if (orderItemError) throw orderItemError;
+      if (error) throw error;
 
-      await supabase.from('order_tracking').insert({
-        order_id: order.id,
-        status: 'payment_received',
-        location_name: paymentReference ? 'Payment Gateway' : 'Instant Checkout',
-        notes: paymentReference
-          ? 'Payment verified successfully via Buy Now.'
-          : 'Order completed without gateway payment.',
-      });
+      const order = (data as {
+        order?: { id: string; order_number?: string; total_amount?: number };
+        alreadyExists?: boolean;
+        error?: string;
+      } | null)?.order;
+
+      if (!order?.id) {
+        throw new Error((data as { error?: string } | null)?.error || 'Order could not be created.');
+      }
 
       trackRecommendationEvent({
         productId: product.id,
@@ -420,60 +387,7 @@ export function BuyNowSheet({
         orderId: order.id,
       });
 
-      try {
-        const loyaltyEnabled = storeSettings?.loyaltyEnabled !== false;
-        const pointsPerGhs =
-          typeof storeSettings?.loyaltyPointsPerOrder === 'number'
-            ? storeSettings.loyaltyPointsPerOrder
-            : 1;
-        const minAmount =
-          typeof storeSettings?.loyaltyMinOrderAmount === 'number'
-            ? storeSettings.loyaltyMinOrderAmount
-            : 0;
-
-        if (loyaltyEnabled && total >= minAmount && user?.id) {
-          const pointsToAward = Math.floor(total * pointsPerGhs);
-          if (pointsToAward > 0) {
-            await supabase.from('loyalty_points').insert({
-              user_id: user.id,
-              points: pointsToAward,
-              type: 'earn',
-              description: `Order #${order.order_number} - ${pointsToAward} points earned`,
-              order_id: order.id,
-            });
-          }
-        }
-      } catch (loyaltyError) {
-        console.error('Buy now loyalty award failed:', loyaltyError);
-      }
-
-      try {
-        const { data: adminRoles } = await supabase
-          .from('user_roles')
-          .select('user_id')
-          .in('role', ['admin', 'manager']);
-
-        if (adminRoles?.length) {
-          await supabase.from('notifications').insert(
-            adminRoles.map((role) => ({
-              user_id: role.user_id,
-              title: 'New Buy Now Order',
-              message: `${product.name} instant checkout placed for ${formatPrice(total)}.`,
-              type: 'new_order',
-              data: {
-                orderId: order.id,
-                orderNumber: order.order_number,
-                total,
-                source: 'buy_now',
-              },
-            })),
-          );
-        }
-      } catch (notificationError) {
-        console.error('Buy now admin notification failed:', notificationError);
-      }
-
-      toast.success('Order placed successfully!');
+      toast.success((data as { alreadyExists?: boolean } | null)?.alreadyExists ? 'Order already created!' : 'Order placed successfully!');
       setIsOpen(false);
       setIsProcessing(false);
       orderCreationInProgressRef.current = false;
@@ -503,41 +417,6 @@ export function BuyNowSheet({
     orderCreationInProgressRef.current = true;
 
     try {
-      const { data: verification, error: verifyError } = await supabase.functions.invoke(
-        'verify-paystack-payment',
-        { body: { reference: paymentReference } },
-      );
-
-      if (verifyError) {
-        throw verifyError;
-      }
-
-      if (!verification?.verified) {
-        throw new Error('Payment could not be confirmed.');
-      }
-
-      if (verification.amount !== Math.round(total * 100)) {
-        throw new Error('Payment amount mismatch.');
-      }
-
-      if (verification.currency !== 'GHS') {
-        throw new Error('Payment currency mismatch.');
-      }
-
-      const { data: existingOrder } = await supabase
-        .from('orders')
-        .select('id')
-        .eq('payment_reference', paymentReference)
-        .maybeSingle();
-
-      if (existingOrder) {
-        toast.success('This payment already has an order.');
-        setIsProcessing(false);
-        orderCreationInProgressRef.current = false;
-        navigate(`/order-confirmation/${existingOrder.id}`);
-        return;
-      }
-
       await finalizeOrder(paymentReference, orderAddress, shippingRule, variant);
     } catch (error) {
       console.error('Buy now verification failed:', error);

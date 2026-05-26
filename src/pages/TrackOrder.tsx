@@ -497,36 +497,26 @@ export default function TrackOrder() {
   const handleConfirmDelivery = async () => {
     if (!order || !user) return;
 
-    const timestamp = new Date().toISOString();
-    const { error: updateError } = await supabase
-      .from('orders')
-      .update({
-        status: 'delivered',
-        customer_confirmed_at: timestamp,
-        updated_at: timestamp,
-      })
-      .eq('id', order.id)
-      .eq('user_id', user.id);
+    const { data, error: updateError } = await supabase.rpc('confirm_order_delivery' as never, {
+      order_id_input: order.id,
+    } as never);
 
     if (updateError) {
       toast.error('Failed to confirm delivery');
       return;
     }
 
-    await supabase.from('order_tracking').insert({
-      order_id: order.id,
-      status: 'delivered',
-      location_name: 'Delivered',
-      notes: 'Customer confirmed delivery.',
-    });
-
+    const confirmedAt =
+      Array.isArray(data) && data[0] && typeof data[0] === 'object' && 'confirmed_at' in data[0]
+        ? String((data[0] as { confirmed_at: string }).confirmed_at)
+        : new Date().toISOString();
     toast.success('Delivery confirmed!');
     await refetch();
     setReviewDialogOrder({
       ...order,
       status: 'delivered',
-      customer_confirmed_at: timestamp,
-      updated_at: timestamp,
+      customer_confirmed_at: confirmedAt,
+      updated_at: confirmedAt,
     });
   };
 
