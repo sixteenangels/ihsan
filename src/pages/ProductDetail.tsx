@@ -270,6 +270,16 @@ export default function ProductDetail() {
     return product.variants.find((variant) => variant.id === desktopPreviewVariantId) || null;
   }, [desktopPreviewVariantId, product]);
 
+  const previewVariant = isMobile ? mobileActiveVariant : desktopPreviewVariant;
+  const heroImage = product
+    ? previewVariant?.image_url || selectedVariants[0]?.image_url || product.images[0] || '/placeholder.svg'
+    : '/placeholder.svg';
+  const galleryImages = product
+    ? heroImage
+      ? [heroImage, ...product.images.filter((image) => image !== heroImage)]
+      : product.images
+    : [];
+
   const handleAddToCart = () => {
     if (!product) return;
     const cartProduct = toCartProduct(product);
@@ -359,6 +369,110 @@ export default function ProductDetail() {
     mobileGalleryRef.current?.scrollTo({ left: 0, behavior: 'smooth' });
   };
 
+  useEffect(() => {
+    if (!isMobile || galleryImages.length <= 1) return;
+
+    const container = mobileGalleryRef.current;
+    if (!container) return;
+
+    let startX = 0;
+    let startY = 0;
+    let startScrollLeft = 0;
+    let isActive = false;
+    let isHorizontalSwipe = false;
+
+    const beginSwipe = (clientX: number, clientY: number) => {
+      startX = clientX;
+      startY = clientY;
+      startScrollLeft = container.scrollLeft;
+      isActive = true;
+      isHorizontalSwipe = false;
+    };
+
+    const moveSwipe = (clientX: number, clientY: number) => {
+      if (!isActive) return false;
+
+      const deltaX = clientX - startX;
+      const deltaY = clientY - startY;
+
+      if (!isHorizontalSwipe) {
+        isHorizontalSwipe = Math.abs(deltaX) > 8 && Math.abs(deltaX) > Math.abs(deltaY);
+      }
+
+      if (!isHorizontalSwipe) return false;
+
+      container.scrollLeft = startScrollLeft - deltaX;
+      return true;
+    };
+
+    const finishSwipe = () => {
+      if (!isActive || container.clientWidth === 0) return;
+      isActive = false;
+
+      const nextIndex = Math.min(
+        Math.max(Math.round(container.scrollLeft / container.clientWidth), 0),
+        Math.max(0, galleryImages.length - 1),
+      );
+
+      setActiveMobileImageIndex(nextIndex);
+      container.scrollTo({
+        left: nextIndex * container.clientWidth,
+        behavior: 'smooth',
+      });
+    };
+
+    const handlePointerDown = (event: globalThis.PointerEvent) => {
+      if (event.pointerType === 'mouse' && event.button !== 0) return;
+      beginSwipe(event.clientX, event.clientY);
+      container.setPointerCapture?.(event.pointerId);
+    };
+
+    const handlePointerMove = (event: globalThis.PointerEvent) => {
+      if (moveSwipe(event.clientX, event.clientY)) {
+        event.preventDefault();
+      }
+    };
+
+    const handlePointerEnd = (event: globalThis.PointerEvent) => {
+      container.releasePointerCapture?.(event.pointerId);
+      finishSwipe();
+    };
+
+    const handleTouchStart = (event: globalThis.TouchEvent) => {
+      const touch = event.touches[0];
+      if (!touch) return;
+      beginSwipe(touch.clientX, touch.clientY);
+    };
+
+    const handleTouchMove = (event: globalThis.TouchEvent) => {
+      const touch = event.touches[0];
+      if (!touch) return;
+      if (moveSwipe(touch.clientX, touch.clientY)) {
+        event.preventDefault();
+      }
+    };
+
+    container.addEventListener('pointerdown', handlePointerDown);
+    container.addEventListener('pointermove', handlePointerMove, { passive: false });
+    container.addEventListener('pointerup', handlePointerEnd);
+    container.addEventListener('pointercancel', handlePointerEnd);
+    container.addEventListener('touchstart', handleTouchStart);
+    container.addEventListener('touchmove', handleTouchMove, { passive: false });
+    container.addEventListener('touchend', finishSwipe);
+    container.addEventListener('touchcancel', finishSwipe);
+
+    return () => {
+      container.removeEventListener('pointerdown', handlePointerDown);
+      container.removeEventListener('pointermove', handlePointerMove);
+      container.removeEventListener('pointerup', handlePointerEnd);
+      container.removeEventListener('pointercancel', handlePointerEnd);
+      container.removeEventListener('touchstart', handleTouchStart);
+      container.removeEventListener('touchmove', handleTouchMove);
+      container.removeEventListener('touchend', finishSwipe);
+      container.removeEventListener('touchcancel', finishSwipe);
+    };
+  }, [galleryImages.length, isMobile]);
+
   const getShippingIcon = (typeName: string | undefined) => {
     if (!typeName) return <Plane className="h-5 w-5" />;
     const name = typeName.toLowerCase();
@@ -420,15 +534,10 @@ export default function ProductDetail() {
   const hasLiveProductGroupBuy = activeProductGroupBuys.length > 0;
   const descriptionText = product.description?.trim() || '';
   const hasLongDescription = descriptionText.length > 180;
-  const previewVariant = isMobile ? mobileActiveVariant : desktopPreviewVariant;
-  const heroImage = previewVariant?.image_url || selectedVariants[0]?.image_url || product.images[0] || '/placeholder.svg';
-  const galleryImages = heroImage
-    ? [heroImage, ...product.images.filter((image) => image !== heroImage)]
-    : product.images;
   const groupBuyPanel = product.is_group_buy_eligible ? (
     isMobile ? (
       <div className="rounded-[1.45rem] border border-border/70 bg-card/80 p-3.5 shadow-sm">
-        <div className="grid grid-cols-[minmax(0,1fr),auto] items-start gap-2.5">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2.5">
           <div className="row-span-2 flex min-w-0 items-start gap-3 rounded-[1.15rem] bg-background/70 p-3">
             <div className="rounded-2xl bg-primary/10 p-2.5 text-primary">
               <Users className="h-4 w-4" />
@@ -539,7 +648,7 @@ export default function ProductDetail() {
   return (
     <div className="min-h-screen bg-background">
       {!isMobile && <Header />}
-      <main className="container px-3 py-5 pb-36 sm:px-6 md:py-8 md:pb-8">
+      <main className="container px-3 py-5 pb-[10.5rem] sm:px-6 md:py-8 md:pb-8">
         {isMobile ? (
           <div className="space-y-4">
             <div className="sticky top-0 z-40 -mx-3 border-b border-border/70 bg-background/95 px-3 py-3 backdrop-blur-xl">
@@ -596,7 +705,7 @@ export default function ProductDetail() {
               <div className="relative overflow-hidden rounded-[1.65rem] bg-muted">
                 <div
                   ref={mobileGalleryRef}
-                  className="no-scrollbar flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain scroll-smooth [scrollbar-width:none] [touch-action:pan-x]"
+                  className="no-scrollbar flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [touch-action:pan-x]"
                   onScroll={handleMobileGalleryScroll}
                 >
                   {galleryImages.map((image, index) => (
@@ -719,8 +828,11 @@ export default function ProductDetail() {
                   onQuantityChange={handleQuantityChange}
                   onClearAll={handleClearSelectedVariants}
                   onCurrentVariantChange={(variant) => {
-                    setMobileVariantId(variant?.id || null);
-                    resetMobileGallery();
+                    const nextVariantId = variant?.id || null;
+                    if (nextVariantId !== mobileVariantId) {
+                      setMobileVariantId(nextVariantId);
+                      resetMobileGallery();
+                    }
                   }}
                 />
               )}
@@ -1046,7 +1158,7 @@ export default function ProductDetail() {
       {isMobile && (
         <div className="fixed inset-x-0 bottom-0 z-40 px-3 pb-2">
           <div className="mx-auto rounded-[1.2rem] border border-border/80 bg-background/95 px-3 pt-3 shadow-[0_18px_44px_-22px_hsl(var(--foreground)/0.75)] backdrop-blur-xl supports-[backdrop-filter]:bg-background/90">
-            <div className="grid grid-cols-[minmax(0,1fr),auto,auto] items-end gap-2 pb-[calc(env(safe-area-inset-bottom,0px)+0.55rem)]">
+            <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-end gap-2 pb-[calc(env(safe-area-inset-bottom,0px)+0.55rem)]">
               <div className="min-w-0">
                 <p className="text-[11px] font-medium text-muted-foreground">
                 {selectedVariants.length > 0 ? `${selectedItemCount} item${selectedItemCount === 1 ? '' : 's'} selected` : 'Ready to buy'}
@@ -1055,7 +1167,7 @@ export default function ProductDetail() {
                   Total (Est.)
                 </p>
                 <div className="flex items-end gap-1.5">
-                  <p className="text-[1.55rem] font-semibold leading-none text-primary">
+                  <p className="truncate text-[1.35rem] font-semibold leading-none text-primary min-[380px]:text-[1.55rem]">
                     {formatPrice(mobileEstimatedTotal)}
                   </p>
                 </div>
@@ -1067,7 +1179,7 @@ export default function ProductDetail() {
               <Button
                 size="sm"
                 variant="outline"
-                className="h-11 min-w-[98px] gap-1.5 overflow-hidden rounded-xl border-border/70 bg-background/70 px-3"
+                className="h-11 min-w-[88px] gap-1.5 overflow-hidden rounded-xl border-border/70 bg-background/70 px-2.5 min-[380px]:min-w-[98px] min-[380px]:px-3"
                 onClick={handleAddToCart}
               >
                 <ShoppingCart className="h-3.5 w-3.5 shrink-0" />
@@ -1077,7 +1189,7 @@ export default function ProductDetail() {
                 product={product}
                 selectedVariants={selectedVariants}
                 selectedShippingRuleId={selectedShipping?.id || null}
-                triggerClassName="h-11 min-w-[98px] gap-1.5 overflow-hidden rounded-xl px-3"
+                triggerClassName="h-11 min-w-[88px] gap-1.5 overflow-hidden rounded-xl px-2.5 min-[380px]:min-w-[98px] min-[380px]:px-3"
                 triggerLabel="Buy Now"
                 triggerSize="sm"
               />

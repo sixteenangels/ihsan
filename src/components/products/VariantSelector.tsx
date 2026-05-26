@@ -220,7 +220,7 @@ export function VariantSelector({
           <p className="text-xs font-semibold text-foreground">
             {hasColorDimension ? 'Select Color' : 'Select Style'}
           </p>
-          <div className="no-scrollbar -mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto overscroll-x-contain px-1 pb-2 scroll-smooth [scrollbar-width:none] [touch-action:pan-x]">
+          <div className="no-scrollbar -mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto overscroll-x-contain px-1 pb-2 scroll-smooth [scrollbar-width:none] [touch-action:pan-x_pan-y]">
             {visualOptions.map((option) => {
               const isSelected = selectedVisualKey === option.key;
 
@@ -268,7 +268,7 @@ export function VariantSelector({
           <p className="text-xs font-semibold text-foreground">
             Select Size
           </p>
-          <div className="no-scrollbar -mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto overscroll-x-contain px-1 pb-2 scroll-smooth [scrollbar-width:none] [touch-action:pan-x]">
+          <div className="no-scrollbar -mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto overscroll-x-contain px-1 pb-2 scroll-smooth [scrollbar-width:none] [touch-action:pan-x_pan-y]">
             {sizeOptions.map((size) => {
               const variantForSize = variantsForSelectedVisual.find((variant) => variant.size === size);
               const isSelected = selectedSize === size;
@@ -281,7 +281,7 @@ export function VariantSelector({
                   disabled={!isAvailable}
                   onClick={() => setSelectedSize(size)}
                   className={cn(
-                    'snap-start rounded-2xl border px-4 py-3 text-left transition-all',
+                    'snap-start overflow-hidden rounded-2xl border px-4 py-3 text-left transition-all',
                     isMobile ? 'min-h-[74px] min-w-[132px] max-w-[150px]' : 'min-w-[96px]',
                     isSelected
                       ? 'border-primary bg-primary/10 text-primary shadow-[0_0_0_1px_hsl(var(--primary))]'
@@ -303,7 +303,7 @@ export function VariantSelector({
       {currentVariant ? (
         <div className="space-y-2">
           <p className="text-xs font-medium text-muted-foreground">Quantity</p>
-          <div className={cn('grid gap-2', isMobile ? 'grid-cols-[auto,1fr]' : 'grid-cols-[auto,1fr] sm:max-w-md')}>
+          <div className={cn('grid gap-2', isMobile ? 'grid-cols-[auto_1fr]' : 'grid-cols-[auto_1fr] sm:max-w-md')}>
             <div className="flex items-center gap-1 rounded-[1.15rem] border border-border/70 bg-card/80 px-2">
               <Button
                 type="button"
