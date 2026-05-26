@@ -34,6 +34,7 @@ import {
   hasRequiredGroupBuyDeliveryDetails,
 } from '@/lib/groupBuyCheckout';
 import { useGroupBuySettings } from '@/hooks/useGroupBuySettings';
+import { PurchaseSummary } from '@/components/checkout/PurchaseSummary';
 import {
   buildGroupBuySettingsSnapshot,
   formatGroupBuyDuration,
@@ -567,6 +568,44 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
             </>
           ) : (
             <div className="space-y-4">
+              <PurchaseSummary
+                title="Group Buy Checkout"
+                subtitle="Review your group buy reservation before payment."
+                itemsTitle="Selected Items"
+                itemsSubtitle={`You've selected ${totalSelectedQuantity} item${totalSelectedQuantity === 1 ? '' : 's'}`}
+                items={
+                  hasVariants
+                    ? variantSelections.map((selection) => ({
+                        id: selection.variantId,
+                        title: product.name,
+                        subtitle: selection.label,
+                        quantity: selection.quantity,
+                        amount: formatPrice(selection.unitPrice * selection.quantity),
+                        details: [`${formatPrice(selection.unitPrice)} each`],
+                      }))
+                    : [
+                        {
+                          id: product.id,
+                          title: product.name,
+                          subtitle: 'Group buy reservation',
+                          quantity,
+                          amount: formatPrice(totalAmount),
+                          details: [`${formatPrice(offeredUnitPrice)} each`],
+                        },
+                      ]
+                }
+                totals={[
+                  { label: 'Participants needed', value: String(normalizedParticipantCount) },
+                  { label: 'Total items', value: String(totalSelectedQuantity) },
+                  { label: 'Total', value: formatPrice(totalAmount), emphasis: true },
+                ]}
+                makeChangesLabel="Back"
+                payLabel="Pay Now and Start Group Buy"
+                isProcessing={isPaying}
+                onMakeChanges={() => setStep('setup')}
+                onPay={handlePayAndCreate}
+              />
+              <div className="hidden">
               <div className="rounded-2xl border border-border/70 bg-muted/50 p-4">
                 <h4 className="mb-2 font-medium">Summary</h4>
                 <div className="space-y-1 text-sm">
@@ -590,6 +629,7 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
                 Pay Now and Start Group Buy
               </Button>
               <Button variant="outline" className="w-full" onClick={() => setStep('setup')}>Back</Button>
+              </div>
             </div>
           )}
         </div>

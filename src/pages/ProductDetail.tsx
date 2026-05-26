@@ -52,6 +52,7 @@ import { useProductActiveGroupBuys } from '@/hooks/useProductActiveGroupBuys';
 import { formatGroupBuyTimeRemaining } from '@/lib/groupBuyTiming';
 import { useGroupBuySettings } from '@/hooks/useGroupBuySettings';
 import { formatGroupBuyDuration } from '@/lib/groupBuyConfig';
+import { clearPendingBuyNowSession, readPendingBuyNowSession } from '@/lib/buyNowSession';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -251,6 +252,54 @@ export default function ProductDetail() {
     () => product?.shipping_rules.filter((r) => r.is_allowed && r.shipping_class) || [],
     [product],
   );
+
+  useEffect(() => {
+    if (!product || searchParams.get('resumeBuyNow') !== '1') {
+      return;
+    }
+
+    const pendingBuyNow = readPendingBuyNowSession(product.id);
+    if (!pendingBuyNow) {
+      return;
+    }
+
+    const restoredVariants = pendingBuyNow.selectedVariants
+      .map((selection) => {
+        const variant = product.variants.find((candidate) => candidate.id === selection.variantId);
+        if (!variant) return null;
+
+        return {
+          ...variant,
+          quantity: Math.max(1, selection.quantity),
+        };
+      })
+      .filter((variant): variant is SelectedVariant => Boolean(variant));
+
+    if (restoredVariants.length > 0) {
+      setSelectedVariants(restoredVariants);
+      setMobileVariantId(restoredVariants[0].id);
+      setDesktopPreviewVariantId(restoredVariants[0].id);
+    }
+
+    if (pendingBuyNow.selectedShippingRuleId) {
+      const restoredShipping = availableShipping.find(
+        (option) => option.id === pendingBuyNow.selectedShippingRuleId,
+      );
+      if (restoredShipping) {
+        setSelectedShipping(restoredShipping);
+      }
+    }
+
+    clearPendingBuyNowSession();
+    toast.success('Address saved. Review your Buy Now summary.');
+    window.requestAnimationFrame(() => {
+      window.dispatchEvent(
+        new CustomEvent('ajyn:open-buy-now', {
+          detail: { productId: product.id },
+        }),
+      );
+    });
+  }, [availableShipping, product, searchParams]);
 
   const totalAvailableStock = useMemo(
     () => product?.variants.reduce((sum, variant) => sum + Math.max(0, variant.stock || 0), 0) || 0,
@@ -560,8 +609,10 @@ export default function ProductDetail() {
     ? Math.max(0, Math.round(((product.base_price - product.group_buy_price) / product.base_price) * 100))
     : 0;
   const mobilePreviewUnitPrice = mobileActiveVariant?.price ?? product.base_price;
-  const previewShippingCost =
+  const previewShippingUnitCost =
     product.is_free_shipping || !highlightedShipping ? 0 : Number(highlightedShipping.price || 0);
+  const previewShippingQuantity = selectedVariants.length > 0 ? Math.max(1, selectedItemCount) : 1;
+  const previewShippingCost = previewShippingUnitCost * previewShippingQuantity;
   const mobileEstimatedTotal =
     (selectedVariants.length > 0 ? totalPrice : mobilePreviewUnitPrice) + previewShippingCost;
   const preferredProductGroupBuy = activeProductGroupBuys.find((groupBuy) => groupBuy.id === preferredGroupBuyId) || null;

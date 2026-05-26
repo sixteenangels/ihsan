@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { PurchaseSummary } from '@/components/checkout/PurchaseSummary';
 import { Separator } from '@/components/ui/separator';
 import {
   Sheet,
@@ -29,6 +30,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useIsMobile } from '@/hooks/use-mobile';
 import type { ProductWithDetails } from '@/hooks/useProducts';
+import { savePendingBuyNowSession } from '@/lib/buyNowSession';
 import { getErrorMessage } from '@/lib/errors';
 import { hasRequiredGroupBuyDeliveryDetails } from '@/lib/groupBuyCheckout';
 import { loadPaystack, type PaystackTransactionResponse } from '@/lib/paystack';
@@ -110,6 +112,10 @@ function getShippingIcon(name: string | undefined) {
   return Package;
 }
 
+function formatItemCount(count: number) {
+  return `${count} item${count === 1 ? '' : 's'}`;
+}
+
 export function BuyNowSheet({
   product,
   selectedVariants,
@@ -125,6 +131,7 @@ export function BuyNowSheet({
   const isMobile = useIsMobile();
   const callbackFiredRef = useRef(false);
   const orderCreationInProgressRef = useRef(false);
+  const showLegacySummary = false;
 
   const availableShippingRules = useMemo(
     () => product.shipping_rules.filter((rule) => rule.is_allowed && rule.shipping_class),
@@ -177,18 +184,50 @@ export function BuyNowSheet({
     [addresses, selectedAddressId],
   );
   const resolvedAddress = selectedAddress || defaultAddress;
+  const hasSelectedVariantChoices = selectedVariants.length > 0;
   const selectedVariant =
     product.variants.find((variant) => variant.id === selectedVariantId) || null;
   const selectedShippingRule =
     availableShippingRules.find((rule) => rule.id === selectedShippingId) || null;
   const resolvedShippingRule =
     selectedShippingRule || (availableShippingRules.length === 1 ? availableShippingRules[0] : null);
-  const effectiveShippingCost =
+  const checkoutSelections = useMemo(() => {
+    if (hasSelectedVariantChoices) {
+      return selectedVariants.map((variant) => ({
+        key: variant.id,
+        variantId: variant.id,
+        label: buildVariantLabel(variant),
+        quantity: variant.quantity,
+        unitPrice: variant.price,
+        lineTotal: variant.price * variant.quantity,
+        imageUrl: variant.image_url || product.images[0] || '/placeholder.svg',
+      }));
+    }
+
+    const unitPrice = selectedVariant?.price ?? product.base_price;
+    return [
+      {
+        key: selectedVariant?.id || 'standard',
+        variantId: selectedVariant?.id || null,
+        label: selectedVariant ? buildVariantLabel(selectedVariant) : 'Standard option',
+        quantity,
+        unitPrice,
+        lineTotal: unitPrice * quantity,
+        imageUrl: selectedVariant?.image_url || product.images[0] || '/placeholder.svg',
+      },
+    ];
+  }, [hasSelectedVariantChoices, product.base_price, product.images, quantity, selectedVariant, selectedVariants]);
+  const subtotal = checkoutSelections.reduce((sum, item) => sum + item.lineTotal, 0);
+  const totalQuantity = checkoutSelections.reduce((sum, item) => sum + item.quantity, 0);
+  const shippingUnitCost =
     product.is_free_shipping || !resolvedShippingRule ? 0 : Number(resolvedShippingRule.price || 0);
-  const unitPrice = selectedVariant?.price ?? product.base_price;
-  const subtotal = unitPrice * quantity;
+  const effectiveShippingCost = shippingUnitCost * Math.max(1, totalQuantity);
   const total = subtotal + effectiveShippingCost;
-  const variantLabel = selectedVariant ? buildVariantLabel(selectedVariant) : 'Standard option';
+  const primarySelection = checkoutSelections[0];
+  const variantLabel =
+    hasSelectedVariantChoices
+      ? `${selectedVariants.length} selected variant${selectedVariants.length === 1 ? '' : 's'}`
+      : primarySelection?.label || 'Standard option';
   const addressLabel = resolvedAddress
     ? [resolvedAddress.full_name, resolvedAddress.city, resolvedAddress.country]
         .filter(Boolean)
@@ -201,7 +240,7 @@ export function BuyNowSheet({
     address: resolvedAddress,
     email: user?.email,
   });
-  const variantMissing = requiresVariantSelection && !selectedVariant;
+  const variantMissing = requiresVariantSelection && !hasSelectedVariantChoices && !selectedVariant;
   const addressMissing = !hasValidAddressSelection;
   const shippingMissing = availableShippingRules.length > 0 && !resolvedShippingRule;
   const hasMissingRequirements = variantMissing || addressMissing || shippingMissing;
@@ -232,7 +271,7 @@ export function BuyNowSheet({
     }
   }, [addresses.length]);
 
-  const resolveDefaultOrSelectedAddress = async () => {
+  const resolveDefaultOrSelectedAddress = useCallback(async () => {
     if (selectedAddress) {
       return selectedAddress;
     }
@@ -251,21 +290,56 @@ export function BuyNowSheet({
     }
 
     return nextDefaultAddress;
-  };
+  }, [defaultAddress, refetchAddresses, selectedAddress]);
 
   const resetInlineAddressForm = () => {
     setNewAddress(EMPTY_ADDRESS_FORM);
     setShowAddressForm(addresses.length === 0);
   };
 
-  const handleOpenQuickCheckout = async () => {
+  const redirectToAddressSetup = useCallback((
+    shippingRule: ProductWithDetails['shipping_rules'][number] | null = resolvedShippingRule,
+  ) => {
+    const pendingVariants = hasSelectedVariantChoices
+      ? selectedVariants.map((variant) => ({
+          variantId: variant.id,
+          quantity: variant.quantity,
+        }))
+      : selectedVariant
+        ? [{ variantId: selectedVariant.id, quantity }]
+        : [];
+
+    savePendingBuyNowSession({
+      productId: product.id,
+      selectedVariants: pendingVariants,
+      selectedShippingRuleId: shippingRule?.id || selectedShippingId || selectedShippingRuleId || null,
+    });
+
+    setIsOpen(false);
+    toast.info('Add delivery address before using Buy Now.');
+    navigate(
+      `/profile?tab=addresses&openAddress=1&returnTo=${encodeURIComponent(`/product/${product.id}?resumeBuyNow=1`)}`,
+    );
+  }, [
+    hasSelectedVariantChoices,
+    navigate,
+    product.id,
+    quantity,
+    resolvedShippingRule,
+    selectedShippingId,
+    selectedShippingRuleId,
+    selectedVariant,
+    selectedVariants,
+  ]);
+
+  const handleOpenQuickCheckout = useCallback(async () => {
     if (!user) {
       toast.info('Please sign in to use instant checkout.');
       navigate('/auth');
       return;
     }
 
-    if (requiresVariantSelection && !selectedVariant) {
+    if (variantMissing) {
       setIsOpen(false);
       toast.info('Select a variant on the product page before using Buy Now.');
       window.dispatchEvent(
@@ -278,29 +352,46 @@ export function BuyNowSheet({
     }
 
     const resolvedAddress = await resolveDefaultOrSelectedAddress();
-    const readyForDirectPay =
-      (!requiresVariantSelection || !!selectedVariant) &&
-      hasRequiredGroupBuyDeliveryDetails({
-        address: resolvedAddress,
-        email: user?.email,
-      }) &&
-        (!!resolvedShippingRule || availableShippingRules.length === 1);
+    const addressIsReady = hasRequiredGroupBuyDeliveryDetails({
+      address: resolvedAddress,
+      email: user?.email,
+    });
+
+    if (!addressIsReady) {
+      redirectToAddressSetup(resolvedShippingRule || availableShippingRules[0] || null);
+      return;
+    }
 
     if (availableShippingRules.length === 1 && !selectedShippingId) {
       setSelectedShippingId(availableShippingRules[0].id);
     }
 
-    if (readyForDirectPay) {
-      await handlePayNow({
-        address: resolvedAddress,
-        shippingRule: resolvedShippingRule || availableShippingRules[0] || null,
-        variant: selectedVariant,
-      });
-      return;
-    }
-
     setIsOpen(true);
-  };
+  }, [
+    availableShippingRules,
+    navigate,
+    product.id,
+    redirectToAddressSetup,
+    resolveDefaultOrSelectedAddress,
+    resolvedShippingRule,
+    selectedShippingId,
+    user,
+    variantMissing,
+  ]);
+
+  useEffect(() => {
+    const handleOpenBuyNow = (event: Event) => {
+      const detail = (event as CustomEvent<{ productId?: string }>).detail;
+      if (detail?.productId && detail.productId !== product.id) {
+        return;
+      }
+
+      void handleOpenQuickCheckout();
+    };
+
+    window.addEventListener('ajyn:open-buy-now', handleOpenBuyNow);
+    return () => window.removeEventListener('ajyn:open-buy-now', handleOpenBuyNow);
+  }, [handleOpenQuickCheckout, product.id]);
 
   const handleAddressSave = async () => {
     if (!user) {
@@ -346,7 +437,6 @@ export function BuyNowSheet({
     paymentReference: string | null,
     orderAddress: Address,
     shippingRule: ProductWithDetails['shipping_rules'][number] | null,
-    variant: ProductWithDetails['variants'][number] | null,
   ) => {
     try {
       const { data, error } = await supabase.functions.invoke('create-checkout-order', {
@@ -356,13 +446,11 @@ export function BuyNowSheet({
           addressId: orderAddress.id,
           shippingClassId: shippingRule?.shipping_class_id || null,
           expectedTotal: total,
-          items: [
-            {
-              productId: product.id,
-              productVariantId: variant?.id || null,
-              quantity,
-            },
-          ],
+          items: checkoutSelections.map((item) => ({
+            productId: product.id,
+            productVariantId: item.variantId,
+            quantity: item.quantity,
+          })),
         },
       });
 
@@ -378,13 +466,15 @@ export function BuyNowSheet({
         throw new Error((data as { error?: string } | null)?.error || 'Order could not be created.');
       }
 
-      trackRecommendationEvent({
-        productId: product.id,
-        eventType: 'order_complete',
-        source: 'buy_now',
-        weight: quantity,
-        productVariantId: variant?.id || null,
-        orderId: order.id,
+      checkoutSelections.forEach((item) => {
+        trackRecommendationEvent({
+          productId: product.id,
+          eventType: 'order_complete',
+          source: 'buy_now',
+          weight: item.quantity,
+          productVariantId: item.variantId,
+          orderId: order.id,
+        });
       });
 
       toast.success((data as { alreadyExists?: boolean } | null)?.alreadyExists ? 'Order already created!' : 'Order placed successfully!');
@@ -408,7 +498,6 @@ export function BuyNowSheet({
     paymentReference: string,
     orderAddress: Address,
     shippingRule: ProductWithDetails['shipping_rules'][number] | null,
-    variant: ProductWithDetails['variants'][number] | null,
   ) => {
     if (orderCreationInProgressRef.current) {
       return;
@@ -417,7 +506,7 @@ export function BuyNowSheet({
     orderCreationInProgressRef.current = true;
 
     try {
-      await finalizeOrder(paymentReference, orderAddress, shippingRule, variant);
+      await finalizeOrder(paymentReference, orderAddress, shippingRule);
     } catch (error) {
       console.error('Buy now verification failed:', error);
       toast.error(`${getErrorMessage(error, 'Payment verification failed')} Contact support with ref: ${paymentReference}`);
@@ -429,7 +518,6 @@ export function BuyNowSheet({
   const handlePayNow = async (overrides?: {
     address?: Address | null;
     shippingRule?: ProductWithDetails['shipping_rules'][number] | null;
-    variant?: ProductWithDetails['variants'][number] | null;
   }) => {
     if (!user) {
       toast.error('Please sign in to continue.');
@@ -438,9 +526,8 @@ export function BuyNowSheet({
 
     const address = overrides?.address ?? resolvedAddress;
     const shippingRule = overrides?.shippingRule ?? resolvedShippingRule;
-    const variant = overrides?.variant ?? selectedVariant;
 
-    if (requiresVariantSelection && !variant) {
+    if (variantMissing) {
       setIsOpen(false);
       toast.info('Select a variant on the product page before using Buy Now.');
       window.dispatchEvent(
@@ -458,8 +545,7 @@ export function BuyNowSheet({
         email: user?.email,
       })
     ) {
-      setIsOpen(true);
-      toast.error('Choose a delivery address to continue.');
+      redirectToAddressSetup(shippingRule);
       return;
     }
 
@@ -473,10 +559,11 @@ export function BuyNowSheet({
       productId: product.id,
       eventType: 'checkout_seed',
       source: 'buy_now',
-      weight: quantity,
-      productVariantId: variant?.id || null,
+      weight: totalQuantity,
+      productVariantId: primarySelection?.variantId || null,
       metadata: {
         flow: 'instant_checkout',
+        selected_variant_count: checkoutSelections.length,
       },
     });
 
@@ -484,7 +571,7 @@ export function BuyNowSheet({
 
     try {
       if (total <= 0) {
-        await finalizeOrder(null, address, shippingRule, variant);
+        await finalizeOrder(null, address, shippingRule);
         return;
       }
 
@@ -519,13 +606,17 @@ export function BuyNowSheet({
           type: 'buy_now',
           user_id: user.id,
           product_id: product.id,
-          quantity,
-          variant_id: variant?.id || null,
+          quantity: totalQuantity,
+          variant_id: primarySelection?.variantId || null,
+          variant_ids: checkoutSelections
+            .map((item) => item.variantId)
+            .filter(Boolean)
+            .join(','),
           shipping_class_id: shippingRule?.shipping_class_id || null,
         },
         callback: (response: PaystackTransactionResponse) => {
           callbackFiredRef.current = true;
-          void verifyAndCreateOrder(response.reference, address, shippingRule, variant);
+          void verifyAndCreateOrder(response.reference, address, shippingRule);
         },
         onClose: () => {
           setTimeout(() => {
@@ -807,11 +898,78 @@ export function BuyNowSheet({
               </section>
             )}
 
+            <PurchaseSummary
+              title="Instant Checkout"
+              subtitle="Review your order details and pay in one step."
+              shipping={{
+                title: 'Shipping Method',
+                detail: shippingLabel,
+                amount: resolvedShippingRule
+                  ? product.is_free_shipping
+                    ? 'FREE'
+                    : formatPrice(effectiveShippingCost)
+                  : null,
+                icon: getShippingIcon(resolvedShippingRule?.shipping_class?.shipping_type?.name),
+              }}
+              address={{
+                title: 'Delivery Address',
+                detail: addressLabel,
+                subdetail: resolvedAddress?.phone || null,
+                icon: MapPin,
+              }}
+              itemsTitle={`Selected Variants (${checkoutSelections.length})`}
+              itemsSubtitle={`You've selected ${formatItemCount(totalQuantity)}`}
+              items={checkoutSelections.map((item) => ({
+                id: item.key,
+                title: product.name,
+                imageUrl: item.imageUrl,
+                quantity: item.quantity,
+                amount: formatPrice(item.lineTotal),
+                subtitle: item.label,
+                details: [`${formatPrice(item.unitPrice)} each`],
+                action:
+                  hasSelectedVariantChoices || item.variantId ? null : (
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        className="h-9 w-9 rounded-xl"
+                        onClick={decrementQuantity}
+                        disabled={quantity <= 1}
+                      >
+                        <Minus className="h-4 w-4" />
+                      </Button>
+                      <span className="w-8 text-center font-semibold text-foreground">{quantity}</span>
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        className="h-9 w-9 rounded-xl"
+                        onClick={incrementQuantity}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ),
+              }))}
+              totals={[
+                { label: `Subtotal (${formatItemCount(totalQuantity)})`, value: formatPrice(subtotal) },
+                {
+                  label: 'Shipping',
+                  value: product.is_free_shipping ? 'FREE' : formatPrice(effectiveShippingCost),
+                },
+                { label: 'Total', value: formatPrice(total), emphasis: true },
+              ]}
+              onMakeChanges={() => setIsOpen(false)}
+              onPay={() => void handlePayNow()}
+              isProcessing={isProcessing}
+              payDisabled={hasMissingRequirements}
+            />
+            {showLegacySummary ? (
             <section className="space-y-4 rounded-2xl border border-primary/15 bg-primary/5 p-4 shadow-sm">
               <div className="flex items-start gap-3">
                 <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-muted">
                   <img
-                    src={selectedVariant?.image_url || product.images[0] || '/placeholder.svg'}
+                    src={primarySelection?.imageUrl || product.images[0] || '/placeholder.svg'}
                     alt={product.name}
                     className="h-full w-full object-cover"
                   />
@@ -819,39 +977,69 @@ export function BuyNowSheet({
                 <div className="min-w-0 flex-1 space-y-1">
                   <p className="line-clamp-2 font-semibold text-foreground">{product.name}</p>
                   <p className="text-sm text-muted-foreground">{variantLabel}</p>
-                  <p className="text-sm font-medium text-primary">{formatPrice(unitPrice)} each</p>
+                  <p className="text-sm font-medium text-primary">
+                    {formatItemCount(totalQuantity)} · {formatPrice(subtotal)}
+                  </p>
                 </div>
               </div>
 
               <Separator />
 
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium text-foreground">Quantity</p>
-                  <p className="text-xs text-muted-foreground">Single-product instant checkout</p>
+              {hasSelectedVariantChoices ? (
+                <div className="space-y-2 rounded-2xl bg-background/70 p-2">
+                  {checkoutSelections.map((item) => (
+                    <div
+                      key={item.key}
+                      className="flex items-center gap-3 rounded-xl border border-border/60 bg-card/70 p-2"
+                    >
+                      <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-muted">
+                        <img
+                          src={item.imageUrl}
+                          alt={item.label}
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="line-clamp-1 text-sm font-medium text-foreground">{item.label}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Qty: {item.quantity} · {formatPrice(item.unitPrice)} each
+                        </p>
+                      </div>
+                      <p className="shrink-0 text-sm font-semibold text-primary">
+                        {formatPrice(item.lineTotal)}
+                      </p>
+                    </div>
+                  ))}
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    className="h-9 w-9 rounded-xl"
-                    onClick={decrementQuantity}
-                    disabled={quantity <= 1}
-                  >
-                    <Minus className="h-4 w-4" />
-                  </Button>
-                  <span className="w-8 text-center font-semibold text-foreground">{quantity}</span>
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    className="h-9 w-9 rounded-xl"
-                    onClick={incrementQuantity}
-                    disabled={selectedVariant ? quantity >= (selectedVariant.stock || 0) : false}
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
+              ) : (
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Quantity</p>
+                    <p className="text-xs text-muted-foreground">Single-product instant checkout</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      className="h-9 w-9 rounded-xl"
+                      onClick={decrementQuantity}
+                      disabled={quantity <= 1}
+                    >
+                      <Minus className="h-4 w-4" />
+                    </Button>
+                    <span className="w-8 text-center font-semibold text-foreground">{quantity}</span>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      className="h-9 w-9 rounded-xl"
+                      onClick={incrementQuantity}
+                      disabled={selectedVariant ? quantity >= (selectedVariant.stock || 0) : false}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div className="grid gap-3 text-sm sm:grid-cols-2">
                 <div className="rounded-2xl bg-background/70 p-3">
@@ -911,6 +1099,7 @@ export function BuyNowSheet({
                 </div>
               ) : null}
             </section>
+            ) : null}
           </div>
         </SheetContent>
       </Sheet>

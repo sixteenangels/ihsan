@@ -139,10 +139,6 @@ function normalizeItems(rawItems: CheckoutItemInput[], flow: CheckoutFlow) {
     throw new Error('No checkout items were provided.');
   }
 
-  if (flow === 'buy_now' && rawItems.length !== 1) {
-    throw new Error('Buy Now can only create an order for one product.');
-  }
-
   const grouped = new Map<string, CheckoutItemInput>();
 
   for (const item of rawItems) {
@@ -166,7 +162,16 @@ function normalizeItems(rawItems: CheckoutItemInput[], flow: CheckoutFlow) {
     }
   }
 
-  return [...grouped.values()];
+  const normalizedItems = [...grouped.values()];
+
+  if (flow === 'buy_now') {
+    const buyNowProductIds = new Set(normalizedItems.map((item) => item.productId));
+    if (buyNowProductIds.size !== 1) {
+      throw new Error('Buy Now can only create an order for one product.');
+    }
+  }
+
+  return normalizedItems;
 }
 
 async function getStoreSettings(supabase: ReturnType<typeof createServiceSupabaseClient>) {

@@ -35,6 +35,7 @@ import {
 } from '@/lib/groupBuyCheckout';
 import { useGroupBuySettings } from '@/hooks/useGroupBuySettings';
 import { resolveGroupBuySettings } from '@/lib/groupBuyConfig';
+import { PurchaseSummary } from '@/components/checkout/PurchaseSummary';
 
 interface JoinGroupBuyDialogProps {
   inviteCode?: string | null;
@@ -696,6 +697,44 @@ export function JoinGroupBuyDialog({
             </>
           ) : (
             <div className="space-y-4">
+              <PurchaseSummary
+                title="Group Buy Checkout"
+                subtitle="Review your join details before payment."
+                itemsTitle="Selected Items"
+                itemsSubtitle={`You've selected ${totalSelectedQuantity} item${totalSelectedQuantity === 1 ? '' : 's'}`}
+                items={
+                  hasVariants
+                    ? variantSelections.map((selection) => ({
+                        id: selection.variantId,
+                        title: groupBuy.product?.name || 'Group buy item',
+                        subtitle: selection.label,
+                        quantity: selection.quantity,
+                        amount: formatPrice(selection.unitPrice * selection.quantity),
+                        details: [`${formatPrice(selection.unitPrice)} each`],
+                      }))
+                    : [
+                        {
+                          id: groupBuy.id,
+                          title: groupBuy.product?.name || 'Group buy item',
+                          subtitle: activeTier ? activeTier.label : 'Group buy reservation',
+                          quantity,
+                          amount: formatPrice(totalAmount),
+                          details: [`${formatPrice(discountedPrice)} each`],
+                        },
+                      ]
+                }
+                totals={[
+                  ...(activeTier ? [{ label: 'Tier', value: activeTier.label }] : []),
+                  { label: 'Total items', value: String(totalSelectedQuantity) },
+                  { label: 'Total', value: formatPrice(totalAmount), emphasis: true },
+                ]}
+                makeChangesLabel="Back"
+                payLabel="Pay Now"
+                isProcessing={payingWithPaystack}
+                onMakeChanges={() => setStep('select')}
+                onPay={handlePaystackPayment}
+              />
+              <div className="hidden">
               <div className="rounded-2xl border border-border/70 bg-muted/50 p-4">
                 <h4 className="mb-2 font-medium">Order Summary</h4>
                 <div className="space-y-1 text-sm">
@@ -724,6 +763,7 @@ export function JoinGroupBuyDialog({
               <Button variant="outline" className="h-11 w-full rounded-xl" onClick={() => setStep('select')}>
                 Back
               </Button>
+              </div>
             </div>
           )}
         </div>

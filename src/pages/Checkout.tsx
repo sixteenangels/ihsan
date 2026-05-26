@@ -23,6 +23,7 @@ import {
   saveCheckoutRecoverySnapshot,
 } from '@/lib/checkoutRecovery';
 import { trackRecommendationEvent } from '@/lib/recommendationEvents';
+import { PurchaseSummary } from '@/components/checkout/PurchaseSummary';
 
 interface Address {
   id: string;
@@ -1084,7 +1085,78 @@ export default function Checkout() {
             </div>
           </div>
 
-          <div className="space-y-3">
+          <PurchaseSummary
+            title="Instant Checkout"
+            subtitle="Review your order details and pay in one step."
+            shipping={{
+              title: 'Shipping Method',
+              detail: selectedShipping
+                ? `${selectedShipping.name} (${selectedShipping.estimated_days_min}-${selectedShipping.estimated_days_max} days)`
+                : 'Choose a shipping method',
+              amount: selectedShipping ? (shippingCost === 0 ? 'FREE' : formatPrice(shippingCost)) : null,
+              icon: selectedShipping
+                ? getShippingIcon(selectedShipping.shipping_type?.name || selectedShipping.name)
+                : Package,
+              onClick: () => setIsShippingPickerOpen(true),
+            }}
+            address={{
+              title: 'Delivery Address',
+              detail: formatAddressLine(selectedAddressDetails),
+              subdetail: formatAddressReference(selectedAddressDetails),
+              icon: MapPin,
+              onClick: () => setIsAddressPickerOpen(true),
+            }}
+            itemsTitle={`Selected Variants (${selectedItems.length})`}
+            itemsSubtitle={`You've selected ${itemCount} item${itemCount === 1 ? '' : 's'}`}
+            items={selectedItems.map((item) => {
+              const needsVariant = unresolvedVariantItems.some(
+                (unresolvedItem) => unresolvedItem.id === item.id,
+              );
+              const variantName = needsVariant
+                ? 'Variant not selected'
+                : formatVariantLabel(item.variant.color, item.variant.size);
+
+              return {
+                id: item.id,
+                title: item.product.name,
+                imageUrl: item.variant.image_url || item.product.images[0] || '/placeholder.svg',
+                quantity: item.quantity,
+                amount: formatPrice(item.variant.price * item.quantity),
+                subtitle: item.variant.color ? `Color: ${item.variant.color}` : variantName,
+                details: item.variant.size ? [`Size: ${item.variant.size}`] : [],
+                warning: needsVariant ? 'Choose a variant to continue' : null,
+                action: needsVariant ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-9 rounded-xl"
+                    onClick={() => sendToProductVariantSelection(item.product.id)}
+                  >
+                    Select on product page
+                  </Button>
+                ) : null,
+              };
+            })}
+            totals={[
+              { label: `Subtotal (${itemCount} items)`, value: formatPrice(selectedSubtotal) },
+              { label: 'Shipping', value: shippingCost === 0 ? 'FREE' : formatPrice(shippingCost) },
+              ...(reinforcedPackagingCost > 0
+                ? [{ label: 'Reinforced Packaging', value: formatPrice(reinforcedPackagingCost) }]
+                : []),
+              ...(totalSavings > 0
+                ? [{ label: 'Savings', value: `-${formatPrice(totalSavings)}`, tone: 'primary' as const }]
+                : []),
+              { label: 'Total', value: formatPrice(total), emphasis: true },
+            ]}
+            makeChangesLabel="Make Changes"
+            payLabel={paymentButtonText}
+            secureText={paymentSupportText}
+            isProcessing={isProcessing}
+            payDisabled={isPaymentDisabled}
+            onMakeChanges={() => navigate('/cart')}
+            onPay={handlePaystackPayment}
+          />
+          <div className="hidden">
             <button
               type="button"
               className="w-full rounded-2xl border border-border/70 bg-card/90 p-4 text-left shadow-sm transition-colors hover:border-primary/45"

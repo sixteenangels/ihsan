@@ -61,6 +61,14 @@ interface Address {
   is_default: boolean;
 }
 
+function getSafeInternalReturnPath(value: string | null) {
+  if (!value || !value.startsWith('/') || value.startsWith('//')) {
+    return null;
+  }
+
+  return value;
+}
+
 interface OrderItem {
   id: string;
   product_name: string;
@@ -296,6 +304,8 @@ export default function Profile() {
   const [reviewDialogOrder, setReviewDialogOrder] = useState<Order | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
+  const addressSetupAutoOpenedRef = useRef(false);
+  const addressReturnTo = getSafeInternalReturnPath(searchParams.get('returnTo'));
 
   const [addressForm, setAddressForm] = useState({
     label: '',
@@ -577,42 +587,54 @@ export default function Profile() {
 
   const handleSaveAddress = async () => {
     setSaving(true);
-    
-    if (addressForm.is_default) {
-      await supabase
-        .from('addresses')
-        .update({ is_default: false })
-        .eq('user_id', user!.id);
-    }
 
-    if (editingAddress) {
-      const { error } = await supabase
-        .from('addresses')
-        .update(addressForm)
-        .eq('id', editingAddress.id);
+    try {
+      const shouldReturnToPurchase = !editingAddress && Boolean(addressReturnTo);
 
-      if (error) {
-        toast.error('Failed to update address');
-      } else {
-        toast.success('Address updated');
+      if (addressForm.is_default) {
+        await supabase
+          .from('addresses')
+          .update({ is_default: false })
+          .eq('user_id', user!.id);
       }
-    } else {
-      const { error } = await supabase
-        .from('addresses')
-        .insert({ ...addressForm, user_id: user!.id });
 
-      if (error) {
-        toast.error('Failed to add address');
+      if (editingAddress) {
+        const { error } = await supabase
+          .from('addresses')
+          .update(addressForm)
+          .eq('id', editingAddress.id);
+
+        if (error) {
+          toast.error('Failed to update address');
+          return;
+        }
+
+        toast.success('Address updated');
       } else {
+        const isFirstAddress = addresses.length === 0;
+        const { error } = await supabase
+          .from('addresses')
+          .insert({ ...addressForm, user_id: user!.id, is_default: addressForm.is_default || isFirstAddress });
+
+        if (error) {
+          toast.error('Failed to add address');
+          return;
+        }
+
         toast.success('Address added');
       }
-    }
 
-    setAddressDialogOpen(false);
-    setEditingAddress(null);
-    resetAddressForm();
-    fetchAddresses();
-    setSaving(false);
+      setAddressDialogOpen(false);
+      setEditingAddress(null);
+      resetAddressForm();
+      await fetchAddresses();
+
+      if (shouldReturnToPurchase && addressReturnTo) {
+        navigate(addressReturnTo);
+      }
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDeleteAddress = async (id: string) => {
@@ -656,6 +678,21 @@ export default function Profile() {
       is_default: false,
     });
   };
+
+  useEffect(() => {
+    if (
+      activeTab !== 'addresses' ||
+      searchParams.get('openAddress') !== '1' ||
+      addressSetupAutoOpenedRef.current
+    ) {
+      return;
+    }
+
+    addressSetupAutoOpenedRef.current = true;
+    setEditingAddress(null);
+    resetAddressForm();
+    setAddressDialogOpen(true);
+  }, [activeTab, searchParams]);
 
   const handleTrackOrder = (order: Order) => {
     navigate(`/track-order/${order.id}`);
