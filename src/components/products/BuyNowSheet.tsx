@@ -2,8 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  CheckCircle2,
-  CreditCard,
   Loader2,
   MapPin,
   Minus,
@@ -14,11 +12,11 @@ import {
   Zap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { PurchaseSummary } from '@/components/checkout/PurchaseSummary';
-import { Separator } from '@/components/ui/separator';
 import {
   Sheet,
   SheetContent,
@@ -131,7 +129,6 @@ export function BuyNowSheet({
   const isMobile = useIsMobile();
   const callbackFiredRef = useRef(false);
   const orderCreationInProgressRef = useRef(false);
-  const showLegacySummary = false;
 
   const availableShippingRules = useMemo(
     () => product.shipping_rules.filter((rule) => rule.is_allowed && rule.shipping_class),
@@ -150,6 +147,8 @@ export function BuyNowSheet({
   const [selectedShippingId, setSelectedShippingId] = useState<string>(
     selectedShippingRuleId || (availableShippingRules.length === 1 ? availableShippingRules[0].id : ''),
   );
+  const [isAddressPickerOpen, setIsAddressPickerOpen] = useState(false);
+  const [isShippingPickerOpen, setIsShippingPickerOpen] = useState(false);
   const [showAddressForm, setShowAddressForm] = useState(false);
   const [newAddress, setNewAddress] = useState<NewAddressFormState>(EMPTY_ADDRESS_FORM);
 
@@ -224,10 +223,6 @@ export function BuyNowSheet({
   const effectiveShippingCost = shippingUnitCost * Math.max(1, totalQuantity);
   const total = subtotal + effectiveShippingCost;
   const primarySelection = checkoutSelections[0];
-  const variantLabel =
-    hasSelectedVariantChoices
-      ? `${selectedVariants.length} selected variant${selectedVariants.length === 1 ? '' : 's'}`
-      : primarySelection?.label || 'Standard option';
   const addressLabel = resolvedAddress
     ? [resolvedAddress.full_name, resolvedAddress.city, resolvedAddress.country]
         .filter(Boolean)
@@ -331,6 +326,32 @@ export function BuyNowSheet({
     selectedVariant,
     selectedVariants,
   ]);
+
+  const openAddressPicker = useCallback(() => {
+    if (addressesLoading) {
+      return;
+    }
+
+    if (addresses.length === 0) {
+      redirectToAddressSetup(resolvedShippingRule);
+      return;
+    }
+
+    setIsAddressPickerOpen(true);
+  }, [addresses.length, addressesLoading, redirectToAddressSetup, resolvedShippingRule]);
+
+  const openShippingPicker = useCallback(() => {
+    if (availableShippingRules.length === 0) {
+      return;
+    }
+
+    if (availableShippingRules.length === 1) {
+      setSelectedShippingId(availableShippingRules[0].id);
+      return;
+    }
+
+    setIsShippingPickerOpen(true);
+  }, [availableShippingRules]);
 
   const handleOpenQuickCheckout = useCallback(async () => {
     if (!user) {
@@ -910,12 +931,14 @@ export function BuyNowSheet({
                     : formatPrice(effectiveShippingCost)
                   : null,
                 icon: getShippingIcon(resolvedShippingRule?.shipping_class?.shipping_type?.name),
+                onClick: availableShippingRules.length > 0 ? openShippingPicker : undefined,
               }}
               address={{
                 title: 'Delivery Address',
                 detail: addressLabel,
                 subdetail: resolvedAddress?.phone || null,
                 icon: MapPin,
+                onClick: openAddressPicker,
               }}
               itemsTitle={`Selected Variants (${checkoutSelections.length})`}
               itemsSubtitle={`You've selected ${formatItemCount(totalQuantity)}`}
@@ -964,145 +987,119 @@ export function BuyNowSheet({
               isProcessing={isProcessing}
               payDisabled={hasMissingRequirements}
             />
-            {showLegacySummary ? (
-            <section className="space-y-4 rounded-2xl border border-primary/15 bg-primary/5 p-4 shadow-sm">
-              <div className="flex items-start gap-3">
-                <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-muted">
-                  <img
-                    src={primarySelection?.imageUrl || product.images[0] || '/placeholder.svg'}
-                    alt={product.name}
-                    className="h-full w-full object-cover"
-                  />
-                </div>
-                <div className="min-w-0 flex-1 space-y-1">
-                  <p className="line-clamp-2 font-semibold text-foreground">{product.name}</p>
-                  <p className="text-sm text-muted-foreground">{variantLabel}</p>
-                  <p className="text-sm font-medium text-primary">
-                    {formatItemCount(totalQuantity)} · {formatPrice(subtotal)}
-                  </p>
-                </div>
-              </div>
-
-              <Separator />
-
-              {hasSelectedVariantChoices ? (
-                <div className="space-y-2 rounded-2xl bg-background/70 p-2">
-                  {checkoutSelections.map((item) => (
-                    <div
-                      key={item.key}
-                      className="flex items-center gap-3 rounded-xl border border-border/60 bg-card/70 p-2"
-                    >
-                      <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-muted">
-                        <img
-                          src={item.imageUrl}
-                          alt={item.label}
-                          className="h-full w-full object-cover"
-                        />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="line-clamp-1 text-sm font-medium text-foreground">{item.label}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Qty: {item.quantity} · {formatPrice(item.unitPrice)} each
-                        </p>
-                      </div>
-                      <p className="shrink-0 text-sm font-semibold text-primary">
-                        {formatPrice(item.lineTotal)}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-medium text-foreground">Quantity</p>
-                    <p className="text-xs text-muted-foreground">Single-product instant checkout</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      size="icon"
-                      variant="outline"
-                      className="h-9 w-9 rounded-xl"
-                      onClick={decrementQuantity}
-                      disabled={quantity <= 1}
-                    >
-                      <Minus className="h-4 w-4" />
-                    </Button>
-                    <span className="w-8 text-center font-semibold text-foreground">{quantity}</span>
-                    <Button
-                      size="icon"
-                      variant="outline"
-                      className="h-9 w-9 rounded-xl"
-                      onClick={incrementQuantity}
-                      disabled={selectedVariant ? quantity >= (selectedVariant.stock || 0) : false}
-                    >
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              <div className="grid gap-3 text-sm sm:grid-cols-2">
-                <div className="rounded-2xl bg-background/70 p-3">
-                  <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Shipping</p>
-                  <p className="mt-1 line-clamp-2 font-medium text-foreground">{shippingLabel}</p>
-                </div>
-                <div className="rounded-2xl bg-background/70 p-3">
-                  <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Delivery address</p>
-                  <p className="mt-1 line-clamp-2 font-medium text-foreground">{addressLabel}</p>
-                </div>
-              </div>
-
-              <div className="space-y-2 rounded-2xl bg-background/70 p-3">
-                <div className="flex items-start justify-between gap-3 text-sm">
-                  <span className="min-w-0 text-muted-foreground">Subtotal</span>
-                  <span className="shrink-0 text-right font-medium text-foreground">{formatPrice(subtotal)}</span>
-                </div>
-                <div className="flex items-start justify-between gap-3 text-sm">
-                  <span className="min-w-0 text-muted-foreground">Shipping</span>
-                  <span className="shrink-0 text-right font-medium text-foreground">
-                    {product.is_free_shipping ? 'Free' : formatPrice(effectiveShippingCost)}
-                  </span>
-                </div>
-                <Separator />
-                <div className="flex items-start justify-between gap-3">
-                  <span className="min-w-0 font-semibold text-foreground">Final total</span>
-                  <span className="shrink-0 text-right text-xl font-bold text-primary">{formatPrice(total)}</span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-2 pt-1 min-[420px]:grid-cols-2">
-                <Button
-                  variant="outline"
-                  className="min-w-0 justify-center gap-2 overflow-hidden rounded-xl"
-                  onClick={() => setIsOpen(false)}
-                >
-                  <span className="truncate">Make Changes</span>
-                </Button>
-                <Button
-                  className="min-w-0 justify-center gap-2 overflow-hidden rounded-xl"
-                  onClick={() => void handlePayNow()}
-                  disabled={isProcessing || hasMissingRequirements}
-                >
-                  {isProcessing ? (
-                    <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
-                  ) : (
-                    <CreditCard className="h-4 w-4 shrink-0" />
-                  )}
-                  <span className="truncate">Pay Now</span>
-                </Button>
-              </div>
-
-              {!hasMissingRequirements ? (
-                <div className="flex items-start gap-2 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-sm text-emerald-700">
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-                  Everything required for instant checkout is ready.
-                </div>
-              ) : null}
-            </section>
-            ) : null}
           </div>
         </SheetContent>
       </Sheet>
+
+      <Dialog open={isAddressPickerOpen} onOpenChange={setIsAddressPickerOpen}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto bg-background sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Choose Delivery Address</DialogTitle>
+          </DialogHeader>
+
+          <RadioGroup
+            value={resolvedAddress?.id || selectedAddressId}
+            onValueChange={(addressId) => {
+              setSelectedAddressId(addressId);
+              setIsAddressPickerOpen(false);
+            }}
+            className="space-y-2"
+          >
+            {addresses.map((address) => (
+              <label
+                key={address.id}
+                className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-3 transition-all ${
+                  (resolvedAddress?.id || selectedAddressId) === address.id
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border/70 hover:border-primary/40'
+                }`}
+              >
+                <RadioGroupItem value={address.id} className="mt-1" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-medium text-foreground">
+                      {address.label || address.full_name}
+                    </p>
+                    {address.is_default ? (
+                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                        Default
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {[address.address_line1, address.city, address.country]
+                      .filter(Boolean)
+                      .join(', ')}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{address.phone}</p>
+                </div>
+              </label>
+            ))}
+          </RadioGroup>
+
+          <Button
+            variant="outline"
+            className="w-full rounded-xl"
+            onClick={() => {
+              setIsAddressPickerOpen(false);
+              redirectToAddressSetup(resolvedShippingRule);
+            }}
+          >
+            <MapPin className="mr-2 h-4 w-4" />
+            Add new address
+          </Button>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isShippingPickerOpen} onOpenChange={setIsShippingPickerOpen}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto bg-background sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Choose Shipping Method</DialogTitle>
+          </DialogHeader>
+
+          <RadioGroup
+            value={selectedShippingId}
+            onValueChange={(shippingId) => {
+              setSelectedShippingId(shippingId);
+              setIsShippingPickerOpen(false);
+            }}
+            className="space-y-2"
+          >
+            {availableShippingRules.map((rule) => {
+              const ShippingIcon = getShippingIcon(rule.shipping_class?.shipping_type?.name);
+
+              return (
+                <label
+                  key={rule.id}
+                  className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-3 transition-all ${
+                    selectedShippingId === rule.id
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border/70 hover:border-primary/40'
+                  }`}
+                >
+                  <RadioGroupItem value={rule.id} className="mt-1" />
+                  <div className="rounded-xl bg-primary/10 p-2 text-primary">
+                    <ShippingIcon className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex min-w-0 items-start justify-between gap-3">
+                      <p className="line-clamp-2 font-medium text-foreground">
+                        {rule.shipping_class?.name}
+                      </p>
+                      <p className="shrink-0 text-right font-semibold text-primary">
+                        {product.is_free_shipping ? 'Free' : formatPrice(Number(rule.price || 0))}
+                      </p>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {rule.shipping_class?.estimated_days_min}-{rule.shipping_class?.estimated_days_max} days
+                    </p>
+                  </div>
+                </label>
+              );
+            })}
+          </RadioGroup>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

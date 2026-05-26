@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -16,7 +16,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Users, Loader2, CreditCard } from 'lucide-react';
+import { MapPin, Package, Plane, Ship, Truck, Users } from 'lucide-react';
 import { useCurrency } from '@/hooks/useCurrency';
 import { getErrorMessage } from '@/lib/errors';
 import { loadPaystack, type PaystackTransactionResponse } from '@/lib/paystack';
@@ -51,6 +51,78 @@ interface StartGroupBuyDialogProps {
   triggerClassName?: string;
 }
 
+interface GroupBuyAddress {
+  id: string;
+  full_name: string;
+  phone: string;
+  address_line1: string;
+  address_line2?: string | null;
+  city: string;
+  state?: string | null;
+  country: string;
+  postal_code?: string | null;
+  label?: string | null;
+  is_default: boolean;
+}
+
+interface GroupBuyShippingRule {
+  id: string;
+  shipping_class_id: string;
+  price: number | null;
+  is_allowed: boolean | null;
+  shipping_classes: {
+    id: string;
+    name: string;
+    base_price: number | null;
+    estimated_days_min: number;
+    estimated_days_max: number;
+    shipping_types: {
+      id: string;
+      name: string;
+    } | null;
+  } | null;
+}
+
+function getShippingIcon(typeName?: string | null) {
+  const normalized = typeName?.toLowerCase() || '';
+
+  if (normalized.includes('sea')) return Ship;
+  if (normalized.includes('courier')) return Truck;
+  if (normalized.includes('air') || normalized.includes('express')) return Plane;
+  return Package;
+}
+
+function formatAddressLine(address?: GroupBuyAddress | null) {
+  if (!address) return 'Choose a delivery address';
+  return [address.full_name, address.city, address.country].filter(Boolean).join(', ');
+}
+
+function buildAddressPayload(
+  address: GroupBuyAddress | null,
+  shippingRule: GroupBuyShippingRule | null,
+) {
+  if (!address) return null;
+
+  return {
+    full_name: address.full_name,
+    phone: address.phone,
+    address_line1: address.address_line1,
+    address_line2: address.address_line2,
+    city: address.city,
+    state: address.state,
+    country: address.country,
+    shipping_method: shippingRule?.shipping_classes
+      ? {
+          id: shippingRule.shipping_class_id,
+          name: shippingRule.shipping_classes.name,
+          price: Number(shippingRule.price ?? shippingRule.shipping_classes.base_price ?? 0),
+          estimated_days_min: shippingRule.shipping_classes.estimated_days_min,
+          estimated_days_max: shippingRule.shipping_classes.estimated_days_max,
+        }
+      : null,
+  };
+}
+
 export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuyDialogProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -63,6 +135,10 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
   const [variantQuantities, setVariantQuantities] = useState<Record<string, string>>({});
   const [step, setStep] = useState<'setup' | 'payment'>('setup');
   const [isPaying, setIsPaying] = useState(false);
+  const [selectedAddressId, setSelectedAddressId] = useState('');
+  const [selectedShippingRuleId, setSelectedShippingRuleId] = useState('');
+  const [isAddressPickerOpen, setIsAddressPickerOpen] = useState(false);
+  const [isShippingPickerOpen, setIsShippingPickerOpen] = useState(false);
   const callbackFiredRef = useRef(false);
 
   const { data: variants } = useQuery({
@@ -78,22 +154,68 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
     },
   });
 
-  const { data: defaultAddress } = useQuery({
-    queryKey: ['default-address', user?.id],
+  const { data: addresses = [], isLoading: addressesLoading } = useQuery({
+    queryKey: ['group-buy-addresses', user?.id],
     queryFn: async () => {
-      if (!user) return null;
+      if (!user) return [] as GroupBuyAddress[];
       const { data } = await supabase
         .from('addresses')
         .select('*')
         .eq('user_id', user.id)
         .order('is_default', { ascending: false })
-        .order('created_at', { ascending: true })
-        .limit(1)
-        .maybeSingle();
-      return data;
+        .order('created_at', { ascending: true });
+      return (data || []) as GroupBuyAddress[];
     },
     enabled: !!user,
   });
+
+  const { data: shippingRules = [] } = useQuery({
+    queryKey: ['group-buy-shipping-rules', product.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('product_shipping_rules')
+        .select(`
+          id,
+          shipping_class_id,
+          price,
+          is_allowed,
+          shipping_classes!inner(
+            id,
+            name,
+            base_price,
+            estimated_days_min,
+            estimated_days_max,
+            shipping_types(id, name)
+          )
+        `)
+        .eq('product_id', product.id)
+        .eq('is_allowed', true)
+        .eq('shipping_classes.is_active', true);
+
+      if (error) throw error;
+      return (data || []) as GroupBuyShippingRule[];
+    },
+  });
+
+  const selectedAddress =
+    addresses.find((address) => address.id === selectedAddressId) ||
+    addresses.find((address) => address.is_default) ||
+    addresses[0] ||
+    null;
+  const selectedShippingRule =
+    shippingRules.find((rule) => rule.id === selectedShippingRuleId) ||
+    shippingRules[0] ||
+    null;
+
+  useEffect(() => {
+    if (selectedAddressId || addresses.length === 0) return;
+    setSelectedAddressId((addresses.find((address) => address.is_default) || addresses[0]).id);
+  }, [addresses, selectedAddressId]);
+
+  useEffect(() => {
+    if (selectedShippingRuleId || shippingRules.length === 0) return;
+    setSelectedShippingRuleId(shippingRules[0].id);
+  }, [selectedShippingRuleId, shippingRules]);
 
   const hasVariants = (variants?.length ?? 0) > 0;
   const offeredUnitPrice = product.group_buy_price ?? product.base_price;
@@ -130,7 +252,7 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
     : offeredUnitPrice;
   const exceedsParticipantLimitPerUser = totalSelectedQuantity > groupBuySettings.participantLimitPerUser;
   const hasDeliveryDetails = hasRequiredGroupBuyDeliveryDetails({
-    address: defaultAddress,
+    address: selectedAddress,
     email: user?.email,
   });
 
@@ -174,6 +296,12 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
   };
 
   const handleContinueToPayment = () => {
+    if (!hasDeliveryDetails) {
+      toast.error('Add delivery address before starting this group buy.');
+      navigate(getGroupBuyAddressSetupPath());
+      return;
+    }
+
     if (!hasValidParticipantCount) {
       toast.error(
         `Choose between ${groupBuySettings.minParticipantsRequired} and ${groupBuySettings.maxParticipantsAllowed} participants`,
@@ -191,6 +319,12 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
 
   const handlePayAndCreate = async () => {
     if (!user) return;
+
+    if (!hasDeliveryDetails) {
+      toast.error('Add delivery address before starting this group buy.');
+      navigate(getGroupBuyAddressSetupPath());
+      return;
+    }
 
     if (!hasValidParticipantCount) {
       toast.error(
@@ -389,15 +523,7 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
       label: 'Base group price',
     } as never);
 
-    const addressData = defaultAddress ? {
-      full_name: defaultAddress.full_name,
-      phone: defaultAddress.phone,
-      address_line1: defaultAddress.address_line1,
-      address_line2: defaultAddress.address_line2,
-      city: defaultAddress.city,
-      state: defaultAddress.state,
-      country: defaultAddress.country,
-    } : null;
+    const addressData = buildAddressPayload(selectedAddress, selectedShippingRule);
 
     const { error: participantError } = await supabase.rpc('join_group_buy_after_payment' as never, {
       p_group_buy_id: gbData.id,
@@ -433,7 +559,7 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
     );
   }
 
-  if (!hasDeliveryDetails) {
+  if (!addressesLoading && !hasDeliveryDetails) {
     return (
       <Button
         variant="secondary"
@@ -449,6 +575,7 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
   }
 
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={handleOpen}>
       <DialogTrigger asChild>
         <Button variant="secondary" className={triggerClassName}>
@@ -571,6 +698,26 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
               <PurchaseSummary
                 title="Group Buy Checkout"
                 subtitle="Review your group buy reservation before payment."
+                shipping={
+                  shippingRules.length > 0
+                    ? {
+                        title: 'Shipping Method',
+                        detail: selectedShippingRule?.shipping_classes
+                          ? `${selectedShippingRule.shipping_classes.name} (${selectedShippingRule.shipping_classes.estimated_days_min}-${selectedShippingRule.shipping_classes.estimated_days_max} days)`
+                          : 'Choose a shipping method',
+                        amount: selectedShippingRule ? 'Selected' : null,
+                        icon: getShippingIcon(selectedShippingRule?.shipping_classes?.shipping_types?.name),
+                        onClick: () => setIsShippingPickerOpen(true),
+                      }
+                    : null
+                }
+                address={{
+                  title: 'Delivery Address',
+                  detail: formatAddressLine(selectedAddress),
+                  subdetail: selectedAddress?.phone || null,
+                  icon: MapPin,
+                  onClick: () => setIsAddressPickerOpen(true),
+                }}
                 itemsTitle="Selected Items"
                 itemsSubtitle={`You've selected ${totalSelectedQuantity} item${totalSelectedQuantity === 1 ? '' : 's'}`}
                 items={
@@ -605,35 +752,109 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
                 onMakeChanges={() => setStep('setup')}
                 onPay={handlePayAndCreate}
               />
-              <div className="hidden">
-              <div className="rounded-2xl border border-border/70 bg-muted/50 p-4">
-                <h4 className="mb-2 font-medium">Summary</h4>
-                <div className="space-y-1 text-sm">
-                  <p>Participants needed: {normalizedParticipantCount}</p>
-                  {hasVariants ? (
-                    variantSelections.map((selection) => (
-                      <p key={selection.variantId}>
-                        {selection.label}: {selection.quantity}
-                      </p>
-                    ))
-                  ) : (
-                    <p>Your quantity: {quantity}</p>
-                  )}
-                  <p>Total items: {totalSelectedQuantity}</p>
-                  <p className="font-bold text-primary">Your payment: {formatPrice(totalAmount)}</p>
-                </div>
-              </div>
-
-              <Button className="h-11 w-full rounded-xl" onClick={handlePayAndCreate} disabled={isPaying}>
-                {isPaying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
-                Pay Now and Start Group Buy
-              </Button>
-              <Button variant="outline" className="w-full" onClick={() => setStep('setup')}>Back</Button>
-              </div>
             </div>
           )}
         </div>
       </DialogContent>
     </Dialog>
+    <Dialog open={isAddressPickerOpen} onOpenChange={setIsAddressPickerOpen}>
+      <DialogContent className="max-h-[85vh] overflow-y-auto rounded-2xl sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Choose Delivery Address</DialogTitle>
+          <DialogDescription>Select the saved address for this group buy.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-2">
+          {addresses.map((address) => (
+            <button
+              key={address.id}
+              type="button"
+              className={`w-full rounded-2xl border p-3 text-left transition-all ${
+                selectedAddress?.id === address.id
+                  ? 'border-primary bg-primary/5'
+                  : 'border-border/70 hover:border-primary/40'
+              }`}
+              onClick={() => {
+                setSelectedAddressId(address.id);
+                setIsAddressPickerOpen(false);
+              }}
+            >
+              <div className="flex items-start gap-3">
+                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <div className="min-w-0">
+                  <p className="font-medium text-foreground">
+                    {address.label || address.full_name}
+                    {address.is_default ? (
+                      <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary">
+                        Default
+                      </span>
+                    ) : null}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {[address.address_line1, address.city, address.country].filter(Boolean).join(', ')}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{address.phone}</p>
+                </div>
+              </div>
+            </button>
+          ))}
+          <Button
+            variant="outline"
+            className="h-11 w-full rounded-xl"
+            onClick={() => {
+              setIsAddressPickerOpen(false);
+              navigate(getGroupBuyAddressSetupPath());
+            }}
+          >
+            Add new address
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={isShippingPickerOpen} onOpenChange={setIsShippingPickerOpen}>
+      <DialogContent className="max-h-[85vh] overflow-y-auto rounded-2xl sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Choose Shipping Method</DialogTitle>
+          <DialogDescription>This preference is saved for fulfillment after the group buy fills.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-2">
+          {shippingRules.map((rule) => {
+            const ShippingIcon = getShippingIcon(rule.shipping_classes?.shipping_types?.name);
+
+            return (
+              <button
+                key={rule.id}
+                type="button"
+                className={`w-full rounded-2xl border p-3 text-left transition-all ${
+                  selectedShippingRule?.id === rule.id
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border/70 hover:border-primary/40'
+                }`}
+                onClick={() => {
+                  setSelectedShippingRuleId(rule.id);
+                  setIsShippingPickerOpen(false);
+                }}
+              >
+                <div className="flex items-start gap-3">
+                  <div className="rounded-xl bg-primary/10 p-2 text-primary">
+                    <ShippingIcon className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-foreground">{rule.shipping_classes?.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {rule.shipping_classes?.estimated_days_min}-{rule.shipping_classes?.estimated_days_max} days
+                    </p>
+                  </div>
+                  <p className="shrink-0 text-sm font-semibold text-primary">
+                    {formatPrice(Number(rule.price ?? rule.shipping_classes?.base_price ?? 0))}
+                  </p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

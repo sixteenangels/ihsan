@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Check, ChevronRight, Lock, MapPin, Package, PencilLine, Plane, Plus, Ship, ShoppingBag, Tag, X, AlertTriangle, Wallet, Shield } from 'lucide-react';
+import { ArrowLeft, MapPin, Package, Plane, Plus, Ship, Tag, X, AlertTriangle, Shield } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { isVariantPlaceholder, useCart } from '@/contexts/CartContext';
@@ -191,6 +191,7 @@ export default function Checkout() {
     allow_reinforced_packaging: boolean;
   }>>({});
   const [productVariantOptions, setProductVariantOptions] = useState<Record<string, VariantOption[]>>({});
+  const [isCheckoutCatalogLoading, setIsCheckoutCatalogLoading] = useState(false);
   const [globalReinforcedCost, setGlobalReinforcedCost] = useState<number>(0);
   const [packagingChoice, setPackagingChoice] = useState<'standard' | 'reinforced'>('reinforced');
   const [showStandardWarning, setShowStandardWarning] = useState(false);
@@ -372,12 +373,6 @@ export default function Checkout() {
   }, [items, navigate, selectedItemIds.length, selectedItems.length, setSelectedItemIds]);
 
   useEffect(() => {
-    void loadPaystack().catch((error) => {
-      console.warn('Paystack preload failed; checkout will retry when payment starts.', error);
-    });
-  }, []);
-
-  useEffect(() => {
     if (user) {
       fetchAddresses();
       fetchUserOrderCount();
@@ -393,59 +388,84 @@ export default function Checkout() {
     if (cartProductIds.length === 0) {
       setProductMeta({});
       setProductVariantOptions({});
+      setIsCheckoutCatalogLoading(false);
       return;
     }
 
+    let cancelled = false;
+    setIsCheckoutCatalogLoading(true);
+
     (async () => {
-      const [{ data: products }, { data: variants }] = await Promise.all([
-        supabase
-          .from('products')
-          .select('id, is_fragile, reinforced_packaging_cost, is_free_shipping, allow_standard_packaging, allow_reinforced_packaging')
-          .in('id', cartProductIds),
-        supabase
-          .from('product_variants')
-          .select('id, product_id, color, size, price_override, stock')
-          .in('product_id', cartProductIds)
-          .eq('is_active', true),
-      ]);
-      const meta: Record<string, {
-        is_fragile: boolean;
-        reinforced_cost: number;
-        is_free_shipping: boolean;
-        allow_standard_packaging: boolean;
-        allow_reinforced_packaging: boolean;
-      }> = {};
-      (products as ProductMetaRow[] | null || []).forEach((p) => {
-        meta[p.id] = {
-          is_fragile: !!p.is_fragile,
-          reinforced_cost: Number(p.reinforced_packaging_cost) || 0,
-          is_free_shipping: !!p.is_free_shipping,
-          allow_standard_packaging: p.allow_standard_packaging !== false,
-          allow_reinforced_packaging: p.allow_reinforced_packaging !== false,
-        };
-      });
-      setProductMeta(meta);
+      try {
+        const [{ data: products, error: productsError }, { data: variants, error: variantsError }] = await Promise.all([
+          supabase
+            .from('products')
+            .select('id, is_fragile, reinforced_packaging_cost, is_free_shipping, allow_standard_packaging, allow_reinforced_packaging')
+            .in('id', cartProductIds),
+          supabase
+            .from('product_variants')
+            .select('id, product_id, color, size, price_override, stock')
+            .in('product_id', cartProductIds)
+            .eq('is_active', true),
+        ]);
 
-      const variantsMap: Record<string, VariantOption[]> = {};
-      (variants as ProductVariantRow[] | null || []).forEach((variant) => {
-        if (!variantsMap[variant.product_id]) {
-          variantsMap[variant.product_id] = [];
+        if (cancelled) {
+          return;
         }
-        variantsMap[variant.product_id].push({
-          id: variant.id,
-          color: variant.color,
-          size: variant.size,
-          price_override: variant.price_override != null ? Number(variant.price_override) : null,
-          stock: variant.stock,
-        });
-      });
-      setProductVariantOptions(variantsMap);
 
-      const globalDefault = typeof storeSettings?.reinforcedPackagingCost === 'number'
-        ? storeSettings.reinforcedPackagingCost
-        : 0;
-      setGlobalReinforcedCost(globalDefault);
+        if (productsError) throw productsError;
+        if (variantsError) throw variantsError;
+
+        const meta: Record<string, {
+          is_fragile: boolean;
+          reinforced_cost: number;
+          is_free_shipping: boolean;
+          allow_standard_packaging: boolean;
+          allow_reinforced_packaging: boolean;
+        }> = {};
+        (products as ProductMetaRow[] | null || []).forEach((p) => {
+          meta[p.id] = {
+            is_fragile: !!p.is_fragile,
+            reinforced_cost: Number(p.reinforced_packaging_cost) || 0,
+            is_free_shipping: !!p.is_free_shipping,
+            allow_standard_packaging: p.allow_standard_packaging !== false,
+            allow_reinforced_packaging: p.allow_reinforced_packaging !== false,
+          };
+        });
+        setProductMeta(meta);
+
+        const variantsMap: Record<string, VariantOption[]> = {};
+        (variants as ProductVariantRow[] | null || []).forEach((variant) => {
+          if (!variantsMap[variant.product_id]) {
+            variantsMap[variant.product_id] = [];
+          }
+          variantsMap[variant.product_id].push({
+            id: variant.id,
+            color: variant.color,
+            size: variant.size,
+            price_override: variant.price_override != null ? Number(variant.price_override) : null,
+            stock: variant.stock,
+          });
+        });
+        setProductVariantOptions(variantsMap);
+
+        const globalDefault = typeof storeSettings?.reinforcedPackagingCost === 'number'
+          ? storeSettings.reinforcedPackagingCost
+          : 0;
+        setGlobalReinforcedCost(globalDefault);
+      } catch (error) {
+        console.error('Failed to load checkout product data:', error);
+        toast.error('Could not verify checkout item options. Please try again.');
+      } finally {
+        if (!cancelled) {
+          setIsCheckoutCatalogLoading(false);
+        }
+      }
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [cartProductIds, storeSettings]);
 
   // Cart-level fragile / free shipping detection for the selected checkout items
@@ -759,6 +779,8 @@ export default function Checkout() {
   const unresolvedVariantItems = selectedItems.filter((item) =>
     isVariantPlaceholder(item.variant.id) && (productVariantOptions[item.product.id] || []).length > 0
   );
+  const isCheckingVariantRequirements =
+    isCheckoutCatalogLoading && selectedItems.some((item) => isVariantPlaceholder(item.variant.id));
   const firstUnresolvedVariantItem = unresolvedVariantItems[0];
   const showSavingsSection = true;
   const accordionDefaultSections = [
@@ -797,7 +819,11 @@ export default function Checkout() {
   ];
   const completedCheckoutSteps = checkoutSteps.filter((step) => step.complete).length;
   const isPaymentDisabled =
-    isProcessing || !selectedAddressId || !selectedShippingId || unresolvedVariantItems.length > 0;
+    isProcessing ||
+    isCheckingVariantRequirements ||
+    !selectedAddressId ||
+    !selectedShippingId ||
+    unresolvedVariantItems.length > 0;
   const requiresPayment = total > 0;
   const paymentButtonText = isProcessing
     ? 'Processing...'
@@ -809,6 +835,8 @@ export default function Checkout() {
     : 'Secure encrypted payment';
   const mobileCheckoutHint = unresolvedVariantItems.length > 0
     ? 'Choose variants to unlock payment.'
+    : isCheckingVariantRequirements
+      ? 'Checking item options before payment.'
     : !selectedAddressId
       ? 'Select a delivery address to continue.'
       : !selectedShippingId
@@ -858,6 +886,10 @@ export default function Checkout() {
       if (firstUnresolvedVariantItem) {
         sendToProductVariantSelection(firstUnresolvedVariantItem.product.id);
       }
+      return;
+    }
+    if (isCheckingVariantRequirements) {
+      toast.info('Checking item options before payment. Please wait a moment.');
       return;
     }
 
@@ -1119,9 +1151,9 @@ export default function Checkout() {
               return {
                 id: item.id,
                 title: item.product.name,
-                imageUrl: item.variant.image_url || item.product.images[0] || '/placeholder.svg',
+                imageUrl: item.variant.image_url || item.product.images?.[0] || '/placeholder.svg',
                 quantity: item.quantity,
-                amount: formatPrice(item.variant.price * item.quantity),
+                amount: formatPrice(Number(item.variant.price || 0) * item.quantity),
                 subtitle: item.variant.color ? `Color: ${item.variant.color}` : variantName,
                 details: item.variant.size ? [`Size: ${item.variant.size}`] : [],
                 warning: needsVariant ? 'Choose a variant to continue' : null,
@@ -1156,203 +1188,6 @@ export default function Checkout() {
             onMakeChanges={() => navigate('/cart')}
             onPay={handlePaystackPayment}
           />
-          <div className="hidden">
-            <button
-              type="button"
-              className="w-full rounded-2xl border border-border/70 bg-card/90 p-4 text-left shadow-sm transition-colors hover:border-primary/45"
-              onClick={() => setIsShippingPickerOpen(true)}
-            >
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/25 bg-primary/10 text-primary">
-                  {selectedShipping ? getShippingIcon(selectedShipping.shipping_type?.name || selectedShipping.name) : <Package className="h-5 w-5" />}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-foreground">Shipping Method</p>
-                  <p className="mt-0.5 truncate text-xs font-medium text-muted-foreground">
-                    {selectedShipping
-                      ? `${selectedShipping.name} (${selectedShipping.estimated_days_min}-${selectedShipping.estimated_days_max} days)`
-                      : 'Choose a shipping method'}
-                  </p>
-                </div>
-                <p className="shrink-0 text-xs font-semibold text-primary">
-                  {selectedShipping ? (shippingCost === 0 ? 'FREE' : formatPrice(shippingCost)) : ''}
-                </p>
-                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-              </div>
-            </button>
-
-            <button
-              type="button"
-              className="w-full rounded-2xl border border-border/70 bg-card/90 p-4 text-left shadow-sm transition-colors hover:border-primary/45"
-              onClick={() => setIsAddressPickerOpen(true)}
-            >
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/25 bg-primary/10 text-primary">
-                  <MapPin className="h-5 w-5" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-foreground">Delivery Address</p>
-                  <p className="mt-0.5 truncate text-xs font-medium text-muted-foreground">
-                    {formatAddressLine(selectedAddressDetails)}
-                  </p>
-                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                    {formatAddressReference(selectedAddressDetails)}
-                  </p>
-                </div>
-                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-              </div>
-            </button>
-
-            <section className="rounded-2xl border border-border/70 bg-card/90 p-4 shadow-sm">
-              <div className="mb-3 flex items-start gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/25 bg-primary/10 text-primary">
-                  <ShoppingBag className="h-5 w-5" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-foreground">
-                    Selected Variants ({selectedItems.length})
-                  </p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    You've selected {itemCount} item{itemCount === 1 ? '' : 's'}
-                  </p>
-                </div>
-              </div>
-
-              {unresolvedVariantItems.length > 0 ? (
-                <div className="mb-3 rounded-2xl border border-amber-500/30 bg-amber-500/5 p-3 text-sm">
-                  <p className="font-medium text-foreground">Variants still need your selection</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Select the remaining options on the product page to unlock payment.
-                  </p>
-                </div>
-              ) : null}
-
-              <div className="space-y-3">
-                {selectedItems.map((item) => {
-                  const needsVariant = unresolvedVariantItems.some((unresolvedItem) => unresolvedItem.id === item.id);
-                  const variantName = needsVariant
-                    ? 'Variant not selected'
-                    : formatVariantLabel(item.variant.color, item.variant.size);
-                  const variantImage = item.variant.image_url || item.product.images[0] || '/placeholder.svg';
-
-                  return (
-                    <div
-                      key={item.id}
-                      className="rounded-2xl border border-border/70 bg-background/70 p-2.5"
-                    >
-                      <div className="flex gap-3">
-                        <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-muted">
-                          <img
-                            src={variantImage}
-                            alt={item.product.name}
-                            className="h-full w-full object-cover"
-                          />
-                        </div>
-
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <h3 className="line-clamp-2 text-sm font-semibold text-foreground">
-                                {item.product.name}
-                              </h3>
-                              <p className={`mt-1 text-[11px] ${needsVariant ? 'text-destructive' : 'text-muted-foreground'}`}>
-                                {item.variant.color ? `Color: ${item.variant.color}` : variantName}
-                              </p>
-                              {item.variant.size ? (
-                                <p className="text-[11px] text-muted-foreground">Size: {item.variant.size}</p>
-                              ) : null}
-                            </div>
-
-                            <div className="shrink-0 text-right">
-                              <p className="text-xs font-medium text-foreground">Qty: {item.quantity}</p>
-                              <p className="mt-4 text-sm font-semibold text-primary">
-                                {formatPrice(item.variant.price * item.quantity)}
-                              </p>
-                            </div>
-                          </div>
-
-                          {needsVariant ? (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              className="mt-3 h-9 rounded-xl"
-                              onClick={() => sendToProductVariantSelection(item.product.id)}
-                            >
-                              Select on product page
-                            </Button>
-                          ) : null}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-
-            <section className="rounded-2xl border border-border/70 bg-card/90 p-4 shadow-sm">
-              <p className="mb-4 text-sm font-semibold text-foreground">Order Summary</p>
-              <div className="space-y-3">
-                <div className="flex items-start justify-between gap-3 text-sm">
-                  <span className="min-w-0 text-muted-foreground">Subtotal ({itemCount} items)</span>
-                  <span className="shrink-0 text-right text-foreground">{formatPrice(selectedSubtotal)}</span>
-                </div>
-                <div className="flex items-start justify-between gap-3 text-sm">
-                  <span className="min-w-0 text-muted-foreground">Shipping</span>
-                  <span className="shrink-0 text-right text-foreground">
-                    {shippingCost === 0 ? 'FREE' : formatPrice(shippingCost)}
-                  </span>
-                </div>
-                {reinforcedPackagingCost > 0 ? (
-                  <div className="flex items-start justify-between gap-3 text-sm">
-                    <span className="min-w-0 text-muted-foreground">Reinforced Packaging</span>
-                    <span className="shrink-0 text-right text-foreground">{formatPrice(reinforcedPackagingCost)}</span>
-                  </div>
-                ) : null}
-                {totalSavings > 0 ? (
-                  <div className="flex items-start justify-between gap-3 text-sm">
-                    <span className="min-w-0 text-muted-foreground">Savings</span>
-                    <span className="shrink-0 text-right font-medium text-primary">-{formatPrice(totalSavings)}</span>
-                  </div>
-                ) : null}
-                <div className="h-px bg-border/70" />
-                <div className="flex items-start justify-between gap-3">
-                  <span className="min-w-0 text-base font-semibold text-foreground">Total</span>
-                  <span className="shrink-0 text-right text-2xl font-bold text-primary">{formatPrice(total)}</span>
-                </div>
-              </div>
-            </section>
-
-            <div className="space-y-2 pt-1">
-              <Button
-                type="button"
-                variant="outline"
-                className="h-12 w-full min-w-0 justify-center gap-2 overflow-hidden rounded-xl border-border/70 bg-card/90"
-                onClick={() => navigate('/cart')}
-              >
-                <PencilLine className="h-4 w-4 shrink-0" />
-                <span className="truncate">Make Changes</span>
-              </Button>
-              <Button
-                type="button"
-                className="h-12 w-full min-w-0 justify-center gap-2 overflow-hidden rounded-xl"
-                onClick={handlePaystackPayment}
-                disabled={isPaymentDisabled}
-              >
-                {isProcessing ? 'Processing...' : (
-                  <>
-                    {requiresPayment ? (
-                      <Lock className="h-4 w-4 shrink-0" />
-                    ) : (
-                      <Check className="h-4 w-4 shrink-0" />
-                    )}
-                    <span className="truncate">{paymentButtonText}</span>
-                  </>
-                )}
-              </Button>
-            </div>
-
-            <p className="text-center text-xs text-muted-foreground">{paymentSupportText}</p>
-          </div>
         </div>
       </main>
 
