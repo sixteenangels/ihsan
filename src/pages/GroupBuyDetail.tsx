@@ -12,9 +12,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { useCurrency } from '@/hooks/useCurrency';
-import { Users, Clock, ArrowLeft, Loader2, CheckCircle, Send, Target, UserPlus } from 'lucide-react';
+import { Users, Clock, ArrowLeft, Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { getGroupBuySavingsPercent, getGroupBuyUnitPrice } from '@/lib/groupBuyPricing';
-import { canExtendGroupBuy, formatGroupBuyTimeRemaining } from '@/lib/groupBuyTiming';
+import { canExtendGroupBuy, getGroupBuyDisplayStatus, getGroupBuyStatusLabel } from '@/lib/groupBuyTiming';
 import { ParticipantAvatarStack } from '@/components/groupbuy/ParticipantAvatarStack';
 import { useGroupBuyParticipantFaces } from '@/hooks/useGroupBuyParticipantFaces';
 import { useAuth } from '@/contexts/AuthContext';
@@ -207,8 +207,22 @@ export default function GroupBuyDetail() {
     groupPrice: activeTier?.group_price ?? groupBuy.group_price,
     discountPercentage: activeTier?.discount_percentage ?? groupBuy.discount_percentage,
   });
-  const isFilled = groupBuy.status === 'filled';
-  const isCancelled = groupBuy.status === 'cancelled' || groupBuy.status === 'closed';
+  const displayStatus = getGroupBuyDisplayStatus({
+    currentParticipants: groupBuy.current_participants,
+    expiresAt: groupBuy.expires_at,
+    minParticipants: groupBuy.min_participants,
+    status: groupBuy.status,
+  });
+  const statusLabel = getGroupBuyStatusLabel({
+    currentParticipants: groupBuy.current_participants,
+    expiresAt: groupBuy.expires_at,
+    minParticipants: groupBuy.min_participants,
+    status: groupBuy.status,
+  });
+  const isFilled = displayStatus === 'filled';
+  const isExpired = displayStatus === 'expired';
+  const isCancelled = displayStatus === 'cancelled' || displayStatus === 'closed';
+  const isOpen = displayStatus === 'open';
   const isHost = groupBuy.created_by === user?.id;
   const allowExtension = canExtendGroupBuy({
     currentParticipants: groupBuy.current_participants,
@@ -217,37 +231,6 @@ export default function GroupBuyDetail() {
     minParticipants: groupBuy.min_participants,
     status: groupBuy.status,
   });
-  const milestones = [
-    {
-      key: 'started',
-      target: 1,
-      label: 'Started',
-      helper: 'The host locked the campaign and opened the share link.',
-    },
-    {
-      key: 'momentum',
-      target: Math.max(2, Math.ceil(groupBuy.min_participants / 2)),
-      label: 'Momentum',
-      helper: 'Halfway there makes the share push feel real.',
-    },
-    {
-      key: 'filled',
-      target: groupBuy.min_participants,
-      label: 'Price locked',
-      helper: 'The admin-set group price is secured once this target fills.',
-    },
-    ...(groupBuy.max_participants && groupBuy.max_participants > groupBuy.min_participants
-      ? [
-          {
-            key: 'maxed',
-            target: groupBuy.max_participants,
-            label: 'Squad full',
-            helper: 'After this, new buyers need the next group.',
-          },
-        ]
-      : []),
-  ].filter((milestone, index, array) => array.findIndex((item) => item.target === milestone.target) === index);
-
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -275,6 +258,11 @@ export default function GroupBuyDetail() {
                   <CheckCircle className="h-4 w-4 mr-1" />
                   FILLED
                 </Badge>
+              ) : isExpired ? (
+                <Badge className="absolute right-3 top-3 bg-destructive px-3 py-1 text-sm text-destructive-foreground sm:right-4 sm:top-4 sm:text-lg">
+                  <XCircle className="h-4 w-4 mr-1" />
+                  EXPIRED
+                </Badge>
               ) : null}
             </div>
           </div>
@@ -300,10 +288,24 @@ export default function GroupBuyDetail() {
                     </p>
                   </div>
                   <div className="text-right">
-                    <div className="flex items-center gap-1 text-muted-foreground">
-                      <Clock className="h-4 w-4" />
+                    <div
+                      className={`flex items-center gap-1 ${
+                        isFilled
+                          ? 'text-primary'
+                          : isExpired || isCancelled
+                            ? 'text-destructive'
+                            : 'text-muted-foreground'
+                      }`}
+                    >
+                      {isFilled ? (
+                        <CheckCircle className="h-4 w-4" />
+                      ) : isExpired || isCancelled ? (
+                        <XCircle className="h-4 w-4" />
+                      ) : (
+                        <Clock className="h-4 w-4" />
+                      )}
                       <span className="text-sm">
-                        {formatGroupBuyTimeRemaining(groupBuy.expires_at)}
+                        {statusLabel}
                       </span>
                     </div>
                   </div>
@@ -340,91 +342,6 @@ export default function GroupBuyDetail() {
               </CardContent>
             </Card>
 
-            <Card className="rounded-2xl border-primary/15 bg-primary/5 shadow-sm">
-              <CardContent className="space-y-4 p-4 sm:p-6">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-sm uppercase tracking-[0.18em] text-muted-foreground">
-                      Invite Plan
-                    </p>
-                    <p className="mt-1 text-lg font-semibold text-foreground">
-                      {participantsNeeded > 0
-                        ? `${participantsNeeded} more ${participantsNeeded === 1 ? 'person' : 'people'} needed`
-                        : 'Target filled and ready'}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      Everyone joining this round keeps the same admin-set price of {formatPrice(groupPrice)}.
-                    </p>
-                  </div>
-                  <div className="rounded-full bg-background p-3 text-primary">
-                    <Send className="h-5 w-5" />
-                  </div>
-                </div>
-
-                <div className="grid gap-3 md:grid-cols-3">
-                  <div className="rounded-xl border border-border bg-background/80 p-4">
-                    <p className="flex items-center gap-2 text-sm font-medium text-foreground">
-                      <UserPlus className="h-4 w-4 text-primary" />
-                      Best next move
-                    </p>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      {participantsNeeded > 0
-                        ? `Share this link with ${Math.min(participantsNeeded, 3)} focused friend${Math.min(participantsNeeded, 3) === 1 ? '' : 's'} first.`
-                        : 'Use the link to build interest for the next group while this one closes out.'}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-border bg-background/80 p-4">
-                    <p className="flex items-center gap-2 text-sm font-medium text-foreground">
-                      <Target className="h-4 w-4 text-primary" />
-                      Goal
-                    </p>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      {groupBuy.min_participants} participants are needed to secure the final group run.
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-border bg-background/80 p-4">
-                    <p className="flex items-center gap-2 text-sm font-medium text-foreground">
-                      <CheckCircle className="h-4 w-4 text-primary" />
-                      Reward
-                    </p>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      Every filled seat keeps the discount moving toward the finished order batch.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  {milestones.map((milestone) => {
-                    const complete = currentParticipants >= milestone.target;
-                    const current = !complete && currentParticipants + 1 >= milestone.target;
-
-                    return (
-                      <div
-                        key={milestone.key}
-                        className={`rounded-xl border p-4 ${
-                          complete
-                            ? 'border-primary/40 bg-primary/10'
-                            : current
-                              ? 'border-accent/50 bg-accent/10'
-                              : 'border-border bg-background/80'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <p className="font-medium text-foreground">{milestone.label}</p>
-                            <p className="text-sm text-muted-foreground">{milestone.helper}</p>
-                          </div>
-                          <Badge variant={complete ? 'default' : 'outline'}>
-                            {milestone.target} joined
-                          </Badge>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-
             <div className="flex items-center gap-3 rounded-2xl border border-border/70 bg-card p-3 shadow-sm">
               <ParticipantAvatarStack
                 faces={participantFaces}
@@ -439,7 +356,7 @@ export default function GroupBuyDetail() {
               </p>
             </div>
 
-            {!isCancelled ? (
+            {isOpen ? (
               <div className="space-y-3">
                 <ExtendGroupBuyButton
                   canExtend={allowExtension}
@@ -448,26 +365,26 @@ export default function GroupBuyDetail() {
                   isHost={isHost}
                   className="h-10 w-full"
                 />
-                  <JoinGroupBuyDialog
-                    inviteCode={inviteCode}
-                    groupBuy={{
-                      id: groupBuy.id,
-                      product_id: groupBuy.product_id,
-                      min_participants: groupBuy.min_participants,
-                      max_participants: groupBuy.max_participants,
-                      current_participants: groupBuy.current_participants,
-                      discount_percentage: groupBuy.discount_percentage,
-                      group_price: groupBuy.group_price,
-                      expires_at: groupBuy.expires_at,
-                      settings: groupBuy.settings,
-                      status: groupBuy.status,
-                      product: {
-                        name: groupBuy.product.name,
-                        base_price: groupBuy.product.base_price,
-                      },
-                      tiers: groupBuy.tiers,
-                    }}
-                  />
+                <JoinGroupBuyDialog
+                  inviteCode={inviteCode}
+                  groupBuy={{
+                    id: groupBuy.id,
+                    product_id: groupBuy.product_id,
+                    min_participants: groupBuy.min_participants,
+                    max_participants: groupBuy.max_participants,
+                    current_participants: groupBuy.current_participants,
+                    discount_percentage: groupBuy.discount_percentage,
+                    group_price: groupBuy.group_price,
+                    expires_at: groupBuy.expires_at,
+                    settings: groupBuy.settings,
+                    status: groupBuy.status,
+                    product: {
+                      name: groupBuy.product.name,
+                      base_price: groupBuy.product.base_price,
+                    },
+                    tiers: groupBuy.tiers,
+                  }}
+                />
                 <GroupBuyShareSheet
                   groupBuyId={groupBuy.id}
                   title={groupBuy.title || groupBuy.product.name}
@@ -478,9 +395,17 @@ export default function GroupBuyDetail() {
                 />
               </div>
             ) : (
-              <Card className="border-destructive/50">
+              <Card className={isFilled ? 'border-primary/40' : 'border-destructive/50'}>
                 <CardContent className="p-4 text-center">
-                  <p className="font-medium text-destructive">This group buy has been cancelled or expired.</p>
+                  <p className={`font-medium ${isFilled ? 'text-primary' : 'text-destructive'}`}>
+                    {isFilled
+                      ? 'This group buy is filled and ready for processing.'
+                      : isExpired
+                        ? 'This group buy expired before reaching its target.'
+                        : isCancelled
+                          ? 'This group buy has been cancelled.'
+                          : 'This group buy is no longer accepting participants.'}
+                  </p>
                 </CardContent>
               </Card>
             )}

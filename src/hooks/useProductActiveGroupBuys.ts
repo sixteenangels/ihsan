@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
 import { DEFAULT_GROUP_BUY_SETTINGS, resolveGroupBuySettings } from '@/lib/groupBuyConfig';
+import { getGroupBuyDisplayStatus } from '@/lib/groupBuyTiming';
 
 interface GroupBuyTier {
   id: string;
@@ -131,6 +132,12 @@ export function useProductActiveGroupBuys({
 
       return rows
         .filter((row) => resolveGroupBuySettings(DEFAULT_GROUP_BUY_SETTINGS, row.settings).visibleByDefault)
+        .filter((row) => getGroupBuyDisplayStatus({
+          currentParticipants: row.current_participants,
+          expiresAt: row.expires_at,
+          minParticipants: row.min_participants,
+          status: row.status,
+        }) === 'open')
         .sort((left, right) => {
           const leftSettings = resolveGroupBuySettings(DEFAULT_GROUP_BUY_SETTINGS, left.settings);
           const rightSettings = resolveGroupBuySettings(DEFAULT_GROUP_BUY_SETTINGS, right.settings);

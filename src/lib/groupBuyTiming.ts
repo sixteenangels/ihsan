@@ -23,6 +23,15 @@ interface LeaveWindowInput {
   status: string | null;
 }
 
+interface GroupBuyDisplayStatusInput {
+  currentParticipants: number | null;
+  expiresAt: string;
+  minParticipants: number;
+  status: string | null;
+}
+
+export type GroupBuyDisplayStatus = 'open' | 'filled' | 'expired' | 'cancelled' | 'closed';
+
 export function getGroupBuyCountdown(
   expiresAt: string,
   nowInput: number = Date.now(),
@@ -64,6 +73,50 @@ export function formatGroupBuyTimeRemaining(expiresAt: string): string {
   }
 
   return `${Math.max(1, countdown.totalMinutes)}m left`;
+}
+
+export function getGroupBuyDisplayStatus({
+  currentParticipants,
+  expiresAt,
+  minParticipants,
+  status,
+}: GroupBuyDisplayStatusInput): GroupBuyDisplayStatus {
+  const normalizedStatus = status?.toLowerCase() || 'open';
+
+  if (normalizedStatus === 'cancelled') {
+    return 'cancelled';
+  }
+
+  if ((currentParticipants || 0) >= minParticipants) {
+    return 'filled';
+  }
+
+  if (getGroupBuyCountdown(expiresAt).isExpired) {
+    return 'expired';
+  }
+
+  if (normalizedStatus === 'closed') {
+    return 'closed';
+  }
+
+  return 'open';
+}
+
+export function getGroupBuyStatusLabel(input: GroupBuyDisplayStatusInput): string {
+  const displayStatus = getGroupBuyDisplayStatus(input);
+
+  switch (displayStatus) {
+    case 'filled':
+      return 'Filled';
+    case 'expired':
+      return 'Expired';
+    case 'cancelled':
+      return 'Cancelled';
+    case 'closed':
+      return 'Closed';
+    default:
+      return formatGroupBuyTimeRemaining(input.expiresAt);
+  }
 }
 
 export function canExtendGroupBuy({

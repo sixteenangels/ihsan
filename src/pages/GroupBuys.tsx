@@ -14,7 +14,7 @@ import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { getGroupBuyUnitPrice } from '@/lib/groupBuyPricing';
-import { canExtendGroupBuy, formatGroupBuyTimeRemaining } from '@/lib/groupBuyTiming';
+import { canExtendGroupBuy, getGroupBuyDisplayStatus, getGroupBuyStatusLabel } from '@/lib/groupBuyTiming';
 import { ExtendGroupBuyButton } from '@/components/groupbuy/ExtendGroupBuyButton';
 
 export default function GroupBuys() {
@@ -38,7 +38,14 @@ export default function GroupBuys() {
     );
   }
 
-  const activeGroupBuys = groupBuys?.filter((groupBuy) => groupBuy.status === 'open') || [];
+  const activeGroupBuys = groupBuys?.filter((groupBuy) =>
+    getGroupBuyDisplayStatus({
+      currentParticipants: groupBuy.current_participants,
+      expiresAt: groupBuy.expires_at,
+      minParticipants: groupBuy.min_participants,
+      status: groupBuy.status,
+    }) === 'open'
+  ) || [];
 
   if (isLoading) {
     return (
@@ -118,23 +125,26 @@ export default function GroupBuys() {
                         groupPrice: groupBuy.group_price,
                         discountPercentage: groupBuy.discount_percentage,
                       });
-                      const statusIcon = groupBuy.status === 'filled'
+                      const displayStatus = getGroupBuyDisplayStatus({
+                        currentParticipants: groupBuy.current_participants,
+                        expiresAt: groupBuy.expires_at,
+                        minParticipants: groupBuy.min_participants,
+                        status: groupBuy.status,
+                      });
+                      const statusIcon = displayStatus === 'filled'
                         ? <CheckCircle className="h-4 w-4" />
-                        : groupBuy.status === 'cancelled'
+                        : displayStatus === 'cancelled' || displayStatus === 'expired' || displayStatus === 'closed'
                           ? <XCircle className="h-4 w-4" />
                           : <Clock className="h-4 w-4" />;
-                      const statusLabel = groupBuy.status === 'open'
-                        ? formatGroupBuyTimeRemaining(groupBuy.expires_at)
-                        : groupBuy.status === 'filled'
-                          ? 'Filled'
-                          : groupBuy.status === 'cancelled'
-                            ? 'Cancelled'
-                            : groupBuy.status === 'expired'
-                              ? 'Expired'
-                              : 'Closed';
-                      const statusColor = groupBuy.status === 'filled'
+                      const statusLabel = getGroupBuyStatusLabel({
+                        currentParticipants: groupBuy.current_participants,
+                        expiresAt: groupBuy.expires_at,
+                        minParticipants: groupBuy.min_participants,
+                        status: groupBuy.status,
+                      });
+                      const statusColor = displayStatus === 'filled'
                         ? 'bg-primary/10 text-primary'
-                        : groupBuy.status === 'cancelled'
+                        : displayStatus === 'cancelled' || displayStatus === 'expired' || displayStatus === 'closed'
                           ? 'bg-destructive/10 text-destructive'
                           : 'bg-accent/10 text-accent-foreground';
                       const isHost = groupBuy.created_by === user?.id;
@@ -162,26 +172,18 @@ export default function GroupBuys() {
                                   <Link to={`/group-buy/${groupBuy.id}`} className="font-medium text-foreground transition-colors hover:text-primary sm:truncate">
                                     {groupBuy.title || groupBuy.product.name}
                                   </Link>
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <Badge className={`${statusColor} gap-1 flex-shrink-0`}>
-                                      {statusIcon} {statusLabel}
-                                    </Badge>
-                                    <ExtendGroupBuyButton
-                                      canExtend={allowExtension}
-                                      extensionUsed={groupBuy.extension_used}
-                                      groupBuyId={groupBuy.id}
-                                      isHost={isHost}
-                                      className="h-8 px-3 text-xs"
-                                    />
-                                  </div>
+                                  <Badge className={`${statusColor} gap-1 flex-shrink-0`}>
+                                    {statusIcon} {statusLabel}
+                                  </Badge>
                                 </div>
-                                <div className="mb-2 flex flex-wrap items-center gap-3 text-sm">
-                                  <span className="text-primary font-bold">{formatPrice(groupPrice)}</span>
-                                  <span className="text-muted-foreground">Qty: {participation.quantity || 1}</span>
-                                  {participation.payment_status === 'paid' ? (
-                                    <span className="text-primary text-xs">Paid</span>
-                                  ) : null}
-                                    {isHost && groupBuy.status === 'open' ? (
+                                <div className="mb-2 flex flex-wrap items-center justify-between gap-3 text-sm">
+                                  <div className="flex flex-wrap items-center gap-3">
+                                    <span className="text-primary font-bold">{formatPrice(groupPrice)}</span>
+                                    <span className="text-muted-foreground">Qty: {participation.quantity || 1}</span>
+                                    {participation.payment_status === 'paid' ? (
+                                      <span className="text-primary text-xs">Paid</span>
+                                    ) : null}
+                                    {isHost && displayStatus === 'open' ? (
                                       <span className="text-xs text-muted-foreground">
                                         {groupBuy.extension_used
                                           ? `Extended by ${groupBuy.extension_hours}h`
@@ -190,6 +192,14 @@ export default function GroupBuys() {
                                             : 'Extension unlocks in the final hour'}
                                       </span>
                                     ) : null}
+                                  </div>
+                                  <ExtendGroupBuyButton
+                                    canExtend={allowExtension}
+                                    extensionUsed={groupBuy.extension_used}
+                                    groupBuyId={groupBuy.id}
+                                    isHost={isHost}
+                                    className="h-8 px-3 text-xs"
+                                  />
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <Progress value={Math.min(progress, 100)} className="h-1.5 flex-1" />
@@ -200,7 +210,7 @@ export default function GroupBuys() {
                                 <div className="mt-3 flex justify-end">
                                   <Button asChild variant="ghost" size="sm" className="rounded-xl px-3 text-xs">
                                     <Link to={`/group-buy/${groupBuy.id}`}>
-                                      {groupBuy.status === 'filled' ? 'Order Details' : 'View Details'}
+                                      {displayStatus === 'filled' ? 'Order Details' : 'View Details'}
                                     </Link>
                                   </Button>
                                 </div>
