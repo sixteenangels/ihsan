@@ -20,7 +20,12 @@ import { Loader2, Package, ArrowLeft, Search, CheckCircle, Clock, Truck, Refresh
 import { format } from 'date-fns';
 import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
-import { canRequestRefund, getRefundButtonReason, isDeliveredOrder } from '@/lib/orderHistory';
+import {
+  canRequestRefund,
+  getRefundAvailabilityLabel,
+  getRefundButtonReason,
+  isDeliveredOrder,
+} from '@/lib/orderHistory';
 import { reAddOrderItemsToCart } from '@/lib/reorderOrder';
 import { getProofOfDeliverySignedUrl } from '@/lib/proof-of-delivery';
 
@@ -88,6 +93,7 @@ interface TrackedOrder {
   delivery_fee: number | null;
   courier_confirmed_at: string | null;
   customer_confirmed_at: string | null;
+  group_buy_id: string | null;
   proof_of_delivery_verification_code: string | null;
   proof_of_delivery_recipient_name: string | null;
   proof_of_delivery_relationship: string | null;
@@ -145,21 +151,10 @@ type TrackingCheckpoint = {
   detail: string;
 };
 
-const STANDARD_CHECKPOINTS: TrackingCheckpoint[] = [
+const SIMPLIFIED_CHECKPOINTS: TrackingCheckpoint[] = [
   { key: 'payment_received', label: 'Payment', detail: 'Payment is confirmed.' },
-  { key: 'order_placed', label: 'Ordered', detail: 'Order is queued with the team.' },
-  { key: 'packed_for_delivery', label: 'Packed', detail: 'Items are packed for shipping.' },
-  { key: 'in_transit', label: 'In Transit', detail: 'Package is moving through the shipping route.' },
-  { key: 'in_ghana', label: 'In Ghana', detail: 'Package has arrived locally.' },
-  { key: 'ready_for_delivery', label: 'Ready', detail: 'Package is ready for delivery or pickup.' },
-  { key: 'delivered', label: 'Delivered', detail: 'Delivery is complete.' },
-];
-
-const COURIER_CHECKPOINTS: TrackingCheckpoint[] = [
-  { key: 'payment_received', label: 'Payment', detail: 'Payment is confirmed.' },
-  { key: 'order_processed', label: 'Processed', detail: 'Order is verified and packed.' },
-  { key: 'handed_to_courier', label: 'Courier', detail: 'Package has been handed to the courier.' },
-  { key: 'out_for_delivery', label: 'Out', detail: 'Courier is on the way.' },
+  { key: 'processing', label: 'Processing', detail: 'Your order is being prepared.' },
+  { key: 'in_transit', label: 'In Transit', detail: 'Your package is moving through the delivery route.' },
   { key: 'delivered', label: 'Delivered', detail: 'Delivery is complete.' },
 ];
 
@@ -172,13 +167,7 @@ function getStatusIndex(status: string) {
 }
 
 function getCheckpointsForTrackedOrder(order: TrackedOrder) {
-  const shippingName = order.shipping_classes?.name?.toLowerCase() || '';
-  const status = order.status || '';
-  const usesCourierFlow =
-    shippingName.includes('courier') ||
-    ['order_processed', 'handed_to_courier', 'out_for_delivery'].includes(status);
-
-  return usesCourierFlow ? COURIER_CHECKPOINTS : STANDARD_CHECKPOINTS;
+  return SIMPLIFIED_CHECKPOINTS;
 }
 
 function getTrackingProgressState(order: TrackedOrder, checkpoints: TrackingCheckpoint[]) {
@@ -480,7 +469,11 @@ export default function TrackOrder() {
   const canManageOrder = Boolean(user && order?.user_id === user.id);
   const delivered = order ? isDeliveredOrder(order) : false;
   const refundOpen = order ? canRequestRefund(order) : false;
-  const refundReason = order ? getRefundButtonReason(order) : undefined;
+  const refundReason = order
+    ? refundOpen
+      ? getRefundAvailabilityLabel(order)
+      : getRefundButtonReason(order)
+    : undefined;
 
   const handleBuyAgain = async () => {
     if (!order) return;
@@ -684,6 +677,7 @@ export default function TrackOrder() {
               trackingPoints={order.order_tracking}
               orderStatus={order.status || 'pending'}
               estimatedDelivery={getEstimatedDelivery()}
+              groupBuyId={order.group_buy_id}
             />
 
             {/* Order Items */}

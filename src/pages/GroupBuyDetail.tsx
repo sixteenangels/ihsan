@@ -395,24 +395,31 @@ export default function GroupBuyDetail() {
                 />
               </div>
             ) : (
-              <Card className={isFilled ? 'border-primary/40' : 'border-destructive/50'}>
-                <CardContent className="p-4 text-center">
-                  <p className={`font-medium ${isFilled ? 'text-primary' : 'text-destructive'}`}>
-                    {isFilled
-                      ? 'This group buy is filled and ready for processing.'
-                      : isExpired
-                        ? 'This group buy expired before reaching its target.'
-                        : isCancelled
-                          ? 'This group buy has been cancelled.'
-                          : 'This group buy is no longer accepting participants.'}
-                  </p>
-                </CardContent>
-              </Card>
-            )}
+              <div className="space-y-4 pt-1">
+                <Card className={isFilled ? 'border-primary/40' : 'border-destructive/50'}>
+                  <CardContent className="p-4 text-center">
+                    <p className={`font-medium ${isFilled ? 'text-primary' : 'text-destructive'}`}>
+                      {isFilled
+                        ? 'This group buy is filled and ready for processing.'
+                        : isExpired
+                          ? 'This group buy expired before reaching its target.'
+                          : isCancelled
+                            ? 'This group buy has been cancelled.'
+                            : 'This group buy is no longer accepting participants.'}
+                    </p>
+                  </CardContent>
+                </Card>
 
-            <Link to={`/product/${groupBuy.product.id}`}>
-              <Button variant="outline" className="h-11 w-full rounded-xl">View Full Product Details</Button>
-            </Link>
+                <Button asChild variant="outline" className="h-11 w-full rounded-xl">
+                  <Link to={`/product/${groupBuy.product.id}`}>View Full Product Details</Link>
+                </Button>
+              </div>
+            )}
+            {isOpen ? (
+              <Button asChild variant="outline" className="h-11 w-full rounded-xl">
+                <Link to={`/product/${groupBuy.product.id}`}>View Full Product Details</Link>
+              </Button>
+            ) : null}
           </div>
         </div>
       </main>

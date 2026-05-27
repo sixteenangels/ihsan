@@ -104,7 +104,7 @@ export default function ReceiptVerify() {
           Back to Home
         </Link>
 
-        <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="mb-5 flex flex-col gap-3 md:mb-6 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-sm font-medium uppercase tracking-[0.3em] text-primary">Receipt Verification</p>
             <h1 className="text-3xl font-bold font-serif text-foreground">
@@ -141,7 +141,7 @@ export default function ReceiptVerify() {
         ) : (
           <div className="space-y-6">
             <Card className="rounded-2xl border-primary/20 bg-primary/5 shadow-sm">
-              <CardContent className="flex flex-col gap-3 p-5 md:flex-row md:items-center md:justify-between">
+              <CardContent className="flex flex-col gap-2.5 p-4 md:flex-row md:items-center md:justify-between md:p-5">
                 <div>
                   <div className="flex items-center gap-2 text-primary">
                     <BadgeCheck className="h-5 w-5" />
@@ -158,14 +158,14 @@ export default function ReceiptVerify() {
             </Card>
 
             <Card className="rounded-2xl border-border/70 shadow-sm">
-              <CardHeader>
+              <CardHeader className="pb-3">
                 <CardTitle>Receipt Preview</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-3 sm:p-6">
                 <iframe
                   title={`Receipt ${printableReceipt.receiptNumber}`}
                   srcDoc={buildReceiptHtml(printableReceipt)}
-                  className="h-[70vh] w-full rounded-xl border border-border bg-background"
+                  className="h-[52vh] min-h-[24rem] w-full rounded-xl border border-border bg-background sm:h-[70vh]"
                 />
               </CardContent>
             </Card>

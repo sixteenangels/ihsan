@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Package, MapPin, Truck, CheckCircle } from 'lucide-react';
 import { useStoreSettings } from '@/hooks/useStoreSettings';
+import { normalizeOrderTrackingNote } from '@/lib/orderHistory';
 
 type LeafletIconDefaultWithGetIconUrl = typeof L.Icon.Default.prototype & {
   _getIconUrl?: unknown;
@@ -54,6 +55,7 @@ interface OrderTrackingMapProps {
   trackingPoints: TrackingPoint[];
   orderStatus: string;
   estimatedDelivery?: string;
+  groupBuyId?: string | null;
 }
 
 function MapBoundsUpdater({ points }: { points: [number, number][] }) {
@@ -69,7 +71,7 @@ function MapBoundsUpdater({ points }: { points: [number, number][] }) {
   return null;
 }
 
-export function OrderTrackingMap({ trackingPoints, orderStatus, estimatedDelivery }: OrderTrackingMapProps) {
+export function OrderTrackingMap({ trackingPoints, orderStatus, estimatedDelivery, groupBuyId }: OrderTrackingMapProps) {
   const { data: storeSettings } = useStoreSettings();
   const validPoints = trackingPoints.filter(p => p.latitude != null && p.longitude != null);
   const sortedTrackingPoints = [...trackingPoints].sort(
@@ -89,6 +91,7 @@ export function OrderTrackingMap({ trackingPoints, orderStatus, estimatedDeliver
     ? '&copy; <a href="https://www.mapbox.com/about/maps/">Mapbox</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
   const tileLayerProps = useMapbox ? { tileSize: 512, zoomOffset: -1 } : undefined;
+  const trackingOrder = { group_buy_id: groupBuyId ?? null };
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -151,8 +154,10 @@ export function OrderTrackingMap({ trackingPoints, orderStatus, estimatedDeliver
                       <p className="text-xs text-muted-foreground">
                         {new Date(point.created_at).toLocaleString()}
                       </p>
-                      {point.notes && (
-                        <p className="mt-1 text-xs text-muted-foreground">{point.notes}</p>
+                      {normalizeOrderTrackingNote(trackingOrder, point.notes) && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {normalizeOrderTrackingNote(trackingOrder, point.notes)}
+                        </p>
                       )}
                     </div>
                   </div>
@@ -247,8 +252,8 @@ export function OrderTrackingMap({ trackingPoints, orderStatus, estimatedDeliver
             <div className="flex-1">
               <p className="font-medium">{latestPoint.location_name || 'In Transit'}</p>
               <p className="text-sm text-muted-foreground">{latestPoint.status}</p>
-              {latestPoint.notes && (
-                <p className="text-sm mt-1">{latestPoint.notes}</p>
+              {normalizeOrderTrackingNote(trackingOrder, latestPoint.notes) && (
+                <p className="text-sm mt-1">{normalizeOrderTrackingNote(trackingOrder, latestPoint.notes)}</p>
               )}
               <p className="text-xs text-muted-foreground mt-2">
                 Updated: {new Date(latestPoint.created_at).toLocaleString()}
@@ -274,8 +279,10 @@ export function OrderTrackingMap({ trackingPoints, orderStatus, estimatedDeliver
                   <p className="text-xs text-muted-foreground">
                     {new Date(point.created_at).toLocaleString()}
                   </p>
-                  {point.notes && (
-                    <p className="text-xs text-muted-foreground mt-1">{point.notes}</p>
+                  {normalizeOrderTrackingNote(trackingOrder, point.notes) && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {normalizeOrderTrackingNote(trackingOrder, point.notes)}
+                    </p>
                   )}
                 </div>
               </div>

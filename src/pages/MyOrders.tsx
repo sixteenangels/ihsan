@@ -27,7 +27,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useCurrency } from '@/hooks/useCurrency';
-import { canRequestRefund, getRefundButtonReason } from '@/lib/orderHistory';
+import { canRequestRefund, getRefundAvailabilityLabel, getRefundButtonReason } from '@/lib/orderHistory';
 import { reAddOrderItemsToCart } from '@/lib/reorderOrder';
 import { toast } from 'sonner';
 
@@ -426,7 +426,7 @@ export default function MyOrders() {
                 {filteredOrders.map((order) => {
                   const refundOpen = canRequestRefund(order);
                   const refundReason = refundOpen
-                    ? 'Refund available during the 48-hour payment window.'
+                    ? getRefundAvailabilityLabel(order)
                     : getRefundButtonReason(order);
 
                   return (

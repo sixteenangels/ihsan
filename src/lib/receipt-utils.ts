@@ -84,9 +84,12 @@ export function buildReceiptHtml(receipt: PrintableReceipt) {
 <html>
   <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Receipt ${escapeHtml(receipt.receiptNumber)}</title>
     <style>
-      body { font-family: "Segoe UI", sans-serif; color: #111827; padding: 32px; max-width: 840px; margin: 0 auto; }
+      * { box-sizing: border-box; }
+      html, body { width: 100%; max-width: 100%; margin: 0; overflow-x: hidden; }
+      body { font-family: "Segoe UI", sans-serif; color: #111827; padding: 24px; max-width: 840px; margin: 0 auto; }
       .header { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; border-bottom: 2px solid #111827; padding-bottom: 20px; margin-bottom: 24px; }
       .brand { font-size: 28px; font-weight: 700; }
       .meta { text-align: right; }
@@ -94,17 +97,31 @@ export function buildReceiptHtml(receipt: PrintableReceipt) {
       .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
       .card { border: 1px solid #e5e7eb; border-radius: 14px; padding: 16px; }
       .label { color: #6b7280; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
-      table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+      table { width: 100%; border-collapse: collapse; margin-bottom: 24px; table-layout: fixed; }
       th { text-align: left; padding: 12px; background: #f9fafb; border-bottom: 1px solid #e5e7eb; font-size: 12px; text-transform: uppercase; color: #6b7280; }
-      td { padding: 12px; border-bottom: 1px solid #f3f4f6; vertical-align: top; }
+      td { padding: 12px; border-bottom: 1px solid #f3f4f6; vertical-align: top; overflow-wrap: anywhere; word-break: break-word; }
       td.right, th.right { text-align: right; }
-      .totals { margin-left: auto; width: 320px; }
       .totals-row { display: flex; justify-content: space-between; padding: 8px 0; }
+      .totals-row span:last-child { text-align: right; }
       .totals-row.total { border-top: 2px solid #111827; font-weight: 700; font-size: 18px; margin-top: 8px; padding-top: 12px; }
       .qr { text-align: center; }
-      .qr img { width: 180px; height: 180px; }
+      .qr img { width: min(180px, 100%); height: auto; aspect-ratio: 1 / 1; }
       .link { word-break: break-all; font-size: 12px; color: #2563eb; }
       .footer { margin-top: 32px; border-top: 1px solid #e5e7eb; padding-top: 20px; font-size: 12px; color: #6b7280; text-align: center; }
+      @media (max-width: 640px) {
+        body { padding: 14px; font-size: 13px; }
+        .header { flex-direction: column; gap: 12px; padding-bottom: 16px; margin-bottom: 18px; }
+        .brand { font-size: 20px; }
+        .meta { text-align: left; width: 100%; }
+        .grid { grid-template-columns: 1fr; gap: 12px; margin-bottom: 18px; }
+        .card { padding: 12px; border-radius: 12px; }
+        table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        thead, tbody, tr { width: 100%; }
+        th, td { padding: 9px 8px; font-size: 11px; }
+        .totals-row { gap: 12px; font-size: 13px; }
+        .totals-row.total { font-size: 16px; }
+        .footer { margin-top: 20px; padding-top: 14px; }
+      }
     </style>
   </head>
   <body>

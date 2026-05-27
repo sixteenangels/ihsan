@@ -293,6 +293,31 @@ function getAutoNote(status: string, productName: string) {
   }
 }
 
+function AdminOrderThumbnail({
+  imageUrl,
+  alt,
+}: {
+  imageUrl?: string | null;
+  alt: string;
+}) {
+  return (
+    <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-border bg-muted">
+      {imageUrl ? (
+        <img
+          src={imageUrl}
+          alt={alt}
+          className="h-full w-full object-cover"
+          loading="lazy"
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+          <Package className="h-5 w-5" />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function getSuggestedRefundWalletCredit(order: AdminOrder) {
   const shipping = Number(order.shipping_price || 0);
   const packaging = Number(order.packaging_cost || 0);
@@ -1698,6 +1723,7 @@ export function AdminOrders() {
                   const childOrders = cluster.childOrders.length > 0 ? cluster.childOrders : cluster.allOrders;
                   const groupItems = childOrders.flatMap((order) => order.order_items || []);
                   const primaryProductName = groupItems[0]?.product_name || 'Group buy order';
+                  const primaryProductImage = groupItems[0]?.image_url || null;
 
                   return (
                     <SwipeableOrderCard
@@ -1733,21 +1759,29 @@ export function AdminOrders() {
                                 type="button"
                                 className="group flex min-w-0 items-center justify-between gap-3 rounded-md px-1 py-1 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                               >
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <p className="text-lg font-medium text-foreground">
-                                      Group Order #{cluster.displayOrderNumber}
-                                    </p>
-                                    <Badge variant="outline">Group Buy</Badge>
-                                    <Badge className={getStatusColor(groupStatus)}>
-                                      {STATUS_LABELS[groupStatus] || groupStatus.replace('_', ' ')}
-                                    </Badge>
-                                  </div>
-                                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                                    <span>{primaryProductName}</span>
-                                    <span>{cluster.participantCount} participants</span>
-                                    <span>{formatPrice(Number(cluster.totalAmount))}</span>
-                                    <span>{format(new Date(cluster.createdAt), 'MMM d, yyyy')}</span>
+                                <div className="flex min-w-0 flex-1 items-start gap-3">
+                                  <AdminOrderThumbnail
+                                    imageUrl={primaryProductImage}
+                                    alt={primaryProductName}
+                                  />
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <p className="text-lg font-medium text-foreground">
+                                        Group Order #{cluster.displayOrderNumber}
+                                      </p>
+                                      <Badge variant="outline">Group Buy</Badge>
+                                      <Badge className={getStatusColor(groupStatus)}>
+                                        {STATUS_LABELS[groupStatus] || groupStatus.replace('_', ' ')}
+                                      </Badge>
+                                    </div>
+                                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                                      <span className="max-w-[12rem] truncate sm:max-w-none">
+                                        {primaryProductName}
+                                      </span>
+                                      <span>{cluster.participantCount} participants</span>
+                                      <span>{formatPrice(Number(cluster.totalAmount))}</span>
+                                      <span>{format(new Date(cluster.createdAt), 'MMM d, yyyy')}</span>
+                                    </div>
                                   </div>
                                 </div>
                                 <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
@@ -1897,6 +1931,7 @@ export function AdminOrders() {
                 const checkpoints = getCheckpointsForOrder(order.status || 'pending');
                 const isCancelled = ['cancelled', 'refunded'].includes(order.status || '');
                 const primaryProductName = order.order_items[0]?.product_name || 'this order';
+                const primaryProductImage = order.order_items[0]?.image_url || null;
                 return (
                 <SwipeableOrderCard
                   key={order.id}
@@ -1950,24 +1985,30 @@ export function AdminOrders() {
                           type="button"
                           className="group flex min-w-0 flex-1 items-center justify-between gap-3 rounded-md px-1 py-1 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                         >
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className="text-lg font-medium text-foreground">
-                                Order #{order.order_number}
-                              </p>
-                              <Badge className={getStatusColor(order.status || 'pending')}>
-                                {STATUS_LABELS[order.status as OrderStatus] || order.status?.replace('_', ' ')}
-                              </Badge>
-                            </div>
-                            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                              <span className="max-w-[12rem] truncate sm:max-w-none">
-                                {order.profiles?.name || 'Unknown customer'}
-                              </span>
-                              <span>{formatPrice(Number(order.total_amount))}</span>
-                              <span>{format(new Date(order.created_at), 'MMM d, yyyy')}</span>
-                              {order.refund_request && (
-                                <span>Refund: {getRefundStatusLabel(order.refund_request.status)}</span>
-                              )}
+                          <div className="flex min-w-0 flex-1 items-start gap-3">
+                            <AdminOrderThumbnail
+                              imageUrl={primaryProductImage}
+                              alt={primaryProductName}
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="text-lg font-medium text-foreground">
+                                  Order #{order.order_number}
+                                </p>
+                                <Badge className={getStatusColor(order.status || 'pending')}>
+                                  {STATUS_LABELS[order.status as OrderStatus] || order.status?.replace('_', ' ')}
+                                </Badge>
+                              </div>
+                              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                                <span className="max-w-[12rem] truncate sm:max-w-none">
+                                  {order.profiles?.name || 'Unknown customer'}
+                                </span>
+                                <span>{formatPrice(Number(order.total_amount))}</span>
+                                <span>{format(new Date(order.created_at), 'MMM d, yyyy')}</span>
+                                {order.refund_request && (
+                                  <span>Refund: {getRefundStatusLabel(order.refund_request.status)}</span>
+                                )}
+                              </div>
                             </div>
                           </div>
                           <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />

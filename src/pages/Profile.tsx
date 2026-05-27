@@ -36,7 +36,7 @@ import { WalletSection } from '@/components/profile/WalletSection';
 import { AlertsSection } from '@/components/profile/AlertsSection';
 import { PushNotificationSettings } from '@/components/profile/PushNotificationSettings';
 import { SupportCenterSection } from '@/components/profile/SupportCenterSection';
-import { canRequestRefund, getRefundButtonReason } from '@/lib/orderHistory';
+import { canRequestRefund, getRefundAvailabilityLabel, getRefundButtonReason } from '@/lib/orderHistory';
 import { reAddOrderItemsToCart } from '@/lib/reorderOrder';
 
 interface Profile {
@@ -260,14 +260,22 @@ function LoyaltyTab() {
           <div className="space-y-3">
             <h4 className="font-medium text-foreground">Recent Activity</h4>
             {pointsHistory.slice(0, 10).map((entry) => (
-              <div key={entry.id} className="flex items-center justify-between rounded-2xl bg-muted/50 p-3">
-                <div>
-                  <p className="text-sm font-medium text-foreground">{entry.description}</p>
+              <div
+                key={entry.id}
+                className="flex items-center gap-3 rounded-2xl bg-muted/50 p-3"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium leading-snug text-foreground">
+                    {entry.description}
+                  </p>
                   <p className="text-xs text-muted-foreground">
                     {new Date(entry.created_at).toLocaleDateString()}
                   </p>
                 </div>
-                <Badge variant={entry.type === 'earn' ? 'default' : 'secondary'}>
+                <Badge
+                  variant={entry.type === 'earn' ? 'default' : 'secondary'}
+                  className="h-10 min-w-[4.5rem] shrink-0 justify-center rounded-full px-3 text-xs font-bold whitespace-nowrap"
+                >
                   {entry.type === 'earn' ? '+' : '-'}{entry.points} pts
                 </Badge>
               </div>
@@ -1155,7 +1163,7 @@ export default function Profile() {
                 {orders.map((order) => {
                   const refundOpen = canRequestRefund(order);
                   const refundReason = refundOpen
-                    ? 'Refund available during the 48-hour payment window.'
+                    ? getRefundAvailabilityLabel(order)
                     : getRefundButtonReason(order);
 
                   return (

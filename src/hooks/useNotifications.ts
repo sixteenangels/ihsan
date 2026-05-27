@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
-interface Notification {
+export interface Notification {
   id: string;
   title: string;
   message: string;
@@ -13,7 +13,7 @@ interface Notification {
   data: Record<string, unknown> | null;
 }
 
-export function useNotifications() {
+export function useNotifications(limit = 20) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
@@ -42,7 +42,7 @@ export function useNotifications() {
   }, [queryClient, user]);
 
   const { data: notifications = [], isLoading } = useQuery({
-    queryKey: ['notifications', user?.id],
+    queryKey: ['notifications', user?.id, limit],
     queryFn: async () => {
       if (!user) return [];
       
@@ -51,7 +51,7 @@ export function useNotifications() {
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
-        .limit(20);
+        .limit(limit);
 
       if (error) throw error;
       return data as Notification[];

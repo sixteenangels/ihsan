@@ -1,4 +1,4 @@
-import { Bell, Check, CheckCheck, Package, Tag, MessageCircle, Info, ShoppingBag, Users } from 'lucide-react';
+import { Bell, CheckCheck, Package, Tag, MessageCircle, Info, ShoppingBag, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -11,10 +11,15 @@ import { useNotifications } from '@/hooks/useNotifications';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { buildNotificationDetailsHref } from '@/lib/notification-routing';
 
 export function NotificationBell() {
   const { user } = useAuth();
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
 
   if (!user) return null;
 
@@ -52,8 +57,17 @@ export function NotificationBell() {
     }
   };
 
+  const openNotification = (notificationId: string, isRead: boolean) => {
+    if (!isRead) {
+      markAsRead(notificationId);
+    }
+
+    setOpen(false);
+    navigate(buildNotificationDetailsHref(notificationId));
+  };
+
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-4 w-4" />
@@ -90,16 +104,15 @@ export function NotificationBell() {
           ) : (
             <div className="divide-y divide-border">
               {notifications.map((notification) => (
-                <div
+                <button
                   key={notification.id}
+                  type="button"
                   className={cn(
-                    'p-4 hover:bg-muted/50 transition-colors cursor-pointer',
+                    'w-full p-4 text-left hover:bg-muted/50 transition-colors',
                     !notification.is_read && 'bg-primary/5'
                   )}
                   onClick={() => {
-                    if (!notification.is_read) {
-                      markAsRead(notification.id);
-                    }
+                    openNotification(notification.id, notification.is_read);
                   }}
                 >
                   <div className="flex gap-3">
@@ -130,11 +143,23 @@ export function NotificationBell() {
                       </p>
                     </div>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           )}
         </ScrollArea>
+        <div className="border-t border-border p-2">
+          <Button
+            variant="ghost"
+            className="h-9 w-full justify-center rounded-xl text-sm"
+            onClick={() => {
+              setOpen(false);
+              navigate('/notifications');
+            }}
+          >
+            View all notifications
+          </Button>
+        </div>
       </PopoverContent>
     </Popover>
   );
