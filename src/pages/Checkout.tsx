@@ -769,11 +769,11 @@ export default function Checkout() {
     };
   }, [user, appliedCoupon, selectedSubtotal, userOrderCount, getCouponDiscount, isCouponEligible]);
 
-  const getShippingIcon = (typeName: string) => {
-    const lower = typeName.toLowerCase();
-    if (lower.includes('sea')) return <Ship className="h-5 w-5" />;
-    if (lower.includes('express')) return <Package className="h-5 w-5" />;
-    return <Plane className="h-5 w-5" />;
+  const getShippingIcon = (typeName?: string | null) => {
+    const lower = typeName?.toLowerCase() || '';
+    if (lower.includes('sea')) return Ship;
+    if (lower.includes('courier') || lower.includes('express')) return Package;
+    return Plane;
   };
 
   const unresolvedVariantItems = selectedItems.filter((item) =>
@@ -1278,42 +1278,46 @@ export default function Checkout() {
                   No shared shipping method is available for the items you selected.
                 </div>
               ) : null}
-              {shippingClasses.map((shipping) => (
-                <div
-                  key={shipping.id}
-                  className={`cursor-pointer rounded-2xl border p-3.5 transition-all sm:p-4 ${
-                    selectedShippingId === shipping.id
-                      ? 'border-primary bg-primary/5'
-                      : 'border-border hover:border-primary/50'
-                  }`}
-                  onClick={() => handleShippingSelection(shipping.id)}
-                >
-                  <div className="flex items-start gap-3">
-                    <RadioGroupItem value={shipping.id} id={`shipping-${shipping.id}`} className="mt-1" />
-                    <div className="mt-0.5 text-primary">
-                      {getShippingIcon(shipping.shipping_type?.name || shipping.name)}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="font-medium text-foreground">{shipping.name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {shipping.estimated_days_min}-{shipping.estimated_days_max} days delivery
-                          </p>
-                          {shipping.description || shipping.shipping_type?.description ? (
-                            <p className="mt-1 text-xs text-muted-foreground">
-                              {shipping.description || shipping.shipping_type?.description}
+              {shippingClasses.map((shipping) => {
+                const ShippingIcon = getShippingIcon(shipping.shipping_type?.name || shipping.name);
+
+                return (
+                  <div
+                    key={shipping.id}
+                    className={`cursor-pointer rounded-2xl border p-3.5 transition-all sm:p-4 ${
+                      selectedShippingId === shipping.id
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border hover:border-primary/50'
+                    }`}
+                    onClick={() => handleShippingSelection(shipping.id)}
+                  >
+                    <div className="flex items-start gap-3">
+                      <RadioGroupItem value={shipping.id} id={`shipping-${shipping.id}`} className="mt-1" />
+                      <div className="mt-0.5 text-primary">
+                        <ShippingIcon className="h-5 w-5" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-medium text-foreground">{shipping.name}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {shipping.estimated_days_min}-{shipping.estimated_days_max} days delivery
                             </p>
-                          ) : null}
+                            {shipping.description || shipping.shipping_type?.description ? (
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                {shipping.description || shipping.shipping_type?.description}
+                              </p>
+                            ) : null}
+                          </div>
+                          <p className="text-sm font-semibold text-foreground">
+                            {shipping.base_price === 0 ? 'FREE' : formatPrice(shipping.base_price)}
+                          </p>
                         </div>
-                        <p className="text-sm font-semibold text-foreground">
-                          {shipping.base_price === 0 ? 'FREE' : formatPrice(shipping.base_price)}
-                        </p>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </RadioGroup>
         </DialogContent>

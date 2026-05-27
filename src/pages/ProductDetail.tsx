@@ -747,7 +747,7 @@ export default function ProductDetail() {
   return (
     <div className="min-h-screen bg-background">
       {!isMobile && <Header />}
-      <main className="container px-3 py-5 pb-[10.5rem] sm:px-6 md:py-8 md:pb-8">
+      <main className="container px-3 py-5 pb-[12rem] sm:px-6 md:py-8 md:pb-8">
         {isMobile ? (
           <div className="space-y-4">
             <div className="sticky top-0 z-40 -mx-3 border-b border-border/70 bg-background/95 px-3 py-3 backdrop-blur-xl">
@@ -1288,8 +1288,11 @@ export default function ProductDetail() {
       </main>
 
       {isMobile && (
-        <div className="fixed inset-x-0 bottom-0 z-40 px-3 pb-2">
-          <div className="mx-auto rounded-[1.2rem] border border-border/80 bg-background/95 px-3 pt-3 shadow-[0_18px_44px_-22px_hsl(var(--foreground)/0.75)] backdrop-blur-xl supports-[backdrop-filter]:bg-background/90">
+        <div
+          className="fixed inset-x-0 z-40 px-3"
+          style={{ bottom: 'max(env(safe-area-inset-bottom, 0px), 0.75rem)' }}
+        >
+          <div className="pointer-events-auto mx-auto rounded-[1.2rem] border border-border/80 bg-background/95 px-3 pt-3 shadow-[0_18px_44px_-22px_hsl(var(--foreground)/0.75)] backdrop-blur-xl supports-[backdrop-filter]:bg-background/90">
             <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-end gap-2 pb-[calc(env(safe-area-inset-bottom,0px)+0.55rem)]">
               <div className="min-w-0">
                 <p className="text-[11px] font-medium text-muted-foreground">
