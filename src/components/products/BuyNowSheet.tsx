@@ -718,6 +718,7 @@ export function BuyNowSheet({
                             ? 'border-primary bg-primary/5'
                             : 'border-border/70 hover:border-primary/40'
                         }`}
+                        onClick={() => setSelectedAddressId(address.id)}
                       >
                         <RadioGroupItem value={address.id} className="mt-1" />
                         <div className="min-w-0 flex-1">
@@ -894,6 +895,7 @@ export function BuyNowSheet({
                             ? 'border-primary bg-primary/5'
                             : 'border-border/70 hover:border-primary/40'
                         }`}
+                        onClick={() => setSelectedShippingId(rule.id)}
                       >
                         <RadioGroupItem value={rule.id} className="mt-1" />
                         <div className="rounded-xl bg-primary/10 p-2 text-primary">
@@ -1013,6 +1015,10 @@ export function BuyNowSheet({
                     ? 'border-primary bg-primary/5'
                     : 'border-border/70 hover:border-primary/40'
                 }`}
+                onClick={() => {
+                  setSelectedAddressId(address.id);
+                  setIsAddressPickerOpen(false);
+                }}
               >
                 <RadioGroupItem value={address.id} className="mt-1" />
                 <div className="min-w-0 flex-1">
@@ -1076,6 +1082,10 @@ export function BuyNowSheet({
                       ? 'border-primary bg-primary/5'
                       : 'border-border/70 hover:border-primary/40'
                   }`}
+                  onClick={() => {
+                    setSelectedShippingId(rule.id);
+                    setIsShippingPickerOpen(false);
+                  }}
                 >
                   <RadioGroupItem value={rule.id} className="mt-1" />
                   <div className="rounded-xl bg-primary/10 p-2 text-primary">

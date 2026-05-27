@@ -860,12 +860,19 @@ export default function Checkout() {
 
     if (shipping.name.toLowerCase().includes('courier')) {
       setPendingCourierShippingId(id);
+      setIsShippingPickerOpen(false);
       setShowCourierDialog(true);
       return;
     }
 
     setSelectedShippingId(id);
     setCourierAcknowledged(false);
+    setIsShippingPickerOpen(false);
+  };
+
+  const handleAddressSelection = (id: string) => {
+    setSelectedAddressId(id);
+    setIsAddressPickerOpen(false);
   };
 
   const sendToProductVariantSelection = (productId: string) => {
@@ -1198,7 +1205,7 @@ export default function Checkout() {
           </DialogHeader>
           <div className="space-y-4">
             {addresses.length > 0 ? (
-              <RadioGroup value={selectedAddressId} onValueChange={setSelectedAddressId}>
+              <RadioGroup value={selectedAddressId} onValueChange={handleAddressSelection}>
                 <div className="space-y-3">
                   {addresses.map((address) => (
                     <div
@@ -1208,7 +1215,7 @@ export default function Checkout() {
                           ? 'border-primary bg-primary/5'
                           : 'border-border hover:border-primary/50'
                       }`}
-                      onClick={() => setSelectedAddressId(address.id)}
+                      onClick={() => handleAddressSelection(address.id)}
                     >
                       <div className="flex items-start gap-3">
                         <RadioGroupItem value={address.id} id={`address-${address.id}`} className="mt-1" />
