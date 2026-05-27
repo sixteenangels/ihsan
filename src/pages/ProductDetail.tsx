@@ -369,9 +369,13 @@ export default function ProductDetail() {
     if (!product) return;
     const cartProduct = toCartProduct(product);
 
-    // If no variants chosen but the product has variants, add a placeholder so
-    // the customer can choose at checkout.
     if (selectedVariants.length === 0) {
+      if (product.variants.length > 0) {
+        toast.info('Select a variant before adding this item to cart.');
+        scrollVariantSelectorIntoView();
+        return;
+      }
+
       addToCart(cartProduct, null, 1);
       trackRecommendationEvent({
         productId: product.id,
@@ -379,7 +383,7 @@ export default function ProductDetail() {
         eventType: 'cart_add',
         source: 'product_detail',
       });
-      toast.success(product.variants.length > 0 ? 'Added to cart. Choose variant at checkout.' : 'Added to cart.');
+      toast.success('Added to cart.');
       return;
     }
 

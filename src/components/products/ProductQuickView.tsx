@@ -108,9 +108,7 @@ export function ProductQuickView({ product, open, onOpenChange }: ProductQuickVi
       : null;
 
     if (!variant && product.variants && product.variants.length > 0) {
-      addToCart(product, null, 1);
-      toast.success('Added to cart. Choose your variant at checkout.');
-      onOpenChange(false);
+      toast.info('Select a variant before adding this item to cart.');
       return;
     }
 
