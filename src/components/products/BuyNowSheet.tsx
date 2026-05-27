@@ -12,7 +12,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -997,6 +997,9 @@ export function BuyNowSheet({
         <DialogContent className="max-h-[85vh] overflow-y-auto bg-background sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Choose Delivery Address</DialogTitle>
+            <DialogDescription>
+              Select the saved delivery address for this instant checkout.
+            </DialogDescription>
           </DialogHeader>
 
           <RadioGroup
@@ -1061,6 +1064,9 @@ export function BuyNowSheet({
         <DialogContent className="max-h-[85vh] overflow-y-auto bg-background sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Choose Shipping Method</DialogTitle>
+            <DialogDescription>
+              Pick the shipping option you want to use for this instant checkout.
+            </DialogDescription>
           </DialogHeader>
 
           <RadioGroup

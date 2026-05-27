@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Star, Users, Zap, Truck, Clock, Heart, ShoppingCart, ChevronLeft, ChevronRight } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -213,6 +213,9 @@ export function ProductQuickView({ product, open, onOpenChange }: ProductQuickVi
               <DialogTitle className="text-2xl font-bold text-foreground">
                 {product.name}
               </DialogTitle>
+              <DialogDescription className="sr-only">
+                Quick view for {product.name}. Choose a variant and add it to your cart.
+              </DialogDescription>
             </DialogHeader>
 
             {/* Rating */}

@@ -619,6 +619,14 @@ export default function ProductDetail() {
   const previewShippingCost = previewShippingUnitCost * previewShippingQuantity;
   const mobileEstimatedTotal =
     (selectedVariants.length > 0 ? totalPrice : mobilePreviewUnitPrice) + previewShippingCost;
+  const selectedVariantCount = selectedVariants.length;
+  const purchaseSelectionLabel =
+    selectedVariantCount > 0
+      ? `${selectedVariantCount} variant${selectedVariantCount === 1 ? '' : 's'} / ${selectedItemCount} item${selectedItemCount === 1 ? '' : 's'}`
+      : 'Choose now or at checkout';
+  const purchaseShippingLabel = highlightedShipping?.shipping_class
+    ? `${highlightedShipping.shipping_class.name} • ${highlightedShipping.shipping_class.estimated_days_min}-${highlightedShipping.shipping_class.estimated_days_max} days`
+    : 'Choose shipping at checkout';
   const preferredProductGroupBuy = activeProductGroupBuys.find((groupBuy) => groupBuy.id === preferredGroupBuyId) || null;
   const joinedProductGroupBuy = activeProductGroupBuys.find((groupBuy) => groupBuy.viewer_has_joined) || null;
   const activeProductGroupBuy = preferredProductGroupBuy || joinedProductGroupBuy || activeProductGroupBuys[0] || null;
@@ -1230,6 +1238,39 @@ export default function ProductDetail() {
                 </div>
 
                 {groupBuyPanel}
+
+                <Card className="rounded-[1.6rem] border border-border/70 bg-card/90 shadow-sm">
+                  <CardContent className="flex flex-col gap-4 p-4 sm:p-5 lg:flex-row lg:items-end lg:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                        {selectedVariantCount > 0 ? `${selectedItemCount} item${selectedItemCount === 1 ? '' : 's'} selected` : 'Ready to buy'}
+                      </p>
+                      <p className="mt-1 text-sm font-medium text-foreground">{purchaseSelectionLabel}</p>
+                      <p className="mt-1 text-sm text-muted-foreground">{purchaseShippingLabel}</p>
+                      <p className="mt-3 text-3xl font-semibold leading-none text-primary">
+                        {formatPrice(mobileEstimatedTotal)}
+                      </p>
+                    </div>
+                    <div className="flex w-full flex-col gap-3 sm:flex-row lg:w-auto lg:min-w-[320px]">
+                      <Button
+                        variant="outline"
+                        className="h-12 flex-1 gap-2 rounded-2xl border-border/70 bg-background/70"
+                        onClick={handleAddToCart}
+                      >
+                        <ShoppingCart className="h-4 w-4 shrink-0" />
+                        <span className="truncate">Add to Cart</span>
+                      </Button>
+                      <BuyNowSheet
+                        product={product}
+                        selectedVariants={selectedVariants}
+                        selectedShippingRuleId={selectedShipping?.id || null}
+                        triggerClassName="h-12 flex-1 gap-2 rounded-2xl"
+                        triggerLabel="Buy Now"
+                        triggerSize="default"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
             </div>
           </>
@@ -1263,7 +1304,7 @@ export default function ProductDetail() {
                   </p>
                 </div>
                 <p className="truncate pt-0.5 text-[11px] text-muted-foreground">
-                  {selectedVariants.length > 0 ? `${selectedItemCount} selected` : 'Choose now or at checkout'} {' '}
+                  {purchaseSelectionLabel} {' '}
                   <span className="text-primary">^</span>
                 </p>
               </div>

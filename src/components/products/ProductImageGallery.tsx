@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 
 interface ProductImageGalleryProps {
@@ -262,6 +262,12 @@ export function ProductImageGallery({ images, productName }: ProductImageGallery
         if (!open) resetZoom();
       }}>
         <DialogContent className="max-w-[90vw] max-h-[90vh] p-0 bg-background/95 backdrop-blur-md border-border">
+          <DialogHeader className="sr-only">
+            <DialogTitle>{productName} image gallery</DialogTitle>
+            <DialogDescription>
+              View enlarged product images, move between photos, and zoom in for more detail.
+            </DialogDescription>
+          </DialogHeader>
           <div className="relative w-full h-[80vh]">
             {/* Zoom Controls */}
             <div className="absolute top-4 right-4 z-10 flex gap-2">
