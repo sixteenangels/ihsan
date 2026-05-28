@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { STORAGE_KEYS, getStoredItem, removeStoredItems } from '@/lib/brand';
+import { isMobileSessionRuntime } from '@/lib/platform';
 
 interface AuthContextType {
   user: User | null;
@@ -33,6 +34,20 @@ const SESSION_MODE_LEGACY_KEYS = STORAGE_KEYS.sessionModeLegacy;
 function clearStoredSessionPreference() {
   removeStoredItems(sessionStorage, [TEMP_SESSION_KEY, ...TEMP_SESSION_LEGACY_KEYS]);
   removeStoredItems(localStorage, [SESSION_MODE_KEY, ...SESSION_MODE_LEGACY_KEYS]);
+}
+
+function setTemporarySessionPreference() {
+  sessionStorage.setItem(TEMP_SESSION_KEY, 'true');
+  localStorage.setItem(SESSION_MODE_KEY, 'session');
+  removeStoredItems(sessionStorage, TEMP_SESSION_LEGACY_KEYS);
+  removeStoredItems(localStorage, SESSION_MODE_LEGACY_KEYS);
+}
+
+function setPersistentSessionPreference() {
+  sessionStorage.removeItem(TEMP_SESSION_KEY);
+  localStorage.setItem(SESSION_MODE_KEY, 'persistent');
+  removeStoredItems(sessionStorage, TEMP_SESSION_LEGACY_KEYS);
+  removeStoredItems(localStorage, SESSION_MODE_LEGACY_KEYS);
 }
 
 function getOAuthRedirectUrl() {
@@ -84,6 +99,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         getStoredItem(sessionStorage, [TEMP_SESSION_KEY, ...TEMP_SESSION_LEGACY_KEYS])?.value === 'true';
 
       if (session?.user && sessionMode === 'session' && !hasTempSession) {
+        if (isMobileSessionRuntime()) {
+          setPersistentSessionPreference();
+          setSession(session);
+          setUser(session.user);
+          checkUserRole(session.user.id);
+          setIsLoading(false);
+          return;
+        }
+
         await supabase.auth.signOut();
         setSession(null);
         setUser(null);
@@ -156,16 +180,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = async (email: string, password: string, rememberMe: boolean = false) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
 
-    if (!error && !rememberMe) {
-      sessionStorage.setItem(TEMP_SESSION_KEY, 'true');
-      localStorage.setItem(SESSION_MODE_KEY, 'session');
-      removeStoredItems(sessionStorage, TEMP_SESSION_LEGACY_KEYS);
-      removeStoredItems(localStorage, SESSION_MODE_LEGACY_KEYS);
-    } else if (!error && rememberMe) {
-      sessionStorage.removeItem(TEMP_SESSION_KEY);
-      localStorage.setItem(SESSION_MODE_KEY, 'persistent');
-      removeStoredItems(sessionStorage, TEMP_SESSION_LEGACY_KEYS);
-      removeStoredItems(localStorage, SESSION_MODE_LEGACY_KEYS);
+    if (!error && (rememberMe || isMobileSessionRuntime())) {
+      setPersistentSessionPreference();
+    } else if (!error) {
+      setTemporarySessionPreference();
     }
 
     return { error: error as Error | null };
