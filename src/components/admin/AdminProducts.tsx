@@ -38,12 +38,16 @@ import { ProductShippingRules, ShippingRuleData } from './ProductShippingRules';
 import { productSchema, validateForm } from '@/lib/validations/admin';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useAuth } from '@/contexts/AuthContext';
+import { invalidateProductCatalogQueries } from '@/hooks/useProductCatalogSync';
 import { logAdminAction } from '@/lib/audit-log';
 import type { Database } from '@/integrations/supabase/types';
 
 type ProductRow = Database['public']['Tables']['products']['Row'];
 type ProductInsert = Database['public']['Tables']['products']['Insert'];
 type ProductUpdate = Database['public']['Tables']['products']['Update'];
+type ProductVariantInsert = Database['public']['Tables']['product_variants']['Insert'];
+type ProductVariantUpdate = Database['public']['Tables']['product_variants']['Update'];
+type ProductShippingRuleInsert = Database['public']['Tables']['product_shipping_rules']['Insert'];
 type ProductImageRow = Database['public']['Tables']['product_images']['Row'];
 type ProductCategoryRelation = { name: string };
 type ProductOpsFields = {
@@ -123,6 +127,118 @@ async function uploadVariantImage(productId: string, file: File): Promise<string
   return data.publicUrl;
 }
 
+async function buildVariantRecord(productId: string, variant: VariantData): Promise<ProductVariantInsert> {
+  return {
+    product_id: productId,
+    size: variant.size || null,
+    color: variant.color || null,
+    price_override: variant.price_override ? parseFloat(variant.price_override) : null,
+    stock: parseInt(variant.stock, 10) || 0,
+    sku: variant.sku || null,
+    variant_image_url: variant.image_file
+      ? await uploadVariantImage(productId, variant.image_file)
+      : variant.image_url || null,
+  };
+}
+
+async function createProductVariants(productId: string, nextVariants: VariantData[]) {
+  if (nextVariants.length === 0) {
+    return;
+  }
+
+  const variantRecords = await Promise.all(
+    nextVariants.map((variant) => buildVariantRecord(productId, variant)),
+  );
+  const { error } = await supabase.from('product_variants').insert(variantRecords);
+
+  if (error) {
+    throw error;
+  }
+}
+
+async function syncProductVariants(productId: string, nextVariants: VariantData[]) {
+  const { data: existingVariants, error: fetchError } = await supabase
+    .from('product_variants')
+    .select('id')
+    .eq('product_id', productId);
+
+  if (fetchError) {
+    throw fetchError;
+  }
+
+  const nextVariantIds = new Set(
+    nextVariants.map((variant) => variant.id).filter((id): id is string => Boolean(id)),
+  );
+  const staleVariantIds = (existingVariants || [])
+    .map((variant) => variant.id)
+    .filter((id) => !nextVariantIds.has(id));
+
+  if (staleVariantIds.length > 0) {
+    const { error } = await supabase
+      .from('product_variants')
+      .delete()
+      .eq('product_id', productId)
+      .in('id', staleVariantIds);
+
+    if (error) {
+      throw error;
+    }
+  }
+
+  for (const variant of nextVariants) {
+    const record = await buildVariantRecord(productId, variant);
+
+    if (variant.id) {
+      const { error } = await supabase
+        .from('product_variants')
+        .update(record as ProductVariantUpdate)
+        .eq('product_id', productId)
+        .eq('id', variant.id);
+
+      if (error) {
+        throw error;
+      }
+    } else {
+      const { error } = await supabase.from('product_variants').insert(record);
+
+      if (error) {
+        throw error;
+      }
+    }
+  }
+}
+
+async function createProductShippingRules(productId: string, rules: ShippingRuleData[]) {
+  if (rules.length === 0) {
+    return;
+  }
+
+  const ruleRecords: ProductShippingRuleInsert[] = rules.map((rule) => ({
+    product_id: productId,
+    shipping_class_id: rule.shipping_class_id,
+    price: parseFloat(rule.price) || 0,
+    is_allowed: rule.is_allowed,
+  }));
+  const { error } = await supabase.from('product_shipping_rules').insert(ruleRecords);
+
+  if (error) {
+    throw error;
+  }
+}
+
+async function replaceProductShippingRules(productId: string, rules: ShippingRuleData[]) {
+  const { error: deleteError } = await supabase
+    .from('product_shipping_rules')
+    .delete()
+    .eq('product_id', productId);
+
+  if (deleteError) {
+    throw deleteError;
+  }
+
+  await createProductShippingRules(productId, rules);
+}
+
 export function AdminProducts() {
   const queryClient = useQueryClient();
   const { formatPrice } = useCurrency();
@@ -189,37 +305,13 @@ export function AdminProducts() {
           image_url: url,
           order_index: index,
         }));
-        await supabase.from('product_images').insert(imageRecords);
+        const { error: imageInsertError } = await supabase.from('product_images').insert(imageRecords);
+        if (imageInsertError) throw imageInsertError;
       }
 
-      // Create variants if any
-      if (variants.length > 0 && product) {
-        const variantRecords: Database['public']['Tables']['product_variants']['Insert'][] = await Promise.all(
-          variants.map(async (v) => ({
-            product_id: product.id,
-            size: v.size || null,
-            color: v.color || null,
-            price_override: v.price_override ? parseFloat(v.price_override) : null,
-            stock: parseInt(v.stock) || 0,
-            sku: v.sku || null,
-            variant_image_url: v.image_file
-              ? await uploadVariantImage(product.id, v.image_file)
-              : v.image_url || null,
-          })),
-        );
-        await supabase.from('product_variants').insert(variantRecords);
-      }
+      await createProductVariants(product.id, variants);
 
-      // Create shipping rules if any
-      if (shippingRules.length > 0 && product) {
-        const ruleRecords: Database['public']['Tables']['product_shipping_rules']['Insert'][] = shippingRules.map((r) => ({
-          product_id: product.id,
-          shipping_class_id: r.shipping_class_id,
-          price: parseFloat(r.price) || 0,
-          is_allowed: r.is_allowed,
-        }));
-        await supabase.from('product_shipping_rules').insert(ruleRecords);
-      }
+      await createProductShippingRules(product.id, shippingRules);
 
       await logAdminAction({
         actorUserId: user?.id,
@@ -235,8 +327,7 @@ export function AdminProducts() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-products'] });
-      queryClient.invalidateQueries({ queryKey: ['products'] });
+      invalidateProductCatalogQueries(queryClient);
       toast.success('Product created successfully');
       handleClose();
     },
@@ -287,39 +378,13 @@ export function AdminProducts() {
           image_url: url,
           order_index: currentMaxIndex + index,
         }));
-        await supabase.from('product_images').insert(imageRecords);
+        const { error: imageInsertError } = await supabase.from('product_images').insert(imageRecords);
+        if (imageInsertError) throw imageInsertError;
       }
 
-      // Handle variants: delete existing and insert new
-      await supabase.from('product_variants').delete().eq('product_id', id);
-      if (variants.length > 0) {
-        const variantRecords: Database['public']['Tables']['product_variants']['Insert'][] = await Promise.all(
-          variants.map(async (v) => ({
-            product_id: id,
-            size: v.size || null,
-            color: v.color || null,
-            price_override: v.price_override ? parseFloat(v.price_override) : null,
-            stock: parseInt(v.stock) || 0,
-            sku: v.sku || null,
-            variant_image_url: v.image_file
-              ? await uploadVariantImage(id, v.image_file)
-              : v.image_url || null,
-          })),
-        );
-        await supabase.from('product_variants').insert(variantRecords);
-      }
+      await syncProductVariants(id, variants);
 
-      // Handle shipping rules: delete existing and insert new
-      await supabase.from('product_shipping_rules').delete().eq('product_id', id);
-      if (shippingRules.length > 0) {
-        const ruleRecords: Database['public']['Tables']['product_shipping_rules']['Insert'][] = shippingRules.map((r) => ({
-          product_id: id,
-          shipping_class_id: r.shipping_class_id,
-          price: parseFloat(r.price) || 0,
-          is_allowed: r.is_allowed,
-        }));
-        await supabase.from('product_shipping_rules').insert(ruleRecords);
-      }
+      await replaceProductShippingRules(id, shippingRules);
 
       await logAdminAction({
         actorUserId: user?.id,
@@ -335,8 +400,7 @@ export function AdminProducts() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-products'] });
-      queryClient.invalidateQueries({ queryKey: ['products'] });
+      invalidateProductCatalogQueries(queryClient);
       toast.success('Product updated successfully');
       handleClose();
     },
@@ -365,8 +429,7 @@ export function AdminProducts() {
       });
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['admin-products'] });
-      queryClient.invalidateQueries({ queryKey: ['products'] });
+      invalidateProductCatalogQueries(queryClient);
       toast.success(variables.nextActive ? 'Product restored successfully' : 'Product archived successfully');
     },
     onError: (error: Error) => {
@@ -495,7 +558,7 @@ export function AdminProducts() {
               Add Product
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto bg-background">
+          <DialogContent className="max-h-[calc(100dvh-1rem)] max-w-2xl overflow-y-auto overscroll-contain bg-background pb-0">
             <DialogHeader>
               <DialogTitle>
                 {editingId ? 'Edit Product' : 'Add New Product'}
@@ -794,7 +857,7 @@ export function AdminProducts() {
                 />
               </div>
 
-              <div className="flex flex-col-reverse gap-2 pt-4 sm:flex-row sm:justify-end">
+              <div className="sticky bottom-0 z-20 -mx-4 flex flex-col-reverse gap-2 border-t border-border bg-background/95 px-4 py-3 shadow-[0_-16px_32px_-24px_hsl(var(--foreground)/0.75)] backdrop-blur supports-[backdrop-filter]:bg-background/85 sm:-mx-6 sm:flex-row sm:justify-end sm:px-6">
                 <Button type="button" variant="outline" onClick={handleClose}>
                   Cancel
                 </Button>
@@ -805,7 +868,7 @@ export function AdminProducts() {
                   {(createMutation.isPending || updateMutation.isPending) && (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   )}
-                  {editingId ? 'Update' : 'Create'}
+                  {editingId ? 'Save Product Changes' : 'Create Product'}
                 </Button>
               </div>
             </form>

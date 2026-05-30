@@ -51,6 +51,16 @@ function splitCommaValues(value: string) {
     .filter(Boolean);
 }
 
+function splitStockValues(value: string) {
+  const values = value.split(',').map((entry) => entry.trim());
+
+  if (values.length === 1 && values[0] === '') {
+    return [];
+  }
+
+  return values;
+}
+
 function buildVariantKey(variant: VariantData) {
   return `${variant.color.trim().toLowerCase()}::${variant.size.trim().toLowerCase()}`;
 }
@@ -70,14 +80,14 @@ function getStockForCombination(
   sizeCount: number,
 ) {
   if (stockValues.length === 0) return '0';
-  if (stockValues.length > sizeCount) return stockValues[combinationIndex] || stockValues[0] || '0';
-  return stockValues[sizeIndex] || stockValues[0] || '0';
+  if (stockValues.length > sizeCount) return stockValues[combinationIndex] ?? stockValues[0] ?? '0';
+  return stockValues[sizeIndex] ?? stockValues[0] ?? '0';
 }
 
 function buildVariantCombinations(variant: VariantData) {
   const sizes = splitCommaValues(variant.size);
   const colors = splitCommaValues(variant.color);
-  const stockValues = splitCommaValues(variant.stock);
+  const stockValues = splitStockValues(variant.stock);
   const sizeValues = sizes.length > 0 ? sizes : [''];
   const colorValues = colors.length > 0 ? colors : [''];
   const combinations = colorValues.flatMap((color) =>
@@ -109,7 +119,7 @@ function buildDraftCombinations(variant: VariantData): DraftCombination[] {
 
   const sizes = splitCommaValues(variant.size);
   const colors = splitCommaValues(variant.color);
-  const stockValues = splitCommaValues(variant.stock);
+  const stockValues = splitStockValues(variant.stock);
   const sizeValues = sizes.length > 0 ? sizes : [''];
   const colorValues = colors.length > 0 ? colors : [''];
   const combinations = colorValues.flatMap((color) =>
@@ -127,6 +137,22 @@ function parseStock(stock: string) {
   return parseInt(stock, 10) || 0;
 }
 
+function mergeGeneratedVariant(existing: VariantData, generated: VariantData) {
+  const hasGeneratedImage = Boolean(generated.image_file || generated.image_url);
+
+  return {
+    ...existing,
+    color: generated.color,
+    size: generated.size,
+    stock: generated.stock,
+    price_override: generated.price_override.trim() ? generated.price_override : existing.price_override,
+    sku: generated.sku.trim() ? generated.sku : existing.sku,
+    image_file: generated.image_file || existing.image_file,
+    image_preview_url: generated.image_preview_url || existing.image_preview_url,
+    image_url: hasGeneratedImage ? generated.image_url : existing.image_url,
+  };
+}
+
 export function ProductVariantsManager({ variants, onVariantsChange, basePrice }: ProductVariantsManagerProps) {
   const [showForm, setShowForm] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -139,7 +165,7 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
 
   const handleDraftStockChange = (combinationIndex: number, stock: string) => {
     const nextStockValues = draftCombinations.map((combination) =>
-      combination.combinationIndex === combinationIndex ? stock : combination.stock || '0',
+      combination.combinationIndex === combinationIndex ? stock : combination.stock,
     );
 
     setCurrentVariant((prev) => ({
@@ -154,33 +180,43 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
     }
 
     const generatedVariants = buildVariantCombinations(currentVariant);
-    const existingKeys = new Set(
-      variants
-        .filter((_, index) => index !== editingIndex)
-        .map(buildVariantKey),
+    const baseVariants = editingIndex !== null
+      ? variants.filter((_, index) => index !== editingIndex)
+      : [...variants];
+    const nextVariants = [...baseVariants];
+    const existingIndexesByKey = new Map(
+      baseVariants.map((variant, index) => [buildVariantKey(variant), index]),
     );
-    const uniqueGeneratedVariants = generatedVariants.filter((variant) => {
+    const seenGeneratedKeys = new Set<string>();
+    let addedCount = 0;
+    let updatedCount = 0;
+
+    generatedVariants.forEach((variant) => {
       const key = buildVariantKey(variant);
-      if (existingKeys.has(key)) return false;
-      existingKeys.add(key);
-      return true;
+      if (seenGeneratedKeys.has(key)) return;
+
+      seenGeneratedKeys.add(key);
+
+      const existingIndex = existingIndexesByKey.get(key);
+      if (existingIndex != null) {
+        nextVariants[existingIndex] = mergeGeneratedVariant(nextVariants[existingIndex], variant);
+        updatedCount += 1;
+        return;
+      }
+
+      existingIndexesByKey.set(key, nextVariants.length);
+      nextVariants.push(variant);
+      addedCount += 1;
     });
 
-    if (uniqueGeneratedVariants.length === 0) {
-      toast.error('Those variant and size combinations already exist.');
-      return;
-    }
+    onVariantsChange(nextVariants);
 
-    if (editingIndex !== null) {
-      const updated = [...variants];
-      updated.splice(editingIndex, 1, ...uniqueGeneratedVariants);
-      onVariantsChange(updated);
-    } else {
-      onVariantsChange([...variants, ...uniqueGeneratedVariants]);
-    }
-
-    if (uniqueGeneratedVariants.length > 1) {
-      toast.success(`Created ${uniqueGeneratedVariants.length} inventory variants.`);
+    if (updatedCount > 0 && addedCount > 0) {
+      toast.success(`Staged ${updatedCount} update${updatedCount === 1 ? '' : 's'} and ${addedCount} new variant${addedCount === 1 ? '' : 's'}. Save the product to publish.`);
+    } else if (updatedCount > 0) {
+      toast.success(`Staged ${updatedCount} variant update${updatedCount === 1 ? '' : 's'}. Save the product to publish.`);
+    } else if (addedCount > 1) {
+      toast.success(`Created ${addedCount} inventory variants. Save the product to publish.`);
     }
 
     setCurrentVariant(defaultVariant);
@@ -394,7 +430,7 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
               <div className="rounded-lg border border-border bg-muted/20 p-3">
                 <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <p className="text-sm font-medium text-foreground">Inventory rows to create</p>
+                    <p className="text-sm font-medium text-foreground">Inventory rows to save</p>
                     <p className="text-xs text-muted-foreground">
                       Set stock for each variant and size before saving.
                     </p>
@@ -407,7 +443,7 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
                   {draftCombinations.map((combination) => (
                     <div
                       key={`${combination.color}-${combination.size}-${combination.combinationIndex}`}
-                      className="grid grid-cols-[1fr_7rem] items-end gap-3 rounded-md border border-border bg-background p-3"
+                      className="grid grid-cols-[minmax(0,1fr)_minmax(6.75rem,8rem)] items-end gap-3 rounded-md border border-border bg-background p-3"
                     >
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium text-foreground">
@@ -427,8 +463,10 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
                         <Input
                           id={`variant-stock-${combination.combinationIndex}`}
                           type="number"
+                          inputMode="numeric"
                           min="0"
                           value={combination.stock}
+                          className="h-11"
                           onChange={(event) =>
                             handleDraftStockChange(combination.combinationIndex, event.target.value)
                           }
@@ -450,8 +488,7 @@ export function ProductVariantsManager({ variants, onVariantsChange, basePrice }
                 onClick={handleAddVariant}
                 disabled={!currentVariant.size && !currentVariant.color}
               >
-                {editingIndex !== null ? 'Update' : 'Add'} Variant
-                {editingIndex === null && draftCombinations.length > 1 ? `s (${draftCombinations.length})` : ''}
+                Save Variant{editingIndex === null && draftCombinations.length > 1 ? `s (${draftCombinations.length})` : ''}
               </Button>
             </div>
           </CardContent>

@@ -64,6 +64,8 @@ interface RecommendationScoreRow {
   revenue_score: number | string | null;
 }
 
+const PRODUCT_QUERY_REFRESH_MS = 30_000;
+
 function readExpectedRestockDate(product: object): string | null {
   const value = (product as { expected_restock_date?: unknown }).expected_restock_date;
   return typeof value === 'string' ? value : null;
@@ -211,6 +213,9 @@ export function useProducts() {
   return useQuery({
     queryKey: ['products'],
     queryFn: fetchProducts,
+    refetchInterval: PRODUCT_QUERY_REFRESH_MS,
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -322,5 +327,8 @@ export function useProduct(id: string | undefined) {
     queryKey: ['product', id],
     queryFn: () => (id ? fetchProductById(id) : null),
     enabled: !!id,
+    refetchInterval: PRODUCT_QUERY_REFRESH_MS,
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
   });
 }

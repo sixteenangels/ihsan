@@ -15,6 +15,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { WelcomeModal } from "@/components/onboarding/WelcomeModal";
 import { MaintenanceMode } from "@/components/MaintenanceMode";
 import { missingSupabaseEnvVars, supabaseConfigError } from "@/integrations/supabase/client";
+import { useProductCatalogSync } from "@/hooks/useProductCatalogSync";
 import { ThemeProvider } from "next-themes";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
@@ -91,6 +92,8 @@ function SupabaseConfigScreen() {
 
 function AppRouterContent() {
   const location = useLocation();
+  useProductCatalogSync();
+
   const isAdminRoute = location.pathname.startsWith("/admin");
   const isCheckoutRoute = location.pathname === "/checkout";
   const isFocusRoute =
