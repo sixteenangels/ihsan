@@ -23,6 +23,7 @@ function toProductCardFormat(product: ProductWithDetails) {
       color: variant.color || undefined,
       price: variant.price,
       stock: variant.stock || 0,
+      image_url: variant.image_url || null,
     })),
     shippingOptions: [],
     isGroupBuyEligible: product.is_group_buy_eligible || false,

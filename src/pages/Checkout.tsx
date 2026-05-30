@@ -777,7 +777,8 @@ export default function Checkout() {
   };
 
   const unresolvedVariantItems = selectedItems.filter((item) =>
-    isVariantPlaceholder(item.variant.id) && (productVariantOptions[item.product.id] || []).length > 0
+    isVariantPlaceholder(item.variant.id) &&
+    ((productVariantOptions[item.product.id] || []).length > 0 || item.product.variants.length > 0)
   );
   const isCheckingVariantRequirements =
     isCheckoutCatalogLoading && selectedItems.some((item) => isVariantPlaceholder(item.variant.id));

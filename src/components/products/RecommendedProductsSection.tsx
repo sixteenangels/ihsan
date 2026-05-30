@@ -34,6 +34,7 @@ function toCardProduct(product: ProductWithDetails): CardProduct {
       color: variant.color || undefined,
       price: variant.price,
       stock: variant.stock || 0,
+      image_url: variant.image_url || null,
     })),
     shippingOptions: product.shipping_rules
       .filter((rule) => rule.is_allowed && rule.shipping_class)

@@ -372,8 +372,8 @@ export default function Cart() {
                             <div className="flex items-start gap-3">
                               <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-muted">
                                 <img
-                                  src={item.product.images[0] || '/placeholder.svg'}
-                                  alt={item.product.name}
+                                  src={item.variant.image_url || item.product.images[0] || '/placeholder.svg'}
+                                  alt={needsVariant ? item.product.name : getVariantLabel(item.variant)}
                                   className="h-full w-full object-cover"
                                 />
                               </div>
@@ -521,11 +521,18 @@ export default function Cart() {
                   <button
                     key={variant.id}
                     type="button"
-                    className="flex w-full items-center justify-between rounded-2xl border border-border/70 px-4 py-3 text-left transition-colors hover:border-primary/40"
+                    className="flex w-full items-center justify-between gap-3 rounded-2xl border border-border/70 px-4 py-3 text-left transition-colors hover:border-primary/40 disabled:cursor-not-allowed disabled:opacity-60"
                     disabled={variant.stock <= 0}
                     onClick={() => handleAddVariant(activeGroup, variant)}
                   >
-                    <div>
+                    {variant.image_url ? (
+                      <img
+                        src={variant.image_url}
+                        alt={getVariantLabel(variant)}
+                        className="h-12 w-12 shrink-0 rounded-xl object-cover"
+                      />
+                    ) : null}
+                    <div className="min-w-0 flex-1">
                       <p className="font-medium text-foreground">{getVariantLabel(variant)}</p>
                       <p className="text-sm text-muted-foreground">
                         {formatPrice(variant.price)} {variant.stock > 0 ? `- ${variant.stock} in stock` : '- Out of stock'}

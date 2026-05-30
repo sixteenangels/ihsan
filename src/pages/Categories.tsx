@@ -24,6 +24,7 @@ function toQuickViewFormat(product: ProductWithDetails) {
       color: v.color || undefined,
       price: v.price,
       stock: v.stock || 0,
+      image_url: v.image_url || null,
     })),
     shippingOptions: product.shipping_rules
       .filter((r) => r.is_allowed && r.shipping_class)

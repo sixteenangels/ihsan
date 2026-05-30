@@ -64,7 +64,7 @@ type CartProductRow = Pick<
 
 type CartVariantRow = Pick<
   Database['public']['Tables']['product_variants']['Row'],
-  'id' | 'product_id' | 'size' | 'color' | 'price_override' | 'stock'
+  'id' | 'product_id' | 'size' | 'color' | 'price_override' | 'stock' | 'variant_image_url'
 > & {
   product: CartProductRow | null;
 };
@@ -232,6 +232,7 @@ async function loadRemoteCartItems(localItems: CartItem[], userId: string): Prom
         color,
         price_override,
         stock,
+        variant_image_url,
         product:products!product_variants_product_id_fkey(
           id,
           name,
@@ -293,7 +294,7 @@ async function loadRemoteCartItems(localItems: CartItem[], userId: string): Prom
       .order('order_index'),
     supabase
       .from('product_variants')
-      .select('id, product_id, size, color, price_override, stock')
+      .select('id, product_id, size, color, price_override, stock, variant_image_url')
       .in('product_id', productIds)
       .eq('is_active', true),
     supabase

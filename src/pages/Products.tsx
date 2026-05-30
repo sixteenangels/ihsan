@@ -165,6 +165,7 @@ function toProductCardFormat(product: ProductWithDetails): Product {
       color: variant.color || undefined,
       price: variant.price,
       stock: variant.stock || 0,
+      image_url: variant.image_url || null,
     })),
     shippingOptions: product.shipping_rules
       .filter((rule) => rule.is_allowed && rule.shipping_class)
@@ -455,7 +456,6 @@ export default function Products() {
       label: 'Flash Deals',
       icon: Flame,
       active: filters.flashDealsOnly,
-      count: products?.filter((product) => product.is_flash_deal).length || 0,
       onClick: () =>
         setFilters((currentFilters) => ({
           ...currentFilters,
@@ -467,7 +467,6 @@ export default function Products() {
       label: 'Group Buys',
       icon: Users,
       active: filters.groupBuyOnly,
-      count: products?.filter((product) => product.is_group_buy_eligible).length || 0,
       onClick: () =>
         setFilters((currentFilters) => ({
           ...currentFilters,
@@ -479,7 +478,6 @@ export default function Products() {
       label: 'Free Shipping',
       icon: Truck,
       active: filters.freeShippingOnly,
-      count: products?.filter((product) => product.is_free_shipping).length || 0,
       onClick: () =>
         setFilters((currentFilters) => ({
           ...currentFilters,
@@ -491,7 +489,6 @@ export default function Products() {
       label: 'Top Rated',
       icon: Star,
       active: sortBy === 'rating',
-      count: products?.filter((product) => (product.rating || 0) >= 4).length || 0,
       onClick: () => setSortBy((currentSort) => (currentSort === 'rating' ? DEFAULT_SORT_BY : 'rating')),
     },
   ];
@@ -537,362 +534,358 @@ export default function Products() {
     <div className="min-h-screen bg-background">
       <Header />
       <main className="container overflow-x-hidden px-3 py-5 pb-28 sm:px-6 md:py-8 md:pb-8">
-        <div className="mb-6 md:mb-8">
-          <div className="rounded-[1.5rem] border border-border/70 bg-gradient-to-br from-card via-card to-primary/5 p-3.5 shadow-sm sm:rounded-[1.75rem] sm:p-6">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <p className="text-xs font-medium uppercase tracking-[0.28em] text-primary/80">
-                  Discovery
-                </p>
-                <h1 className="mt-2 text-2xl font-bold font-serif text-foreground sm:text-3xl">
-                  All Products
-                </h1>
-                <p className="mt-2 text-sm text-muted-foreground sm:text-base">
-                  Showing {filteredProducts.length} of {products?.length || 0} products from around
-                  the world.
-                </p>
-              </div>
+        <section className="mb-4 rounded-[1.4rem] border border-border/70 bg-card/95 p-3.5 shadow-sm sm:rounded-[1.75rem] sm:p-5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-primary">
+            Discovery
+          </p>
+          <p className="mt-1 text-sm font-medium text-foreground">
+            Discover exciting products from around the world
+          </p>
 
-              <div className="flex flex-wrap items-center gap-2">
-                {activeFilterCount > 0 && (
-                  <Badge variant="secondary">{activeFilterCount} active filters</Badge>
-                )}
-                <Badge variant="outline">{SORT_LABELS[sortBy] || 'Newest'}</Badge>
+          <div className="mt-4 grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search products, brands, or categories"
+                aria-label="Search products, brands, or categories"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                className="h-10 rounded-xl border-border/70 bg-background pl-9 pr-9 text-xs"
+              />
+              {searchQuery && (
                 <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-9 rounded-full"
-                  onClick={openSaveSearchDialog}
-                  disabled={saveSavedSearchMutation.isPending || !hasCustomSearchState}
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 rounded-full"
+                  onClick={() => setSearchQuery('')}
                 >
-                  <BookmarkPlus className="mr-2 h-4 w-4" />
-                  Save Search
+                  <X className="h-3.5 w-3.5" />
                 </Button>
-              </div>
-            </div>
-
-            <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Search by product, brand, or category"
-                  aria-label="Search by product, brand, or category"
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  className="h-12 rounded-2xl border-border/70 bg-background pl-10 pr-10"
-                />
-                {searchQuery && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2 rounded-full"
-                    onClick={() => setSearchQuery('')}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
-                {quickDiscoveryActions.map((action) => {
-                  const Icon = action.icon;
-                  return (
-                    <Button
-                      key={action.key}
-                      variant={action.active ? 'default' : 'outline'}
-                      size="sm"
-                      className="h-10 min-w-0 justify-start rounded-full px-3 text-xs sm:h-12 sm:rounded-2xl sm:px-4 sm:text-sm"
-                      onClick={action.onClick}
-                    >
-                      <Icon className="mr-1.5 h-4 w-4 shrink-0 sm:mr-2" />
-                      <span className="truncate">{action.label}</span>
-                      <span className="ml-auto text-xs opacity-75 sm:ml-2">{action.count}</span>
-                    </Button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="mt-4 hidden rounded-2xl border border-border/70 bg-background/75 p-4 sm:block">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-foreground">Saved searches</p>
-                  <p className="text-xs text-muted-foreground">
-                    {user
-                      ? 'Reopen your best product views in one tap.'
-                      : 'Sign in to save searches to your account and return to them later.'}
-                  </p>
-                </div>
-                {hasCustomSearchState && (
-                  <Button variant="ghost" size="sm" onClick={clearFilters}>
-                    Reset all filters
-                  </Button>
-                )}
-              </div>
-
-              {user && (
-                <div className="mt-4 space-y-3">
-                  <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                    <Bookmark className="h-4 w-4 text-primary" />
-                    Saved views
-                  </div>
-
-                  {savedSearchesLoading ? (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Loading saved searches...
-                    </div>
-                  ) : savedSearches.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      Save a filtered view here to jump back into it later.
-                    </p>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
-                      {savedSearches.map((savedSearch) => {
-                        const isActive = sameSavedSearchFilters(
-                          savedSearch.filters,
-                          currentSavedSearchFilters,
-                        );
-
-                        return (
-                          <div
-                            key={savedSearch.id}
-                            className="flex items-center gap-1 rounded-full border border-border bg-card p-1"
-                          >
-                            <Button
-                              variant={isActive ? 'default' : 'ghost'}
-                              size="sm"
-                              className="rounded-full px-3"
-                              onClick={() => applySavedSearch(savedSearch)}
-                            >
-                              {savedSearch.name}
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 rounded-full"
-                              disabled={deleteSavedSearchMutation.isPending}
-                              onClick={() =>
-                                deleteSavedSearchMutation.mutate(savedSearch.id, {
-                                  onSuccess: () => {
-                                    toast.success(`Removed saved search: ${savedSearch.name}`);
-                                  },
-                                  onError: (error) => {
-                                    toast.error(
-                                      error instanceof Error
-                                        ? error.message
-                                        : 'Failed to delete saved search.',
-                                    );
-                                  },
-                                })
-                              }
-                              aria-label={`Delete saved search ${savedSearch.name}`}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
               )}
             </div>
-          </div>
-        </div>
 
-        <div className="mb-6">
-          <div className="flex flex-wrap gap-2">
-            <Badge
-              variant={selectedCategory === '' ? 'default' : 'outline'}
-              className="inline-flex max-w-full cursor-pointer items-center gap-1.5 px-3 py-1.5 text-center text-xs sm:px-4 sm:py-2 sm:text-sm"
-              onClick={() => setSelectedCategory('')}
-            >
-              <Package className="h-3.5 w-3.5 shrink-0" />
-              All
-            </Badge>
-            {categories?.map((category) => {
-              return (
-                <Badge
-                  key={category.id}
-                  variant={
-                    selectedCategory === category.name || selectedCategory === category.id
-                      ? 'default'
-                      : 'outline'
-                  }
-                  className="flex max-w-full cursor-pointer items-center gap-1.5 px-3 py-1.5 text-center text-xs sm:py-2 sm:text-sm"
-                  onClick={() =>
-                    setSelectedCategory((currentCategory) =>
-                      currentCategory === category.name || currentCategory === category.id
-                        ? ''
-                        : category.name,
-                    )
-                  }
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button
+                  variant={activeFilterCount > 0 ? 'default' : 'outline'}
+                  size="sm"
+                  className="h-10 rounded-xl px-3 text-xs"
                 >
-                  <CategoryIconDisplay
-                    categoryName={category.name}
-                    icon={category.icon}
-                    className="h-3.5 w-3.5 shrink-0"
-                  />
-                  {category.name} ({category.product_count || 0})
-                </Badge>
-              );
-            })}
-          </div>
-        </div>
+                  <Filter className="mr-1.5 h-3.5 w-3.5" />
+                  Filter
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="overflow-y-auto">
+                <SheetHeader>
+                  <SheetTitle>Filter Products</SheetTitle>
+                </SheetHeader>
+                <div className="mt-6 space-y-6">
+                  <div className="space-y-3">
+                    <h4 className="font-semibold text-foreground">Sort</h4>
+                    <Select value={sortBy} onValueChange={setSortBy}>
+                      <SelectTrigger className="h-11 rounded-xl">
+                        <SelectValue placeholder="Sort by" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="newest">{SORT_LABELS.newest}</SelectItem>
+                        <SelectItem value="price-low">{SORT_LABELS['price-low']}</SelectItem>
+                        <SelectItem value="price-high">{SORT_LABELS['price-high']}</SelectItem>
+                        <SelectItem value="rating">{SORT_LABELS.rating}</SelectItem>
+                        <SelectItem value="name-asc">{SORT_LABELS['name-asc']}</SelectItem>
+                        <SelectItem value="name-desc">{SORT_LABELS['name-desc']}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-        <div className="z-30 mb-6 rounded-2xl border border-border/70 bg-background/95 p-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80 md:sticky md:top-16">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold text-foreground">Refine your results</p>
-              <p className="hidden text-xs text-muted-foreground sm:block">
-                Keep discovery controls visible while you browse.
-              </p>
-            </div>
-            <Badge variant="outline">{filteredProducts.length} results</Badge>
+                  <div className="space-y-4">
+                    <h4 className="font-semibold text-foreground">Price Range</h4>
+                    <div className="px-2">
+                      <Slider
+                        value={priceRange}
+                        onValueChange={(value) => setPriceRange(value as [number, number])}
+                        max={maxPrice}
+                        min={0}
+                        step={100}
+                        className="mb-4"
+                      />
+                      <div className="flex justify-between text-sm text-muted-foreground">
+                        <span>GHS {priceRange[0].toLocaleString()}</span>
+                        <span>GHS {priceRange[1].toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h4 className="font-semibold text-foreground">Product Type</h4>
+                    <label className="flex cursor-pointer items-center gap-3">
+                      <Checkbox
+                        checked={filters.groupBuyOnly}
+                        onCheckedChange={(checked) =>
+                          setFilters((currentFilters) => ({
+                            ...currentFilters,
+                            groupBuyOnly: checked === true,
+                          }))
+                        }
+                      />
+                      <span className="text-sm text-foreground">Group Buy Eligible</span>
+                    </label>
+                    <label className="flex cursor-pointer items-center gap-3">
+                      <Checkbox
+                        checked={filters.flashDealsOnly}
+                        onCheckedChange={(checked) =>
+                          setFilters((currentFilters) => ({
+                            ...currentFilters,
+                            flashDealsOnly: checked === true,
+                          }))
+                        }
+                      />
+                      <span className="text-sm text-foreground">Flash Deals Only</span>
+                    </label>
+                    <label className="flex cursor-pointer items-center gap-3">
+                      <Checkbox
+                        checked={filters.freeShippingOnly}
+                        onCheckedChange={(checked) =>
+                          setFilters((currentFilters) => ({
+                            ...currentFilters,
+                            freeShippingOnly: checked === true,
+                          }))
+                        }
+                      />
+                      <span className="text-sm text-foreground">Free Shipping</span>
+                    </label>
+                  </div>
+
+                  <div className="space-y-3 border-t border-border/70 pt-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <h4 className="font-semibold text-foreground">Saved Searches</h4>
+                        <p className="text-xs text-muted-foreground">
+                          {user ? 'Save and reopen filtered views.' : 'Sign in to save searches.'}
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="rounded-xl"
+                        onClick={openSaveSearchDialog}
+                        disabled={saveSavedSearchMutation.isPending || !hasCustomSearchState}
+                      >
+                        <BookmarkPlus className="mr-1.5 h-3.5 w-3.5" />
+                        Save
+                      </Button>
+                    </div>
+
+                    {user ? (
+                      savedSearchesLoading ? (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Loading saved searches...
+                        </div>
+                      ) : savedSearches.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">
+                          Save a filtered view here to jump back into it later.
+                        </p>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          {savedSearches.map((savedSearch) => {
+                            const isActive = sameSavedSearchFilters(
+                              savedSearch.filters,
+                              currentSavedSearchFilters,
+                            );
+
+                            return (
+                              <div
+                                key={savedSearch.id}
+                                className="flex items-center gap-1 rounded-full border border-border bg-card p-1"
+                              >
+                                <Button
+                                  variant={isActive ? 'default' : 'ghost'}
+                                  size="sm"
+                                  className="rounded-full px-3"
+                                  onClick={() => applySavedSearch(savedSearch)}
+                                >
+                                  <Bookmark className="mr-1.5 h-3.5 w-3.5" />
+                                  {savedSearch.name}
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 rounded-full"
+                                  disabled={deleteSavedSearchMutation.isPending}
+                                  onClick={() =>
+                                    deleteSavedSearchMutation.mutate(savedSearch.id, {
+                                      onSuccess: () => {
+                                        toast.success(`Removed saved search: ${savedSearch.name}`);
+                                      },
+                                      onError: (error) => {
+                                        toast.error(
+                                          error instanceof Error
+                                            ? error.message
+                                            : 'Failed to delete saved search.',
+                                        );
+                                      },
+                                    })
+                                  }
+                                  aria-label={`Delete saved search ${savedSearch.name}`}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )
+                    ) : null}
+                  </div>
+
+                  <Button variant="outline" className="w-full rounded-xl" onClick={clearFilters}>
+                    Reset Filters
+                  </Button>
+                </div>
+              </SheetContent>
+            </Sheet>
           </div>
 
-          {activeFilterChips.length > 0 && (
-            <div className="mb-3 flex flex-wrap items-center gap-2">
+          {activeFilterChips.length > 0 ? (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
               {activeFilterChips.map((filterChip) => (
                 <button
                   key={filterChip.key}
                   type="button"
                   onClick={filterChip.onRemove}
                   aria-label={`Remove filter ${filterChip.label}`}
-                  className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:border-primary/50 hover:text-primary"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary"
                 >
                   <span>{filterChip.label}</span>
-                  <X className="h-3.5 w-3.5" />
+                  <X className="h-3 w-3" />
                 </button>
               ))}
-              <Button variant="ghost" size="sm" onClick={clearFilters}>
-                Clear all
+              <Button variant="ghost" size="sm" className="h-7 rounded-full px-2 text-xs" onClick={clearFilters}>
+                Clear
               </Button>
             </div>
-          )}
+          ) : null}
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button
-                variant={activeFilterCount > 0 ? 'default' : 'outline'}
-                size="sm"
-                className="h-10 w-full rounded-xl sm:w-auto"
-              >
-                <Filter className="mr-2 h-4 w-4" />
-                Filters
-                {activeFilterCount > 0 && <span className="ml-1">({activeFilterCount})</span>}
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left">
-              <SheetHeader>
-                <SheetTitle>Filter Products</SheetTitle>
-              </SheetHeader>
-              <div className="mt-6 space-y-6">
-                <div className="space-y-4">
-                  <h4 className="font-semibold text-foreground">Price Range</h4>
-                  <div className="px-2">
-                    <Slider
-                      value={priceRange}
-                      onValueChange={(value) => setPriceRange(value as [number, number])}
-                      max={maxPrice}
-                      min={0}
-                      step={100}
-                      className="mb-4"
-                    />
-                    <div className="flex justify-between text-sm text-muted-foreground">
-                      <span>GHS {priceRange[0].toLocaleString()}</span>
-                      <span>GHS {priceRange[1].toLocaleString()}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <h4 className="font-semibold text-foreground">Product Type</h4>
-                  <label className="flex cursor-pointer items-center gap-3">
-                    <Checkbox
-                      checked={filters.groupBuyOnly}
-                      onCheckedChange={(checked) =>
-                        setFilters((currentFilters) => ({
-                          ...currentFilters,
-                          groupBuyOnly: checked === true,
-                        }))
-                      }
-                    />
-                    <span className="text-sm text-foreground">Group Buy Eligible</span>
-                  </label>
-                  <label className="flex cursor-pointer items-center gap-3">
-                    <Checkbox
-                      checked={filters.flashDealsOnly}
-                      onCheckedChange={(checked) =>
-                        setFilters((currentFilters) => ({
-                          ...currentFilters,
-                          flashDealsOnly: checked === true,
-                        }))
-                      }
-                    />
-                    <span className="text-sm text-foreground">Flash Deals Only</span>
-                  </label>
-                  <label className="flex cursor-pointer items-center gap-3">
-                    <Checkbox
-                      checked={filters.freeShippingOnly}
-                      onCheckedChange={(checked) =>
-                        setFilters((currentFilters) => ({
-                          ...currentFilters,
-                          freeShippingOnly: checked === true,
-                        }))
-                      }
-                    />
-                    <span className="text-sm text-foreground">Free Shipping</span>
-                  </label>
-                </div>
-
-                <Button variant="outline" className="w-full" onClick={clearFilters}>
-                  Reset Filters
-                </Button>
-              </div>
-            </SheetContent>
-          </Sheet>
-
-          <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
-            <div className="flex items-center self-start rounded-xl border border-border">
-              <Button
-                variant={viewMode === 'grid' ? 'default' : 'ghost'}
-                size="icon"
-                className="h-10 w-10 rounded-r-none"
-                onClick={() => setViewMode('grid')}
-              >
-                <LayoutGrid className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={viewMode === 'list' ? 'default' : 'ghost'}
-                size="icon"
-                className="h-10 w-10 rounded-l-none"
-                onClick={() => setViewMode('list')}
-              >
-                <List className="h-4 w-4" />
-              </Button>
-            </div>
-
-            <div className="flex w-full items-center gap-2 sm:w-auto">
-              <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
-              <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="h-10 w-full rounded-xl sm:w-44">
-                  <SelectValue placeholder="Sort by" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="newest">{SORT_LABELS.newest}</SelectItem>
-                  <SelectItem value="price-low">{SORT_LABELS['price-low']}</SelectItem>
-                  <SelectItem value="price-high">{SORT_LABELS['price-high']}</SelectItem>
-                  <SelectItem value="rating">{SORT_LABELS.rating}</SelectItem>
-                  <SelectItem value="name-asc">{SORT_LABELS['name-asc']}</SelectItem>
-                  <SelectItem value="name-desc">{SORT_LABELS['name-desc']}</SelectItem>
-                </SelectContent>
-              </Select>
+          <div className="mt-4 space-y-2.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-muted-foreground">
+              Featured Filters
+            </p>
+            <div className="no-scrollbar -mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none]">
+              {quickDiscoveryActions.map((action) => {
+                const Icon = action.icon;
+                return (
+                  <button
+                    key={action.key}
+                    type="button"
+                    className={`inline-flex h-8 shrink-0 snap-start items-center gap-1.5 rounded-full border px-3 text-[11px] font-medium transition-colors ${
+                      action.active
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'border-border/70 bg-background text-foreground'
+                    }`}
+                    onClick={action.onClick}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    {action.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
+
+          <div className="mt-4 space-y-2.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-muted-foreground">
+              Categories
+            </p>
+            <div className="no-scrollbar -mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none]">
+              <button
+                type="button"
+                className={`inline-flex h-8 shrink-0 snap-start items-center gap-1.5 rounded-full border px-3 text-[11px] font-medium transition-colors ${
+                  selectedCategory === ''
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-border/70 bg-background text-foreground'
+                }`}
+                onClick={() => setSelectedCategory('')}
+              >
+                <Package className="h-3.5 w-3.5" />
+                All
+              </button>
+              {categories?.map((category) => {
+                const isSelected =
+                  selectedCategory === category.name || selectedCategory === category.id;
+
+                return (
+                  <button
+                    key={category.id}
+                    type="button"
+                    className={`inline-flex h-8 max-w-[150px] shrink-0 snap-start items-center gap-1.5 rounded-full border px-3 text-[11px] font-medium transition-colors ${
+                      isSelected
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'border-border/70 bg-background text-foreground'
+                    }`}
+                    onClick={() =>
+                      setSelectedCategory((currentCategory) =>
+                        currentCategory === category.name || currentCategory === category.id
+                          ? ''
+                          : category.name,
+                      )
+                    }
+                  >
+                    <CategoryIconDisplay
+                      categoryName={category.name}
+                      icon={category.icon}
+                      className="h-3.5 w-3.5 shrink-0"
+                    />
+                    <span className="truncate">{category.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h1 className="text-xl font-semibold text-foreground sm:text-2xl">
+            All Products
+          </h1>
+          <div className="flex shrink-0 items-center rounded-xl border border-border bg-card/80 p-0.5">
+            <Button
+              variant={viewMode === 'grid' ? 'default' : 'ghost'}
+              size="icon"
+              className="h-8 w-8 rounded-lg md:h-9 md:w-9"
+              onClick={() => setViewMode('grid')}
+              aria-label="Show products in grid view"
+            >
+              <LayoutGrid className="h-3.5 w-3.5 md:h-4 md:w-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'list' ? 'default' : 'ghost'}
+              size="icon"
+              className="h-8 w-8 rounded-lg md:h-9 md:w-9"
+              onClick={() => setViewMode('list')}
+              aria-label="Show products in list view"
+            >
+              <List className="h-3.5 w-3.5 md:h-4 md:w-4" />
+            </Button>
+          </div>
         </div>
+
+        <div className="mb-5 hidden items-center justify-end gap-3 md:flex">
+          <div className="flex items-center gap-2">
+            <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="h-10 w-44 rounded-xl">
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="newest">{SORT_LABELS.newest}</SelectItem>
+                <SelectItem value="price-low">{SORT_LABELS['price-low']}</SelectItem>
+                <SelectItem value="price-high">{SORT_LABELS['price-high']}</SelectItem>
+                <SelectItem value="rating">{SORT_LABELS.rating}</SelectItem>
+                <SelectItem value="name-asc">{SORT_LABELS['name-asc']}</SelectItem>
+                <SelectItem value="name-desc">{SORT_LABELS['name-desc']}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {isLoading && (

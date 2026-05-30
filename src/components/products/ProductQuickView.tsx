@@ -22,6 +22,19 @@ interface ProductQuickViewProps {
   onOpenChange: (open: boolean) => void;
 }
 
+function getVariantLabel(variant: Pick<ProductVariant, 'color' | 'size'>) {
+  return [variant.color, variant.size].filter(Boolean).join(' / ') || 'Standard option';
+}
+
+function getVariantOptionLabel(variant: ProductVariant, index: number, siblings: ProductVariant[]) {
+  const label = getVariantLabel(variant);
+  return label === 'Standard option' && siblings.length > 1 ? `Option ${index + 1}` : label;
+}
+
+function getVariantStock(variant?: ProductVariant | null) {
+  return variant?.stock ?? 0;
+}
+
 export function ProductQuickView({ product, open, onOpenChange }: ProductQuickViewProps) {
   const { user } = useAuth();
   const { formatPrice } = useCurrency();
@@ -33,6 +46,20 @@ export function ProductQuickView({ product, open, onOpenChange }: ProductQuickVi
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
 
   const variants = useMemo(() => product?.variants ?? [], [product?.variants]);
+  const selectedVariantData = useMemo(
+    () => (selectedVariant ? variants.find((variant) => variant.id === selectedVariant) || null : null),
+    [selectedVariant, variants],
+  );
+  const images = useMemo(() => {
+    const productImages = product?.images.length
+      ? product.images
+      : ['https://via.placeholder.com/400'];
+    const variantImage = selectedVariantData?.image_url;
+
+    return variantImage
+      ? [variantImage, ...productImages.filter((image) => image !== variantImage)]
+      : productImages;
+  }, [product?.images, selectedVariantData?.image_url]);
 
   // Get unique colors and sizes from variants
   const colors = useMemo(() => {
@@ -52,10 +79,28 @@ export function ProductQuickView({ product, open, onOpenChange }: ProductQuickVi
   }, [variants]);
 
   useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    setCurrentImageIndex(0);
+    setSelectedVariant(null);
+    setSelectedColor(null);
+    setSelectedSize(null);
+  }, [open, product?.id]);
+
+  useEffect(() => {
+    const firstAvailableColor =
+      colors.find((color) =>
+        variants.some((variant) => variant.color === color && getVariantStock(variant) > 0),
+      ) ||
+      colors[0] ||
+      null;
+
     setSelectedColor((currentColor) =>
-      currentColor && colors.includes(currentColor) ? currentColor : colors[0] || null,
+      currentColor && colors.includes(currentColor) ? currentColor : firstAvailableColor,
     );
-  }, [colors]);
+  }, [colors, variants]);
 
   const variantsForSelectedColor = useMemo(() => {
     if (colors.length === 0) return variants;
@@ -72,7 +117,9 @@ export function ProductQuickView({ product, open, onOpenChange }: ProductQuickVi
 
   useEffect(() => {
     if (sizesForSelectedColor.length === 0) {
-      const fallbackVariant = variantsForSelectedColor[0];
+      const fallbackVariant =
+        variantsForSelectedColor.find((variant) => getVariantStock(variant) > 0) ||
+        variantsForSelectedColor[0];
       setSelectedSize(null);
       setSelectedVariant(fallbackVariant?.id || null);
       return;
@@ -82,17 +129,21 @@ export function ProductQuickView({ product, open, onOpenChange }: ProductQuickVi
       const nextSize =
         currentSize && sizesForSelectedColor.includes(currentSize)
           ? currentSize
-          : variantsForSelectedColor.find((variant) => (variant.stock || 0) > 0)?.size || sizesForSelectedColor[0];
+          : variantsForSelectedColor.find((variant) => getVariantStock(variant) > 0)?.size || sizesForSelectedColor[0];
       const nextVariant = variantsForSelectedColor.find((variant) => variant.size === nextSize);
       setSelectedVariant(nextVariant?.id || null);
       return nextSize;
     });
   }, [sizesForSelectedColor, variantsForSelectedColor]);
 
+  useEffect(() => {
+    setCurrentImageIndex(0);
+  }, [product?.id, selectedVariantData?.image_url]);
+
   if (!product) return null;
 
   const inWishlist = isInWishlist(product.id);
-  const images = product.images.length > 0 ? product.images : ['https://via.placeholder.com/400'];
+  const showDirectVariantOptions = variantsForSelectedColor.length > 1 && sizesForSelectedColor.length === 0;
 
   const handleWishlistClick = () => {
     if (!user) {
@@ -112,6 +163,11 @@ export function ProductQuickView({ product, open, onOpenChange }: ProductQuickVi
       return;
     }
 
+    if (variant && getVariantStock(variant) <= 0) {
+      toast.error('This variant is out of stock.');
+      return;
+    }
+
     addToCart(product, variant, 1);
     toast.success('Added to cart');
     onOpenChange(false);
@@ -125,9 +181,7 @@ export function ProductQuickView({ product, open, onOpenChange }: ProductQuickVi
     setCurrentImageIndex(prev => prev === images.length - 1 ? 0 : prev + 1);
   };
 
-  const currentPrice = selectedVariant 
-    ? product.variants?.find(v => v.id === selectedVariant)?.price || product.basePrice
-    : product.basePrice;
+  const currentPrice = selectedVariantData?.price || product.basePrice;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -258,10 +312,11 @@ export function ProductQuickView({ product, open, onOpenChange }: ProductQuickVi
                 <div className="flex gap-2 flex-wrap">
                   {colors.map(color => {
                     const isSelected = selectedColor === color;
-                    const availableSizes = variants.filter((variant) => variant.color === color && (variant.stock || 0) > 0).length;
+                    const availableSizes = variants.filter((variant) => variant.color === color && getVariantStock(variant) > 0).length;
                     return (
                       <button
                         key={color}
+                        disabled={availableSizes === 0}
                         onClick={() => {
                           setSelectedColor(color);
                           setSelectedSize(null);
@@ -270,7 +325,9 @@ export function ProductQuickView({ product, open, onOpenChange }: ProductQuickVi
                         className={`px-4 py-2 rounded-md text-sm border transition-all ${
                           isSelected 
                             ? 'border-primary bg-primary/10 text-primary' 
-                            : 'border-border hover:border-primary'
+                            : availableSizes > 0
+                              ? 'border-border hover:border-primary'
+                              : 'cursor-not-allowed border-border bg-muted text-muted-foreground'
                         }`}
                         title={`${color} variant - ${availableSizes} available size${availableSizes === 1 ? '' : 's'}`}
                       >
@@ -283,7 +340,7 @@ export function ProductQuickView({ product, open, onOpenChange }: ProductQuickVi
             )}
 
             {/* Size Selection */}
-            {sizes.length > 0 && (
+            {sizesForSelectedColor.length > 0 && (
               <div className="mb-4">
                 <p className="text-sm font-medium mb-2">
                   Size{selectedColor ? ` for ${selectedColor} variant` : ''}
@@ -292,7 +349,7 @@ export function ProductQuickView({ product, open, onOpenChange }: ProductQuickVi
                   {sizesForSelectedColor.map(size => {
                     const variant = variantsForSelectedColor.find(v => v.size === size);
                     const isSelected = selectedSize === size && selectedVariant === variant?.id;
-                    const isAvailable = (variant?.stock || 0) > 0;
+                    const isAvailable = getVariantStock(variant) > 0;
                     return (
                       <button
                         key={size}
@@ -310,6 +367,52 @@ export function ProductQuickView({ product, open, onOpenChange }: ProductQuickVi
                         }`}
                       >
                         {size}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {showDirectVariantOptions && (
+              <div className="mb-4">
+                <p className="text-sm font-medium mb-2">Option</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {variantsForSelectedColor.map((variant, index) => {
+                    const isSelected = selectedVariant === variant.id;
+                    const isAvailable = getVariantStock(variant) > 0;
+
+                    return (
+                      <button
+                        key={variant.id}
+                        type="button"
+                        disabled={!isAvailable}
+                        onClick={() => setSelectedVariant(variant.id)}
+                        className={`min-w-0 rounded-xl border p-2 text-left transition-all ${
+                          isSelected
+                            ? 'border-primary bg-primary/10 text-primary'
+                            : isAvailable
+                              ? 'border-border hover:border-primary'
+                              : 'cursor-not-allowed border-border bg-muted text-muted-foreground'
+                        }`}
+                      >
+                        <div className="flex min-w-0 items-center gap-2">
+                          {variant.image_url ? (
+                            <img
+                              src={variant.image_url}
+                              alt={getVariantOptionLabel(variant, index, variantsForSelectedColor)}
+                              className="h-9 w-9 shrink-0 rounded-lg object-cover"
+                            />
+                          ) : null}
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium">
+                              {getVariantOptionLabel(variant, index, variantsForSelectedColor)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {isAvailable ? `${getVariantStock(variant)} in stock` : 'Out of stock'}
+                            </p>
+                          </div>
+                        </div>
                       </button>
                     );
                   })}
