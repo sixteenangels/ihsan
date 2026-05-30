@@ -14,6 +14,8 @@ export const STORAGE_KEYS = {
   cartLegacy: [],
   tempSession: 'ajyn_scan_temp_session',
   tempSessionLegacy: [],
+  tempSessionExpiresAt: 'ajyn_scan_temp_session_expires_at',
+  tempSessionExpiresAtLegacy: [],
   sessionMode: 'ajyn_scan_session_mode',
   sessionModeLegacy: [],
   buildId: 'ajyn-scan-app-build-id',

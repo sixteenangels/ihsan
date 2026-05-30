@@ -27,26 +27,50 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const TEMP_SESSION_KEY = STORAGE_KEYS.tempSession;
 const TEMP_SESSION_LEGACY_KEYS = STORAGE_KEYS.tempSessionLegacy;
+const TEMP_SESSION_EXPIRES_AT_KEY = STORAGE_KEYS.tempSessionExpiresAt;
+const TEMP_SESSION_EXPIRES_AT_LEGACY_KEYS = STORAGE_KEYS.tempSessionExpiresAtLegacy;
 const SESSION_MODE_KEY = STORAGE_KEYS.sessionMode;
 const SESSION_MODE_LEGACY_KEYS = STORAGE_KEYS.sessionModeLegacy;
+// Mobile webviews can drop sessionStorage after backgrounding, so unchecked logins get a limited recovery window.
+const TEMP_SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 
 function clearStoredSessionPreference() {
   removeStoredItems(sessionStorage, [TEMP_SESSION_KEY, ...TEMP_SESSION_LEGACY_KEYS]);
-  removeStoredItems(localStorage, [SESSION_MODE_KEY, ...SESSION_MODE_LEGACY_KEYS]);
+  removeStoredItems(localStorage, [
+    SESSION_MODE_KEY,
+    ...SESSION_MODE_LEGACY_KEYS,
+    TEMP_SESSION_EXPIRES_AT_KEY,
+    ...TEMP_SESSION_EXPIRES_AT_LEGACY_KEYS,
+  ]);
 }
 
 function setTemporarySessionPreference() {
   sessionStorage.setItem(TEMP_SESSION_KEY, 'true');
   localStorage.setItem(SESSION_MODE_KEY, 'session');
+  localStorage.setItem(TEMP_SESSION_EXPIRES_AT_KEY, String(Date.now() + TEMP_SESSION_TTL_MS));
   removeStoredItems(sessionStorage, TEMP_SESSION_LEGACY_KEYS);
-  removeStoredItems(localStorage, SESSION_MODE_LEGACY_KEYS);
+  removeStoredItems(localStorage, [...SESSION_MODE_LEGACY_KEYS, ...TEMP_SESSION_EXPIRES_AT_LEGACY_KEYS]);
 }
 
 function setPersistentSessionPreference() {
   sessionStorage.removeItem(TEMP_SESSION_KEY);
   localStorage.setItem(SESSION_MODE_KEY, 'persistent');
   removeStoredItems(sessionStorage, TEMP_SESSION_LEGACY_KEYS);
-  removeStoredItems(localStorage, SESSION_MODE_LEGACY_KEYS);
+  removeStoredItems(localStorage, [
+    ...SESSION_MODE_LEGACY_KEYS,
+    TEMP_SESSION_EXPIRES_AT_KEY,
+    ...TEMP_SESSION_EXPIRES_AT_LEGACY_KEYS,
+  ]);
+}
+
+function hasRecoverableTemporarySession() {
+  const storedExpiry = getStoredItem(localStorage, [
+    TEMP_SESSION_EXPIRES_AT_KEY,
+    ...TEMP_SESSION_EXPIRES_AT_LEGACY_KEYS,
+  ])?.value;
+  const expiresAt = storedExpiry ? Number(storedExpiry) : Number.NaN;
+
+  return Number.isFinite(expiresAt) && expiresAt > Date.now();
 }
 
 function getOAuthRedirectUrl() {
@@ -97,12 +121,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const hasTempSession =
         getStoredItem(sessionStorage, [TEMP_SESSION_KEY, ...TEMP_SESSION_LEGACY_KEYS])?.value === 'true';
 
-      if (session?.user && sessionMode === 'session' && !hasTempSession) {
-        await supabase.auth.signOut();
-        setSession(null);
-        setUser(null);
-        setIsLoading(false);
-        return;
+      if (session?.user && sessionMode === 'session') {
+        if (hasTempSession || hasRecoverableTemporarySession()) {
+          setTemporarySessionPreference();
+        } else {
+          await supabase.auth.signOut({ scope: 'local' });
+          setSession(null);
+          setUser(null);
+          setIsLoading(false);
+          return;
+        }
       }
 
       setSession(session);
