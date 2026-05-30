@@ -2,7 +2,6 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { STORAGE_KEYS, getStoredItem, removeStoredItems } from '@/lib/brand';
-import { isMobileSessionRuntime } from '@/lib/platform';
 
 interface AuthContextType {
   user: User | null;
@@ -18,7 +17,7 @@ interface AuthContextType {
     referralCode?: string | null,
   ) => Promise<{ error: Error | null; userId: string | null }>;
   signIn: (email: string, password: string, rememberMe?: boolean) => Promise<{ error: Error | null }>;
-  signInWithGoogle: () => Promise<{ error: Error | null }>;
+  signInWithGoogle: (rememberMe?: boolean) => Promise<{ error: Error | null }>;
   resetPassword: (email: string) => Promise<{ error: Error | null }>;
   updatePassword: (newPassword: string) => Promise<{ error: Error | null }>;
   resendVerificationEmail: (email: string) => Promise<{ error: Error | null }>;
@@ -99,15 +98,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         getStoredItem(sessionStorage, [TEMP_SESSION_KEY, ...TEMP_SESSION_LEGACY_KEYS])?.value === 'true';
 
       if (session?.user && sessionMode === 'session' && !hasTempSession) {
-        if (isMobileSessionRuntime()) {
-          setPersistentSessionPreference();
-          setSession(session);
-          setUser(session.user);
-          checkUserRole(session.user.id);
-          setIsLoading(false);
-          return;
-        }
-
         await supabase.auth.signOut();
         setSession(null);
         setUser(null);
@@ -180,7 +170,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = async (email: string, password: string, rememberMe: boolean = false) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
 
-    if (!error && (rememberMe || isMobileSessionRuntime())) {
+    if (!error && rememberMe) {
       setPersistentSessionPreference();
     } else if (!error) {
       setTemporarySessionPreference();
@@ -189,7 +179,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error as Error | null };
   };
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = async (rememberMe: boolean = false) => {
+    if (rememberMe) {
+      setPersistentSessionPreference();
+    } else {
+      setTemporarySessionPreference();
+    }
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -199,6 +195,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       },
     });
+
+    if (error) {
+      clearStoredSessionPreference();
+    }
 
     return { error: error as Error | null };
   };

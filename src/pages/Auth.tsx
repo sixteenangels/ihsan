@@ -19,7 +19,6 @@ import {
   getStoredItem,
   removeStoredItems,
 } from '@/lib/brand';
-import { isMobileSessionRuntime } from '@/lib/platform';
 
 const emailSchema = z.string().email('Please enter a valid email address');
 const passwordSchema = z.string().min(6, 'Password must be at least 6 characters');
@@ -54,9 +53,8 @@ export default function Auth() {
   const [showResetPassword, setShowResetPassword] = useState(false);
   const [showVerificationSent, setShowVerificationSent] = useState(false);
   const [pendingVerificationEmail, setPendingVerificationEmail] = useState('');
-  const [rememberMe, setRememberMe] = useState(() => isMobileSessionRuntime());
+  const [rememberMe, setRememberMe] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const mobileSessionRuntime = isMobileSessionRuntime();
 
   const getPendingReferralCode = useCallback(() => {
     let storedRef: string | null = null;
@@ -301,7 +299,7 @@ export default function Auth() {
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);
     try {
-      const { error } = await signInWithGoogle();
+      const { error } = await signInWithGoogle(rememberMe);
       if (error) {
         const msg = error.message || '';
         if (/access.?blocked|disallowed_useragent|redirect_uri_mismatch|invalid_client/i.test(msg)) {
@@ -637,13 +635,12 @@ export default function Auth() {
                       <div className="flex items-center space-x-2">
                         <Checkbox 
                           id="remember-me" 
-                          checked={mobileSessionRuntime || rememberMe}
-                          disabled={mobileSessionRuntime}
+                          checked={rememberMe}
                           onCheckedChange={(checked) => setRememberMe(checked === true)}
                         />
                         <Label
                           htmlFor="remember-me"
-                          className={`text-sm font-normal ${mobileSessionRuntime ? 'cursor-default' : 'cursor-pointer'}`}
+                          className="cursor-pointer text-sm font-normal"
                         >
                           Remember me
                         </Label>
