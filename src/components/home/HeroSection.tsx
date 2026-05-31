@@ -20,9 +20,9 @@ export function HeroSection() {
       <div className="container relative z-10 px-3 py-12 sm:px-6 sm:py-20">
         <div className="max-w-2xl">
           <h1 className="mb-4 text-[2.35rem] font-bold font-serif leading-[0.98] text-primary-foreground sm:text-4xl md:mb-6 md:text-5xl lg:text-6xl">
-            Shop Global.
+            Shopping the world,
             <br />
-            <span className="text-primary">Save Together.</span>
+            <span className="text-primary">simplified.</span>
           </h1>
           <p className="mb-6 max-w-lg text-sm leading-6 text-primary-foreground/85 sm:text-lg md:mb-8 md:text-xl">
             Cross-border shopping made simple. Join group buys, choose your shipping,
