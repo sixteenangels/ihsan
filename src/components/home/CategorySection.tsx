@@ -25,8 +25,7 @@ export function CategorySection() {
                 <Card key={i} className="bg-card">
                   <CardContent className="p-4 text-center sm:p-6">
                     <Skeleton className="h-10 w-10 rounded-full mx-auto mb-3" />
-                    <Skeleton className="h-5 w-20 mx-auto mb-2" />
-                    <Skeleton className="h-4 w-12 mx-auto" />
+                    <Skeleton className="h-5 w-20 mx-auto" />
                   </CardContent>
                 </Card>
               ))
@@ -44,9 +43,6 @@ export function CategorySection() {
                       <h3 className="line-clamp-2 min-h-[2.5rem] text-sm font-semibold leading-tight text-foreground transition-colors group-hover:text-primary sm:text-sm">
                         {category.name}
                       </h3>
-                      <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
-                        ({category.product_count || 0})
-                      </p>
                     </CardContent>
                   </Card>
                 </Link>

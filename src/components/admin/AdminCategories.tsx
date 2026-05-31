@@ -346,9 +346,9 @@ export function AdminCategories() {
                           </span>
                         </div>
                         <p className="mt-1 break-all text-xs text-muted-foreground">{category.slug}</p>
-                        <p className="mt-2 text-xs text-muted-foreground">
-                          {category.product_count || 0} products
-                        </p>
+                        <div className="mt-2 inline-flex rounded-full border border-border bg-muted/60 px-2.5 py-1 text-xs font-medium text-foreground">
+                          {category.product_count || 0} product{category.product_count === 1 ? '' : 's'}
+                        </div>
                       </div>
                     </div>
 

@@ -14,6 +14,30 @@ interface EmailPayload {
 
 type EmailProvider = 'resend' | 'gmail_smtp'
 
+const DEFAULT_FROM_ADDRESS = 'no-reply@ajyn.app'
+const DEFAULT_FROM_NAME = 'AJYN'
+const EMAIL_ADDRESS_PATTERN = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/
+
+function extractEmailAddress(value?: string | null) {
+  const trimmed = value?.trim()
+  if (!trimmed) return null
+
+  const angleAddress = trimmed.match(/<([^>]+)>/)?.[1]?.trim()
+  const address = angleAddress || trimmed
+
+  return EMAIL_ADDRESS_PATTERN.test(address) ? address : null
+}
+
+function buildBrandedFromAddress(input?: string | null, fallbackAddress?: string | null) {
+  const fromName = Deno.env.get('EMAIL_FROM_NAME')?.trim() || DEFAULT_FROM_NAME
+  const address =
+    extractEmailAddress(input) ||
+    extractEmailAddress(fallbackAddress) ||
+    DEFAULT_FROM_ADDRESS
+
+  return `${fromName} <${address}>`
+}
+
 async function updateOutboxStatus(
   supabase: ReturnType<typeof createServiceSupabaseClient>,
   id: string,
@@ -85,6 +109,7 @@ async function sendWithGmailSmtp(payload: EmailPayload, fromEmail: string) {
 
   const result = await transporter.sendMail({
     from: fromEmail,
+    replyTo: Deno.env.get('REPLY_TO_EMAIL') || fromEmail,
     to: payload.to,
     subject: payload.subject,
     html: payload.html,
@@ -136,7 +161,8 @@ Deno.serve(async (req) => {
     if (outboxError) throw outboxError
 
     const resendApiKey = Deno.env.get('RESEND_API_KEY')
-    const fromEmail = Deno.env.get('FROM_EMAIL') || Deno.env.get('GMAIL_FROM_EMAIL') || 'AJYN <no-reply@ajyn.app>'
+    const resendFromEmail = buildBrandedFromAddress(Deno.env.get('FROM_EMAIL'))
+    const gmailFromEmail = buildBrandedFromAddress(Deno.env.get('GMAIL_FROM_EMAIL'), Deno.env.get('GMAIL_SMTP_USER'))
     const providerPreference = (Deno.env.get('EMAIL_PROVIDER_PREFERENCE') || 'resend_first').toLowerCase()
     const gmailConfigured = Boolean(Deno.env.get('GMAIL_SMTP_USER') && Deno.env.get('GMAIL_SMTP_PASS'))
     const resendConfigured = Boolean(resendApiKey)
@@ -170,8 +196,8 @@ Deno.serve(async (req) => {
     for (const provider of availableProviders) {
       try {
         const result = provider === 'resend'
-          ? await sendWithResend(payload, fromEmail, resendApiKey!)
-          : await sendWithGmailSmtp(payload, fromEmail)
+          ? await sendWithResend(payload, resendFromEmail, resendApiKey!)
+          : await sendWithGmailSmtp(payload, gmailFromEmail)
 
         await updateOutboxStatus(supabase, outboxRow.id, {
           status: 'sent',

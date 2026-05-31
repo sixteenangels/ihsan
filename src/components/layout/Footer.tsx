@@ -69,7 +69,7 @@ export function Footer() {
             <ul className="space-y-2">
               <li><Link to="/privacy-policy" className="text-sm text-muted-foreground transition-colors hover:text-primary">Privacy Policy</Link></li>
               <li><Link to="/terms-of-service" className="text-sm text-muted-foreground transition-colors hover:text-primary">Terms of Service</Link></li>
-              <li><Link to="/returns-policy" className="text-sm text-muted-foreground transition-colors hover:text-primary">Returns Policy</Link></li>
+              <li><Link to="/returns-policy" className="text-sm text-muted-foreground transition-colors hover:text-primary">Shipping and Returns Policy</Link></li>
             </ul>
           </div>
         </div>

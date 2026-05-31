@@ -107,7 +107,6 @@ export default function Categories() {
                       <h2 className="text-xl font-bold text-foreground sm:text-2xl">
                         {category.name}
                       </h2>
-                      <p className="text-sm text-muted-foreground">{category.product_count || 0} products</p>
                     </div>
                   </div>
                   <Link
