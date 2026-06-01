@@ -619,13 +619,14 @@ export default function TrackOrder() {
                   </div>
                 )}
                 <div className="mt-4 space-y-2.5">
-                  <div className="flex flex-wrap gap-2">
+                  <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
                     {canManageOrder && !delivered && (
                       <RefundRequestDialog
                         order={order}
                         canRequest={refundOpen}
                         disabledReason={refundReason}
                         triggerLabel="Refund"
+                        className="h-11 w-full justify-center gap-2 rounded-xl px-3 text-xs font-semibold sm:w-auto sm:px-4 sm:text-sm"
                       />
                     )}
                     {canManageOrder && delivered && (
@@ -652,9 +653,9 @@ export default function TrackOrder() {
                         variant={order.status === 'out_for_delivery' ? 'default' : 'outline'}
                         onClick={handleConfirmDelivery}
                         disabled={order.status !== 'out_for_delivery'}
-                        className="h-11 rounded-xl px-4"
+                        className="h-11 w-full justify-center gap-2 rounded-xl px-3 text-xs font-semibold sm:w-auto sm:px-4 sm:text-sm"
                       >
-                        <CheckCircle className="mr-2 h-4 w-4" />
+                        <CheckCircle className="h-4 w-4 shrink-0" />
                         Confirm Delivery
                       </Button>
                     )}

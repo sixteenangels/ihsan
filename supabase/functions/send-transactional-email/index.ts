@@ -38,6 +38,19 @@ function buildBrandedFromAddress(input?: string | null, fallbackAddress?: string
   return `${fromName} <${address}>`
 }
 
+function normalizeEmail(value?: string | null) {
+  return extractEmailAddress(value)?.toLowerCase() || null
+}
+
+function canUseGmailFromAddress(fromEmail: string) {
+  const smtpUser = normalizeEmail(Deno.env.get('GMAIL_SMTP_USER'))
+  const requestedFrom = normalizeEmail(fromEmail)
+  const allowSendAsAlias = Deno.env.get('GMAIL_ALLOW_SEND_AS_ALIAS') === 'true'
+
+  if (!smtpUser || !requestedFrom) return false
+  return allowSendAsAlias || smtpUser === requestedFrom
+}
+
 async function updateOutboxStatus(
   supabase: ReturnType<typeof createServiceSupabaseClient>,
   id: string,
@@ -65,6 +78,7 @@ async function sendWithResend(payload: EmailPayload, fromEmail: string, apiKey: 
     headers: {
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
+      'User-Agent': 'AJYN Supabase Edge Function',
     },
     body: JSON.stringify({
       from: fromEmail,
@@ -164,7 +178,11 @@ Deno.serve(async (req) => {
     const resendFromEmail = buildBrandedFromAddress(Deno.env.get('FROM_EMAIL'))
     const gmailFromEmail = buildBrandedFromAddress(Deno.env.get('GMAIL_FROM_EMAIL'), Deno.env.get('GMAIL_SMTP_USER'))
     const providerPreference = (Deno.env.get('EMAIL_PROVIDER_PREFERENCE') || 'resend_first').toLowerCase()
-    const gmailConfigured = Boolean(Deno.env.get('GMAIL_SMTP_USER') && Deno.env.get('GMAIL_SMTP_PASS'))
+    const gmailConfigured = Boolean(
+      Deno.env.get('GMAIL_SMTP_USER') &&
+      Deno.env.get('GMAIL_SMTP_PASS') &&
+      canUseGmailFromAddress(gmailFromEmail),
+    )
     const resendConfigured = Boolean(resendApiKey)
 
     const providerOrder: EmailProvider[] =
@@ -185,10 +203,16 @@ Deno.serve(async (req) => {
     if (availableProviders.length === 0) {
       await updateOutboxStatus(supabase, outboxRow.id, {
         status: 'failed',
-        errorMessage: 'No configured email providers. Set RESEND_API_KEY and/or Gmail SMTP secrets.',
+        errorMessage:
+          'No safe email provider configured. Set RESEND_API_KEY for branded email, or configure Gmail SMTP with a matching sender/authorized send-as alias.',
       })
 
-      return jsonResponse({ queued: false, sent: false, reason: 'Missing email provider configuration' })
+      return jsonResponse({
+        queued: false,
+        sent: false,
+        reason:
+          'No safe email provider configured. Gmail SMTP cannot hide the authenticated Gmail address unless the sender is a verified Gmail send-as alias.',
+      })
     }
 
     const providerErrors: Array<{ provider: EmailProvider; error: string }> = []
