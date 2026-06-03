@@ -1,18 +1,33 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, Globe, Shield, Truck } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight, Globe, Shield, Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import heroImage from '@/assets/hero-image.jpg';
 import { useEffect, useState } from 'react';
 
 const heroSlides = [
-  'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1800&q=85',
-  'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=1800&q=85',
-  'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1800&q=85',
-  'https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=1800&q=85',
+  {
+    image: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1800&q=85',
+    position: 'center',
+  },
+  {
+    image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=1800&q=85',
+    position: 'center',
+  },
+  {
+    image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1800&q=85',
+    position: 'center',
+  },
+  {
+    image: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=1800&q=85',
+    position: 'center',
+  },
 ];
 
 export function HeroSection() {
   const [activeSlide, setActiveSlide] = useState(0);
+  const showSlide = (index: number) => {
+    setActiveSlide((index + heroSlides.length) % heroSlides.length);
+  };
 
   useEffect(() => {
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -20,7 +35,7 @@ export function HeroSection() {
 
     const interval = window.setInterval(() => {
       setActiveSlide((current) => (current + 1) % heroSlides.length);
-    }, 5500);
+    }, 3800);
 
     return () => window.clearInterval(interval);
   }, []);
@@ -30,13 +45,14 @@ export function HeroSection() {
       <div className="absolute inset-0 bg-foreground" aria-hidden="true">
         {heroSlides.map((slide, index) => (
           <img
-            key={slide}
-            src={slide}
+            key={slide.image}
+            src={slide.image}
             alt=""
             loading={index === 0 ? 'eager' : 'lazy'}
             onError={(event) => {
               event.currentTarget.src = heroImage;
             }}
+            style={{ objectPosition: slide.position }}
             className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ease-out ${
               index === activeSlide ? 'opacity-100' : 'opacity-0'
             }`}
@@ -46,10 +62,10 @@ export function HeroSection() {
           className="absolute inset-0"
           style={{
             background:
-              'linear-gradient(115deg, rgba(18, 18, 18, 0.9) 0%, rgba(18, 18, 18, 0.72) 38%, rgba(18, 18, 18, 0.38) 68%, rgba(18, 18, 18, 0.2) 100%)',
+              'linear-gradient(115deg, rgba(18, 18, 18, 0.86) 0%, rgba(18, 18, 18, 0.66) 38%, rgba(18, 18, 18, 0.22) 68%, rgba(18, 18, 18, 0.06) 100%)',
           }}
         />
-        <div className="absolute inset-0 bg-primary/15 mix-blend-multiply" />
+        <div className="absolute inset-0 bg-primary/10 mix-blend-multiply" />
       </div>
 
       {/* Content */}
@@ -101,26 +117,42 @@ export function HeroSection() {
         </div>
       </div>
 
-      <div className="absolute bottom-5 right-5 z-10 hidden gap-2 sm:flex">
+      <div className="absolute right-6 top-1/2 z-10 hidden -translate-y-1/2 flex-col items-center gap-2 rounded-full border border-primary-foreground/20 bg-background/20 p-2 shadow-2xl backdrop-blur-md sm:flex">
+        <button
+          type="button"
+          aria-label="Show previous hero slide"
+          onClick={() => showSlide(activeSlide - 1)}
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-foreground/90 text-foreground shadow-sm transition hover:bg-primary-foreground"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
         {heroSlides.map((slide, index) => (
           <button
-            key={`indicator-${slide}`}
+            key={`indicator-${slide.image}`}
             type="button"
             aria-label={`Show hero slide ${index + 1}`}
-            onClick={() => setActiveSlide(index)}
-            className={`h-1.5 rounded-full bg-primary-foreground transition-all duration-500 ${
-              index === activeSlide ? 'w-8 opacity-90' : 'w-1.5 opacity-45'
+            onClick={() => showSlide(index)}
+            className={`w-3 rounded-full transition-all duration-500 ${
+              index === activeSlide ? 'h-10 bg-primary opacity-100' : 'h-3 bg-primary-foreground/80 opacity-75'
             }`}
           />
         ))}
+        <button
+          type="button"
+          aria-label="Show next hero slide"
+          onClick={() => showSlide(activeSlide + 1)}
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-foreground/90 text-foreground shadow-sm transition hover:bg-primary-foreground"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
       </div>
       <div className="absolute bottom-20 right-4 z-10 flex gap-2 sm:hidden">
         {heroSlides.map((slide, index) => (
           <button
-            key={`mobile-indicator-${slide}`}
+            key={`mobile-indicator-${slide.image}`}
             type="button"
             aria-label={`Show hero slide ${index + 1}`}
-            onClick={() => setActiveSlide(index)}
+            onClick={() => showSlide(index)}
             className={`h-2 rounded-full bg-primary-foreground transition-all duration-500 ${
               index === activeSlide ? 'w-7 opacity-95' : 'w-2 opacity-50'
             }`}
