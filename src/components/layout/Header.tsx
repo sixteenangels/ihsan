@@ -1,10 +1,8 @@
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingCart, Search, Menu, User, LogOut, Settings, Package, Heart } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ShoppingCart, Menu, User, LogOut, Settings, Package, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { useState } from 'react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -22,8 +20,6 @@ export function Header() {
   const { totalItems } = useCart();
   const { user, isAdmin, signOut } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
-  const [searchQuery, setSearchQuery] = useState('');
   const { isEnabled } = useFeatureFlags();
 
   const navLinks = [
@@ -39,26 +35,9 @@ export function Header() {
     navigate('/');
   };
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/products?q=${encodeURIComponent(searchQuery.trim())}`);
-      setSearchQuery('');
-    }
-  };
-
-  const showSearchSurface =
-    !location.pathname.startsWith('/admin') &&
-    !location.pathname.startsWith('/product/') &&
-    !location.pathname.startsWith('/track-order') &&
-    !location.pathname.startsWith('/order-confirmation') &&
-    location.pathname !== '/products' &&
-    location.pathname !== '/checkout' &&
-    location.pathname !== '/auth';
-
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/70 bg-background/[0.92] shadow-[0_8px_28px_-24px_hsl(var(--foreground)/0.55)] backdrop-blur-xl supports-[backdrop-filter]:bg-background/75">
-      <div className="container flex h-14 items-center justify-between gap-2 px-3 sm:h-16 sm:px-6">
+    <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-[#101010] text-primary-foreground shadow-[0_8px_28px_-24px_hsl(var(--foreground)/0.55)] backdrop-blur-xl md:border-border/70 md:bg-background/[0.92] md:text-foreground md:supports-[backdrop-filter]:bg-background/75">
+      <div className="container flex h-16 items-center justify-between gap-2 px-3 sm:px-6 md:h-16">
         {/* Logo */}
         <Link to="/" className="flex shrink-0 items-center gap-2">
           <BrandMark size="sm" />
@@ -86,23 +65,7 @@ export function Header() {
         </nav>
 
         {/* Right Side Actions */}
-        <div className="flex items-center gap-0.5 sm:gap-2">
-          {/* Search */}
-          {showSearchSurface && (
-            <form onSubmit={handleSearch} className="hidden md:flex items-center gap-2">
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Search products, brands, or categories"
-                  aria-label="Search products, brands, or categories"
-                  className="w-56 rounded-full border-border/70 bg-background pl-10 lg:w-72"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-            </form>
-          )}
-
+        <div className="flex items-center gap-0.5 text-primary-foreground sm:gap-2 md:text-foreground [&_button]:text-primary-foreground [&_button]:hover:bg-white/10 [&_button]:hover:text-primary-foreground md:[&_button]:text-foreground md:[&_button]:hover:bg-accent md:[&_button]:hover:text-accent-foreground">
           {/* Notifications */}
           <NotificationBell />
 
@@ -154,8 +117,12 @@ export function Header() {
           )}
 
           {/* Cart */}
-          <Link to="/cart">
-            <Button variant="ghost" size="icon" className="relative h-9 w-9 sm:h-10 sm:w-10">
+          <Link to="/cart" className="hidden md:block">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="relative h-9 w-9 text-primary-foreground hover:bg-white/10 hover:text-primary-foreground sm:h-10 sm:w-10 md:text-foreground md:hover:bg-accent md:hover:text-accent-foreground"
+            >
               <ShoppingCart className="h-4 w-4" />
               {totalItems > 0 && (
                 <Badge
@@ -170,7 +137,11 @@ export function Header() {
           {/* Mobile Menu */}
           <Sheet>
             <SheetTrigger asChild className="md:hidden">
-              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 rounded-full text-primary-foreground hover:bg-white/10 hover:text-primary-foreground"
+              >
                 <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
@@ -219,22 +190,6 @@ export function Header() {
         </div>
       </div>
 
-      {showSearchSurface && (
-        <div className="border-t border-border/60 px-3 py-2.5 md:hidden sm:px-6">
-          <form onSubmit={handleSearch}>
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search products, brands, or categories"
-                aria-label="Search products, brands, or categories"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-12 rounded-2xl border-border/70 bg-card pl-10 shadow-sm"
-              />
-            </div>
-          </form>
-        </div>
-      )}
     </header>
   );
 }

@@ -101,12 +101,28 @@ export function HeroSection() {
         </div>
       </div>
 
-      <div className="absolute bottom-5 right-5 z-10 hidden gap-2 sm:flex" aria-hidden="true">
+      <div className="absolute bottom-5 right-5 z-10 hidden gap-2 sm:flex">
         {heroSlides.map((slide, index) => (
-          <span
+          <button
             key={`indicator-${slide}`}
+            type="button"
+            aria-label={`Show hero slide ${index + 1}`}
+            onClick={() => setActiveSlide(index)}
             className={`h-1.5 rounded-full bg-primary-foreground transition-all duration-500 ${
               index === activeSlide ? 'w-8 opacity-90' : 'w-1.5 opacity-45'
+            }`}
+          />
+        ))}
+      </div>
+      <div className="absolute bottom-20 right-4 z-10 flex gap-2 sm:hidden">
+        {heroSlides.map((slide, index) => (
+          <button
+            key={`mobile-indicator-${slide}`}
+            type="button"
+            aria-label={`Show hero slide ${index + 1}`}
+            onClick={() => setActiveSlide(index)}
+            className={`h-2 rounded-full bg-primary-foreground transition-all duration-500 ${
+              index === activeSlide ? 'w-7 opacity-95' : 'w-2 opacity-50'
             }`}
           />
         ))}

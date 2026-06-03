@@ -9,7 +9,6 @@ import {
   List,
   Loader2,
   Package,
-  Search,
   SlidersHorizontal,
   Star,
   Trash2,
@@ -542,28 +541,7 @@ export default function Products() {
             Discover exciting products from around the world
           </p>
 
-          <div className="mt-4 grid grid-cols-[minmax(0,1fr)_auto] gap-2">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search products, brands, or categories"
-                aria-label="Search products, brands, or categories"
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                className="h-10 rounded-xl border-border/70 bg-background pl-9 pr-9 text-xs"
-              />
-              {searchQuery && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 rounded-full"
-                  onClick={() => setSearchQuery('')}
-                >
-                  <X className="h-3.5 w-3.5" />
-                </Button>
-              )}
-            </div>
-
+          <div className="mt-4 flex justify-end">
             <Sheet>
               <SheetTrigger asChild>
                 <Button
