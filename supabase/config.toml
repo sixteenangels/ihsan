@@ -1,12 +1,24 @@
 project_id = "jcwagkwjdhtuugcfbhui"
 
 [auth]
-site_url = "https://controlled-commerce-hub-main.vercel.app"
+site_url = "https://www.ajynworld.com"
 additional_redirect_urls = [
+  "https://www.ajynworld.com/auth",
+  "https://ajynworld.com/auth",
+  "https://ihsan-d6am.vercel.app/",
   "https://controlled-commerce-hub-main.vercel.app/auth",
   "http://localhost:8080/auth",
   "http://127.0.0.1:8080/auth",
 ]
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
+
+[auth.email]
+enable_confirmations = true
+max_frequency = "1m0s"
+otp_length = 8
 
 [functions.send-push-notification]
 verify_jwt = true

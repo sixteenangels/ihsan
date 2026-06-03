@@ -121,7 +121,7 @@
 
 ## Remaining Environment Checks
 
-- Verify Google OAuth settings in Supabase for every deployed app URL. The frontend redirects Google auth back to `${window.location.origin}/auth`.
+- Verify Google OAuth settings in Supabase for every deployed app URL. The frontend redirects Google auth back to `${window.location.origin}/auth`; production uses `https://www.ajynworld.com/auth`.
 - Run a real mobile checkout against Paystack from a deployed environment with a seeded cart, a customer account, and valid payment credentials.
 
 These remaining items are deployment validations, not open code tasks inside the repo.

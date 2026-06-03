@@ -50,5 +50,5 @@ Capacitor is configured for Android and iOS with app ID `com.ajyn.app`, app name
 ## Notes
 
 - This repo no longer stores placeholder Lovable project URLs because those links are environment-specific.
-- Google OAuth must allow each deployed app origin and redirect back to `${APP_ORIGIN}/auth`.
+- Google OAuth must allow each deployed app origin and redirect back to `${APP_ORIGIN}/auth`; production uses `https://www.ajynworld.com/auth`.
 - Live Paystack validation still needs a deployed checkout flow and a real test order path.
