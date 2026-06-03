@@ -6,7 +6,59 @@ import { useEffect, useState } from 'react';
 
 const heroSlides = [
   {
-    image: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1800&q=85',
+    image: 'https://images.unsplash.com/photo-1605733160314-4fc7dac4bb16?auto=format&fit=crop&w=1800&q=85',
+    position: 'center',
+  },
+  {
+    image: 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=1800&q=85',
+    position: 'center',
+  },
+  {
+    image: 'https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=1800&q=85',
+    position: 'center',
+  },
+  {
+    image: 'https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=1800&q=85',
+    position: 'center',
+  },
+  {
+    image: 'https://images.unsplash.com/photo-1556228453-efd6c1ff04f6?auto=format&fit=crop&w=1800&q=85',
+    position: 'center',
+  },
+  {
+    image: 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?auto=format&fit=crop&w=1800&q=85',
+    position: 'center',
+  },
+  {
+    image: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&w=1800&q=85',
+    position: 'center',
+  },
+  {
+    image: 'https://images.unsplash.com/photo-1511556820780-d912e42b4980?auto=format&fit=crop&w=1800&q=85',
+    position: 'center',
+  },
+  {
+    image: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=1800&q=85',
+    position: 'center',
+  },
+  {
+    image: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=1800&q=85',
+    position: 'center',
+  },
+  {
+    image: 'https://images.unsplash.com/photo-1576678927484-cc907957088c?auto=format&fit=crop&w=1800&q=85',
+    position: 'center',
+  },
+  {
+    image: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=1800&q=85',
+    position: 'center',
+  },
+  {
+    image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=1800&q=85',
+    position: 'center',
+  },
+  {
+    image: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1800&q=85',
     position: 'center',
   },
   {
@@ -29,12 +81,22 @@ export function HeroSection() {
     setActiveSlide((index + heroSlides.length) % heroSlides.length);
   };
 
+  const getRandomSlide = (current: number) => {
+    if (heroSlides.length <= 1) return current;
+
+    let next = current;
+    while (next === current) {
+      next = Math.floor(Math.random() * heroSlides.length);
+    }
+    return next;
+  };
+
   useEffect(() => {
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduceMotion) return undefined;
 
     const interval = window.setInterval(() => {
-      setActiveSlide((current) => (current + 1) % heroSlides.length);
+      setActiveSlide((current) => getRandomSlide(current));
     }, 3800);
 
     return () => window.clearInterval(interval);
