@@ -1,13 +1,15 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Search, ShoppingCart, User } from 'lucide-react';
+import { Heart, Home, Search, ShoppingCart, User } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useState, useCallback } from 'react';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 
 const navItems = [
   { icon: Home, label: 'Home', href: '/' },
   { icon: Search, label: 'Browse', href: '/products' },
+  { icon: Heart, label: 'Wishlist', href: '/wishlist', feature: 'wishlist' as const },
   { icon: ShoppingCart, label: 'Cart', href: '/cart', showBadge: true },
   { icon: User, label: 'Account', href: '/profile' },
 ];
@@ -22,6 +24,7 @@ const triggerHaptic = () => {
 export function MobileNavBar() {
   const location = useLocation();
   const { totalItems } = useCart();
+  const { isEnabled } = useFeatureFlags();
   const [pressedItem, setPressedItem] = useState<string | null>(null);
 
   const handleTouchStart = useCallback((href: string) => {
@@ -36,7 +39,7 @@ export function MobileNavBar() {
   return (
     <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-50 md:hidden">
       <div className="pointer-events-auto mx-3 mb-2 flex items-center justify-around rounded-[1.65rem] border border-border/80 bg-background/90 px-2 py-1.5 pb-[calc(env(safe-area-inset-bottom,0px)+0.375rem)] shadow-[0_18px_44px_-22px_hsl(var(--foreground)/0.75)] backdrop-blur-xl">
-        {navItems.map((item) => {
+        {navItems.filter((item) => !item.feature || isEnabled(item.feature)).map((item) => {
           const isActive = location.pathname === item.href;
           const isPressed = pressedItem === item.href;
           const Icon = item.icon!;
