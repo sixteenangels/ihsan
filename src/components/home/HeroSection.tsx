@@ -2,18 +2,54 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, Globe, Shield, Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import heroImage from '@/assets/hero-image.jpg';
+import { useEffect, useState } from 'react';
+
+const heroSlides = [
+  'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1800&q=85',
+  'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=1800&q=85',
+  'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1800&q=85',
+  'https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=1800&q=85',
+];
 
 export function HeroSection() {
+  const [activeSlide, setActiveSlide] = useState(0);
+
+  useEffect(() => {
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduceMotion) return undefined;
+
+    const interval = window.setInterval(() => {
+      setActiveSlide((current) => (current + 1) % heroSlides.length);
+    }, 5500);
+
+    return () => window.clearInterval(interval);
+  }, []);
+
   return (
     <section className="relative flex min-h-[64dvh] items-center overflow-hidden sm:min-h-[80vh]">
-      {/* Background Image */}
-      <div className="absolute inset-0">
-        <img
-          src={heroImage}
-          alt="Global shopping"
-          className="w-full h-full object-cover"
+      <div className="absolute inset-0 bg-foreground" aria-hidden="true">
+        {heroSlides.map((slide, index) => (
+          <img
+            key={slide}
+            src={slide}
+            alt=""
+            loading={index === 0 ? 'eager' : 'lazy'}
+            onError={(event) => {
+              event.currentTarget.src = heroImage;
+            }}
+            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ease-out ${
+              index === activeSlide ? 'opacity-100' : 'opacity-0'
+            }`}
+          />
+        ))}
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              'linear-gradient(115deg, rgba(18, 18, 18, 0.9) 0%, rgba(18, 18, 18, 0.72) 38%, rgba(18, 18, 18, 0.38) 68%, rgba(18, 18, 18, 0.2) 100%)',
+          }}
         />
-        <div className="absolute inset-0 bg-gradient-to-br from-foreground/85 via-foreground/60 to-foreground/20 sm:bg-gradient-to-r" />
+        <div className="absolute inset-0 bg-primary/15 mix-blend-multiply" />
       </div>
 
       {/* Content */}
@@ -22,7 +58,7 @@ export function HeroSection() {
           <h1 className="mb-4 text-[2.35rem] font-bold font-serif leading-[0.98] text-primary-foreground sm:text-4xl md:mb-6 md:text-5xl lg:text-6xl">
             Shopping the world,
             <br />
-            <span className="text-primary">simplified.</span>
+            <span className="text-primary-foreground">simplified.</span>
           </h1>
           <p className="mb-6 max-w-lg text-sm leading-6 text-primary-foreground/85 sm:text-lg md:mb-8 md:text-xl">
             Cross-border shopping made simple. Join group buys, choose your shipping,
@@ -63,6 +99,17 @@ export function HeroSection() {
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="absolute bottom-5 right-5 z-10 hidden gap-2 sm:flex" aria-hidden="true">
+        {heroSlides.map((slide, index) => (
+          <span
+            key={`indicator-${slide}`}
+            className={`h-1.5 rounded-full bg-primary-foreground transition-all duration-500 ${
+              index === activeSlide ? 'w-8 opacity-90' : 'w-1.5 opacity-45'
+            }`}
+          />
+        ))}
       </div>
     </section>
   );
