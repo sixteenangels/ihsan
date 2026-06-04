@@ -4,7 +4,6 @@ import {
   ArrowLeft,
   CheckCircle2,
   Copy,
-  Ellipsis,
   Link as LinkIcon,
   Loader2,
   Minus,
@@ -779,23 +778,6 @@ export default function ProductDetail() {
                       ) : null}
                     </Button>
                   </Link>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="icon" className="h-10 w-10 rounded-full" aria-label="More product actions">
-                        <Ellipsis className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={handleCopyLink}>
-                        <Copy className="mr-2 h-4 w-4" />
-                        Copy Link
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={handleShareWhatsApp}>
-                        <LinkIcon className="mr-2 h-4 w-4" />
-                        Share on WhatsApp
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
                 </div>
               </div>
             </div>
