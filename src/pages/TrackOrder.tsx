@@ -166,6 +166,28 @@ function getStatusIndex(status: string) {
   return STATUS_ORDER.indexOf(status);
 }
 
+function hasTrackingCoordinates(point: OrderTrackingPoint) {
+  return point.latitude != null && point.longitude != null;
+}
+
+function getCustomerVisibleTrackingPoints(points: OrderTrackingPoint[]) {
+  const latestStatusPoint = new Map<string, OrderTrackingPoint>();
+  const visiblePointIds = new Set<string>();
+
+  points.forEach((point) => {
+    if (hasTrackingCoordinates(point)) {
+      visiblePointIds.add(point.id);
+      return;
+    }
+
+    latestStatusPoint.set(point.status, point);
+  });
+
+  latestStatusPoint.forEach((point) => visiblePointIds.add(point.id));
+
+  return points.filter((point) => visiblePointIds.has(point.id));
+}
+
 function getCheckpointsForTrackedOrder(order: TrackedOrder) {
   return SIMPLIFIED_CHECKPOINTS;
 }
@@ -418,8 +440,10 @@ export default function TrackOrder() {
         ...data,
         shipping_address: (data.shipping_address as unknown as TrackingShippingAddress | null) ?? null,
         order_items: orderItemsWithImages,
-        order_tracking: [...((data.order_tracking || []) as OrderTrackingPoint[])].sort(
-          (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+        order_tracking: getCustomerVisibleTrackingPoints(
+          [...((data.order_tracking || []) as OrderTrackingPoint[])].sort(
+            (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+          ),
         ),
         shipping_classes: (data.shipping_classes as ShippingClassSummary | null) ?? null,
         receipt: receipt || null,

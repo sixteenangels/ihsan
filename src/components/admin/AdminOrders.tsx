@@ -708,12 +708,27 @@ export function AdminOrders() {
       ? (autoNotes[status] ? `${autoNotes[status]} - ${customNote}` : customNote)
       : (autoNotes[status] || '');
 
-    await supabase.from('order_tracking').insert({
-      order_id: orderId,
-      status,
-      location_name: STATUS_LABELS[status],
-      notes: trackingNote,
-    });
+    const { data: existingTracking, error: existingTrackingError } = await supabase
+      .from('order_tracking')
+      .select('id')
+      .eq('order_id', orderId)
+      .eq('status', status)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existingTrackingError) throw existingTrackingError;
+
+    if (!existingTracking) {
+      const { error: trackingInsertError } = await supabase.from('order_tracking').insert({
+        order_id: orderId,
+        status,
+        location_name: STATUS_LABELS[status],
+        notes: trackingNote,
+      });
+
+      if (trackingInsertError) throw trackingInsertError;
+    }
 
     const statusMessages: Record<OrderStatus, string> = {
       pending: 'Your order is pending confirmation.',
