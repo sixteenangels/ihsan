@@ -29,7 +29,7 @@ import { useCurrency } from '@/hooks/useCurrency';
 import { useIsMobile } from '@/hooks/use-mobile';
 import type { ProductWithDetails } from '@/hooks/useProducts';
 import { savePendingBuyNowSession } from '@/lib/buyNowSession';
-import { getErrorMessage } from '@/lib/errors';
+import { getErrorMessage, getSupabaseFunctionErrorMessage } from '@/lib/errors';
 import { hasRequiredGroupBuyDeliveryDetails } from '@/lib/groupBuyCheckout';
 import { loadPaystack, type PaystackTransactionResponse } from '@/lib/paystack';
 import { trackRecommendationEvent } from '@/lib/recommendationEvents';
@@ -475,7 +475,9 @@ export function BuyNowSheet({
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        throw new Error(await getSupabaseFunctionErrorMessage(error, 'Order could not be created.'));
+      }
 
       const order = (data as {
         order?: { id: string; order_number?: string; total_amount?: number };
@@ -507,7 +509,7 @@ export function BuyNowSheet({
       console.error('Buy now order finalization error:', error);
       toast.error(
         paymentReference
-          ? 'Payment was verified, but the order could not be created. Contact support with your payment reference.'
+          ? `${getErrorMessage(error, 'Payment was verified, but the order could not be created.')} Contact support with ref: ${paymentReference}`
           : 'Could not place your order. Please try again.',
       );
       setIsProcessing(false);

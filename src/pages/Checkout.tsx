@@ -22,6 +22,7 @@ import {
   clearCheckoutRecoverySnapshot,
   saveCheckoutRecoverySnapshot,
 } from '@/lib/checkoutRecovery';
+import { getSupabaseFunctionErrorMessage } from '@/lib/errors';
 import { trackRecommendationEvent } from '@/lib/recommendationEvents';
 import { PurchaseSummary } from '@/components/checkout/PurchaseSummary';
 
@@ -137,6 +138,22 @@ function formatAddressReference(address?: Address) {
   }
 
   return [address.state, address.phone].filter(Boolean).join(' - ') || address.address_line1;
+}
+
+function hasText(value: string | null | undefined) {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function hasCompleteDeliveryDetails(address: Address | undefined, email: string | null | undefined) {
+  return (
+    !!address &&
+    hasText(address.full_name) &&
+    hasText(address.phone) &&
+    hasText(address.address_line1) &&
+    hasText(address.city) &&
+    hasText(address.country) &&
+    hasText(email)
+  );
 }
 
 export default function Checkout() {
@@ -551,6 +568,7 @@ export default function Checkout() {
 
   const selectedShipping = shippingClasses.find(s => s.id === selectedShippingId);
   const selectedAddressDetails = addresses.find((address) => address.id === selectedAddressId);
+  const hasReadyDeliveryDetails = hasCompleteDeliveryDetails(selectedAddressDetails, user?.email);
   const rawShippingCost = selectedShipping?.base_price || 0;
 
   useEffect(() => {
@@ -793,9 +811,11 @@ export default function Checkout() {
     {
       id: 'address',
       label: 'Address',
-      complete: !!selectedAddressId,
+      complete: hasReadyDeliveryDetails,
       detail: selectedAddressDetails
-        ? `${selectedAddressDetails.city}, ${selectedAddressDetails.country}`
+        ? hasReadyDeliveryDetails
+          ? `${selectedAddressDetails.city}, ${selectedAddressDetails.country}`
+          : 'Complete phone and delivery address before payment.'
         : 'Choose where the order should go.',
     },
     {
@@ -809,10 +829,12 @@ export default function Checkout() {
     {
       id: 'review',
       label: 'Review & Pay',
-      complete: !!selectedAddressId && !!selectedShippingId && unresolvedVariantItems.length === 0,
+      complete: hasReadyDeliveryDetails && !!selectedShippingId && unresolvedVariantItems.length === 0,
       detail:
         unresolvedVariantItems.length > 0
           ? 'Choose variants before payment.'
+          : !hasReadyDeliveryDetails
+            ? 'Complete delivery details before payment.'
           : total <= 0
             ? 'Your order is fully covered.'
             : 'Review the total and complete payment.',
@@ -822,7 +844,7 @@ export default function Checkout() {
   const isPaymentDisabled =
     isProcessing ||
     isCheckingVariantRequirements ||
-    !selectedAddressId ||
+    !hasReadyDeliveryDetails ||
     !selectedShippingId ||
     unresolvedVariantItems.length > 0;
   const requiresPayment = total > 0;
@@ -840,6 +862,8 @@ export default function Checkout() {
       ? 'Checking item options before payment.'
     : !selectedAddressId
       ? 'Select a delivery address to continue.'
+      : !hasReadyDeliveryDetails
+        ? 'Complete your delivery address to continue.'
       : !selectedShippingId
         ? 'Choose a shipping method to continue.'
         : paymentSupportText;
@@ -884,6 +908,11 @@ export default function Checkout() {
   const handlePaystackPayment = async () => {
     if (!selectedAddressId) {
       toast.error('Please select a delivery address');
+      return;
+    }
+    if (!hasReadyDeliveryDetails) {
+      toast.error('Complete your delivery address before payment.');
+      setIsAddressPickerOpen(true);
       return;
     }
     if (!selectedShippingId) {
@@ -987,8 +1016,8 @@ export default function Checkout() {
     const selectedAddress = addresses.find(a => a.id === selectedAddressId);
 
     try {
-      if (!selectedAddress) {
-        throw new Error('Choose a delivery address before payment.');
+      if (!selectedAddress || !hasCompleteDeliveryDetails(selectedAddress, user?.email)) {
+        throw new Error('Complete your delivery address before placing the order.');
       }
 
       const { data, error } = await supabase.functions.invoke('create-checkout-order', {
@@ -1011,7 +1040,9 @@ export default function Checkout() {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        throw new Error(await getSupabaseFunctionErrorMessage(error, 'Order could not be created.'));
+      }
 
       const order = (data as {
         order?: { id: string; order_number?: string; total_amount?: number };
@@ -1043,9 +1074,12 @@ export default function Checkout() {
       setOrderCreationInProgress(false);
     } catch (error) {
       console.error('Order finalization error:', error);
-      toast.error(paymentReference
-        ? 'Failed to create order. Contact support with your payment reference.'
-        : 'Failed to place order. Please try again.');
+      const message = error instanceof Error ? error.message : 'Failed to place order. Please try again.';
+      toast.error(paymentReference ? `${message} Keep this payment reference for support.` : message);
+      if (paymentReference) {
+        setPendingPaymentRef(paymentReference);
+        setShowPaymentRecovery(true);
+      }
       setIsProcessing(false);
       setOrderCreationInProgress(false);
     }
@@ -1601,12 +1635,12 @@ export default function Checkout() {
       <Dialog open={showPaymentRecovery} onOpenChange={setShowPaymentRecovery}>
         <DialogContent className="max-h-[90vh] overflow-y-auto bg-background">
           <DialogHeader>
-            <DialogTitle>Payment Interrupted</DialogTitle>
+            <DialogTitle>Payment Recovery</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <p className="text-sm text-muted-foreground">
-              The payment window was closed. If you completed payment, we can check the status.
-              If not, you were not charged.
+              If payment completed but your order did not appear, check the payment status and try
+              creating the order again. If you did not complete payment, you were not charged.
             </p>
             {pendingPaymentRef && (
               <p className="text-xs font-mono bg-muted p-2 rounded break-all">
