@@ -6,15 +6,11 @@ import { useEffect, useState } from 'react';
 
 const heroSlides = [
   {
+    image: heroImage,
+    position: 'center',
+  },
+  {
     image: 'https://images.unsplash.com/photo-1605733160314-4fc7dac4bb16?auto=format&fit=crop&w=1800&q=85',
-    position: 'center',
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=1800&q=85',
-    position: 'center',
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=1800&q=85',
     position: 'center',
   },
   {
@@ -55,10 +51,6 @@ const heroSlides = [
   },
   {
     image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=1800&q=85',
-    position: 'center',
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1800&q=85',
     position: 'center',
   },
   {
