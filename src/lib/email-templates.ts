@@ -1,8 +1,26 @@
 import { BRAND_NAME, BRAND_SUPPORT_NAME } from '@/lib/brand';
-import { buildReceiptHtml, type PrintableReceipt } from '@/lib/receipt-utils';
+import type { PrintableReceipt } from '@/lib/receipt-utils';
+
+const SUPPORT_EMAIL = 'support@ajyn.com';
+const SUPPORT_PHONE = '+233 20 123 4567';
+
+type AjynEmailInput = {
+  eyebrow?: string;
+  reference?: string;
+  icon?: string;
+  title: string;
+  greetingName?: string;
+  intro?: string;
+  bodyHtml?: string;
+  statusTitle?: string;
+  statusText?: string;
+  ctaLabel?: string;
+  ctaUrl?: string;
+  closing?: string;
+};
 
 export function buildReceiptEmailSubject(receipt: PrintableReceipt) {
-  return `Your ${BRAND_NAME} receipt ${receipt.receiptNumber}`
+  return `Your ${BRAND_NAME} receipt ${receipt.receiptNumber}`;
 }
 
 export function buildReceiptEmailText(receipt: PrintableReceipt) {
@@ -11,11 +29,39 @@ export function buildReceiptEmailText(receipt: PrintableReceipt) {
     `Order: ${receipt.orderNumber}`,
     `Total: GHS ${receipt.totalAmount.toFixed(2)}`,
     `Verification: ${receipt.qrPayload}`,
-  ].join('\n')
+  ].join('\n');
 }
 
 export function buildReceiptEmailHtml(receipt: PrintableReceipt) {
-  return buildReceiptHtml(receipt)
+  return buildAjynEmailHtml({
+    eyebrow: `Receipt ${receipt.receiptNumber}`,
+    reference: receipt.orderNumber,
+    icon: '▧',
+    title: 'Your Receipt Is Ready',
+    greetingName: receipt.customerName,
+    intro: `Thank you for shopping with ${BRAND_NAME}.`,
+    bodyHtml: `
+      <p style="margin:0 0 14px;">We have attached your receipt details for order <strong>${escapeHtml(receipt.orderNumber)}</strong>.</p>
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:16px 0;">
+        <tr>
+          <td style="padding:10px 0;color:#6b625c;font-size:13px;">Subtotal</td>
+          <td align="right" style="padding:10px 0;color:#2a1710;font-size:13px;font-weight:700;">${escapeHtml(formatGhs(receipt.subtotal))}</td>
+        </tr>
+        <tr>
+          <td style="padding:10px 0;color:#6b625c;font-size:13px;">Shipping</td>
+          <td align="right" style="padding:10px 0;color:#2a1710;font-size:13px;font-weight:700;">${escapeHtml(formatGhs(receipt.shippingPrice || 0))}</td>
+        </tr>
+        <tr>
+          <td style="padding:12px 0;border-top:1px solid #ece6e1;color:#2a1710;font-size:15px;font-weight:700;">Total</td>
+          <td align="right" style="padding:12px 0;border-top:1px solid #ece6e1;color:#2a1710;font-size:15px;font-weight:700;">${escapeHtml(formatGhs(receipt.totalAmount))}</td>
+        </tr>
+      </table>
+    `,
+    statusTitle: 'Receipt Generated',
+    statusText: 'Keep this email for your records. You can verify the receipt any time.',
+    ctaLabel: 'VERIFY RECEIPT',
+    ctaUrl: receipt.qrPayload,
+  });
 }
 
 export function buildSupportReplyEmailHtml(input: {
@@ -24,17 +70,19 @@ export function buildSupportReplyEmailHtml(input: {
   reply: string;
   summary?: string | null;
 }) {
-  return `
-    <div style="font-family:Segoe UI,sans-serif;max-width:680px;margin:0 auto;padding:24px;color:#111827;">
-      <h1 style="font-size:24px;margin:0 0 16px;">${BRAND_SUPPORT_NAME}</h1>
-      <p>Hello ${escapeHtml(input.customerName || 'there')},</p>
-      <p>We have an update on your support request: <strong>${escapeHtml(input.subject)}</strong>.</p>
-      <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;background:#f9fafb;margin:16px 0;white-space:pre-wrap;">${escapeHtml(input.reply)}</div>
-      ${input.summary ? `<p><strong>Resolution summary:</strong> ${escapeHtml(input.summary)}</p>` : ''}
-      <p>If you need anything else, simply reply to this email or contact us again through the Help Center.</p>
-      <p>Thank you,<br />${BRAND_SUPPORT_NAME}</p>
-    </div>
-  `;
+  return buildAjynEmailHtml({
+    eyebrow: 'Support Update',
+    icon: '↗',
+    title: 'We Have An Update For You',
+    greetingName: input.customerName,
+    intro: `We have an update on your support request: ${input.subject}.`,
+    bodyHtml: `
+      <div style="padding:16px;border:1px solid #ece6e1;border-radius:12px;background:#fbfaf8;margin:16px 0;white-space:pre-wrap;">${escapeHtml(input.reply)}</div>
+      ${input.summary ? `<p style="margin:0 0 14px;"><strong>Resolution summary:</strong> ${escapeHtml(input.summary)}</p>` : ''}
+    `,
+    statusTitle: 'Support Reply Sent',
+    statusText: 'If you need anything else, simply reply to this email or contact us through the Help Center.',
+  });
 }
 
 export function buildSupportReplyEmailText(input: {
@@ -71,19 +119,24 @@ export function buildOrderStatusEmailHtml(input: {
   message: string;
   note?: string | null;
 }) {
-  return `
-    <div style="font-family:Segoe UI,sans-serif;max-width:680px;margin:0 auto;padding:24px;color:#111827;">
-      <h1 style="font-size:24px;margin:0 0 16px;">Your ${BRAND_NAME} order is now ${escapeHtml(input.statusLabel)}</h1>
-      <p>Hello ${escapeHtml(input.customerName || 'there')},</p>
-      <p>Order <strong>${escapeHtml(input.orderNumber)}</strong> has a new status.</p>
-      <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;background:#f9fafb;margin:16px 0;">
-        <p style="margin:0 0 8px;"><strong>Status:</strong> ${escapeHtml(input.statusLabel)}</p>
-        <p style="margin:0;white-space:pre-wrap;">${escapeHtml(input.message)}</p>
-      </div>
-      ${input.note ? `<p><strong>Admin note:</strong> ${escapeHtml(input.note)}</p>` : ''}
-      <p>Thank you for shopping with ${BRAND_NAME}.</p>
-    </div>
-  `;
+  const normalizedStatus = input.statusLabel.toLowerCase();
+  const title = normalizedStatus.includes('placed')
+    ? 'Your Order Has Been Placed'
+    : `Your Order Is ${titleCase(input.statusLabel)}`;
+
+  return buildAjynEmailHtml({
+    eyebrow: `Order ${input.orderNumber}`,
+    reference: input.orderNumber,
+    icon: '✓',
+    title,
+    greetingName: input.customerName,
+    intro: `Order ${input.orderNumber} has a new status.`,
+    bodyHtml: `<p style="margin:0 0 14px;white-space:pre-wrap;">${escapeHtml(input.message)}</p>${input.note ? `<p style="margin:0 0 14px;"><strong>Admin note:</strong> ${escapeHtml(input.note)}</p>` : ''}`,
+    statusTitle: input.statusLabel,
+    statusText: 'We will keep you updated every step of the way.',
+    ctaLabel: 'TRACK MY ORDER',
+    ctaUrl: `${getAppUrl()}/track-order/${encodeURIComponent(input.orderNumber)}`,
+  });
 }
 
 export function buildOrderStatusEmailText(input: {
@@ -116,17 +169,18 @@ export function buildDeliveryWindowEmailHtml(input: {
   startDateLabel: string;
   endDateLabel: string;
 }) {
-  return `
-    <div style="font-family:Segoe UI,sans-serif;max-width:680px;margin:0 auto;padding:24px;color:#111827;">
-      <h1 style="font-size:24px;margin:0 0 16px;">Your delivery estimate has been updated</h1>
-      <p>Hello ${escapeHtml(input.customerName || 'there')},</p>
-      <p>Your order <strong>${escapeHtml(input.orderNumber)}</strong> is currently estimated to arrive between:</p>
-      <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;background:#f9fafb;margin:16px 0;">
-        <p style="margin:0;font-size:18px;font-weight:600;">${escapeHtml(input.startDateLabel)} to ${escapeHtml(input.endDateLabel)}</p>
-      </div>
-      <p>We will keep you updated if anything changes.</p>
-    </div>
-  `;
+  return buildAjynEmailHtml({
+    eyebrow: `Order ${input.orderNumber}`,
+    reference: input.orderNumber,
+    icon: '◷',
+    title: 'Your Delivery Window Was Updated',
+    greetingName: input.customerName,
+    intro: `Your order ${input.orderNumber} is currently estimated to arrive between ${input.startDateLabel} and ${input.endDateLabel}.`,
+    statusTitle: 'Delivery Estimate',
+    statusText: `${input.startDateLabel} to ${input.endDateLabel}`,
+    ctaLabel: 'TRACK MY ORDER',
+    ctaUrl: `${getAppUrl()}/track-order/${encodeURIComponent(input.orderNumber)}`,
+  });
 }
 
 export function buildDeliveryWindowEmailText(input: {
@@ -158,16 +212,17 @@ export function buildRefundEmailHtml(input: {
   message: string;
   adminNotes?: string | null;
 }) {
-  return `
-    <div style="font-family:Segoe UI,sans-serif;max-width:680px;margin:0 auto;padding:24px;color:#111827;">
-      <h1 style="font-size:24px;margin:0 0 16px;">Refund request ${escapeHtml(input.statusLabel)}</h1>
-      <p>Hello ${escapeHtml(input.customerName || 'there')},</p>
-      <p>There is an update for your refund request on order <strong>${escapeHtml(input.orderNumber)}</strong>.</p>
-      <div style="padding:16px;border:1px solid #e5e7eb;border-radius:12px;background:#f9fafb;margin:16px 0;white-space:pre-wrap;">${escapeHtml(input.message)}</div>
-      ${input.adminNotes ? `<p><strong>Admin note:</strong> ${escapeHtml(input.adminNotes)}</p>` : ''}
-      <p>If you have further questions, please reply through the Help Center.</p>
-    </div>
-  `;
+  return buildAjynEmailHtml({
+    eyebrow: `Order ${input.orderNumber}`,
+    reference: input.orderNumber,
+    icon: '↺',
+    title: `Refund Request ${titleCase(input.statusLabel)}`,
+    greetingName: input.customerName,
+    intro: `There is an update for your refund request on order ${input.orderNumber}.`,
+    bodyHtml: `<p style="margin:0 0 14px;white-space:pre-wrap;">${escapeHtml(input.message)}</p>${input.adminNotes ? `<p style="margin:0 0 14px;"><strong>Admin note:</strong> ${escapeHtml(input.adminNotes)}</p>` : ''}`,
+    statusTitle: input.statusLabel,
+    statusText: 'If you have further questions, please reply through the Help Center.',
+  });
 }
 
 export function buildRefundEmailText(input: {
@@ -189,8 +244,120 @@ export function buildRefundEmailText(input: {
   ].filter(Boolean).join('\n');
 }
 
-function escapeHtml(value: string) {
+export function buildAjynEmailHtml(input: AjynEmailInput) {
+  const preview = input.intro || input.statusText || input.title;
+
+  return `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="x-apple-disable-message-reformatting">
+    <title>${escapeHtml(input.title)}</title>
+  </head>
+  <body style="margin:0;padding:0;background:#f5f2ef;color:#2a1710;font-family:Arial,Helvetica,sans-serif;">
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${escapeHtml(preview)}</div>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f5f2ef;border-collapse:collapse;">
+      <tr>
+        <td align="center" style="padding:28px 12px;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;max-width:640px;border-collapse:collapse;background:#ffffff;border:1px solid #ece6e1;border-radius:10px;overflow:hidden;box-shadow:0 18px 42px rgba(42,23,16,0.08);">
+            <tr>
+              <td style="padding:30px 38px 20px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+                  <tr>
+                    <td valign="middle">
+                      <div style="font-size:34px;line-height:1;font-family:Georgia,'Times New Roman',serif;color:#2a1710;letter-spacing:0.06em;">A</div>
+                      <div style="font-size:11px;letter-spacing:0.52em;font-weight:700;color:#2a1710;margin-top:6px;">AJYN</div>
+                    </td>
+                    <td align="right" valign="middle" style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#2a1710;">
+                      ${input.eyebrow ? escapeHtml(input.eyebrow) : ''}${input.reference ? ` <span style="color:#c46f35;">${escapeHtml(input.reference)}</span>` : ''}
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="border-top:1px solid #ece6e1;padding:34px 38px 26px;text-align:center;">
+                <div style="width:72px;height:72px;border-radius:50%;background:#eee4dc;margin:0 auto 18px;color:#b96a35;font-size:34px;line-height:72px;text-align:center;">${input.icon || '✓'}</div>
+                <h1 style="margin:0;color:#2a1710;font-size:27px;line-height:1.25;font-family:Georgia,'Times New Roman',serif;font-weight:700;">${escapeHtml(input.title)}</h1>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 68px 28px;color:#2a1710;font-size:14px;line-height:1.7;">
+                <p style="margin:0 0 14px;">Hello ${escapeHtml(input.greetingName || 'there')},</p>
+                ${input.intro ? `<p style="margin:0 0 14px;">${escapeHtml(input.intro)}</p>` : ''}
+                ${input.bodyHtml || ''}
+                ${
+                  input.statusTitle || input.statusText
+                    ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:22px 0;border-collapse:collapse;background:#f7f4f1;border-radius:9px;">
+                        <tr>
+                          <td width="58" valign="top" style="padding:18px 0 18px 20px;">
+                            <div style="width:42px;height:42px;border:2px solid #c46f35;border-radius:50%;color:#c46f35;line-height:39px;text-align:center;font-size:24px;">✓</div>
+                          </td>
+                          <td style="padding:17px 20px 17px 10px;">
+                            ${input.statusTitle ? `<div style="font-weight:700;font-size:16px;color:#2a1710;margin-bottom:3px;">${escapeHtml(input.statusTitle)}</div>` : ''}
+                            ${input.statusText ? `<div style="font-size:12px;line-height:1.5;color:#3f332d;">${escapeHtml(input.statusText)}</div>` : ''}
+                          </td>
+                        </tr>
+                      </table>`
+                    : ''
+                }
+                ${input.closing ? `<p style="margin:0 0 18px;">${escapeHtml(input.closing)}</p>` : '<p style="margin:0 0 18px;">We will keep you updated every step of the way.</p>'}
+                ${
+                  input.ctaLabel && input.ctaUrl
+                    ? `<div style="text-align:center;margin:24px 0 4px;">
+                        <a href="${escapeHtml(input.ctaUrl)}" style="display:inline-block;background:#111111;color:#c46f35;text-decoration:none;border-radius:5px;padding:14px 42px;font-size:12px;letter-spacing:0.14em;font-weight:700;">${escapeHtml(input.ctaLabel)}</a>
+                      </div>`
+                    : ''
+                }
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:22px 38px;border-top:1px solid #ece6e1;text-align:center;color:#2a1710;">
+                <div style="font-size:22px;color:#c46f35;line-height:1;">◜</div>
+                <div style="font-size:15px;font-weight:700;margin-top:2px;">Need help?</div>
+                <div style="font-size:12px;color:#6b625c;margin:4px 0 14px;">We are here for you.</div>
+                <span style="display:inline-block;margin:0 12px;font-size:12px;color:#2a1710;">✉ ${SUPPORT_EMAIL}</span>
+                <span style="display:inline-block;margin:0 12px;font-size:12px;color:#2a1710;">☏ ${SUPPORT_PHONE}</span>
+              </td>
+            </tr>
+            <tr>
+              <td style="background:#f5f2ef;padding:22px 38px;text-align:center;color:#6b625c;font-size:11px;line-height:1.7;">
+                <div style="letter-spacing:0.55em;color:#2a1710;font-weight:700;margin-bottom:8px;">AJYN</div>
+                <div>Thank you for shopping with ${BRAND_NAME}.</div>
+                <div>© 2026 ${BRAND_NAME}. All rights reserved.</div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+}
+
+function getAppUrl() {
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return window.location.origin;
+  }
+
+  return 'https://www.ajynworld.com';
+}
+
+function formatGhs(amount: number) {
+  return `GHS ${Number(amount || 0).toFixed(2)}`;
+}
+
+function titleCase(value: string) {
   return value
+    .split(/[\s_-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ');
+}
+
+function escapeHtml(value: string) {
+  return String(value)
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
