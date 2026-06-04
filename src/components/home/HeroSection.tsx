@@ -75,8 +75,43 @@ const heroSlides = [
   },
 ];
 
+const textThemes = [
+  {
+    headline: '#fff7ed',
+    accent: '#ff8a33',
+    body: 'rgba(255, 247, 237, 0.88)',
+    badge: 'rgba(255, 247, 237, 0.86)',
+  },
+  {
+    headline: '#fef3c7',
+    accent: '#fbbf24',
+    body: 'rgba(254, 243, 199, 0.88)',
+    badge: 'rgba(254, 243, 199, 0.86)',
+  },
+  {
+    headline: '#ecfdf5',
+    accent: '#86efac',
+    body: 'rgba(236, 253, 245, 0.88)',
+    badge: 'rgba(236, 253, 245, 0.86)',
+  },
+  {
+    headline: '#eff6ff',
+    accent: '#93c5fd',
+    body: 'rgba(239, 246, 255, 0.88)',
+    badge: 'rgba(239, 246, 255, 0.86)',
+  },
+  {
+    headline: '#fff1f2',
+    accent: '#fda4af',
+    body: 'rgba(255, 241, 242, 0.88)',
+    badge: 'rgba(255, 241, 242, 0.86)',
+  },
+];
+
 export function HeroSection() {
   const [activeSlide, setActiveSlide] = useState(0);
+  const activeTextTheme = textThemes[activeSlide % textThemes.length];
+
   const showSlide = (index: number) => {
     setActiveSlide((index + heroSlides.length) % heroSlides.length);
   };
@@ -133,12 +168,20 @@ export function HeroSection() {
       {/* Content */}
       <div className="container relative z-10 px-3 py-12 sm:px-6 sm:py-20">
         <div className="max-w-2xl">
-          <h1 className="mb-4 text-[2.35rem] font-bold font-serif leading-[0.98] text-primary-foreground sm:text-4xl md:mb-6 md:text-5xl lg:text-6xl">
+          <h1
+            className="mb-4 text-[2.35rem] font-bold font-serif leading-[0.98] transition-colors duration-700 sm:text-4xl md:mb-6 md:text-5xl lg:text-6xl"
+            style={{ color: activeTextTheme.headline }}
+          >
             Shopping the world,
             <br />
-            <span className="text-primary-foreground">simplified.</span>
+            <span className="transition-colors duration-700" style={{ color: activeTextTheme.accent }}>
+              simplified.
+            </span>
           </h1>
-          <p className="mb-6 max-w-lg text-sm leading-6 text-primary-foreground/85 sm:text-lg md:mb-8 md:text-xl">
+          <p
+            className="mb-6 max-w-lg text-sm leading-6 transition-colors duration-700 sm:text-lg md:mb-8 md:text-xl"
+            style={{ color: activeTextTheme.body }}
+          >
             Cross-border shopping made simple. Join group buys, choose your shipping,
             and get products from around the world at transparent prices.
           </p>
@@ -163,15 +206,24 @@ export function HeroSection() {
 
           {/* Trust Badges */}
           <div className="grid gap-2 sm:flex sm:flex-wrap sm:gap-6">
-            <div className="flex items-center gap-2 rounded-full bg-primary-foreground/10 px-3 py-2 text-xs text-primary-foreground/85 backdrop-blur sm:bg-transparent sm:px-0 sm:py-0 sm:text-sm sm:backdrop-blur-0">
+            <div
+              className="flex items-center gap-2 rounded-full bg-primary-foreground/10 px-3 py-2 text-xs backdrop-blur transition-colors duration-700 sm:bg-transparent sm:px-0 sm:py-0 sm:text-sm sm:backdrop-blur-0"
+              style={{ color: activeTextTheme.badge }}
+            >
               <Globe className="h-5 w-5" />
               <span>Ship from 20+ Countries</span>
             </div>
-            <div className="flex items-center gap-2 rounded-full bg-primary-foreground/10 px-3 py-2 text-xs text-primary-foreground/85 backdrop-blur sm:bg-transparent sm:px-0 sm:py-0 sm:text-sm sm:backdrop-blur-0">
+            <div
+              className="flex items-center gap-2 rounded-full bg-primary-foreground/10 px-3 py-2 text-xs backdrop-blur transition-colors duration-700 sm:bg-transparent sm:px-0 sm:py-0 sm:text-sm sm:backdrop-blur-0"
+              style={{ color: activeTextTheme.badge }}
+            >
               <Truck className="h-5 w-5" />
               <span>Flexible Shipping Options</span>
             </div>
-            <div className="flex items-center gap-2 rounded-full bg-primary-foreground/10 px-3 py-2 text-xs text-primary-foreground/85 backdrop-blur sm:bg-transparent sm:px-0 sm:py-0 sm:text-sm sm:backdrop-blur-0">
+            <div
+              className="flex items-center gap-2 rounded-full bg-primary-foreground/10 px-3 py-2 text-xs backdrop-blur transition-colors duration-700 sm:bg-transparent sm:px-0 sm:py-0 sm:text-sm sm:backdrop-blur-0"
+              style={{ color: activeTextTheme.badge }}
+            >
               <Shield className="h-5 w-5" />
               <span>Secure Payments</span>
             </div>
