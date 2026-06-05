@@ -1,21 +1,12 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight, Globe, Shield, Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import heroImage from '@/assets/hero-image.jpg';
 import { useEffect, useMemo, useState } from 'react';
 import { useStoreSettings } from '@/hooks/useStoreSettings';
 import {
-  HERO_CAROUSEL_DEFAULT_POSITION,
   HERO_CAROUSEL_SETTING_KEY,
   normalizeHeroCarouselImages,
 } from '@/lib/heroCarousel';
-
-const fallbackHeroSlides = [
-  {
-    image: heroImage,
-    position: HERO_CAROUSEL_DEFAULT_POSITION,
-  },
-];
 
 const textThemes = [
   {
@@ -56,12 +47,10 @@ export function HeroSection() {
   const heroSlides = useMemo(() => {
     const managedSlides = normalizeHeroCarouselImages(storeSettings?.[HERO_CAROUSEL_SETTING_KEY]);
 
-    return managedSlides.length
-      ? managedSlides.map((slide) => ({
-          image: slide.url,
-          position: slide.position,
-        }))
-      : fallbackHeroSlides;
+    return managedSlides.map((slide) => ({
+      image: slide.url,
+      position: slide.position,
+    }));
   }, [storeSettings]);
   const activeTextTheme = textThemes[activeSlide % textThemes.length];
 
@@ -98,9 +87,6 @@ export function HeroSection() {
             src={slide.image}
             alt=""
             loading={index === 0 ? 'eager' : 'lazy'}
-            onError={(event) => {
-              event.currentTarget.src = heroImage;
-            }}
             style={{ objectPosition: slide.position }}
             className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ease-out ${
               index === activeSlide ? 'opacity-100' : 'opacity-0'

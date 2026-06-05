@@ -520,7 +520,7 @@ export function AdminSettings() {
                 Homepage Hero Carousel
               </CardTitle>
               <CardDescription>
-                Upload the images shown behind the homepage hero banner. These replace the built-in carousel images.
+                Upload the images shown behind the homepage hero banner. The carousel stays empty until images are added here.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -599,7 +599,7 @@ export function AdminSettings() {
                     <ImageIcon className="mb-3 h-8 w-8 text-muted-foreground" />
                     <p className="font-medium">No custom carousel images yet</p>
                     <p className="mt-1 max-w-md text-sm text-muted-foreground">
-                      The homepage will use the default hero image until custom images are uploaded and saved.
+                      Upload and save images here when you want them to appear on the homepage hero.
                     </p>
                   </div>
                 )}
