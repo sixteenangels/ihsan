@@ -2,68 +2,18 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, Globe, Shield, Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import heroImage from '@/assets/hero-image.jpg';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useStoreSettings } from '@/hooks/useStoreSettings';
+import {
+  HERO_CAROUSEL_DEFAULT_POSITION,
+  HERO_CAROUSEL_SETTING_KEY,
+  normalizeHeroCarouselImages,
+} from '@/lib/heroCarousel';
 
-const heroSlides = [
+const fallbackHeroSlides = [
   {
     image: heroImage,
-    position: 'center',
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1605733160314-4fc7dac4bb16?auto=format&fit=crop&w=1800&q=85',
-    position: 'center',
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=1800&q=85',
-    position: 'center',
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1556228453-efd6c1ff04f6?auto=format&fit=crop&w=1800&q=85',
-    position: 'center',
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?auto=format&fit=crop&w=1800&q=85',
-    position: 'center',
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&w=1800&q=85',
-    position: 'center',
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1511556820780-d912e42b4980?auto=format&fit=crop&w=1800&q=85',
-    position: 'center',
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=1800&q=85',
-    position: 'center',
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=1800&q=85',
-    position: 'center',
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1576678927484-cc907957088c?auto=format&fit=crop&w=1800&q=85',
-    position: 'center',
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=1800&q=85',
-    position: 'center',
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=1800&q=85',
-    position: 'center',
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=1800&q=85',
-    position: 'center',
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1800&q=85',
-    position: 'center',
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=1800&q=85',
-    position: 'center',
+    position: HERO_CAROUSEL_DEFAULT_POSITION,
   },
 ];
 
@@ -102,28 +52,42 @@ const textThemes = [
 
 export function HeroSection() {
   const [activeSlide, setActiveSlide] = useState(0);
+  const { data: storeSettings } = useStoreSettings();
+  const heroSlides = useMemo(() => {
+    const managedSlides = normalizeHeroCarouselImages(storeSettings?.[HERO_CAROUSEL_SETTING_KEY]);
+
+    return managedSlides.length
+      ? managedSlides.map((slide) => ({
+          image: slide.url,
+          position: slide.position,
+        }))
+      : fallbackHeroSlides;
+  }, [storeSettings]);
   const activeTextTheme = textThemes[activeSlide % textThemes.length];
 
-  const getRandomSlide = (current: number) => {
-    if (heroSlides.length <= 1) return current;
-
-    let next = current;
-    while (next === current) {
-      next = Math.floor(Math.random() * heroSlides.length);
+  useEffect(() => {
+    if (activeSlide >= heroSlides.length) {
+      setActiveSlide(0);
     }
-    return next;
-  };
+  }, [activeSlide, heroSlides.length]);
 
   useEffect(() => {
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduceMotion) return undefined;
+    if (heroSlides.length <= 1) return undefined;
 
     const interval = window.setInterval(() => {
-      setActiveSlide((current) => getRandomSlide(current));
+      setActiveSlide((current) => {
+        let next = current;
+        while (next === current) {
+          next = Math.floor(Math.random() * heroSlides.length);
+        }
+        return next;
+      });
     }, 3800);
 
     return () => window.clearInterval(interval);
-  }, []);
+  }, [heroSlides.length]);
 
   return (
     <section className="relative flex min-h-[64dvh] items-center overflow-hidden sm:min-h-[80vh]">

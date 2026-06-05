@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,10 +9,34 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Settings, Key, Mail, Map, Shield, Database, Loader2, Award, Gift, ToggleLeft } from 'lucide-react';
+import {
+  Settings,
+  Key,
+  Mail,
+  Map,
+  Shield,
+  Database,
+  Loader2,
+  Award,
+  Gift,
+  ToggleLeft,
+  Image as ImageIcon,
+  Trash2,
+  Upload,
+} from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  createHeroCarouselImage,
+  HERO_CAROUSEL_SETTING_KEY,
+  HERO_CAROUSEL_STORAGE_BUCKET,
+  HERO_CAROUSEL_STORAGE_FOLDER,
+  normalizeHeroCarouselImages,
+  type HeroCarouselImage,
+} from '@/lib/heroCarousel';
+import { getErrorMessage } from '@/lib/errors';
 
 interface SettingsState {
+  heroCarouselImages: HeroCarouselImage[];
   emailNotifications: boolean;
   orderEmailsEnabled: boolean;
   marketingEmailsEnabled: boolean;
@@ -52,6 +76,7 @@ interface SettingsState {
 }
 
 const DEFAULT_SETTINGS: SettingsState = {
+  heroCarouselImages: [],
   emailNotifications: true,
   orderEmailsEnabled: true,
   marketingEmailsEnabled: false,
@@ -110,12 +135,27 @@ const settingsRowClass =
   'flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between';
 const settingsStatusRowClass =
   'flex flex-col gap-3 rounded-lg border border-border p-4 sm:flex-row sm:items-center sm:justify-between';
+const MAX_HERO_CAROUSEL_IMAGE_SIZE = 5 * 1024 * 1024;
+
+function getHeroCarouselStoragePath(file: File) {
+  const fileExt = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+  const randomToken =
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : Math.random().toString(36).slice(2, 11);
+
+  return `${HERO_CAROUSEL_STORAGE_FOLDER}/${Date.now()}-${randomToken}.${fileExt}`;
+}
 
 function coerceSettingValue<K extends keyof SettingsState>(
   key: K,
   value: unknown,
 ): SettingsState[K] {
   const fallback = DEFAULT_SETTINGS[key];
+
+  if (key === HERO_CAROUSEL_SETTING_KEY) {
+    return normalizeHeroCarouselImages(value) as SettingsState[K];
+  }
 
   if (typeof fallback === 'boolean') {
     return Boolean(value) as SettingsState[K];
@@ -131,6 +171,8 @@ function coerceSettingValue<K extends keyof SettingsState>(
 
 export function AdminSettings() {
   const queryClient = useQueryClient();
+  const heroImageInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingHeroImages, setIsUploadingHeroImages] = useState(false);
 
   const { data: dbSettings, isLoading } = useQuery({
     queryKey: ['admin-settings'],
@@ -209,6 +251,69 @@ export function AdminSettings() {
     saveMutation.mutate(settings);
   };
 
+  const handleHeroCarouselFiles = async (files: File[]) => {
+    if (files.length === 0) return;
+
+    const validFiles = files.filter((file) => {
+      if (!file.type.startsWith('image/')) {
+        toast.error(`${file.name} is not an image`);
+        return false;
+      }
+
+      if (file.size > MAX_HERO_CAROUSEL_IMAGE_SIZE) {
+        toast.error(`${file.name} is too large. Max size is 5MB.`);
+        return false;
+      }
+
+      return true;
+    });
+
+    if (validFiles.length === 0) return;
+
+    setIsUploadingHeroImages(true);
+    try {
+      const uploadedImages = await Promise.all(
+        validFiles.map(async (file) => {
+          const filePath = getHeroCarouselStoragePath(file);
+          const { error: uploadError } = await supabase.storage
+            .from(HERO_CAROUSEL_STORAGE_BUCKET)
+            .upload(filePath, file, {
+              cacheControl: '31536000',
+              upsert: false,
+            });
+
+          if (uploadError) throw uploadError;
+
+          const { data } = supabase.storage
+            .from(HERO_CAROUSEL_STORAGE_BUCKET)
+            .getPublicUrl(filePath);
+
+          return createHeroCarouselImage(data.publicUrl);
+        }),
+      );
+
+      setSettings((prev) => ({
+        ...prev,
+        heroCarouselImages: [...prev.heroCarouselImages, ...uploadedImages],
+      }));
+      toast.success(`${uploadedImages.length} carousel image${uploadedImages.length === 1 ? '' : 's'} added`);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Failed to upload carousel images'));
+    } finally {
+      setIsUploadingHeroImages(false);
+      if (heroImageInputRef.current) {
+        heroImageInputRef.current.value = '';
+      }
+    }
+  };
+
+  const removeHeroCarouselImage = (imageId: string) => {
+    setSettings((prev) => ({
+      ...prev,
+      heroCarouselImages: prev.heroCarouselImages.filter((image) => image.id !== imageId),
+    }));
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -233,6 +338,10 @@ export function AdminSettings() {
           <TabsTrigger value="general" className="gap-2">
             <Settings className="h-4 w-4" />
             General
+          </TabsTrigger>
+          <TabsTrigger value="homepage" className="gap-2">
+            <ImageIcon className="h-4 w-4" />
+            Homepage
           </TabsTrigger>
           <TabsTrigger value="features" className="gap-2">
             <ToggleLeft className="h-4 w-4" />
@@ -397,6 +506,103 @@ export function AdminSettings() {
                     <p className="font-medium">Supabase</p>
                   </div>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Homepage Settings */}
+        <TabsContent value="homepage">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ImageIcon className="h-5 w-5 text-primary" />
+                Homepage Hero Carousel
+              </CardTitle>
+              <CardDescription>
+                Upload the images shown behind the homepage hero banner. These replace the built-in carousel images.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="rounded-lg border border-border p-4">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <Label>Carousel Images</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Add one or more JPG, PNG, or WebP images. Click Save Changes to publish them.
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    <input
+                      ref={heroImageInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={(event) => handleHeroCarouselFiles(Array.from(event.target.files || []))}
+                      className="hidden"
+                    />
+                    {settings.heroCarouselImages.length > 0 && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSettings((prev) => ({ ...prev, heroCarouselImages: [] }))}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Clear
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => heroImageInputRef.current?.click()}
+                      disabled={isUploadingHeroImages}
+                    >
+                      {isUploadingHeroImages ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Upload className="mr-2 h-4 w-4" />
+                      )}
+                      Upload
+                    </Button>
+                  </div>
+                </div>
+
+                {settings.heroCarouselImages.length > 0 ? (
+                  <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                    {settings.heroCarouselImages.map((image, index) => (
+                      <div key={image.id} className="group relative aspect-[4/5] overflow-hidden rounded-lg border border-border bg-muted">
+                        <img
+                          src={image.url}
+                          alt={`Hero carousel image ${index + 1}`}
+                          className="h-full w-full object-cover"
+                          style={{ objectPosition: image.position }}
+                        />
+                        <div className="absolute left-2 top-2 rounded-full bg-background/85 px-2 py-1 text-xs font-medium text-foreground shadow-sm">
+                          {index + 1}
+                        </div>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          className="absolute right-2 top-2 h-8 w-8 opacity-100 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100"
+                          onClick={() => removeHeroCarouselImage(image.id)}
+                          aria-label={`Remove hero carousel image ${index + 1}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="mt-4 flex min-h-40 flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/40 p-6 text-center">
+                    <ImageIcon className="mb-3 h-8 w-8 text-muted-foreground" />
+                    <p className="font-medium">No custom carousel images yet</p>
+                    <p className="mt-1 max-w-md text-sm text-muted-foreground">
+                      The homepage will use the default hero image until custom images are uploaded and saved.
+                    </p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

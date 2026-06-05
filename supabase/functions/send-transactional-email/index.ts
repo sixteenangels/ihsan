@@ -14,9 +14,10 @@ interface EmailPayload {
 
 type EmailProvider = 'resend' | 'gmail_smtp'
 
-const DEFAULT_FROM_ADDRESS = 'no-reply@ajyn.app'
+const DEFAULT_FROM_ADDRESS = 'no-reply@ajynworld.com'
 const DEFAULT_FROM_NAME = 'AJYN'
 const EMAIL_ADDRESS_PATTERN = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/
+const EMAIL_REDACTION = '[email redacted]'
 
 function extractEmailAddress(value?: string | null) {
   const trimmed = value?.trim()
@@ -42,13 +43,35 @@ function normalizeEmail(value?: string | null) {
   return extractEmailAddress(value)?.toLowerCase() || null
 }
 
+function redactEmailAddresses(value: string) {
+  return value.replace(/[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+/g, EMAIL_REDACTION)
+}
+
+function isSmtpLoginAddress(value?: string | null) {
+  const smtpUser = normalizeEmail(Deno.env.get('GMAIL_SMTP_USER'))
+  const address = normalizeEmail(value)
+
+  return Boolean(smtpUser && address && smtpUser === address)
+}
+
 function canUseGmailFromAddress(fromEmail: string) {
   const smtpUser = normalizeEmail(Deno.env.get('GMAIL_SMTP_USER'))
   const requestedFrom = normalizeEmail(fromEmail)
   const allowSendAsAlias = Deno.env.get('GMAIL_ALLOW_SEND_AS_ALIAS') === 'true'
 
   if (!smtpUser || !requestedFrom) return false
-  return allowSendAsAlias || smtpUser === requestedFrom
+  if (smtpUser === requestedFrom) return false
+
+  return allowSendAsAlias
+}
+
+function buildSafeReplyToAddress(fromEmail: string) {
+  const configuredReplyTo = Deno.env.get('REPLY_TO_EMAIL')
+  if (!configuredReplyTo || isSmtpLoginAddress(configuredReplyTo)) {
+    return fromEmail
+  }
+
+  return buildBrandedFromAddress(configuredReplyTo, fromEmail)
 }
 
 async function updateOutboxStatus(
@@ -123,7 +146,7 @@ async function sendWithGmailSmtp(payload: EmailPayload, fromEmail: string) {
 
   const result = await transporter.sendMail({
     from: fromEmail,
-    replyTo: Deno.env.get('REPLY_TO_EMAIL') || fromEmail,
+    replyTo: buildSafeReplyToAddress(fromEmail),
     to: payload.to,
     subject: payload.subject,
     html: payload.html,
@@ -176,11 +199,13 @@ Deno.serve(async (req) => {
 
     const resendApiKey = Deno.env.get('RESEND_API_KEY')
     const resendFromEmail = buildBrandedFromAddress(Deno.env.get('FROM_EMAIL'))
-    const gmailFromEmail = buildBrandedFromAddress(Deno.env.get('GMAIL_FROM_EMAIL'), Deno.env.get('GMAIL_SMTP_USER'))
+    const gmailFromInput = Deno.env.get('GMAIL_FROM_EMAIL')
+    const gmailFromEmail = buildBrandedFromAddress(gmailFromInput)
     const providerPreference = (Deno.env.get('EMAIL_PROVIDER_PREFERENCE') || 'resend_first').toLowerCase()
     const gmailConfigured = Boolean(
       Deno.env.get('GMAIL_SMTP_USER') &&
       Deno.env.get('GMAIL_SMTP_PASS') &&
+      gmailFromInput?.trim() &&
       canUseGmailFromAddress(gmailFromEmail),
     )
     const resendConfigured = Boolean(resendApiKey)
@@ -204,14 +229,14 @@ Deno.serve(async (req) => {
       await updateOutboxStatus(supabase, outboxRow.id, {
         status: 'failed',
         errorMessage:
-          'No safe email provider configured. Set RESEND_API_KEY for branded email, or configure Gmail SMTP with a matching sender/authorized send-as alias.',
+          'No safe email provider configured. Set RESEND_API_KEY for branded email, or configure Gmail SMTP with a verified branded send-as alias.',
       })
 
       return jsonResponse({
         queued: false,
         sent: false,
         reason:
-          'No safe email provider configured. Gmail SMTP cannot hide the authenticated Gmail address unless the sender is a verified Gmail send-as alias.',
+          'No safe email provider configured. Gmail SMTP will not be used unless the visible sender is a verified branded send-as alias.',
       })
     }
 
@@ -237,7 +262,8 @@ Deno.serve(async (req) => {
           attemptedProviders: availableProviders,
         })
       } catch (providerError) {
-        const message = providerError instanceof Error ? providerError.message : 'Unknown provider error'
+        const rawMessage = providerError instanceof Error ? providerError.message : 'Unknown provider error'
+        const message = redactEmailAddresses(rawMessage)
         providerErrors.push({ provider, error: message })
       }
     }
@@ -255,6 +281,8 @@ Deno.serve(async (req) => {
     }, 502)
   } catch (error) {
     console.error('send-transactional-email error', error)
-    return jsonResponse({ error: error instanceof Error ? error.message : 'Unknown error' }, 500)
+    return jsonResponse({
+      error: error instanceof Error ? redactEmailAddresses(error.message) : 'Unknown error',
+    }, 500)
   }
 })
