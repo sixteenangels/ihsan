@@ -728,24 +728,16 @@ export default function Profile() {
       return;
     }
 
+    const confirmationRows = Array.isArray(data) ? data : [];
     const confirmedAt =
-      Array.isArray(data) && data[0] && typeof data[0] === 'object' && 'confirmed_at' in data[0]
-        ? String((data[0] as { confirmed_at: string }).confirmed_at)
+      confirmationRows[0] &&
+      typeof confirmationRows[0] === 'object' &&
+      'confirmed_at' in confirmationRows[0]
+        ? String((confirmationRows[0] as { confirmed_at: string }).confirmed_at)
         : new Date().toISOString();
     toast.success('Delivery confirmed!');
     await fetchOrders();
     setReviewDialogOrder({ ...order, status: 'delivered', customer_confirmed_at: confirmedAt });
-  };
-
-  const getStatusBadge = (status: string) => {
-    const config = statusConfig[status] || statusConfig.pending;
-    const Icon = config.icon;
-    return (
-      <Badge className={`${config.color} gap-1`}>
-        <Icon className="h-3 w-3" />
-        {config.label}
-      </Badge>
-    );
   };
 
   if (authLoading || loading) {
@@ -1173,7 +1165,7 @@ export default function Profile() {
                       formatPrice={formatPrice}
                       onTrack={handleTrackOrder}
                       onConfirmDelivery={handleConfirmDelivery}
-                      onReview={(selectedOrder) => setReviewDialogOrder(selectedOrder)}
+                      onReview={() => setReviewDialogOrder(order)}
                       onBuyAgain={handleBuyAgain}
                       afterSalesAction={
                         <AfterSalesServiceDialog

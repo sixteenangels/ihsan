@@ -4,6 +4,12 @@ function normalizeEmail(value: unknown) {
   return typeof value === 'string' ? value.trim().toLowerCase() : '';
 }
 
+function toSubunitAmount(value: unknown) {
+  const numberValue = Number(value);
+  if (!Number.isFinite(numberValue)) return null;
+  return Math.round(numberValue);
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -72,7 +78,8 @@ Deno.serve(async (req) => {
     return jsonResponse({
       verified,
       status: txn?.status || null,
-      amount: typeof txn?.amount === 'number' ? txn.amount : null,
+      amount: toSubunitAmount(txn?.amount),
+      requestedAmount: toSubunitAmount(txn?.requested_amount),
       currency: typeof txn?.currency === 'string' ? txn.currency : null,
       reference: typeof txn?.reference === 'string' ? txn.reference : reference,
     });

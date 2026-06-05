@@ -21,6 +21,7 @@ export function Header() {
   const { user, isAdmin, signOut } = useAuth();
   const navigate = useNavigate();
   const { isEnabled } = useFeatureFlags();
+  const mobileActionColor = '#ff8a33';
 
   const navLinks = [
     { name: 'Home', href: '/' },
@@ -65,7 +66,10 @@ export function Header() {
         </nav>
 
         {/* Right Side Actions */}
-        <div className="flex items-center gap-0.5 text-primary-foreground sm:gap-2 md:text-foreground [&_button]:text-primary-foreground [&_button]:hover:bg-white/10 [&_button]:hover:text-primary-foreground md:[&_button]:text-foreground md:[&_button]:hover:bg-accent md:[&_button]:hover:text-accent-foreground">
+        <div
+          className="flex items-center gap-0.5 sm:gap-2 md:text-foreground [&_button]:hover:bg-white/10 md:[&_button]:text-foreground md:[&_button]:hover:bg-accent md:[&_button]:hover:text-accent-foreground"
+          style={{ color: mobileActionColor }}
+        >
           {/* Notifications */}
           <NotificationBell />
 
@@ -140,7 +144,8 @@ export function Header() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-9 w-9 rounded-full text-primary-foreground hover:bg-white/10 hover:text-primary-foreground"
+                className="h-9 w-9 rounded-full hover:bg-white/10"
+                style={{ color: mobileActionColor }}
               >
                 <Menu className="h-5 w-5" />
               </Button>

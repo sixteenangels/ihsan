@@ -128,7 +128,8 @@ export function AdminSupport() {
   const [requestSummaries, setRequestSummaries] = useState<Record<string, string>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isDocumentVisible = useDocumentVisibility();
-  const queueFilter = isSupportQueueFilter(searchParams.get('queue')) ? searchParams.get('queue')! : 'all';
+  const queueParam = searchParams.get('queue');
+  const queueFilter: SupportQueueFilter = isSupportQueueFilter(queueParam) ? queueParam : 'all';
   const categoryFilter = searchParams.get('category') || 'all';
   const supportTypeFilter = searchParams.get('type') || 'all';
 

@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Loader2, Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 import { toast } from 'sonner';
 
+import type { Json } from '@/integrations/supabase/types';
 import { useGroupBuySettings } from '@/hooks/useGroupBuySettings';
 import {
   buildGroupBuySettingsSnapshot,
@@ -73,7 +74,7 @@ export function AdminGroupBuySettingsCard() {
     mutationFn: async (nextSettings: GroupBuySettings) => {
       await upsertStoreSetting(
         GROUP_BUY_SETTINGS_STORE_KEY,
-        buildGroupBuySettingsSnapshot(nextSettings),
+        buildGroupBuySettingsSnapshot(nextSettings) as unknown as Json,
       );
     },
     onSuccess: () => {

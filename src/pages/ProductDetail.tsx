@@ -109,8 +109,9 @@ interface SelectedVariant {
   color: string | null;
   price: number;
   stock: number | null;
+  sku: string | null;
   quantity: number;
-  image_url?: string | null;
+  image_url: string | null;
 }
 
 interface ShippingRule {
@@ -215,7 +216,7 @@ export default function ProductDetail() {
     });
   }, [product, user?.id]);
 
-  const handleAddVariantSelection = (variant: { id: string; size: string | null; color: string | null; price: number; stock: number | null; image_url?: string | null }, quantity: number) => {
+  const handleAddVariantSelection = (variant: { id: string; size: string | null; color: string | null; price: number; stock: number | null; sku?: string | null; image_url?: string | null }, quantity: number) => {
     const normalizedQuantity = Math.max(1, quantity);
     const existingSelection = selectedVariants.find((selectedVariant) => selectedVariant.id === variant.id);
 
@@ -224,7 +225,15 @@ export default function ProductDetail() {
       return;
     }
 
-    setSelectedVariants((prev) => [...prev, { ...variant, quantity: normalizedQuantity }]);
+    setSelectedVariants((prev) => [
+      ...prev,
+      {
+        ...variant,
+        sku: variant.sku ?? null,
+        image_url: variant.image_url ?? null,
+        quantity: normalizedQuantity,
+      },
+    ]);
   };
 
   const handleQuantityChange = (variantId: string, quantity: number) => {

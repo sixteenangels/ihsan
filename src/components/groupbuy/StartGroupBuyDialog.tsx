@@ -3,6 +3,7 @@ import { flushSync } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +21,7 @@ import { MapPin, Package, Plane, Ship, Truck, Users } from 'lucide-react';
 import { useCurrency } from '@/hooks/useCurrency';
 import { getErrorMessage } from '@/lib/errors';
 import { loadPaystack, type PaystackTransactionResponse } from '@/lib/paystack';
+import { isPaystackAmountValid } from '@/lib/paymentVerification';
 import { VariantQuantityStepper } from '@/components/groupbuy/VariantQuantityStepper';
 import {
   buildGroupBuyVariantSelections,
@@ -439,13 +441,13 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
         return;
       }
 
-      if (verification.amount !== expectedAmount) {
+      if (!isPaystackAmountValid(verification, expectedAmount)) {
         toast.error(`Payment amount mismatch. Contact support with ref: ${paymentRef}`);
         setIsPaying(false);
         return;
       }
 
-      if (verification.currency !== 'GHS') {
+      if (verification.currency?.toUpperCase() !== 'GHS') {
         toast.error(`Payment currency mismatch. Contact support with ref: ${paymentRef}`);
         setIsPaying(false);
         return;
@@ -503,7 +505,7 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
         created_by: user.id,
         status: 'open',
         current_participants: 0,
-        settings: settingsSnapshot,
+        settings: settingsSnapshot as unknown as Json,
       })
       .select()
       .single();

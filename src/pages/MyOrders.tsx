@@ -11,6 +11,7 @@ import {
   Users,
   XCircle,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
@@ -72,8 +73,13 @@ interface ProductImageLookupRow {
   order_index: number | null;
 }
 
-const CUSTOMER_STATUS_TABS = [
-  { value: 'all', label: 'All Orders', icon: Package },
+const CUSTOMER_STATUS_TABS: ReadonlyArray<{
+  value: string;
+  label: string;
+  icon: LucideIcon;
+  statuses: readonly string[];
+}> = [
+  { value: 'all', label: 'All Orders', icon: Package, statuses: [] },
   {
     value: 'active',
     label: 'Active',
@@ -274,9 +280,12 @@ export default function MyOrders() {
       return;
     }
 
+    const confirmationRows = Array.isArray(data) ? data : [];
     const confirmedAt =
-      Array.isArray(data) && data[0] && typeof data[0] === 'object' && 'confirmed_at' in data[0]
-        ? String((data[0] as { confirmed_at: string }).confirmed_at)
+      confirmationRows[0] &&
+      typeof confirmationRows[0] === 'object' &&
+      'confirmed_at' in confirmationRows[0]
+        ? String((confirmationRows[0] as { confirmed_at: string }).confirmed_at)
         : new Date().toISOString();
     toast.success('Delivery confirmed!');
     await fetchOrders();

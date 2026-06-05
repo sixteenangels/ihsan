@@ -15,6 +15,7 @@ import { MapPin, Package, Plane, Ship, Truck, Users, Loader2, Check, UserMinus, 
 import { useCurrency } from '@/hooks/useCurrency';
 import { getErrorMessage } from '@/lib/errors';
 import { loadPaystack, type PaystackTransactionResponse } from '@/lib/paystack';
+import { isPaystackAmountValid } from '@/lib/paymentVerification';
 import { VariantQuantityStepper } from '@/components/groupbuy/VariantQuantityStepper';
 import {
   formatGroupBuyTimeRemaining,
@@ -469,13 +470,13 @@ export function JoinGroupBuyDialog({
         return;
       }
 
-      if (verification.amount !== expectedAmount) {
+      if (!isPaystackAmountValid(verification, expectedAmount)) {
         toast.error(`Payment amount mismatch. Contact support with ref: ${paymentRef}`);
         setPayingWithPaystack(false);
         return;
       }
 
-      if (verification.currency !== 'GHS') {
+      if (verification.currency?.toUpperCase() !== 'GHS') {
         toast.error(`Payment currency mismatch. Contact support with ref: ${paymentRef}`);
         setPayingWithPaystack(false);
         return;

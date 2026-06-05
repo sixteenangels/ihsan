@@ -11,6 +11,8 @@ const navItems = [
   { icon: User, label: 'Account', href: '/profile' },
 ];
 
+const brandOrange = '#ff8a33';
+
 // Haptic feedback for iOS
 const triggerHaptic = () => {
   if ('vibrate' in navigator) {
@@ -47,9 +49,9 @@ export function MobileNavBar() {
               onTouchStart={() => handleTouchStart(item.href)}
               onTouchEnd={handleTouchEnd}
               onTouchCancel={handleTouchEnd}
+              style={{ color: isActive ? brandOrange : `${brandOrange}cc` }}
               className={cn(
                 "relative mx-0.5 flex h-12 flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl transition-all duration-150",
-                isActive ? "text-primary" : "text-primary-foreground/80 hover:text-primary-foreground",
                 isPressed && "scale-90 opacity-70"
               )}
             >
@@ -67,15 +69,17 @@ export function MobileNavBar() {
               </div>
               <span className={cn(
                 "text-[10px] font-medium transition-all duration-200",
-                isActive && "font-semibold text-primary"
+                isActive && "font-semibold"
               )}>
                 {item.label}
               </span>
               {/* Active indicator dot */}
               <div className={cn(
-                "absolute bottom-1 h-1 w-1 rounded-full bg-primary transition-all duration-300",
+                "absolute bottom-1 h-1 w-1 rounded-full transition-all duration-300",
                 isActive ? "opacity-100 scale-100" : "opacity-0 scale-0"
-              )} />
+              )}
+                style={{ backgroundColor: brandOrange }}
+              />
             </Link>
           );
         })}

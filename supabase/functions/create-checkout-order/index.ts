@@ -97,6 +97,7 @@ interface VerifiedPayment {
   amount: number | null;
   currency: string | null;
   reference: string;
+  requestedAmount: number | null;
   status: string | null;
   verified: boolean;
 }
@@ -117,6 +118,24 @@ function toMoney(value: unknown) {
 
 function toCents(value: number) {
   return Math.round(toMoney(value) * 100);
+}
+
+function toSubunitAmount(value: unknown) {
+  const numberValue = Number(value);
+  if (!Number.isFinite(numberValue)) return null;
+  return Math.round(numberValue);
+}
+
+function isVerifiedPaymentAmountValid(payment: VerifiedPayment, expectedAmount: number) {
+  if (payment.amount === expectedAmount) return true;
+
+  // Paystack can include customer-paid fees in `amount`; `requested_amount`
+  // remains the amount AJYN asked Paystack to collect. Never accept underpayment.
+  return (
+    payment.requestedAmount === expectedAmount &&
+    payment.amount != null &&
+    payment.amount >= expectedAmount
+  );
 }
 
 function normalizeEmail(value: unknown) {
@@ -245,9 +264,10 @@ async function verifyPaystackPayment(
   return {
     verified: txn?.status === 'success',
     status: txn?.status || null,
-    amount: typeof txn?.amount === 'number' ? txn.amount : null,
+    amount: toSubunitAmount(txn?.amount),
     currency: typeof txn?.currency === 'string' ? txn.currency : null,
     reference: typeof txn?.reference === 'string' ? txn.reference : reference,
+    requestedAmount: toSubunitAmount(txn?.requested_amount),
   };
 }
 
@@ -587,10 +607,18 @@ Deno.serve(async (req) => {
       if (!verification.verified) {
         throw new Error('Payment could not be confirmed.');
       }
-      if (verification.currency !== 'GHS') {
+      if (verification.currency?.toUpperCase() !== 'GHS') {
         throw new Error('Payment currency mismatch.');
       }
-      if (verification.amount !== toCents(total)) {
+      const expectedAmount = toCents(total);
+      if (!isVerifiedPaymentAmountValid(verification, expectedAmount)) {
+        console.error('Payment amount mismatch:', {
+          reference: verification.reference,
+          expectedAmount,
+          paidAmount: verification.amount,
+          requestedAmount: verification.requestedAmount,
+          currency: verification.currency,
+        });
         throw new Error('Payment amount mismatch.');
       }
     }

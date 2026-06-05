@@ -104,10 +104,6 @@ export function HeroSection() {
   const [activeSlide, setActiveSlide] = useState(0);
   const activeTextTheme = textThemes[activeSlide % textThemes.length];
 
-  const showSlide = (index: number) => {
-    setActiveSlide((index + heroSlides.length) % heroSlides.length);
-  };
-
   const getRandomSlide = (current: number) => {
     if (heroSlides.length <= 1) return current;
 
@@ -223,19 +219,6 @@ export function HeroSection() {
         </div>
       </div>
 
-      <div className="absolute bottom-20 right-4 z-10 flex gap-2 sm:hidden">
-        {heroSlides.map((slide, index) => (
-          <button
-            key={`mobile-indicator-${slide.image}`}
-            type="button"
-            aria-label={`Show hero slide ${index + 1}`}
-            onClick={() => showSlide(index)}
-            className={`h-2 rounded-full bg-primary-foreground transition-all duration-500 ${
-              index === activeSlide ? 'w-7 opacity-95' : 'w-2 opacity-50'
-            }`}
-          />
-        ))}
-      </div>
     </section>
   );
 }
