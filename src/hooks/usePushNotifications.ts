@@ -165,11 +165,13 @@ export function usePushNotifications() {
 
       if (subscription) {
         // Remove from database
-        await supabase
+        const { error } = await supabase
           .from('push_subscriptions')
           .delete()
           .eq('user_id', user.id)
           .eq('endpoint', subscription.endpoint);
+
+        if (error) throw error;
 
         await subscription.unsubscribe();
       }

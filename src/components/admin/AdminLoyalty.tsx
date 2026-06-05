@@ -127,7 +127,7 @@ export function AdminLoyalty() {
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + parseInt(bdayExpiryDays));
 
-        await supabase.from('coupons').insert({
+        const { error: couponInsertError } = await supabase.from('coupons').insert({
           code,
           type: 'percentage' as const,
           value: parseFloat(bdayDiscount),
@@ -136,12 +136,16 @@ export function AdminLoyalty() {
           is_active: true,
         });
 
-        await supabase.from('notifications').insert({
+        if (couponInsertError) throw couponInsertError;
+
+        const { error: notificationInsertError } = await supabase.from('notifications').insert({
           user_id: u.user_id,
           title: '🎂 Happy Birthday!',
           message: `Here's a ${bdayDiscount}% birthday coupon just for you! Use code: ${code}`,
           type: 'promotion',
         });
+
+        if (notificationInsertError) throw notificationInsertError;
 
         created++;
       }

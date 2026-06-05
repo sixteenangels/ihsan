@@ -215,7 +215,7 @@ Deno.serve(async (req) => {
     for (const snapshot of rows) {
       const profile = profileMap.get(snapshot.user_id)
 
-      await supabase.from('notifications').insert({
+      const { error: inAppNotificationError } = await supabase.from('notifications').insert({
         user_id: snapshot.user_id,
         title: 'Resume your checkout',
         message: `You still have ${snapshot.item_count} item${snapshot.item_count === 1 ? '' : 's'} waiting in checkout.`,
@@ -226,13 +226,22 @@ Deno.serve(async (req) => {
         },
       })
 
-      await supabase.from('checkout_recovery_reminders').insert({
+      if (inAppNotificationError) {
+        console.error('Failed to create checkout recovery notification', snapshot.id, inAppNotificationError)
+      }
+
+      const { error: inAppReminderError } = await supabase.from('checkout_recovery_reminders').insert({
         snapshot_id: snapshot.id,
         user_id: snapshot.user_id,
         channel: 'in_app',
-        status: 'sent',
-        sent_at: new Date().toISOString(),
+        status: inAppNotificationError ? 'failed' : 'sent',
+        error_message: inAppNotificationError?.message || null,
+        sent_at: inAppNotificationError ? null : new Date().toISOString(),
       })
+
+      if (inAppReminderError) {
+        console.error('Failed to record checkout recovery in-app reminder', snapshot.id, inAppReminderError)
+      }
 
       if (!profile?.email) {
         skipped += 1

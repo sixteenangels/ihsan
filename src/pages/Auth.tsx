@@ -1,5 +1,5 @@
 ﻿import { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
@@ -46,6 +46,7 @@ export default function Auth() {
   const [signupEmail, setSignupEmail] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
   const [signupName, setSignupName] = useState('');
+  const [signupAcceptedTerms, setSignupAcceptedTerms] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -221,6 +222,10 @@ export default function Auth() {
       if (e instanceof z.ZodError) {
         newErrors.signupPassword = e.errors[0].message;
       }
+    }
+
+    if (!signupAcceptedTerms) {
+      newErrors.signupTerms = 'Please agree to the Terms & Conditions and Privacy Policy to create an account.';
     }
     
     setErrors(newErrors);
@@ -764,8 +769,57 @@ export default function Auth() {
                         <p className="text-sm text-destructive">{errors.signupPassword}</p>
                       )}
                     </div>
+
+                    <div className="space-y-2 rounded-xl border border-border/70 bg-muted/30 p-3">
+                      <div className="flex items-start gap-3">
+                        <Checkbox
+                          id="signup-legal-agreement"
+                          checked={signupAcceptedTerms}
+                          onCheckedChange={(checked) => {
+                            setSignupAcceptedTerms(checked === true);
+                            if (checked === true) {
+                              setErrors((currentErrors) => {
+                                const nextErrors = { ...currentErrors };
+                                delete nextErrors.signupTerms;
+                                return nextErrors;
+                              });
+                            }
+                          }}
+                          className="mt-0.5"
+                          aria-describedby="signup-legal-agreement-description"
+                        />
+                        <Label
+                          id="signup-legal-agreement-description"
+                          htmlFor="signup-legal-agreement"
+                          className="cursor-pointer text-sm font-normal leading-relaxed text-muted-foreground"
+                        >
+                          By creating an account, you agree to our{' '}
+                          <Link
+                            to="/terms-of-service"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-medium text-primary underline-offset-4 hover:underline"
+                          >
+                            Terms & Conditions
+                          </Link>{' '}
+                          and{' '}
+                          <Link
+                            to="/privacy-policy"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-medium text-primary underline-offset-4 hover:underline"
+                          >
+                            Privacy Policy
+                          </Link>
+                          .
+                        </Label>
+                      </div>
+                      {errors.signupTerms && (
+                        <p className="pl-7 text-sm text-destructive">{errors.signupTerms}</p>
+                      )}
+                    </div>
                     
-                    <Button type="submit" className="h-11 w-full rounded-xl" disabled={isLoading}>
+                    <Button type="submit" className="h-11 w-full rounded-xl" disabled={isLoading || !signupAcceptedTerms}>
                       {isLoading ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />

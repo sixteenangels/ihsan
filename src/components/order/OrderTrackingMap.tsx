@@ -6,7 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Package, MapPin, Truck, CheckCircle } from 'lucide-react';
 import { useStoreSettings } from '@/hooks/useStoreSettings';
-import { normalizeOrderTrackingNote } from '@/lib/orderHistory';
+import {
+  formatOfficialOrderStatusLabel,
+  formatOrderTrackingDisplayNote,
+  getOfficialOrderStatusIndex,
+} from '@/lib/orderTrackingTimeline';
 
 type LeafletIconDefaultWithGetIconUrl = typeof L.Icon.Default.prototype & {
   _getIconUrl?: unknown;
@@ -53,6 +57,7 @@ interface TrackingPoint {
 
 interface OrderTrackingMapProps {
   trackingPoints: TrackingPoint[];
+  timelinePoints?: TrackingPoint[];
   orderStatus: string;
   estimatedDelivery?: string;
   groupBuyId?: string | null;
@@ -71,12 +76,19 @@ function MapBoundsUpdater({ points }: { points: [number, number][] }) {
   return null;
 }
 
-export function OrderTrackingMap({ trackingPoints, orderStatus, estimatedDelivery, groupBuyId }: OrderTrackingMapProps) {
+export function OrderTrackingMap({
+  trackingPoints,
+  timelinePoints,
+  orderStatus,
+  estimatedDelivery,
+}: OrderTrackingMapProps) {
   const { data: storeSettings } = useStoreSettings();
   const validPoints = trackingPoints.filter(p => p.latitude != null && p.longitude != null);
-  const sortedTrackingPoints = [...trackingPoints].sort(
-    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
-  );
+  const sortedTimelinePoints = [...(timelinePoints || trackingPoints)].sort((a, b) => {
+    const statusDelta = getOfficialOrderStatusIndex(a.status) - getOfficialOrderStatusIndex(b.status);
+    if (statusDelta !== 0) return statusDelta;
+    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+  });
   const mapProvider = typeof storeSettings?.mapProvider === 'string' ? storeSettings.mapProvider : 'openstreetmap';
   const mapboxPublicKey = typeof storeSettings?.mapboxPublicKey === 'string'
     ? storeSettings.mapboxPublicKey
@@ -91,8 +103,6 @@ export function OrderTrackingMap({ trackingPoints, orderStatus, estimatedDeliver
     ? '&copy; <a href="https://www.mapbox.com/about/maps/">Mapbox</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
   const tileLayerProps = useMapbox ? { tileSize: 512, zoomOffset: -1 } : undefined;
-  const trackingOrder = { group_buy_id: groupBuyId ?? null };
-
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case 'delivered': return 'bg-green-500';
@@ -124,12 +134,12 @@ export function OrderTrackingMap({ trackingPoints, orderStatus, estimatedDeliver
             </CardTitle>
             <Badge className={`${getStatusColor(orderStatus)} text-white`}>
               {getStatusIcon(orderStatus)}
-              <span className="ml-1 capitalize">{orderStatus.replace('_', ' ')}</span>
+              <span className="ml-1">{formatOfficialOrderStatusLabel(orderStatus)}</span>
             </Badge>
           </div>
         </CardHeader>
         <CardContent className="px-5 sm:px-6">
-          {sortedTrackingPoints.length === 0 ? (
+          {sortedTimelinePoints.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
               <Package className="h-12 w-12 mb-4" />
               <p>No tracking information available yet</p>
@@ -141,22 +151,22 @@ export function OrderTrackingMap({ trackingPoints, orderStatus, estimatedDeliver
                 Location pins have not been added yet, but status updates are available below.
               </p>
               <div className="space-y-0">
-                {sortedTrackingPoints.slice().reverse().map((point, index) => (
+                {sortedTimelinePoints.slice().reverse().map((point, index) => (
                   <div key={point.id} className="flex gap-3">
                     <div className="flex flex-col items-center">
                       <div className={`h-3 w-3 rounded-full ${index === 0 ? 'bg-primary' : 'bg-muted-foreground/30'}`} />
-                      {index < sortedTrackingPoints.length - 1 && (
+                      {index < sortedTimelinePoints.length - 1 && (
                         <div className="my-1 min-h-8 w-0.5 flex-1 bg-muted-foreground/20" />
                       )}
                     </div>
                     <div className="flex-1 pb-4">
-                      <p className="text-sm font-medium">{point.location_name || point.status.replaceAll('_', ' ')}</p>
+                      <p className="text-sm font-medium">{formatOfficialOrderStatusLabel(point.status)}</p>
                       <p className="text-xs text-muted-foreground">
                         {new Date(point.created_at).toLocaleString()}
                       </p>
-                      {normalizeOrderTrackingNote(trackingOrder, point.notes) && (
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {normalizeOrderTrackingNote(trackingOrder, point.notes)}
+                      {formatOrderTrackingDisplayNote(point.status, point.notes) && (
+                        <p className="mt-1 whitespace-pre-line text-xs text-muted-foreground">
+                          {formatOrderTrackingDisplayNote(point.status, point.notes)}
                         </p>
                       )}
                     </div>
@@ -230,8 +240,12 @@ export function OrderTrackingMap({ trackingPoints, orderStatus, estimatedDeliver
                   <Popup>
                     <div className="p-1">
                       <p className="font-semibold">{point.location_name || 'Location'}</p>
-                      <p className="text-sm text-muted-foreground">{point.status}</p>
-                      {point.notes && <p className="text-sm mt-1">{point.notes}</p>}
+                      <p className="text-sm text-muted-foreground">{formatOfficialOrderStatusLabel(point.status)}</p>
+                      {formatOrderTrackingDisplayNote(point.status, point.notes) && (
+                        <p className="mt-1 whitespace-pre-line text-sm">
+                          {formatOrderTrackingDisplayNote(point.status, point.notes)}
+                        </p>
+                      )}
                       <p className="text-xs text-muted-foreground mt-2">
                         {new Date(point.created_at).toLocaleString()}
                       </p>
@@ -251,9 +265,11 @@ export function OrderTrackingMap({ trackingPoints, orderStatus, estimatedDeliver
             </div>
             <div className="flex-1">
               <p className="font-medium">{latestPoint.location_name || 'In Transit'}</p>
-              <p className="text-sm text-muted-foreground">{latestPoint.status}</p>
-              {normalizeOrderTrackingNote(trackingOrder, latestPoint.notes) && (
-                <p className="text-sm mt-1">{normalizeOrderTrackingNote(trackingOrder, latestPoint.notes)}</p>
+              <p className="text-sm text-muted-foreground">{formatOfficialOrderStatusLabel(latestPoint.status)}</p>
+              {formatOrderTrackingDisplayNote(latestPoint.status, latestPoint.notes) && (
+                <p className="mt-1 whitespace-pre-line text-sm">
+                  {formatOrderTrackingDisplayNote(latestPoint.status, latestPoint.notes)}
+                </p>
               )}
               <p className="text-xs text-muted-foreground mt-2">
                 Updated: {new Date(latestPoint.created_at).toLocaleString()}
@@ -266,22 +282,22 @@ export function OrderTrackingMap({ trackingPoints, orderStatus, estimatedDeliver
         <div className="space-y-2">
           <h4 className="font-medium text-sm">Tracking History</h4>
           <div className="space-y-3">
-            {validPoints.slice().reverse().map((point, index) => (
+            {sortedTimelinePoints.slice().reverse().map((point, index) => (
               <div key={point.id} className="flex gap-3">
                 <div className="flex flex-col items-center">
                   <div className={`w-3 h-3 rounded-full ${index === 0 ? 'bg-primary' : 'bg-muted-foreground/30'}`} />
-                  {index < validPoints.length - 1 && (
+                  {index < sortedTimelinePoints.length - 1 && (
                     <div className="w-0.5 h-full bg-muted-foreground/20 my-1" />
                   )}
                 </div>
                 <div className="flex-1 pb-4">
-                  <p className="text-sm font-medium">{point.location_name || point.status}</p>
+                  <p className="text-sm font-medium">{formatOfficialOrderStatusLabel(point.status)}</p>
                   <p className="text-xs text-muted-foreground">
                     {new Date(point.created_at).toLocaleString()}
                   </p>
-                  {normalizeOrderTrackingNote(trackingOrder, point.notes) && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {normalizeOrderTrackingNote(trackingOrder, point.notes)}
+                  {formatOrderTrackingDisplayNote(point.status, point.notes) && (
+                    <p className="mt-1 whitespace-pre-line text-xs text-muted-foreground">
+                      {formatOrderTrackingDisplayNote(point.status, point.notes)}
                     </p>
                   )}
                 </div>

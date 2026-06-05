@@ -50,30 +50,21 @@ import {
   buildRefundEmailText,
 } from '@/lib/email-templates';
 import { GroupBuyParticipantList } from '@/components/groupbuy/GroupBuyParticipantList';
+import {
+  OFFICIAL_ORDER_TRACKING_STATUSES,
+  ORDER_TRACKING_STATUS_LABELS,
+  cleanOrderTrackingNoteForStorage,
+  formatOrderTrackingDisplayNote,
+  getDefaultOrderTrackingNote,
+  mergeOrderTrackingNotes,
+  normalizeOrderTimelineStatus,
+  type OfficialOrderTrackingStatus,
+} from '@/lib/orderTrackingTimeline';
 
-const ORDER_STATUSES = [
-  'pending',
-  'payment_received',
-  'order_placed',
-  'order_processed',
-  'confirmed',
-  'processing',
-  'packed_for_delivery',
-  'shipped',
-  'in_transit',
-  'in_ghana',
-  'ready_for_delivery',
-  'handed_to_courier',
-  'out_for_delivery',
-  'delivered',
-  'cancelled',
-  'refunded',
-] as const;
+const ORDER_STATUSES = OFFICIAL_ORDER_TRACKING_STATUSES;
 
-type OrderStatus = typeof ORDER_STATUSES[number];
-const ADMIN_VISIBLE_ORDER_STATUSES: OrderStatus[] = ORDER_STATUSES.filter(
-  (status): status is OrderStatus => status !== 'pending',
-);
+type OrderStatus = OfficialOrderTrackingStatus;
+const ADMIN_VISIBLE_ORDER_STATUSES: OrderStatus[] = [...ORDER_STATUSES];
 type OrderRow = Database['public']['Tables']['orders']['Row'];
 type OrderItemRow = Database['public']['Tables']['order_items']['Row'];
 type OrderTrackingRow = Database['public']['Tables']['order_tracking']['Row'];
@@ -111,6 +102,32 @@ type OrderCard = GroupedAdminOrderCard<AdminOrder>;
 
 type RefundChannel = 'original_payment' | 'wallet_credit' | 'mixed';
 
+type TransactionalEmailResult = {
+  sent?: boolean;
+  skipped?: boolean;
+  queued?: boolean;
+  provider?: string;
+  id?: string | null;
+  reason?: string;
+  error?: string;
+  errors?: Array<{ provider?: string; error?: string }>;
+};
+
+type CustomerNotificationResult = {
+  inAppSent?: boolean;
+  inAppError?: string;
+  pushConfigured?: boolean;
+  pushSent?: number;
+  pushTotal?: number;
+  pushError?: string;
+};
+
+type StatusChangeResult = {
+  emailResult?: TransactionalEmailResult;
+  notificationResult?: CustomerNotificationResult;
+  notifyCustomer: boolean;
+};
+
 const ORDER_STATUS_OPTIONS: OrderStatus[] = [
   'payment_received',
   'confirmed',
@@ -138,8 +155,9 @@ interface StatusTabConfig {
 const STATUS_TABS: StatusTabConfig[] = [
   { value: 'all', label: 'All Orders', icon: Package, statuses: ADMIN_VISIBLE_ORDER_STATUSES },
   { value: 'payment_received', label: 'Payment Received', icon: CreditCard, statuses: ['payment_received'] },
+  { value: 'confirmed', label: 'Confirmed', icon: CheckSquare, statuses: ['confirmed'] },
   { value: 'order_placed', label: 'Order Placed', icon: ShoppingBag, statuses: ['order_placed'] },
-  { value: 'packed_for_delivery', label: 'Packed', icon: PackageCheck, statuses: ['packed_for_delivery'] },
+  { value: 'order_processed', label: 'Order Processed', icon: PackageCheck, statuses: ['order_processed'] },
   { value: 'in_transit', label: 'In Transit', icon: Truck, statuses: ['in_transit'] },
   { value: 'in_ghana', label: 'In Ghana', icon: Plane, statuses: ['in_ghana'] },
   { value: 'ready_for_delivery', label: 'Ready for Delivery', icon: MapPinned, statuses: ['ready_for_delivery'] },
@@ -147,29 +165,14 @@ const STATUS_TABS: StatusTabConfig[] = [
   { value: 'cancelled', label: 'Cancelled/Refunded', icon: XCircle, statuses: ['cancelled', 'refunded'] },
 ];
 
-const STATUS_LABELS: Record<OrderStatus, string> = {
-  pending: 'Pending',
-  payment_received: 'Payment Received',
-  order_placed: 'Order Placed',
-  order_processed: 'Order Processed',
-  confirmed: 'Confirmed',
-  processing: 'Processing',
-  packed_for_delivery: 'Packed for Delivery',
-  shipped: 'Shipped',
-  in_transit: 'In Transit',
-  in_ghana: 'In Ghana',
-  ready_for_delivery: 'Ready for Delivery',
-  handed_to_courier: 'Handed to Courier',
-  out_for_delivery: 'Out for Delivery',
-  delivered: 'Delivered',
-  cancelled: 'Cancelled',
-  refunded: 'Refunded',
-};
+const STATUS_LABELS: Record<OrderStatus, string> = ORDER_TRACKING_STATUS_LABELS;
 
 const STANDARD_CHECKPOINTS = [
   { key: 'payment_received', label: 'Payment' },
+  { key: 'confirmed', label: 'Confirmed' },
   { key: 'order_placed', label: 'Ordered' },
-  { key: 'packed_for_delivery', label: 'Packed' },
+  { key: 'order_processed', label: 'Processed' },
+  { key: 'shipped', label: 'Shipped' },
   { key: 'in_transit', label: 'In Transit' },
   { key: 'in_ghana', label: 'In Ghana' },
   { key: 'ready_for_delivery', label: 'Ready' },
@@ -179,27 +182,12 @@ const STANDARD_CHECKPOINTS = [
 const COURIER_CHECKPOINTS = [
   { key: 'payment_received', label: 'Payment' },
   { key: 'order_processed', label: 'Processed' },
-  { key: 'handed_to_courier', label: 'Courier' },
+  { key: 'handed_to_courier', label: 'Handed' },
   { key: 'out_for_delivery', label: 'Out for Delivery' },
   { key: 'delivered', label: 'Delivered' },
 ] as const;
 
-const ORDER_FLOW_STATUSES: OrderStatus[] = [
-  'pending',
-  'payment_received',
-  'order_placed',
-  'order_processed',
-  'confirmed',
-  'processing',
-  'packed_for_delivery',
-  'shipped',
-  'in_transit',
-  'in_ghana',
-  'ready_for_delivery',
-  'handed_to_courier',
-  'out_for_delivery',
-  'delivered',
-];
+const ORDER_FLOW_STATUSES: OrderStatus[] = [...ORDER_STATUSES];
 
 function getCheckpointsForOrder(status: string) {
   return ['order_processed', 'handed_to_courier', 'out_for_delivery'].includes(status)
@@ -256,41 +244,69 @@ function getCheckpointStatus(
   return 'pending';
 }
 
-function getAutoNote(status: string, productName: string) {
-  switch (status) {
-    case 'payment_received':
-      return `We've received payment for "${productName}".`;
-    case 'order_placed':
-      return `The order for "${productName}" has been placed successfully.`;
-    case 'order_processed':
-      return 'Item verified and prepared for courier pickup.';
-    case 'confirmed':
-      return 'The order is confirmed and queued for fulfillment.';
-    case 'processing':
-      return 'The order is currently being processed.';
-    case 'packed_for_delivery':
-      return 'The order has been packed and is ready to ship.';
-    case 'shipped':
-      return 'The order has been shipped.';
-    case 'in_transit':
-      return 'The order is currently in transit.';
-    case 'in_ghana':
-      return 'The shipment has arrived in Ghana.';
-    case 'ready_for_delivery':
-      return 'The order is ready for final delivery.';
-    case 'handed_to_courier':
-      return 'Courier has picked up the package.';
-    case 'out_for_delivery':
-      return 'The order is out for delivery.';
-    case 'delivered':
-      return 'The order has been delivered.';
-    case 'cancelled':
-      return 'The order has been cancelled.';
-    case 'refunded':
-      return 'The order has been refunded.';
-    default:
-      return '';
+function getAutoNote(status: string, _productName: string) {
+  return getDefaultOrderTrackingNote(status);
+}
+
+async function upsertOrderTrackingStatus({
+  orderId,
+  status,
+  locationName,
+  notes,
+  latitude,
+  longitude,
+}: {
+  orderId: string;
+  status: string;
+  locationName?: string | null;
+  notes?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+}) {
+  const officialStatus = normalizeOrderTimelineStatus(status);
+  if (!officialStatus) return;
+
+  const cleanedNotes = cleanOrderTrackingNoteForStorage(officialStatus, notes);
+  const resolvedLocationName = locationName || STATUS_LABELS[officialStatus];
+
+  const { data: existingRows, error: existingRowsError } = await supabase
+    .from('order_tracking')
+    .select('id, status, notes, location_name, latitude, longitude')
+    .eq('order_id', orderId)
+    .order('created_at', { ascending: true });
+
+  if (existingRowsError) throw existingRowsError;
+
+  const existingTracking = (existingRows || []).find(
+    (row) => normalizeOrderTimelineStatus(row.status) === officialStatus,
+  );
+
+  if (existingTracking) {
+    const { error: trackingUpdateError } = await supabase
+      .from('order_tracking')
+      .update({
+        status: officialStatus,
+        location_name: resolvedLocationName || existingTracking.location_name,
+        latitude: latitude ?? existingTracking.latitude,
+        longitude: longitude ?? existingTracking.longitude,
+        notes: mergeOrderTrackingNotes(officialStatus, existingTracking.notes, cleanedNotes),
+      })
+      .eq('id', existingTracking.id);
+
+    if (trackingUpdateError) throw trackingUpdateError;
+    return;
   }
+
+  const { error: trackingInsertError } = await supabase.from('order_tracking').insert({
+    order_id: orderId,
+    status: officialStatus,
+    location_name: resolvedLocationName,
+    latitude,
+    longitude,
+    notes: cleanedNotes || null,
+  });
+
+  if (trackingInsertError) throw trackingInsertError;
 }
 
 function AdminOrderThumbnail({
@@ -323,6 +339,133 @@ function getSuggestedRefundWalletCredit(order: AdminOrder) {
   const packaging = Number(order.packaging_cost || 0);
   const requestedAmount = Number(order.refund_request?.refund_amount || order.total_amount || 0);
   return Math.max(0, Math.min(requestedAmount, shipping + packaging));
+}
+
+function getEmailFailureMessage(result?: TransactionalEmailResult) {
+  if (!result) return 'Email was not attempted.';
+  if (result.sent) return '';
+  if (result.reason) return result.reason;
+  if (result.error) return result.error;
+  if (result.errors?.length) {
+    return result.errors
+      .map((item) => [item.provider, item.error].filter(Boolean).join(': '))
+      .filter(Boolean)
+      .join(' | ');
+  }
+  if (result.skipped) return 'Customer email address is missing.';
+  return 'The email service did not confirm delivery.';
+}
+
+function getNotificationFailureMessage(result?: CustomerNotificationResult) {
+  if (!result) return '';
+
+  const messages = [
+    result.inAppError ? `in-app notification failed: ${result.inAppError}` : '',
+    result.pushError ? `push notification failed: ${result.pushError}` : '',
+  ].filter(Boolean);
+
+  return messages.join('; ');
+}
+
+function getDeliveryWarnings(result: StatusChangeResult) {
+  const warnings = [];
+  const notificationWarning = getNotificationFailureMessage(result.notificationResult);
+
+  if (notificationWarning) warnings.push(notificationWarning);
+  if (result.notifyCustomer && !result.emailResult?.sent) {
+    warnings.push(`email was not sent: ${getEmailFailureMessage(result.emailResult)}`);
+  }
+
+  return warnings;
+}
+
+async function getSupabaseFunctionErrorMessage(error: unknown) {
+  const fallback = error instanceof Error ? error.message : 'Unknown function error';
+  const response = (error as { context?: Response } | null)?.context;
+
+  if (!response) return fallback;
+
+  try {
+    const body = (await response.json()) as { error?: string; reason?: string; message?: string };
+    return body.error || body.reason || body.message || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+async function sendCustomerNotification({
+  userId,
+  title,
+  message,
+  type,
+  data,
+  pushTitle,
+  pushBody,
+  pushData,
+}: {
+  userId: string;
+  title: string;
+  message: string;
+  type: string;
+  data?: Json;
+  pushTitle?: string;
+  pushBody?: string;
+  pushData?: Record<string, unknown>;
+}): Promise<CustomerNotificationResult> {
+  const result: CustomerNotificationResult = {};
+
+  const { error: notificationError } = await supabase.from('notifications').insert({
+    user_id: userId,
+    title,
+    message,
+    type,
+    data: data ?? null,
+  });
+
+  if (notificationError) {
+    result.inAppError = notificationError.message;
+  } else {
+    result.inAppSent = true;
+  }
+
+  try {
+    const resolvedPushData =
+      pushData ||
+      (data && typeof data === 'object' && !Array.isArray(data)
+        ? (data as Record<string, unknown>)
+        : {});
+
+    const { data: pushResult, error: pushError } = await supabase.functions.invoke('send-push-notification', {
+      body: {
+        user_id: userId,
+        title: pushTitle || title,
+        body: pushBody || message,
+        data: resolvedPushData,
+      },
+    });
+
+    if (pushError) {
+      result.pushError = await getSupabaseFunctionErrorMessage(pushError);
+    } else if (pushResult && typeof pushResult === 'object') {
+      const typedPushResult = pushResult as {
+        configured?: boolean;
+        sent?: number;
+        total?: number;
+        error?: string;
+      };
+
+      result.pushConfigured = typedPushResult.configured;
+      result.pushSent = Number(typedPushResult.sent || 0);
+      result.pushTotal = Number(typedPushResult.total || 0);
+      if (typedPushResult.error) {
+        result.pushError = typedPushResult.error;
+      }
+    }
+  } catch (pushError) {
+    result.pushError = await getSupabaseFunctionErrorMessage(pushError);
+  }
+
+  return result;
 }
 
 function getRefundStatusLabel(status: string) {
@@ -489,10 +632,12 @@ export function AdminOrders() {
 
       let profilesMap = new Map<string, Pick<ProfileRow, 'user_id' | 'name' | 'email'>>();
       if (userIds.length > 0) {
-        const { data: profilesData } = await supabase
+        const { data: profilesData, error: profilesError } = await supabase
           .from('profiles')
           .select('user_id, name, email')
           .in('user_id', userIds);
+
+        if (profilesError) throw profilesError;
 
         profilesMap = new Map(profilesData?.map((profile) => [profile.user_id, profile]) || []);
       }
@@ -632,11 +777,12 @@ export function AdminOrders() {
     html: string;
     text: string;
     type: string;
+    relatedEntityType?: string;
     relatedEntityId: string;
     metadata?: Record<string, unknown>;
-  }) => {
+  }): Promise<TransactionalEmailResult> => {
     if (!payload.to) {
-      return { sent: false, skipped: true };
+      return { sent: false, skipped: true, reason: 'Customer email address is missing.' };
     }
 
     const { data, error } = await supabase.functions.invoke('send-transactional-email', {
@@ -646,15 +792,42 @@ export function AdminOrders() {
         html: payload.html,
         text: payload.text,
         type: payload.type,
-        relatedEntityType: 'order',
+        relatedEntityType: payload.relatedEntityType || 'order',
         relatedEntityId: payload.relatedEntityId,
         requestedBy: user?.id,
         metadata: payload.metadata,
       },
     });
 
-    if (error) throw error;
-    return data;
+    if (error) {
+      const response = (error as { context?: Response }).context;
+      if (response) {
+        try {
+          const body = (await response.json()) as TransactionalEmailResult;
+          return {
+            ...body,
+            sent: false,
+            error: body.error || body.reason || error.message || 'The email function failed.',
+          };
+        } catch {
+          // Fall through to the generic function error below.
+        }
+      }
+
+      return {
+        sent: false,
+        error: error.message || 'The email function failed.',
+      };
+    }
+
+    if (!data || typeof data !== 'object') {
+      return {
+        sent: false,
+        reason: 'The email function returned an empty response.',
+      };
+    }
+
+    return data as TransactionalEmailResult;
   }, [user?.id]);
 
   const applyOrderStatusChange = useCallback(async ({
@@ -686,101 +859,31 @@ export function AdminOrders() {
       throw error;
     }
 
-    const autoNotes: Record<string, string> = {
-      payment_received: "We've received your payment. Thank you!",
-      order_placed: 'Your order has been placed successfully.',
-      order_processed: 'Item verified and packed. Preparing for courier pickup.',
-      confirmed: 'Your order has been confirmed.',
-      processing: 'Your order is being processed.',
-      packed_for_delivery: 'Your order has been packed and is ready for shipping.',
-      shipped: 'Your order has been shipped!',
-      in_transit: 'Your order is on its way.',
-      in_ghana: 'Your order has arrived in Ghana!',
-      ready_for_delivery: 'Your order is ready for pickup/delivery.',
-      handed_to_courier: 'Courier has picked up your package.',
-      out_for_delivery: 'Your order is on the way to your location.',
-      delivered: 'Item received. Enjoy!',
-      cancelled: 'Your order has been cancelled.',
-      refunded: 'Your order has been refunded.',
-    };
+    const statusMessage = getDefaultOrderTrackingNote(status);
 
-    const trackingNote = customNote
-      ? (autoNotes[status] ? `${autoNotes[status]} - ${customNote}` : customNote)
-      : (autoNotes[status] || '');
+    await upsertOrderTrackingStatus({
+      orderId,
+      status,
+      locationName: STATUS_LABELS[status],
+      notes: customNote || null,
+    });
 
-    const { data: existingTracking, error: existingTrackingError } = await supabase
-      .from('order_tracking')
-      .select('id')
-      .eq('order_id', orderId)
-      .eq('status', status)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (existingTrackingError) throw existingTrackingError;
-
-    if (!existingTracking) {
-      const { error: trackingInsertError } = await supabase.from('order_tracking').insert({
-        order_id: orderId,
-        status,
-        location_name: STATUS_LABELS[status],
-        notes: trackingNote,
-      });
-
-      if (trackingInsertError) throw trackingInsertError;
-    }
-
-    const statusMessages: Record<OrderStatus, string> = {
-      pending: 'Your order is pending confirmation.',
-      payment_received: 'Payment received! Processing your order.',
-      order_placed: 'Your order has been placed successfully!',
-      order_processed: 'Item verified and packed. Preparing for courier pickup.',
-      confirmed: 'Your order has been confirmed!',
-      processing: 'Your order is being processed.',
-      packed_for_delivery: 'Your order has been packed and ready for shipping!',
-      shipped: 'Your order has been shipped!',
-      in_transit: 'Your order is in transit.',
-      in_ghana: 'Your order has arrived in Ghana!',
-      ready_for_delivery: 'Your order is ready for delivery!',
-      handed_to_courier: 'Courier has picked up your package.',
-      out_for_delivery: 'Your order is out for delivery!',
-      delivered: 'Your order has been delivered!',
-      cancelled: 'Your order has been cancelled.',
-      refunded: 'Your order has been refunded.',
-    };
-
-    let emailResult:
-      | {
-          sent?: boolean;
-          skipped?: boolean;
-        }
-      | undefined;
+    let emailResult: TransactionalEmailResult | undefined;
+    let notificationResult: CustomerNotificationResult | undefined;
 
     if (notifyCustomer && userId) {
-      const message = customNote
-        ? `${statusMessages[status]} Note: ${customNote}`
-        : statusMessages[status];
+      const message = customNote ? `${statusMessage} ${customNote}` : statusMessage;
 
-      await supabase.from('notifications').insert({
-        user_id: userId,
+      notificationResult = await sendCustomerNotification({
+        userId,
         title: `Order Status: ${STATUS_LABELS[status]}`,
         message,
         type: 'order_status',
         data: { orderId, status },
+        pushTitle: `Order ${orderNumber || 'Update'}`,
+        pushBody: statusMessage,
+        pushData: { orderId, status, type: 'order_status' },
       });
-
-      try {
-        await supabase.functions.invoke('send-push-notification', {
-          body: {
-            user_id: userId,
-            title: `Order ${orderNumber || 'Update'}`,
-            body: statusMessages[status],
-            data: { orderId, status, type: 'order_status' },
-          },
-        });
-      } catch (pushError) {
-        console.log('Push notification not sent:', pushError);
-      }
 
       emailResult = await sendTransactionalEmail({
         to: customerEmail,
@@ -792,14 +895,14 @@ export function AdminOrders() {
           customerName: customerName || 'there',
           orderNumber: orderNumber || 'your order',
           statusLabel: STATUS_LABELS[status],
-          message: statusMessages[status],
+          message: statusMessage,
           note: customNote,
         }),
         text: buildOrderStatusEmailText({
           customerName: customerName || 'there',
           orderNumber: orderNumber || 'your order',
           statusLabel: STATUS_LABELS[status],
-          message: statusMessages[status],
+          message: statusMessage,
           note: customNote,
         }),
         type: 'order_status',
@@ -819,9 +922,13 @@ export function AdminOrders() {
         orderNumber,
         customNote: customNote || null,
         emailSent: emailResult?.sent || false,
+        inAppNotificationSent: notificationResult?.inAppSent || false,
+        pushNotificationSent: notificationResult?.pushSent || 0,
         notifyCustomer,
       },
     });
+
+    return { emailResult, notificationResult, notifyCustomer: notifyCustomer && Boolean(userId) };
   }, [sendTransactionalEmail, user?.id]);
 
   const updateStatusMutation = useMutation({
@@ -841,8 +948,8 @@ export function AdminOrders() {
       customNote?: string;
       customerEmail?: string | null;
       customerName?: string | null;
-    }) => {
-      await applyOrderStatusChange({
+    }): Promise<StatusChangeResult> => {
+      return applyOrderStatusChange({
         orderId,
         status,
         userId,
@@ -852,9 +959,17 @@ export function AdminOrders() {
         customerName,
       });
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
-      toast.success('Order status updated and customer notified');
+      const warnings = getDeliveryWarnings(result);
+
+      if (!result.notifyCustomer) {
+        toast.success('Order status updated');
+      } else if (warnings.length === 0) {
+        toast.success('Order status updated and customer notified');
+      } else {
+        toast.warning(`Order status updated, but ${warnings.join('; ')}`);
+      }
       setStatusNotes({});
     },
     onError: (error: Error) => {
@@ -872,7 +987,7 @@ export function AdminOrders() {
       cluster: GroupOrderCluster<AdminOrder>;
       status: OrderStatus;
       customNote?: string;
-    }) => {
+    }): Promise<StatusChangeResult[]> => {
       if (cluster.masterOrder) {
         await applyOrderStatusChange({
           orderId: cluster.masterOrder.id,
@@ -889,8 +1004,9 @@ export function AdminOrders() {
             ? []
             : cluster.allOrders;
 
+      const results: StatusChangeResult[] = [];
       for (const order of participantOrders) {
-        await applyOrderStatusChange({
+        const result = await applyOrderStatusChange({
           orderId: order.id,
           status,
           userId: order.user_id,
@@ -899,11 +1015,29 @@ export function AdminOrders() {
           customerEmail: order.profiles?.email,
           customerName: order.profiles?.name,
         });
+        results.push(result);
       }
+
+      return results;
     },
-    onSuccess: () => {
+    onSuccess: (results) => {
       queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
-      toast.success('Group order status updated for every participant');
+      const notifiedResults = results.filter((result) => result.notifyCustomer);
+      const sentCount = notifiedResults.filter((result) => result.emailResult?.sent).length;
+      const failedResults = notifiedResults.filter((result) => getDeliveryWarnings(result).length > 0);
+
+      if (failedResults.length === 0) {
+        toast.success(
+          notifiedResults.length > 0
+            ? `Group order status updated and ${sentCount} email${sentCount === 1 ? '' : 's'} sent`
+            : 'Group order status updated',
+        );
+      } else {
+        const firstWarning = getDeliveryWarnings(failedResults[0]).join('; ');
+        toast.warning(
+          `Group order status updated, but ${failedResults.length} customer notification${failedResults.length === 1 ? '' : 's'} had issues: ${firstWarning}`,
+        );
+      }
       setStatusNotes({});
     },
     onError: (error: Error) => {
@@ -929,7 +1063,7 @@ export function AdminOrders() {
       orderNumber?: string;
       customerEmail?: string | null;
       customerName?: string | null;
-    }) => {
+    }): Promise<StatusChangeResult> => {
       const { error } = await supabase
         .from('orders')
         .update({ 
@@ -944,31 +1078,22 @@ export function AdminOrders() {
         throw error;
       }
 
-      if (userId) {
-        await supabase.from('notifications').insert({
-          user_id: userId,
-          title: 'Estimated Delivery Updated',
-          message: `Your order #${orderNumber} is estimated to arrive between ${format(new Date(startDate), 'PP')} and ${format(new Date(endDate), 'PP')}.`,
-          type: 'order_status',
-          data: { orderId, startDate, endDate },
-        });
-
-        try {
-          await supabase.functions.invoke('send-push-notification', {
-            body: {
-              user_id: userId,
-              title: `Order ${orderNumber || ''} Delivery Update`,
-              body: `Estimated arrival: ${format(new Date(startDate), 'PP')} - ${format(new Date(endDate), 'PP')}`,
-              data: { orderId, type: 'delivery_update' },
-            },
-          });
-        } catch (pushError) {
-          console.log('Push notification not sent:', pushError);
-        }
-      }
-
       const startDateLabel = format(new Date(startDate), 'PP');
       const endDateLabel = format(new Date(endDate), 'PP');
+      let notificationResult: CustomerNotificationResult | undefined;
+
+      if (userId) {
+        notificationResult = await sendCustomerNotification({
+          userId,
+          title: 'Estimated Delivery Updated',
+          message: `Your order #${orderNumber} is estimated to arrive between ${startDateLabel} and ${endDateLabel}.`,
+          type: 'order_status',
+          data: { orderId, startDate, endDate },
+          pushTitle: `Order ${orderNumber || ''} Delivery Update`,
+          pushBody: `Estimated arrival: ${startDateLabel} - ${endDateLabel}`,
+          pushData: { orderId, type: 'delivery_update' },
+        });
+      }
 
       const emailResult = await sendTransactionalEmail({
         to: customerEmail,
@@ -1002,12 +1127,21 @@ export function AdminOrders() {
           startDate,
           endDate,
           emailSent: emailResult?.sent || false,
+          inAppNotificationSent: notificationResult?.inAppSent || false,
+          pushNotificationSent: notificationResult?.pushSent || 0,
         },
       });
+
+      return { emailResult, notificationResult, notifyCustomer: Boolean(userId || customerEmail) };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
-      toast.success('Estimated delivery dates updated');
+      const warnings = getDeliveryWarnings(result);
+      if (warnings.length > 0) {
+        toast.warning(`Estimated delivery dates updated, but ${warnings.join('; ')}`);
+      } else {
+        toast.success('Estimated delivery dates updated and customer notified');
+      }
       setDeliveryDates({ orderId: '', start: '', end: '' });
     },
     onError: (error: Error) => {
@@ -1033,17 +1167,14 @@ export function AdminOrders() {
       courierTrackingNumber?: string;
       deliveryFee?: number;
     }) => {
-      const { error } = await supabase
-        .from('order_tracking')
-        .insert({
-          order_id: orderId,
-          status: tracking.status,
-          location_name: tracking.location_name,
-          latitude: tracking.latitude,
-          longitude: tracking.longitude,
-          notes: tracking.notes,
-        });
-      if (error) throw error;
+      await upsertOrderTrackingStatus({
+        orderId,
+        status: tracking.status,
+        locationName: tracking.location_name,
+        latitude: tracking.latitude,
+        longitude: tracking.longitude,
+        notes: tracking.notes || null,
+      });
 
       const metadataPatch: Record<string, unknown> = {};
       if (courierName) metadataPatch.courier_name = courierName;
@@ -1273,7 +1404,7 @@ export function AdminOrders() {
   });
 
   const processRefundMutation = useMutation({
-    mutationFn: async (order: AdminOrder) => {
+    mutationFn: async (order: AdminOrder): Promise<StatusChangeResult> => {
       const walletCredit = Number.parseFloat(refundDraft.walletCreditAmount || '0') || 0;
       const maxRefundAmount = Number(order.refund_request?.refund_amount || order.total_amount || 0);
 
@@ -1345,14 +1476,12 @@ export function AdminOrders() {
         refundTrackingNoteParts.push(refundDraft.adminNotes.trim());
       }
 
-      const { error: trackingError } = await supabase.from('order_tracking').insert({
-        order_id: order.id,
+      await upsertOrderTrackingStatus({
+        orderId: order.id,
         status: 'refunded',
-        location_name: 'AJYN Support Desk',
+        locationName: 'AJYN Support Desk',
         notes: refundTrackingNoteParts.join(' '),
       });
-
-      if (trackingError) throw trackingError;
 
       const statusMessage = walletCredit > 0
         ? refundDraft.refundChannel === 'mixed'
@@ -1360,8 +1489,8 @@ export function AdminOrders() {
           : `Your refund has been processed. ${formatPrice(walletCredit)} was credited to your wallet for future checkout use.`
         : 'Your refund has been processed! Please check your original payment channel.';
 
-      await supabase.from('notifications').insert({
-        user_id: order.user_id,
+      const notificationResult = await sendCustomerNotification({
+        userId: order.user_id,
         title: 'Refund Processed',
         message: statusMessage,
         type: 'refund_status',
@@ -1371,65 +1500,48 @@ export function AdminOrders() {
           refund_channel: refundDraft.refundChannel,
           wallet_credit_amount: walletCredit,
         },
+        pushTitle: `Refund for order ${order.order_number}`,
+        pushBody: statusMessage,
+        pushData: {
+          type: 'refund_status',
+          orderId: order.id,
+          orderNumber: order.order_number,
+          refund_channel: refundDraft.refundChannel,
+          wallet_credit_amount: walletCredit,
+        },
       });
 
-      try {
-        await supabase.functions.invoke('send-push-notification', {
-          body: {
-            user_id: order.user_id,
-            title: `Refund for order ${order.order_number}`,
-            body: statusMessage,
-            data: {
-              type: 'refund_status',
-              orderId: order.id,
-              orderNumber: order.order_number,
-              refund_channel: refundDraft.refundChannel,
-              wallet_credit_amount: walletCredit,
-            },
-          },
-        });
-      } catch (pushError) {
-        console.log('Push notification failed:', pushError);
-      }
-
-      const emailResult = order.profiles?.email
-        ? await supabase.functions.invoke('send-transactional-email', {
-            body: {
-              to: order.profiles.email,
-              subject: buildRefundEmailSubject({
-                orderNumber: order.order_number,
-                statusLabel: 'processed',
-              }),
-              html: buildRefundEmailHtml({
-                customerName: order.profiles?.name || 'there',
-                orderNumber: order.order_number,
-                statusLabel: 'processed',
-                message: statusMessage,
-                adminNotes: refundDraft.adminNotes || undefined,
-              }),
-              text: buildRefundEmailText({
-                customerName: order.profiles?.name || 'there',
-                orderNumber: order.order_number,
-                statusLabel: 'processed',
-                message: statusMessage,
-                adminNotes: refundDraft.adminNotes || undefined,
-              }),
-              type: 'refund_status',
-              relatedEntityType: order.refund_request ? 'refund_request' : 'order',
-              relatedEntityId: order.refund_request?.id || order.id,
-              requestedBy: user?.id,
-              metadata: {
-                orderId: order.id,
-                orderNumber: order.order_number,
-                refundChannel: refundDraft.refundChannel,
-                walletCreditAmount: walletCredit,
-                source: order.refund_request ? 'refund_request' : 'manual_order_refund',
-              },
-            },
-          })
-        : { data: { sent: false, skipped: true }, error: null };
-
-      if (emailResult.error) throw emailResult.error;
+      const emailResult = await sendTransactionalEmail({
+        to: order.profiles?.email,
+        subject: buildRefundEmailSubject({
+          orderNumber: order.order_number,
+          statusLabel: 'processed',
+        }),
+        html: buildRefundEmailHtml({
+          customerName: order.profiles?.name || 'there',
+          orderNumber: order.order_number,
+          statusLabel: 'processed',
+          message: statusMessage,
+          adminNotes: refundDraft.adminNotes || undefined,
+        }),
+        text: buildRefundEmailText({
+          customerName: order.profiles?.name || 'there',
+          orderNumber: order.order_number,
+          statusLabel: 'processed',
+          message: statusMessage,
+          adminNotes: refundDraft.adminNotes || undefined,
+        }),
+        type: 'refund_status',
+        relatedEntityType: order.refund_request ? 'refund_request' : 'order',
+        relatedEntityId: order.refund_request?.id || order.id,
+        metadata: {
+          orderId: order.id,
+          orderNumber: order.order_number,
+          refundChannel: refundDraft.refundChannel,
+          walletCreditAmount: walletCredit,
+          source: order.refund_request ? 'refund_request' : 'manual_order_refund',
+        },
+      });
 
       await logAdminAction({
         actorUserId: user?.id,
@@ -1443,15 +1555,24 @@ export function AdminOrders() {
           refundRequestId: order.refund_request?.id || null,
           refundChannel: refundDraft.refundChannel,
           walletCredit,
-          emailSent: emailResult.data?.sent || false,
+          emailSent: emailResult.sent || false,
+          inAppNotificationSent: notificationResult.inAppSent || false,
+          pushNotificationSent: notificationResult.pushSent || 0,
         },
       });
+
+      return { emailResult, notificationResult, notifyCustomer: Boolean(order.user_id || order.profiles?.email) };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
       queryClient.invalidateQueries({ queryKey: ['admin-refund-requests'] });
       queryClient.invalidateQueries({ queryKey: ['refund-requests'] });
-      toast.success('Refund processed');
+      const warnings = getDeliveryWarnings(result);
+      if (warnings.length > 0) {
+        toast.warning(`Refund processed, but ${warnings.join('; ')}`);
+      } else {
+        toast.success('Refund processed and customer notified');
+      }
       resetRefundDialog();
     },
     onError: (error: Error) => {
@@ -1476,37 +1597,38 @@ export function AdminOrders() {
       customerEmail?: string | null;
       customerName?: string | null;
       orderNumber?: string;
-    }) => {
+    }): Promise<StatusChangeResult> => {
       const trimmed = note.trim();
       if (!trimmed) {
         throw new Error('Enter a note for the customer first');
       }
 
-      const { error: trackingError } = await supabase
-        .from('order_tracking')
-        .insert({
-          order_id: orderId,
-          status: orderStatus,
-          location_name: STATUS_LABELS[orderStatus],
-          notes: trimmed,
-        });
+      await upsertOrderTrackingStatus({
+        orderId,
+        status: orderStatus,
+        locationName: STATUS_LABELS[orderStatus],
+        notes: trimmed,
+      });
 
-      if (trackingError) throw trackingError;
-
-      await supabase
+      const { error: orderUpdateError } = await supabase
         .from('orders')
         .update({ updated_at: new Date().toISOString() })
         .eq('id', orderId);
 
-      if (userId) {
-        await supabase.from('notifications').insert({
-          user_id: userId,
+      if (orderUpdateError) throw orderUpdateError;
+
+      const notificationResult = userId
+        ? await sendCustomerNotification({
+          userId,
           title: 'Order Update',
           message: trimmed,
           type: 'order_status',
           data: { orderId, status: orderStatus, note: trimmed },
-        });
-      }
+          pushTitle: `Order ${orderNumber || 'Update'}`,
+          pushBody: trimmed,
+          pushData: { orderId, status: orderStatus, type: 'order_note' },
+        })
+        : undefined;
 
       const emailResult = await sendTransactionalEmail({
         to: customerEmail,
@@ -1543,13 +1665,22 @@ export function AdminOrders() {
           orderStatus,
           noteLength: trimmed.length,
           emailSent: emailResult?.sent || false,
+          inAppNotificationSent: notificationResult?.inAppSent || false,
+          pushNotificationSent: notificationResult?.pushSent || 0,
         },
       });
+
+      return { emailResult, notificationResult, notifyCustomer: Boolean(userId || customerEmail) };
     },
-    onSuccess: (_, variables) => {
+    onSuccess: (result, variables) => {
       queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
       setStatusNotes((prev) => ({ ...prev, [variables.orderId]: '' }));
-      toast.success('Customer note added');
+      const warnings = getDeliveryWarnings(result);
+      if (warnings.length > 0) {
+        toast.warning(`Customer note added, but ${warnings.join('; ')}`);
+      } else {
+        toast.success('Customer note added and customer notified');
+      }
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to add customer note');
@@ -2146,8 +2277,8 @@ export function AdminOrders() {
                                   <p className="text-xs text-muted-foreground">
                                     {format(new Date(track.created_at), 'MMM d, h:mm a')}
                                   </p>
-                                  <p className="mt-1 text-xs text-muted-foreground">
-                                    {track.notes || getAutoNote(track.status, primaryProductName)}
+                                  <p className="mt-1 whitespace-pre-line text-xs text-muted-foreground">
+                                    {formatOrderTrackingDisplayNote(track.status, track.notes) || getAutoNote(track.status, primaryProductName)}
                                   </p>
                                   {track.location_name && (
                                     <p className="mt-1 text-[11px] text-muted-foreground/80">{track.location_name}</p>
@@ -2525,9 +2656,15 @@ export function AdminOrders() {
                                 {order.order_tracking?.length > 0 ? (
                                   order.order_tracking?.map((track) => (
                                     <div key={track.id} className="p-2 bg-muted rounded text-sm">
-                                      <p className="font-medium">{track.status}</p>
+                                      <p className="font-medium">
+                                        {STATUS_LABELS[normalizeOrderTimelineStatus(track.status) as OrderStatus] || track.status.replaceAll('_', ' ')}
+                                      </p>
                                       <p className="text-muted-foreground">{track.location_name}</p>
-                                      {track.notes && <p className="text-muted-foreground">{track.notes}</p>}
+                                      {formatOrderTrackingDisplayNote(track.status, track.notes) && (
+                                        <p className="whitespace-pre-line text-muted-foreground">
+                                          {formatOrderTrackingDisplayNote(track.status, track.notes)}
+                                        </p>
+                                      )}
                                       <p className="text-xs text-muted-foreground">
                                         {format(new Date(track.created_at), 'PPp')}
                                       </p>
@@ -2627,17 +2764,20 @@ export function AdminOrders() {
                             </div>
                             <Button
                               onClick={() => {
-                                // Build comprehensive notes
-                                let fullNotes = trackingLocation.notes || '';
-                                if (trackingLocation.courierName) {
-                                  fullNotes = `[${trackingLocation.courierName}] ${fullNotes}`;
-                                }
-                                if (trackingLocation.courierTrackingNumber) {
-                                  fullNotes += ` Tracking: ${trackingLocation.courierTrackingNumber}`;
-                                }
-                                if (trackingLocation.deliveryFee) {
-                                  fullNotes += ` | Delivery fee: GHS ${trackingLocation.deliveryFee}`;
-                                }
+                                const fullNotes = [
+                                  trackingLocation.notes ||
+                                    (trackingLocation.courierName
+                                      ? `${trackingLocation.courierName} has received your package.`
+                                      : ''),
+                                  trackingLocation.courierTrackingNumber
+                                    ? `Tracking Number: ${trackingLocation.courierTrackingNumber}`
+                                    : '',
+                                  trackingLocation.deliveryFee
+                                    ? `Delivery Fee: GHS ${trackingLocation.deliveryFee}`
+                                    : '',
+                                ]
+                                  .filter(Boolean)
+                                  .join('\n');
                                 addTrackingMutation.mutate({
                                   orderId: order.id,
                                   status: order.status || 'pending',

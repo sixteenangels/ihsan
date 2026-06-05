@@ -36,7 +36,6 @@ const ADMIN_VISIBLE_ORDER_STATUSES = [
   'order_processed',
   'confirmed',
   'processing',
-  'packed_for_delivery',
   'shipped',
   'in_transit',
   'in_ghana',
@@ -50,9 +49,9 @@ const ADMIN_VISIBLE_ORDER_STATUSES = [
 const ADMIN_PICK_PACK_ORDER_STATUSES = [
   'payment_received',
   'order_placed',
+  'order_processed',
   'confirmed',
   'processing',
-  'packed_for_delivery',
 ] as const;
 type LowStockVariantRow = {
   id: string;
@@ -168,7 +167,7 @@ function getPickPackNextAction(checks: Record<string, boolean> | null, status: s
   if (!checks?.quality_checked) return 'Quality check';
   if (!checks?.packed) return 'Pack order';
   if (!checks?.awaiting_dispatch) return 'Stage for dispatch';
-  if (status === 'packed_for_delivery') return 'Hand to courier';
+  if (status === 'order_processed') return 'Hand to courier';
   return 'Review handoff';
 }
 
@@ -472,7 +471,7 @@ export function AdminDashboard() {
       const nextChecks = { ...currentChecks, [action]: true };
       const nextStatus =
         action === 'awaiting_dispatch'
-          ? 'packed_for_delivery'
+          ? 'order_processed'
           : action === 'dispatched'
             ? 'handed_to_courier'
             : undefined;
@@ -516,13 +515,13 @@ export function AdminDashboard() {
               order_id: childOrder.id,
               status: nextStatus,
               location_name:
-                nextStatus === 'packed_for_delivery'
-                  ? 'Packed for Delivery'
+                nextStatus === 'order_processed'
+                  ? 'Order Processed'
                   : 'Handed to Courier',
               notes:
-                nextStatus === 'packed_for_delivery'
-                  ? 'Group order packed and moved to the next fulfillment stage.'
-                  : 'Group order handed to the courier for delivery.',
+                nextStatus === 'order_processed'
+                  ? 'Your order has been processed successfully and is ready for shipping.'
+                  : 'Your package has been handed over to our delivery partner.',
             })) as never,
           );
 

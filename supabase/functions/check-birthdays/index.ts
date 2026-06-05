@@ -65,13 +65,18 @@ Deno.serve(async (req) => {
       }
 
       // Notify the user
-      await supabase.from('notifications').insert({
+      const { error: notificationError } = await supabase.from('notifications').insert({
         user_id: profile.user_id,
         title: '🎂 Happy Birthday!',
         message: `Happy Birthday${profile.name ? ', ' + profile.name : ''}! Use code ${yearCode} for 10% off your next order. Valid for 7 days.`,
         type: 'promotion',
         data: { coupon_code: yearCode },
       });
+
+      if (notificationError) {
+        console.error('Failed to create birthday notification for', profile.user_id, notificationError);
+        continue;
+      }
 
       couponsCreated++;
     }

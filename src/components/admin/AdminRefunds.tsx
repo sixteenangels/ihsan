@@ -5,6 +5,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { creditWalletByAdmin } from '@/lib/wallet';
 import { logAdminAction } from '@/lib/audit-log';
 import {
+  ORDER_TRACKING_STATUS_LABELS,
+  cleanOrderTrackingNoteForStorage,
+  mergeOrderTrackingNotes,
+  normalizeOrderTimelineStatus,
+} from '@/lib/orderTrackingTimeline';
+import {
   buildRefundEmailHtml,
   buildRefundEmailSubject,
   buildRefundEmailText,
@@ -41,7 +47,60 @@ import { Loader2, Eye, Check, X, RefreshCcw } from 'lucide-react';
 import { format } from 'date-fns';
 import { useCurrency } from '@/hooks/useCurrency';
 
+async function upsertRefundTrackingNote(orderId: string, note: string) {
+  const status = 'refunded';
+  const cleanedNote = cleanOrderTrackingNoteForStorage(status, note);
+  const { data: existingRows, error: existingRowsError } = await supabase
+    .from('order_tracking')
+    .select('id, status, notes, location_name')
+    .eq('order_id', orderId)
+    .order('created_at', { ascending: true });
+
+  if (existingRowsError) throw existingRowsError;
+
+  const existingTracking = (existingRows || []).find(
+    (row) => normalizeOrderTimelineStatus(row.status) === status,
+  );
+
+  if (existingTracking) {
+    const { error: updateError } = await supabase
+      .from('order_tracking')
+      .update({
+        status,
+        location_name: existingTracking.location_name || ORDER_TRACKING_STATUS_LABELS[status],
+        notes: mergeOrderTrackingNotes(status, existingTracking.notes, cleanedNote),
+      })
+      .eq('id', existingTracking.id);
+
+    if (updateError) throw updateError;
+    return;
+  }
+
+  const { error: insertError } = await supabase.from('order_tracking').insert({
+    order_id: orderId,
+    status,
+    location_name: ORDER_TRACKING_STATUS_LABELS[status],
+    notes: cleanedNote || null,
+  });
+
+  if (insertError) throw insertError;
+}
+
 type RefundChannel = 'original_payment' | 'wallet_credit' | 'mixed';
+
+async function getFunctionInvokeErrorMessage(error: unknown) {
+  const fallback = error instanceof Error ? error.message : 'Unknown function error';
+  const response = (error as { context?: Response } | null)?.context;
+
+  if (!response) return fallback;
+
+  try {
+    const body = (await response.json()) as { error?: string; reason?: string; message?: string };
+    return body.error || body.reason || body.message || fallback;
+  } catch {
+    return fallback;
+  }
+}
 
 function getSuggestedWalletCredit(request: AdminRefundRequest) {
   const shipping = Number(request.orders?.shipping_price || 0);
@@ -178,21 +237,18 @@ export function AdminRefunds() {
           });
         }
 
-        await supabase
+        const { error: orderUpdateError } = await supabase
           .from('orders')
           .update({ status: 'refunded', updated_at: new Date().toISOString() })
           .eq('id', request.order_id);
+
+        if (orderUpdateError) throw orderUpdateError;
 
         const refundTrackingNote = walletCredit > 0
           ? `Refund processed. ${formatPrice(walletCredit)} credited to the customer's wallet for shipping buffer adjustment.`
           : 'Refund processed and recorded by support.';
 
-        await supabase.from('order_tracking').insert({
-          order_id: request.order_id,
-          status: 'refunded',
-          location_name: 'AJYN Support Desk',
-          notes: refundTrackingNote,
-        });
+        await upsertRefundTrackingNote(request.order_id, refundTrackingNote);
       }
 
       const statusMessages: Record<string, string> = {
@@ -203,9 +259,11 @@ export function AdminRefunds() {
           : 'Your refund has been processed! Please check your original payment channel.',
       };
 
+      let pushErrorMessage: string | undefined;
+
       if (request.user_id) {
         try {
-          await supabase.functions.invoke('send-push-notification', {
+          const { error: pushError } = await supabase.functions.invoke('send-push-notification', {
             body: {
               user_id: request.user_id,
               title: `Refund ${status.charAt(0).toUpperCase() + status.slice(1)}`,
@@ -220,7 +278,12 @@ export function AdminRefunds() {
               },
             },
           });
+
+          if (pushError) {
+            pushErrorMessage = await getFunctionInvokeErrorMessage(pushError);
+          }
         } catch (error) {
+          pushErrorMessage = await getFunctionInvokeErrorMessage(error);
           console.log('Push notification failed:', error);
         }
       }
@@ -239,10 +302,15 @@ export function AdminRefunds() {
           refundChannel,
           walletCredit,
           emailSent: emailResult?.sent || false,
+          pushNotificationError: pushErrorMessage || null,
         },
       });
 
-      toast.success(`Refund request ${status}`);
+      if (pushErrorMessage) {
+        toast.warning(`Refund request ${status}, but push notification failed: ${pushErrorMessage}`);
+      } else {
+        toast.success(`Refund request ${status}`);
+      }
       resetDialog();
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to update refund request';

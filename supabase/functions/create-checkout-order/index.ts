@@ -640,9 +640,7 @@ Deno.serve(async (req) => {
       order_id: order.id,
       status: 'payment_received',
       location_name: paymentReference ? 'Payment Gateway' : 'Checkout',
-      notes: paymentReference
-        ? 'Payment verified and order created securely.'
-        : 'Order covered by wallet and loyalty credits.',
+      notes: "We've successfully received your payment and your order is now being prepared.",
     });
     if (trackingError) throw trackingError;
 
@@ -725,7 +723,7 @@ Deno.serve(async (req) => {
       .in('role', ['admin', 'manager']);
 
     if (adminRoles?.length) {
-      await supabase.from('notifications').insert(
+      const { error: adminNotificationError } = await supabase.from('notifications').insert(
         adminRoles.map((role: { user_id: string }) => ({
           user_id: role.user_id,
           title: flow === 'buy_now' ? 'New Buy Now Order' : 'New Order Received',
@@ -734,6 +732,10 @@ Deno.serve(async (req) => {
           data: { orderId: order.id, orderNumber: order.order_number, total, source: flow },
         })),
       );
+
+      if (adminNotificationError) {
+        console.error('Failed to notify admins about checkout order', adminNotificationError);
+      }
     }
 
     return jsonResponse({

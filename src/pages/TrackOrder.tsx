@@ -28,6 +28,12 @@ import {
 } from '@/lib/orderHistory';
 import { reAddOrderItemsToCart } from '@/lib/reorderOrder';
 import { getProofOfDeliverySignedUrl } from '@/lib/proof-of-delivery';
+import {
+  formatOfficialOrderStatusLabel,
+  getOfficialOrderStatusIndex,
+  mergeOrderTrackingNotes,
+  normalizeOrderTimelineStatus,
+} from '@/lib/orderTrackingTimeline';
 
 interface OrderTrackingItem {
   id: string;
@@ -105,45 +111,10 @@ interface TrackedOrder {
   wallet_credit_used: number | null;
   order_items: OrderTrackingItem[];
   order_tracking: OrderTrackingPoint[];
+  customer_timeline: OrderTrackingPoint[];
   shipping_classes: ShippingClassSummary | null;
   receipt: ReceiptSummary | null;
 }
-
-const STATUS_ORDER = [
-  'pending',
-  'payment_received',
-  'order_placed',
-  'order_processed',
-  'confirmed',
-  'processing',
-  'packed_for_delivery',
-  'shipped',
-  'in_transit',
-  'in_ghana',
-  'ready_for_delivery',
-  'handed_to_courier',
-  'out_for_delivery',
-  'delivered',
-];
-
-const STATUS_LABELS: Record<string, string> = {
-  pending: 'Pending',
-  payment_received: 'Payment Received',
-  order_placed: 'Order Placed',
-  order_processed: 'Order Processed',
-  confirmed: 'Confirmed',
-  processing: 'Processing',
-  packed_for_delivery: 'Packed',
-  shipped: 'Shipped',
-  in_transit: 'In Transit',
-  in_ghana: 'In Ghana',
-  ready_for_delivery: 'Ready',
-  handed_to_courier: 'Courier Handoff',
-  out_for_delivery: 'Out for Delivery',
-  delivered: 'Delivered',
-  cancelled: 'Cancelled',
-  refunded: 'Refunded',
-};
 
 type TrackingCheckpoint = {
   key: string;
@@ -159,33 +130,60 @@ const SIMPLIFIED_CHECKPOINTS: TrackingCheckpoint[] = [
 ];
 
 function formatStatusLabel(status: string) {
-  return STATUS_LABELS[status] || status.replaceAll('_', ' ');
+  return formatOfficialOrderStatusLabel(status);
 }
 
 function getStatusIndex(status: string) {
-  return STATUS_ORDER.indexOf(status);
+  return getOfficialOrderStatusIndex(status);
 }
 
-function hasTrackingCoordinates(point: OrderTrackingPoint) {
-  return point.latitude != null && point.longitude != null;
-}
-
-function getCustomerVisibleTrackingPoints(points: OrderTrackingPoint[]) {
-  const latestStatusPoint = new Map<string, OrderTrackingPoint>();
-  const visiblePointIds = new Set<string>();
+function buildCustomerTimeline(
+  points: OrderTrackingPoint[],
+  orderStatus: string | null | undefined,
+  fallbackCreatedAt: string,
+  fallbackUpdatedAt: string,
+) {
+  const timelineByStatus = new Map<string, OrderTrackingPoint>();
 
   points.forEach((point) => {
-    if (hasTrackingCoordinates(point)) {
-      visiblePointIds.add(point.id);
+    const officialStatus = normalizeOrderTimelineStatus(point.status);
+    if (!officialStatus) return;
+
+    const existingPoint = timelineByStatus.get(officialStatus);
+    if (existingPoint) {
+      existingPoint.notes = mergeOrderTrackingNotes(officialStatus, existingPoint.notes, point.notes);
+      existingPoint.location_name = existingPoint.location_name || point.location_name || formatStatusLabel(officialStatus);
+      existingPoint.latitude = existingPoint.latitude ?? point.latitude;
+      existingPoint.longitude = existingPoint.longitude ?? point.longitude;
       return;
     }
 
-    latestStatusPoint.set(point.status, point);
+    timelineByStatus.set(officialStatus, {
+      ...point,
+      status: officialStatus,
+      location_name: point.location_name || formatStatusLabel(officialStatus),
+      notes: mergeOrderTrackingNotes(officialStatus, null, point.notes),
+    });
   });
 
-  latestStatusPoint.forEach((point) => visiblePointIds.add(point.id));
+  const fallbackStatus = normalizeOrderTimelineStatus(orderStatus);
+  if (fallbackStatus && !timelineByStatus.has(fallbackStatus)) {
+    timelineByStatus.set(fallbackStatus, {
+      id: `fallback-${fallbackStatus}`,
+      location_name: formatStatusLabel(fallbackStatus),
+      latitude: null,
+      longitude: null,
+      status: fallbackStatus,
+      notes: null,
+      created_at: fallbackUpdatedAt || fallbackCreatedAt,
+    });
+  }
 
-  return points.filter((point) => visiblePointIds.has(point.id));
+  return [...timelineByStatus.values()].sort((a, b) => {
+    const statusDelta = getStatusIndex(a.status) - getStatusIndex(b.status);
+    if (statusDelta !== 0) return statusDelta;
+    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+  });
 }
 
 function getCheckpointsForTrackedOrder(order: TrackedOrder) {
@@ -204,7 +202,7 @@ function getTrackingProgressState(order: TrackedOrder, checkpoints: TrackingChec
     };
   }
 
-  const trackedStatuses = order.order_tracking
+  const trackedStatuses = order.customer_timeline
     .map((point) => point.status)
     .filter((status) => getStatusIndex(status) >= 0);
 
@@ -435,15 +433,20 @@ export default function TrackOrder() {
           image_url: resolvedProductId ? productImageMap.get(resolvedProductId) || null : null,
         };
       });
+      const sortedTrackingPoints = [...((data.order_tracking || []) as OrderTrackingPoint[])].sort(
+        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+      );
 
       return {
         ...data,
         shipping_address: (data.shipping_address as unknown as TrackingShippingAddress | null) ?? null,
         order_items: orderItemsWithImages,
-        order_tracking: getCustomerVisibleTrackingPoints(
-          [...((data.order_tracking || []) as OrderTrackingPoint[])].sort(
-            (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
-          ),
+        order_tracking: sortedTrackingPoints,
+        customer_timeline: buildCustomerTimeline(
+          sortedTrackingPoints,
+          data.status,
+          data.created_at,
+          data.updated_at,
         ),
         shipping_classes: (data.shipping_classes as ShippingClassSummary | null) ?? null,
         receipt: receipt || null,
@@ -598,7 +601,7 @@ export default function TrackOrder() {
                       </Link>
                     ) : null}
                     <Badge className={`${getStatusColor(order.status || '')} text-white`}>
-                      {order.status?.replace('_', ' ').toUpperCase()}
+                      {formatStatusLabel(order.status || 'pending').toUpperCase()}
                     </Badge>
                   </div>
                 </div>
@@ -700,6 +703,7 @@ export default function TrackOrder() {
             {/* Tracking Map */}
             <OrderTrackingMap
               trackingPoints={order.order_tracking}
+              timelinePoints={order.customer_timeline}
               orderStatus={order.status || 'pending'}
               estimatedDelivery={getEstimatedDelivery()}
               groupBuyId={order.group_buy_id}

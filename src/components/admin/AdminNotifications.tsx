@@ -32,6 +32,7 @@ interface SendNotificationResult {
   pushConfigured?: boolean;
   pushSent?: number;
   pushTotal?: number;
+  pushError?: string;
   recipientLabel?: string;
 }
 
@@ -62,6 +63,20 @@ function chunkNotifications(rows: TablesInsert<'notifications'>[], size = 500) {
   }
 
   return chunks;
+}
+
+async function getFunctionInvokeErrorMessage(error: unknown) {
+  const fallback = error instanceof Error ? error.message : 'Unknown function error';
+  const response = (error as { context?: Response } | null)?.context;
+
+  if (!response) return fallback;
+
+  try {
+    const body = (await response.json()) as { error?: string; reason?: string; message?: string };
+    return body.error || body.reason || body.message || fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 export function AdminNotifications() {
@@ -193,6 +208,7 @@ export function AdminNotifications() {
       let pushConfigured = false;
       let pushSent = 0;
       let pushTotal = 0;
+      let pushErrorMessage: string | undefined;
 
       try {
         const { data: pushData, error: pushError } = await supabase.functions.invoke('send-push-notification', {
@@ -214,6 +230,7 @@ export function AdminNotifications() {
         pushSent = Number(pushData?.sent ?? 0);
         pushTotal = Number(pushData?.total ?? 0);
       } catch (error) {
+        pushErrorMessage = await getFunctionInvokeErrorMessage(error);
         console.error('Push notification failed:', error);
       }
 
@@ -223,6 +240,7 @@ export function AdminNotifications() {
         pushConfigured,
         pushSent,
         pushTotal,
+        pushError: pushErrorMessage,
         recipientLabel: formatRecipient(recipient),
       };
     },
@@ -235,6 +253,11 @@ export function AdminNotifications() {
 
       if (result.mode === 'broadcast') {
         toast.success(`Broadcast notification sent to ${result.delivered} users.`);
+        return;
+      }
+
+      if (result.pushError) {
+        toast.warning(`Notification sent to ${result.recipientLabel}, but push failed: ${result.pushError}`);
         return;
       }
 

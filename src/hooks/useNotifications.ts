@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
 export interface Notification {
   id: string;
@@ -76,6 +77,9 @@ export function useNotifications(limit = 20) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
     },
+    onError: () => {
+      toast.error('Could not mark notification as read.');
+    },
   });
 
   const markAllAsReadMutation = useMutation({
@@ -90,6 +94,9 @@ export function useNotifications(limit = 20) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
+    },
+    onError: () => {
+      toast.error('Could not mark notifications as read.');
     },
   });
 
