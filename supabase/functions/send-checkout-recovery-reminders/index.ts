@@ -22,14 +22,15 @@ const AJYN_EMAIL_MOBILE_STYLES = `
       @media only screen and (max-width: 600px) {
         .ajyn-shell { padding:0 !important; background:#ffffff !important; }
         .ajyn-card { width:100% !important; max-width:100% !important; border-left:0 !important; border-right:0 !important; border-radius:0 !important; box-shadow:none !important; }
-        .ajyn-header { padding:24px 22px 16px !important; }
-        .ajyn-reference { max-width:150px !important; font-size:10px !important; line-height:1.4 !important; word-break:break-word !important; }
+        .ajyn-header { padding:24px 24px 12px !important; text-align:center !important; }
+        .ajyn-header table, .ajyn-header tbody, .ajyn-header tr, .ajyn-header td { display:block !important; width:100% !important; }
+        .ajyn-reference { max-width:none !important; margin-top:14px !important; padding-top:12px !important; border-top:1px solid #ece6e1 !important; text-align:center !important; font-size:10px !important; line-height:1.4 !important; word-break:break-word !important; }
         .ajyn-logo-mark { font-size:30px !important; }
         .ajyn-logo-word { font-size:10px !important; letter-spacing:0.42em !important; }
-        .ajyn-hero { padding:28px 22px 22px !important; }
+        .ajyn-hero { border-top:0 !important; padding:16px 24px 20px !important; }
         .ajyn-icon { width:58px !important; height:58px !important; margin-bottom:14px !important; font-size:28px !important; line-height:58px !important; }
         .ajyn-title { font-size:23px !important; line-height:1.24 !important; }
-        .ajyn-content { padding:0 24px 26px !important; font-size:14px !important; line-height:1.65 !important; }
+        .ajyn-content { padding:0 30px 26px !important; font-size:13px !important; line-height:1.65 !important; }
         .ajyn-status { margin:18px 0 !important; }
         .ajyn-status-icon-cell { width:50px !important; padding:15px 0 15px 16px !important; }
         .ajyn-status-icon { width:36px !important; height:36px !important; font-size:20px !important; line-height:33px !important; }
@@ -37,7 +38,7 @@ const AJYN_EMAIL_MOBILE_STYLES = `
         .ajyn-status-title { font-size:15px !important; }
         .ajyn-cta-wrap { margin:22px 0 0 !important; }
         .ajyn-cta { display:block !important; width:100% !important; box-sizing:border-box !important; padding:15px 18px !important; text-align:center !important; }
-        .ajyn-help { padding:22px 24px !important; }
+        .ajyn-help { padding:22px 30px !important; }
         .ajyn-contact { display:block !important; margin:8px 0 !important; }
         .ajyn-footer { padding:20px 24px !important; }
         .ajyn-footer-brand { letter-spacing:0.42em !important; }
