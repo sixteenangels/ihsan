@@ -20,6 +20,17 @@ enable_confirmations = true
 max_frequency = "1m0s"
 otp_length = 8
 
+[auth.rate_limit]
+email_sent = 100
+
+[auth.email.smtp]
+host = "smtp.resend.com"
+port = 465
+user = "resend"
+pass = "env(RESEND_API_KEY)"
+admin_email = "no-reply@ajynworld.com"
+sender_name = "AJYN"
+
 [auth.email.template.confirmation]
 subject = "Verify your AJYN email"
 content_path = "./supabase/templates/confirmation.html"
