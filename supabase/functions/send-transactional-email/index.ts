@@ -6,6 +6,8 @@ interface EmailPayload {
   subject: string
   html: string
   text?: string
+  replyTo?: string
+  headers?: Record<string, string>
   type?: string
   relatedEntityType?: string
   relatedEntityId?: string
@@ -66,12 +68,24 @@ function canUseGmailFromAddress(fromEmail: string) {
 }
 
 function buildSafeReplyToAddress(fromEmail: string) {
-  const configuredReplyTo = Deno.env.get('REPLY_TO_EMAIL')
+  const configuredReplyTo = Deno.env.get('REPLY_TO_EMAIL') || 'support@ajynworld.com'
   if (!configuredReplyTo || isSmtpLoginAddress(configuredReplyTo)) {
     return fromEmail
   }
 
   return buildBrandedFromAddress(configuredReplyTo, fromEmail)
+}
+
+function sanitizeCustomHeaders(headers?: Record<string, string>) {
+  if (!headers) return undefined
+
+  const sanitized = Object.fromEntries(
+    Object.entries(headers)
+      .map(([key, value]) => [key.trim(), String(value).trim()] as const)
+      .filter(([key, value]) => key && value && !/[\r\n]/.test(key) && !/[\r\n]/.test(value)),
+  )
+
+  return Object.keys(sanitized).length > 0 ? sanitized : undefined
 }
 
 async function updateOutboxStatus(
@@ -96,6 +110,8 @@ async function updateOutboxStatus(
 }
 
 async function sendWithResend(payload: EmailPayload, fromEmail: string, apiKey: string) {
+  const replyTo = buildBrandedFromAddress(payload.replyTo, buildSafeReplyToAddress(fromEmail))
+
   const resendResponse = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -109,6 +125,8 @@ async function sendWithResend(payload: EmailPayload, fromEmail: string, apiKey: 
       subject: payload.subject,
       html: payload.html,
       text: payload.text || undefined,
+      reply_to: replyTo,
+      headers: sanitizeCustomHeaders(payload.headers),
     }),
   })
 
@@ -146,11 +164,12 @@ async function sendWithGmailSmtp(payload: EmailPayload, fromEmail: string) {
 
   const result = await transporter.sendMail({
     from: fromEmail,
-    replyTo: buildSafeReplyToAddress(fromEmail),
+    replyTo: buildBrandedFromAddress(payload.replyTo, buildSafeReplyToAddress(fromEmail)),
     to: payload.to,
     subject: payload.subject,
     html: payload.html,
     text: payload.text,
+    headers: sanitizeCustomHeaders(payload.headers),
   })
 
   return {

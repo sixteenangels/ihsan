@@ -16,6 +16,13 @@ interface ProfileRow {
   email: string | null
 }
 
+interface CustomerPreferenceRow {
+  user_id: string
+  deal_alerts_enabled: boolean | null
+}
+
+const SUPPORT_EMAIL = Deno.env.get('SUPPORT_EMAIL') || 'support@ajynworld.com'
+
 const AJYN_EMAIL_MOBILE_STYLES = `
       table { border-spacing:0; }
       a { color:inherit; }
@@ -165,7 +172,7 @@ ${AJYN_EMAIL_MOBILE_STYLES}
                 <div style="font-size:22px;color:#c46f35;line-height:1;">&#9681;</div>
                 <div style="font-size:15px;font-weight:700;margin-top:2px;">Need help?</div>
                 <div style="font-size:12px;color:#6b625c;margin:4px 0 14px;">We are here for you.</div>
-                <span class="ajyn-contact" style="display:inline-block;margin:0 12px;font-size:12px;color:#2a1710;">&#9993; support@ajynworld.com</span>
+                <span class="ajyn-contact" style="display:inline-block;margin:0 12px;font-size:12px;color:#2a1710;">&#9993; ${escapeHtml(SUPPORT_EMAIL)}</span>
                 <span class="ajyn-contact" style="display:inline-block;margin:0 12px;font-size:12px;color:#2a1710;">&#9742; +233 20 123 4567</span>
               </td>
             </tr>
@@ -238,14 +245,30 @@ Deno.serve(async (req) => {
           .select('user_id, name, email')
           .in('user_id', profileIds)
       : { data: [] as ProfileRow[] }
+    const { data: preferences } = profileIds.length > 0
+      ? await supabase
+          .from('customer_preferences')
+          .select('user_id, deal_alerts_enabled')
+          .in('user_id', profileIds)
+      : { data: [] as CustomerPreferenceRow[] }
 
     const profileMap = new Map((profiles || []).map((profile: ProfileRow) => [profile.user_id, profile]))
+    const preferenceMap = new Map(
+      (preferences || []).map((preference: CustomerPreferenceRow) => [preference.user_id, preference]),
+    )
     let sent = 0
     let skipped = 0
     let failed = 0
 
     for (const snapshot of rows) {
       const profile = profileMap.get(snapshot.user_id)
+      const preference = preferenceMap.get(snapshot.user_id)
+
+      if (preference?.deal_alerts_enabled === false) {
+        skipped += 1
+        await markSnapshotReminded(supabase, snapshot.id)
+        continue
+      }
 
       const { error: inAppNotificationError } = await supabase.from('notifications').insert({
         user_id: snapshot.user_id,
@@ -294,6 +317,11 @@ Deno.serve(async (req) => {
           subject: email.subject,
           text: email.text,
           html: email.html,
+          replyTo: SUPPORT_EMAIL,
+          headers: {
+            'List-Unsubscribe': `<mailto:${SUPPORT_EMAIL}?subject=Unsubscribe%20AJYN%20deal%20reminders>`,
+            'X-AJYN-Email-Type': 'checkout_recovery',
+          },
           type: 'checkout_recovery',
           relatedEntityType: 'checkout_recovery_snapshot',
           relatedEntityId: snapshot.id,
