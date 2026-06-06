@@ -32,7 +32,7 @@ function buildEmail(snapshot: RecoverySnapshot, profile?: ProfileRow) {
     text: `Hi ${name}, your cart has ${snapshot.item_count} item(s) worth ${formatGhs(snapshot.subtotal)}. Continue checkout: ${checkoutUrl}`,
     html: buildAjynEmailHtml({
       eyebrow: 'Checkout Reminder',
-      icon: '⌁',
+      icon: '&#9634;',
       title: 'Your Checkout Is Waiting',
       greetingName: name,
       intro: `You still have ${snapshot.item_count} item(s) selected for checkout.`,
@@ -94,7 +94,7 @@ function buildAjynEmailHtml(input: {
             </tr>
             <tr>
               <td style="border-top:1px solid #ece6e1;padding:34px 38px 26px;text-align:center;">
-                <div style="width:72px;height:72px;border-radius:50%;background:#eee4dc;margin:0 auto 18px;color:#b96a35;font-size:34px;line-height:72px;text-align:center;">${input.icon || '✓'}</div>
+                <div style="width:72px;height:72px;border-radius:50%;background:#eee4dc;margin:0 auto 18px;color:#b96a35;font-size:34px;line-height:72px;text-align:center;">${input.icon || '&#10003;'}</div>
                 <h1 style="margin:0;color:#2a1710;font-size:27px;line-height:1.25;font-family:Georgia,'Times New Roman',serif;font-weight:700;">${escapeHtml(input.title)}</h1>
               </td>
             </tr>
@@ -108,7 +108,7 @@ function buildAjynEmailHtml(input: {
                     ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:22px 0;border-collapse:collapse;background:#f7f4f1;border-radius:9px;">
                         <tr>
                           <td width="58" valign="top" style="padding:18px 0 18px 20px;">
-                            <div style="width:42px;height:42px;border:2px solid #c46f35;border-radius:50%;color:#c46f35;line-height:39px;text-align:center;font-size:24px;">✓</div>
+                            <div style="width:42px;height:42px;border:2px solid #c46f35;border-radius:50%;color:#c46f35;line-height:39px;text-align:center;font-size:24px;">&#10003;</div>
                           </td>
                           <td style="padding:17px 20px 17px 10px;">
                             ${input.statusTitle ? `<div style="font-weight:700;font-size:16px;color:#2a1710;margin-bottom:3px;">${escapeHtml(input.statusTitle)}</div>` : ''}
@@ -133,15 +133,15 @@ function buildAjynEmailHtml(input: {
                 <div style="font-size:22px;color:#c46f35;line-height:1;">◜</div>
                 <div style="font-size:15px;font-weight:700;margin-top:2px;">Need help?</div>
                 <div style="font-size:12px;color:#6b625c;margin:4px 0 14px;">We are here for you.</div>
-                <span style="display:inline-block;margin:0 12px;font-size:12px;color:#2a1710;">✉ support@ajyn.com</span>
-                <span style="display:inline-block;margin:0 12px;font-size:12px;color:#2a1710;">☏ +233 20 123 4567</span>
+                <span style="display:inline-block;margin:0 12px;font-size:12px;color:#2a1710;">&#9993; support@ajynworld.com</span>
+                <span style="display:inline-block;margin:0 12px;font-size:12px;color:#2a1710;">&#9742; +233 20 123 4567</span>
               </td>
             </tr>
             <tr>
               <td style="background:#f5f2ef;padding:22px 38px;text-align:center;color:#6b625c;font-size:11px;line-height:1.7;">
                 <div style="letter-spacing:0.55em;color:#2a1710;font-weight:700;margin-bottom:8px;">AJYN</div>
                 <div>Thank you for shopping with AJYN.</div>
-                <div>© 2026 AJYN. All rights reserved.</div>
+                <div>&copy; 2026 AJYN. All rights reserved.</div>
               </td>
             </tr>
           </table>

@@ -1,7 +1,7 @@
 import { BRAND_NAME, BRAND_SUPPORT_NAME } from '@/lib/brand';
 import type { PrintableReceipt } from '@/lib/receipt-utils';
 
-const SUPPORT_EMAIL = 'support@ajyn.com';
+const SUPPORT_EMAIL = 'support@ajynworld.com';
 const SUPPORT_PHONE = '+233 20 123 4567';
 
 type AjynEmailInput = {
@@ -36,7 +36,7 @@ export function buildReceiptEmailHtml(receipt: PrintableReceipt) {
   return buildAjynEmailHtml({
     eyebrow: `Receipt ${receipt.receiptNumber}`,
     reference: receipt.orderNumber,
-    icon: '▧',
+    icon: '&#9634;',
     title: 'Your Receipt Is Ready',
     greetingName: receipt.customerName,
     intro: `Thank you for shopping with ${BRAND_NAME}.`,
@@ -72,7 +72,7 @@ export function buildSupportReplyEmailHtml(input: {
 }) {
   return buildAjynEmailHtml({
     eyebrow: 'Support Update',
-    icon: '↗',
+    icon: '&#9993;',
     title: 'We Have An Update For You',
     greetingName: input.customerName,
     intro: `We have an update on your support request: ${input.subject}.`,
@@ -127,7 +127,7 @@ export function buildOrderStatusEmailHtml(input: {
   return buildAjynEmailHtml({
     eyebrow: `Order ${input.orderNumber}`,
     reference: input.orderNumber,
-    icon: '✓',
+    icon: '&#9634;',
     title,
     greetingName: input.customerName,
     intro: `Order ${input.orderNumber} has a new status.`,
@@ -172,7 +172,7 @@ export function buildDeliveryWindowEmailHtml(input: {
   return buildAjynEmailHtml({
     eyebrow: `Order ${input.orderNumber}`,
     reference: input.orderNumber,
-    icon: '◷',
+    icon: '&#9671;',
     title: 'Your Delivery Window Was Updated',
     greetingName: input.customerName,
     intro: `Your order ${input.orderNumber} is currently estimated to arrive between ${input.startDateLabel} and ${input.endDateLabel}.`,
@@ -215,7 +215,7 @@ export function buildRefundEmailHtml(input: {
   return buildAjynEmailHtml({
     eyebrow: `Order ${input.orderNumber}`,
     reference: input.orderNumber,
-    icon: '↺',
+    icon: '&#8635;',
     title: `Refund Request ${titleCase(input.statusLabel)}`,
     greetingName: input.customerName,
     intro: `There is an update for your refund request on order ${input.orderNumber}.`,
@@ -278,7 +278,7 @@ export function buildAjynEmailHtml(input: AjynEmailInput) {
             </tr>
             <tr>
               <td style="border-top:1px solid #ece6e1;padding:34px 38px 26px;text-align:center;">
-                <div style="width:72px;height:72px;border-radius:50%;background:#eee4dc;margin:0 auto 18px;color:#b96a35;font-size:34px;line-height:72px;text-align:center;">${input.icon || '✓'}</div>
+                <div style="width:72px;height:72px;border-radius:50%;background:#eee4dc;margin:0 auto 18px;color:#b96a35;font-size:34px;line-height:72px;text-align:center;">${input.icon || '&#10003;'}</div>
                 <h1 style="margin:0;color:#2a1710;font-size:27px;line-height:1.25;font-family:Georgia,'Times New Roman',serif;font-weight:700;">${escapeHtml(input.title)}</h1>
               </td>
             </tr>
@@ -292,7 +292,7 @@ export function buildAjynEmailHtml(input: AjynEmailInput) {
                     ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:22px 0;border-collapse:collapse;background:#f7f4f1;border-radius:9px;">
                         <tr>
                           <td width="58" valign="top" style="padding:18px 0 18px 20px;">
-                            <div style="width:42px;height:42px;border:2px solid #c46f35;border-radius:50%;color:#c46f35;line-height:39px;text-align:center;font-size:24px;">✓</div>
+                            <div style="width:42px;height:42px;border:2px solid #c46f35;border-radius:50%;color:#c46f35;line-height:39px;text-align:center;font-size:24px;">&#10003;</div>
                           </td>
                           <td style="padding:17px 20px 17px 10px;">
                             ${input.statusTitle ? `<div style="font-weight:700;font-size:16px;color:#2a1710;margin-bottom:3px;">${escapeHtml(input.statusTitle)}</div>` : ''}
@@ -317,15 +317,15 @@ export function buildAjynEmailHtml(input: AjynEmailInput) {
                 <div style="font-size:22px;color:#c46f35;line-height:1;">◜</div>
                 <div style="font-size:15px;font-weight:700;margin-top:2px;">Need help?</div>
                 <div style="font-size:12px;color:#6b625c;margin:4px 0 14px;">We are here for you.</div>
-                <span style="display:inline-block;margin:0 12px;font-size:12px;color:#2a1710;">✉ ${SUPPORT_EMAIL}</span>
-                <span style="display:inline-block;margin:0 12px;font-size:12px;color:#2a1710;">☏ ${SUPPORT_PHONE}</span>
+                <span style="display:inline-block;margin:0 12px;font-size:12px;color:#2a1710;">&#9993; ${SUPPORT_EMAIL}</span>
+                <span style="display:inline-block;margin:0 12px;font-size:12px;color:#2a1710;">&#9742; ${SUPPORT_PHONE}</span>
               </td>
             </tr>
             <tr>
               <td style="background:#f5f2ef;padding:22px 38px;text-align:center;color:#6b625c;font-size:11px;line-height:1.7;">
                 <div style="letter-spacing:0.55em;color:#2a1710;font-weight:700;margin-bottom:8px;">AJYN</div>
                 <div>Thank you for shopping with ${BRAND_NAME}.</div>
-                <div>© 2026 ${BRAND_NAME}. All rights reserved.</div>
+                <div>&copy; 2026 ${BRAND_NAME}. All rights reserved.</div>
               </td>
             </tr>
           </table>
