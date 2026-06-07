@@ -22,6 +22,7 @@ interface CustomerPreferenceRow {
 }
 
 const SUPPORT_EMAIL = Deno.env.get('SUPPORT_EMAIL') || 'support@ajynworld.com'
+const EMAIL_LOGO_URL = 'https://www.ajynworld.com/favicon.png'
 
 const AJYN_EMAIL_MOBILE_STYLES = `
       table { border-spacing:0; }
@@ -29,25 +30,25 @@ const AJYN_EMAIL_MOBILE_STYLES = `
       @media only screen and (max-width: 600px) {
         .ajyn-shell { padding:0 !important; background:#ffffff !important; }
         .ajyn-card { width:100% !important; max-width:100% !important; border-left:0 !important; border-right:0 !important; border-radius:0 !important; box-shadow:none !important; }
-        .ajyn-header { padding:24px 24px 12px !important; text-align:center !important; }
+        .ajyn-header { padding:18px 28px 8px !important; text-align:center !important; }
         .ajyn-header table, .ajyn-header tbody, .ajyn-header tr, .ajyn-header td { display:block !important; width:100% !important; }
-        .ajyn-reference { max-width:none !important; margin-top:14px !important; padding-top:12px !important; border-top:1px solid #ece6e1 !important; text-align:center !important; font-size:10px !important; line-height:1.4 !important; word-break:break-word !important; }
-        .ajyn-logo-mark { font-size:30px !important; }
-        .ajyn-logo-word { font-size:10px !important; letter-spacing:0.42em !important; }
-        .ajyn-hero { border-top:0 !important; padding:16px 24px 20px !important; }
-        .ajyn-icon { width:58px !important; height:58px !important; margin-bottom:14px !important; font-size:28px !important; line-height:58px !important; }
-        .ajyn-title { font-size:23px !important; line-height:1.24 !important; }
-        .ajyn-content { padding:0 30px 26px !important; font-size:13px !important; line-height:1.65 !important; }
-        .ajyn-status { margin:18px 0 !important; }
-        .ajyn-status-icon-cell { width:50px !important; padding:15px 0 15px 16px !important; }
-        .ajyn-status-icon { width:36px !important; height:36px !important; font-size:20px !important; line-height:33px !important; }
-        .ajyn-status-copy { padding:14px 16px 14px 8px !important; }
-        .ajyn-status-title { font-size:15px !important; }
-        .ajyn-cta-wrap { margin:22px 0 0 !important; }
-        .ajyn-cta { display:block !important; width:100% !important; box-sizing:border-box !important; padding:15px 18px !important; text-align:center !important; }
-        .ajyn-help { padding:22px 30px !important; }
+        .ajyn-reference { max-width:none !important; margin-top:8px !important; padding-top:10px !important; border-top:1px solid #ece6e1 !important; text-align:center !important; font-size:9px !important; line-height:1.35 !important; word-break:break-word !important; }
+        .ajyn-logo-img { width:74px !important; height:74px !important; margin:0 auto -8px !important; }
+        .ajyn-logo-word { font-size:10px !important; letter-spacing:0.42em !important; margin-top:0 !important; }
+        .ajyn-hero { border-top:0 !important; padding:13px 24px 17px !important; }
+        .ajyn-icon { width:52px !important; height:52px !important; margin-bottom:13px !important; font-size:26px !important; line-height:52px !important; }
+        .ajyn-title { font-size:20px !important; line-height:1.25 !important; }
+        .ajyn-content { padding:0 48px 20px !important; font-size:11px !important; line-height:1.55 !important; }
+        .ajyn-status { margin:16px 0 !important; border-radius:6px !important; }
+        .ajyn-status-icon-cell { width:50px !important; padding:14px 0 14px 14px !important; }
+        .ajyn-status-icon { width:38px !important; height:38px !important; font-size:20px !important; line-height:35px !important; }
+        .ajyn-status-copy { padding:13px 14px 13px 8px !important; }
+        .ajyn-status-title { font-size:14px !important; }
+        .ajyn-cta-wrap { margin:18px 0 0 !important; }
+        .ajyn-cta { display:block !important; width:100% !important; box-sizing:border-box !important; padding:14px 16px !important; text-align:center !important; border-radius:6px !important; }
+        .ajyn-help { padding:18px 48px !important; }
         .ajyn-contact { display:block !important; margin:8px 0 !important; }
-        .ajyn-footer { padding:20px 24px !important; }
+        .ajyn-footer { padding:20px 24px !important; border-radius:6px !important; }
         .ajyn-footer-brand { letter-spacing:0.42em !important; }
       }
 `
@@ -121,8 +122,8 @@ ${AJYN_EMAIL_MOBILE_STYLES}
                 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
                   <tr>
                     <td valign="middle">
-                      <div class="ajyn-logo-mark" style="font-size:34px;line-height:1;font-family:Georgia,'Times New Roman',serif;color:#2a1710;letter-spacing:0.06em;">A</div>
-                      <div class="ajyn-logo-word" style="font-size:11px;letter-spacing:0.52em;font-weight:700;color:#2a1710;margin-top:6px;">AJYN</div>
+                      <img class="ajyn-logo-img" src="${escapeHtml(getEmailLogoUrl())}" width="82" height="82" alt="AJYN" style="display:block;width:82px;height:82px;margin:0;border:0;outline:none;text-decoration:none;object-fit:contain;">
+                      <div class="ajyn-logo-word" style="font-size:11px;letter-spacing:0.52em;font-weight:700;color:#2a1710;margin-top:-8px;">AJYN</div>
                     </td>
                     <td align="right" valign="middle" class="ajyn-reference" style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#2a1710;">
                       ${input.eyebrow ? escapeHtml(input.eyebrow) : ''}${input.reference ? ` <span style="color:#c46f35;">${escapeHtml(input.reference)}</span>` : ''}
@@ -198,6 +199,10 @@ function escapeHtml(value: string) {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;')
+}
+
+function getEmailLogoUrl() {
+  return EMAIL_LOGO_URL
 }
 
 async function markSnapshotReminded(supabase: ServiceSupabaseClient, snapshotId: string) {
