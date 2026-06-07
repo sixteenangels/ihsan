@@ -16,6 +16,7 @@ import { WelcomeModal } from "@/components/onboarding/WelcomeModal";
 import { MaintenanceMode } from "@/components/MaintenanceMode";
 import { missingSupabaseEnvVars, supabaseConfigError } from "@/integrations/supabase/client";
 import { useProductCatalogSync } from "@/hooks/useProductCatalogSync";
+import { NOTIFICATIONS_SCROLL_KEY } from "@/lib/notification-display";
 import { ThemeProvider } from "next-themes";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
@@ -101,6 +102,7 @@ function AppRouterContent() {
     isCheckoutRoute ||
     location.pathname.startsWith("/product/") ||
     location.pathname.startsWith("/track-order") ||
+    location.pathname.startsWith("/notifications") ||
     location.pathname.startsWith("/order-confirmation") ||
     location.pathname === "/auth";
   const [isCompareBarVisible, setIsCompareBarVisible] = useState(false);
@@ -110,6 +112,13 @@ function AppRouterContent() {
   const liveChatBottomOffset = isCompareBarVisible ? 96 : isCartReminderVisible ? 112 : 0;
 
   useEffect(() => {
+    if (
+      location.pathname === "/notifications" &&
+      window.sessionStorage.getItem(NOTIFICATIONS_SCROLL_KEY)
+    ) {
+      return;
+    }
+
     const frame = window.requestAnimationFrame(() => {
       window.scrollTo({ top: 0, left: 0, behavior: "auto" });
     });

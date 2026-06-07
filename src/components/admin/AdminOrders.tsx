@@ -414,13 +414,20 @@ async function sendCustomerNotification({
 }): Promise<CustomerNotificationResult> {
   const result: CustomerNotificationResult = {};
 
-  const { error: notificationError } = await supabase.from('notifications').insert({
-    user_id: userId,
-    title,
-    message,
-    type,
-    data: data ?? null,
-  });
+  const {
+    data: createdNotification,
+    error: notificationError,
+  } = await supabase
+    .from('notifications')
+    .insert({
+      user_id: userId,
+      title,
+      message,
+      type,
+      data: data ?? null,
+    })
+    .select('id')
+    .single();
 
   if (notificationError) {
     result.inAppError = notificationError.message;
@@ -429,11 +436,23 @@ async function sendCustomerNotification({
   }
 
   try {
-    const resolvedPushData =
+    const basePushData =
       pushData ||
       (data && typeof data === 'object' && !Array.isArray(data)
         ? (data as Record<string, unknown>)
         : {});
+    const notificationId = createdNotification?.id;
+    const resolvedPushData: Record<string, unknown> = { ...basePushData };
+
+    if (notificationId) {
+      if (!resolvedPushData.notificationId) {
+        resolvedPushData.notificationId = notificationId;
+      }
+
+      if (!resolvedPushData.url) {
+        resolvedPushData.url = `/notifications/${notificationId}`;
+      }
+    }
 
     const { data: pushResult, error: pushError } = await supabase.functions.invoke('send-push-notification', {
       body: {

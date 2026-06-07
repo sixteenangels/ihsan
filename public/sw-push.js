@@ -42,7 +42,14 @@ self.addEventListener('notificationclick', function(event) {
   event.notification.close();
   
   const data = event.notification.data || {};
-  const urlToOpen = data.url || '/';
+  const notificationId = typeof data.notificationId === 'string' ? data.notificationId : null;
+  const orderId = typeof data.orderId === 'string' ? data.orderId : null;
+  const fallbackUrl = notificationId
+    ? `/notifications/${encodeURIComponent(notificationId)}`
+    : orderId
+      ? `/track-order/${encodeURIComponent(orderId)}`
+      : '/notifications';
+  const urlToOpen = new URL(data.url || fallbackUrl, self.location.origin).href;
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true })

@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { format } from 'date-fns';
-import { ArrowLeft, ArrowRight, Bell } from 'lucide-react';
+import { ArrowLeft, Bell, ChevronRight, Package } from 'lucide-react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import { Footer } from '@/components/layout/Footer';
@@ -8,30 +8,14 @@ import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useNotification, useNotifications } from '@/hooks/useNotifications';
+import {
+  getNotificationDetailParagraphs,
+  getNotificationDisplayTitle,
+  getNotificationEyebrow,
+} from '@/lib/notification-display';
 import { getNotificationTarget } from '@/lib/notification-routing';
+import { getNotificationColor, getNotificationIcon } from '@/lib/notification-visuals';
 import { cn } from '@/lib/utils';
-import { getNotificationColor, getNotificationIcon } from './Notifications';
-
-function getNotificationLabel(type: string) {
-  switch (type) {
-    case 'order_status':
-    case 'order':
-    case 'refund_status':
-      return 'Order update';
-    case 'new_order':
-      return 'Order received';
-    case 'promotion':
-      return 'Promotion';
-    case 'message':
-      return 'Message';
-    case 'group_buy':
-      return 'Group buy update';
-    case 'wallet':
-      return 'Wallet update';
-    default:
-      return 'Notification';
-  }
-}
 
 export default function NotificationDetail() {
   const { notificationId } = useParams();
@@ -59,69 +43,87 @@ export default function NotificationDetail() {
     navigate('/notifications');
   };
 
-  return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      <main className="container px-3 py-6 pb-28 sm:px-6 md:py-8 md:pb-8">
-        <button
-          type="button"
-          className="mb-6 inline-flex items-center text-sm text-muted-foreground hover:text-primary"
-          onClick={goBack}
-        >
-          <ArrowLeft className="mr-1 h-4 w-4" />
-          Back
-        </button>
+  const title = notification ? getNotificationDisplayTitle(notification) : '';
+  const paragraphs = notification ? getNotificationDetailParagraphs(notification) : [];
 
-        <div className="mx-auto max-w-2xl">
-          <h1 className="mb-5 text-center text-base font-semibold text-foreground">Notification</h1>
+  return (
+    <div className="min-h-screen bg-[#101010] md:bg-background">
+      <Header />
+      <main className="min-h-[calc(100vh-4rem)] px-3 py-5 pb-10 sm:px-6 md:py-8">
+        <div className="mx-auto w-full max-w-xl">
+          <div className="mb-5 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+            <button
+              type="button"
+              className="inline-flex h-10 items-center justify-self-start rounded-full px-1 text-sm font-medium text-[#ff8a33] hover:text-[#ffac63] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff8a33] focus-visible:ring-offset-2 focus-visible:ring-offset-[#101010] md:text-primary md:hover:text-primary/80 md:focus-visible:ring-ring md:focus-visible:ring-offset-background"
+              onClick={goBack}
+            >
+              <ArrowLeft className="mr-1 h-4 w-4" />
+              Back
+            </button>
+            <h1 className="text-center text-sm font-semibold text-white md:text-foreground">Notification</h1>
+            <div />
+          </div>
 
           {isLoading ? (
             <div className="flex min-h-[40vh] items-center justify-center">
-              <Bell className="h-8 w-8 animate-pulse text-primary" />
+              <Bell className="h-8 w-8 animate-pulse text-[#ff8a33] md:text-primary" />
             </div>
           ) : notification ? (
-            <Card className="rounded-2xl border-border/70 bg-card shadow-sm">
-              <CardContent className="space-y-6 p-6 sm:p-8">
+            <Card className="rounded-2xl border-[#2d2d2d] bg-[#1b1b1b] shadow-[0_22px_55px_-36px_hsl(0_0%_0%/0.9)] md:border-border/70 md:bg-card md:shadow-sm">
+              <CardContent className="p-5 sm:p-8">
                 <div className="flex flex-col items-center text-center">
                   <div
                     className={cn(
-                      'mb-4 flex h-14 w-14 items-center justify-center rounded-full',
+                      'mb-4 flex h-16 w-16 items-center justify-center rounded-full text-[#ff8a33]',
                       getNotificationColor(notification.type),
                     )}
                   >
                     {getNotificationIcon(notification.type)}
                   </div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
-                    {getNotificationLabel(notification.type)}
+                  <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#ff8a33] md:text-xs md:text-primary">
+                    {getNotificationEyebrow(notification).toUpperCase()}
                   </p>
-                  <h2 className="mt-3 text-xl font-semibold text-foreground">{notification.title}</h2>
-                  <p className="mt-2 text-sm text-muted-foreground">
+                  <h2 className="mt-3 max-w-md break-words text-xl font-semibold leading-snug text-white md:text-foreground">
+                    {title}
+                  </h2>
+                  <p className="mt-2 text-sm text-[#a6a6a6] md:text-muted-foreground">
                     {format(new Date(notification.created_at), 'MMM d, yyyy h:mm a')}
                   </p>
                 </div>
 
-                <div className="border-t border-border/70 pt-6">
-                  <p className="whitespace-pre-wrap text-sm leading-7 text-foreground sm:text-base">
-                    {notification.message}
-                  </p>
+                <div className="mt-6 space-y-5 border-t border-[#303030] pt-6 md:border-border/70">
+                  {paragraphs.map((paragraph) => (
+                    <p
+                      key={paragraph}
+                      className="break-words text-sm leading-7 text-[#dedede] sm:text-base md:text-foreground"
+                    >
+                      {paragraph}
+                    </p>
+                  ))}
                 </div>
 
                 {orderTarget ? (
-                  <Button asChild className="h-11 w-full rounded-xl">
+                  <Button
+                    asChild
+                    className="mt-16 h-12 w-full rounded-lg bg-[#ff8a33] text-sm font-semibold text-[#241006] shadow-sm hover:bg-[#ff9a45] md:mt-9 md:rounded-xl"
+                  >
                     <Link to={orderTarget.href}>
+                      <Package className="h-4 w-4" />
                       Track Order
-                      <ArrowRight className="ml-2 h-4 w-4" />
+                      <ChevronRight className="ml-auto h-4 w-4" />
                     </Link>
                   </Button>
                 ) : null}
               </CardContent>
             </Card>
           ) : (
-            <Card className="rounded-2xl border-border/70 shadow-sm">
+            <Card className="rounded-2xl border-[#262626] bg-[#181818] shadow-sm md:border-border/70 md:bg-card">
               <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-                <Bell className="mb-3 h-10 w-10 text-muted-foreground" />
-                <p className="text-lg font-medium text-foreground">Notification not found</p>
-                <p className="mt-1 text-sm text-muted-foreground">This notification may have been removed.</p>
+                <Bell className="mb-3 h-10 w-10 text-[#8d8d8d] md:text-muted-foreground" />
+                <p className="text-lg font-medium text-white md:text-foreground">Notification not found</p>
+                <p className="mt-1 text-sm text-[#9a9a9a] md:text-muted-foreground">
+                  This notification may have been removed.
+                </p>
                 <Button className="mt-6 rounded-xl" onClick={() => navigate('/notifications')}>
                   Back to notifications
                 </Button>

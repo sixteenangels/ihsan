@@ -20,6 +20,32 @@ interface StoredSubscription {
   auth: string
 }
 
+function getStringDataValue(data: Record<string, unknown> | undefined, ...keys: string[]) {
+  if (!data) return null
+
+  for (const key of keys) {
+    const value = data[key]
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim()
+    }
+  }
+
+  return null
+}
+
+function getPushTargetUrl(data: Record<string, unknown> | undefined) {
+  const explicitUrl = getStringDataValue(data, 'url')
+  if (explicitUrl) return explicitUrl
+
+  const notificationId = getStringDataValue(data, 'notificationId', 'notification_id')
+  if (notificationId) return `/notifications/${encodeURIComponent(notificationId)}`
+
+  const orderId = getStringDataValue(data, 'orderId', 'order_id')
+  if (orderId) return `/track-order/${encodeURIComponent(orderId)}`
+
+  return '/notifications'
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -75,6 +101,10 @@ Deno.serve(async (req) => {
     }
 
     const { user_id, title, body, data } = await req.json() as PushPayload
+    const notificationData =
+      data && typeof data === 'object' && !Array.isArray(data)
+        ? data
+        : {}
 
     if (!user_id || !title || !body) {
       return new Response(
@@ -136,9 +166,9 @@ Deno.serve(async (req) => {
       icon: '/favicon.png',
       badge: '/favicon.png',
       data: {
-        ...data,
+        ...notificationData,
         timestamp: Date.now(),
-        url: data?.url || '/',
+        url: getPushTargetUrl(notificationData),
       },
     })
 
