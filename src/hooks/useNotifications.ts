@@ -74,8 +74,9 @@ export function useNotifications(limit = 20) {
         .eq('id', notificationId);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_data, notificationId) => {
       queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['notification', user?.id, notificationId] });
     },
     onError: () => {
       toast.error('Could not mark notification as read.');
@@ -94,6 +95,7 @@ export function useNotifications(limit = 20) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['notification', user?.id] });
     },
     onError: () => {
       toast.error('Could not mark notifications as read.');
@@ -107,4 +109,27 @@ export function useNotifications(limit = 20) {
     markAsRead: markAsReadMutation.mutate,
     markAllAsRead: markAllAsReadMutation.mutate,
   };
+}
+
+export function useNotification(notificationId: string | undefined) {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ['notification', user?.id, notificationId],
+    queryFn: async () => {
+      if (!user || !notificationId) return null;
+
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('id', notificationId)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data as Notification | null;
+    },
+    enabled: !!user && !!notificationId,
+    staleTime: 30_000,
+  });
 }

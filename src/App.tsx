@@ -43,6 +43,7 @@ const DeliveryZones = lazy(() => import("./pages/DeliveryZones"));
 const CustomsDutyEstimator = lazy(() => import("./pages/CustomsDutyEstimator"));
 const ReceiptVerify = lazy(() => import("./pages/ReceiptVerify"));
 const Notifications = lazy(() => import("./pages/Notifications"));
+const NotificationDetail = lazy(() => import("./pages/NotificationDetail"));
 const FooterInfo = lazy(() => import("./pages/FooterInfo"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -148,6 +149,7 @@ function AppRouterContent() {
           <Route path="/help" element={<Help />} />
           <Route path="/receipt/:receiptNumber" element={<ReceiptVerify />} />
           <Route path="/notifications" element={<Notifications />} />
+          <Route path="/notifications/:notificationId" element={<NotificationDetail />} />
           <Route path="/flash-deals" element={<FlashDeals />} />
           <Route path="/delivery-zones" element={<DeliveryZones />} />
           <Route path="/customs-estimator" element={<CustomsDutyEstimator />} />
