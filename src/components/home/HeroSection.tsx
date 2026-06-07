@@ -124,18 +124,18 @@ export function HeroSection() {
             and get products from around the world at transparent prices.
           </p>
 
-          <div className="mb-8 flex flex-col gap-3 sm:mb-12 sm:flex-row sm:gap-4">
-            <Link to="/products">
-              <Button size="lg" className="w-full px-6 text-base sm:w-auto sm:px-8 sm:text-lg">
+          <div className="mb-6 flex flex-col items-start gap-2 sm:mb-12 sm:flex-row sm:gap-4">
+            <Link to="/products" className="w-fit">
+              <Button size="sm" className="h-8 px-3 text-[10px] sm:h-11 sm:px-8 sm:text-lg">
                 Shop Now
-                <ArrowRight className="ml-2 h-5 w-5" />
+                <ArrowRight className="ml-1 h-3 w-3 sm:ml-2 sm:h-5 sm:w-5" />
               </Button>
             </Link>
-            <Link to="/group-buys">
+            <Link to="/group-buys" className="w-fit">
               <Button
-                size="lg"
+                size="sm"
                 variant="outline"
-                className="w-full border-primary-foreground/30 bg-primary-foreground/10 px-6 text-base text-primary-foreground hover:bg-primary-foreground/20 sm:w-auto sm:px-8 sm:text-lg"
+                className="h-8 border-primary-foreground/30 bg-primary-foreground/10 px-3 text-[10px] text-primary-foreground hover:bg-primary-foreground/20 sm:h-11 sm:px-8 sm:text-lg"
               >
                 Explore Group Buys
               </Button>

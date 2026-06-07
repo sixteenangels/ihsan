@@ -27,10 +27,13 @@ const AJYN_EMAIL_MOBILE_STYLES = `
         .ajyn-shell { padding:0 !important; background:#ffffff !important; }
         .ajyn-card { width:100% !important; max-width:100% !important; border-left:0 !important; border-right:0 !important; border-radius:0 !important; box-shadow:none !important; }
         .ajyn-header { padding:18px 28px 8px !important; text-align:center !important; }
-        .ajyn-header table, .ajyn-header tbody, .ajyn-header tr, .ajyn-header td { display:block !important; width:100% !important; }
-        .ajyn-reference { max-width:none !important; margin-top:8px !important; padding-top:10px !important; border-top:1px solid #ece6e1 !important; text-align:center !important; font-size:9px !important; line-height:1.35 !important; word-break:break-word !important; }
-        .ajyn-logo-img { width:74px !important; height:74px !important; margin:0 auto -8px !important; }
-        .ajyn-logo-word { font-size:10px !important; letter-spacing:0.42em !important; margin-top:0 !important; }
+        .ajyn-reference { font-size:9px !important; line-height:1.35 !important; word-break:break-word !important; }
+        .ajyn-brand-cell { text-align:center !important; }
+        .ajyn-header .ajyn-logo-lockup { display:table !important; width:auto !important; margin:0 auto !important; }
+        .ajyn-header .ajyn-logo-lockup tr { display:table-row !important; width:auto !important; }
+        .ajyn-header .ajyn-logo-lockup td { display:table-cell !important; width:auto !important; }
+        .ajyn-logo-img { width:58px !important; height:58px !important; margin:0 auto !important; }
+        .ajyn-logo-word { font-size:10px !important; letter-spacing:0.34em !important; padding-left:0.34em !important; margin-top:2px !important; }
         .ajyn-hero { border-top:0 !important; padding:13px 24px 17px !important; }
         .ajyn-icon { width:52px !important; height:52px !important; margin-bottom:13px !important; font-size:26px !important; line-height:52px !important; }
         .ajyn-title { font-size:20px !important; line-height:1.25 !important; }
@@ -45,7 +48,9 @@ const AJYN_EMAIL_MOBILE_STYLES = `
         .ajyn-help { padding:18px 48px !important; }
         .ajyn-contact { display:block !important; margin:8px 0 !important; }
         .ajyn-footer { padding:20px 24px !important; border-radius:6px !important; }
-        .ajyn-footer-brand { letter-spacing:0.42em !important; }
+        .ajyn-footer-brand { margin-bottom:10px !important; }
+        .ajyn-footer-brand-word { font-size:12px !important; letter-spacing:0.56em !important; padding-left:0.56em !important; }
+        .ajyn-footer-brand-dot { width:4px !important; height:4px !important; }
       }
 `;
 
@@ -150,20 +155,25 @@ export function buildOrderStatusEmailHtml(input: {
   note?: string | null;
 }) {
   const normalizedStatus = input.statusLabel.toLowerCase();
+  const isOrderPlaced = normalizedStatus.includes('placed');
   const title = normalizedStatus.includes('placed')
     ? 'Your Order Has Been Placed'
     : `Your Order Is ${titleCase(input.statusLabel)}`;
 
   return buildAjynEmailHtml({
-    eyebrow: `Order ${input.orderNumber}`,
-    reference: input.orderNumber,
+    eyebrow: 'Order',
+    reference: `#${input.orderNumber}`,
     icon: '&#9634;',
     title,
     greetingName: input.customerName,
-    intro: `Order ${input.orderNumber} has a new status.`,
+    intro: isOrderPlaced
+      ? `Thank you for shopping with ${BRAND_NAME}.`
+      : `Order ${input.orderNumber} has a new status.`,
     bodyHtml: `<p style="margin:0 0 14px;white-space:pre-wrap;">${escapeHtml(input.message)}</p>${input.note ? `<p style="margin:0 0 14px;"><strong>Admin note:</strong> ${escapeHtml(input.note)}</p>` : ''}`,
     statusTitle: input.statusLabel,
-    statusText: 'We will keep you updated every step of the way.',
+    statusText: isOrderPlaced
+      ? 'Your order is now in our system and we are preparing the next steps.'
+      : 'We will keep you updated every step of the way.',
     ctaLabel: 'TRACK MY ORDER',
     ctaUrl: `${getAppUrl()}/track-order/${encodeURIComponent(input.orderNumber)}`,
   });
@@ -295,14 +305,24 @@ ${AJYN_EMAIL_MOBILE_STYLES}
         <td align="center" class="ajyn-shell" style="padding:28px 12px;">
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="ajyn-card" style="width:100%;max-width:640px;border-collapse:collapse;background:#ffffff;border:1px solid #ece6e1;border-radius:10px;overflow:hidden;box-shadow:0 18px 42px rgba(42,23,16,0.08);">
             <tr>
-              <td class="ajyn-header" style="padding:30px 38px 20px;">
+              <td class="ajyn-header" style="padding:30px 38px 16px;text-align:center;">
                 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
                   <tr>
-                    <td valign="middle">
-                      <img class="ajyn-logo-img" src="${escapeHtml(getEmailLogoUrl())}" width="82" height="82" alt="AJYN" style="display:block;width:82px;height:82px;margin:0;border:0;outline:none;text-decoration:none;object-fit:contain;">
-                      <div class="ajyn-logo-word" style="font-size:11px;letter-spacing:0.52em;font-weight:700;color:#2a1710;margin-top:-8px;">AJYN</div>
+                    <td align="center" class="ajyn-brand-cell" style="text-align:center;padding:0 0 12px;">
+                      <table role="presentation" cellspacing="0" cellpadding="0" align="center" class="ajyn-logo-lockup" style="margin:0 auto;border-collapse:collapse;">
+                        <tr>
+                          <td align="center" style="padding:0;">
+                            <img class="ajyn-logo-img" src="${escapeHtml(getEmailLogoUrl())}" width="64" height="64" alt="AJYN" style="display:block;width:64px;height:64px;margin:0 auto;border:0;outline:none;text-decoration:none;object-fit:contain;">
+                          </td>
+                        </tr>
+                        <tr>
+                          <td align="center" class="ajyn-logo-word" style="padding:2px 0 0 0;padding-left:0.4em;font-size:11px;line-height:1;letter-spacing:0.4em;font-weight:700;color:#2a1710;">AJYN</td>
+                        </tr>
+                      </table>
                     </td>
-                    <td align="right" valign="middle" class="ajyn-reference" style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#2a1710;">
+                  </tr>
+                  <tr>
+                    <td align="center" class="ajyn-reference" style="border-top:1px solid #ece6e1;padding:10px 0 0;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#2a1710;text-align:center;">
                       ${input.eyebrow ? escapeHtml(input.eyebrow) : ''}${input.reference ? ` <span style="color:#c46f35;">${escapeHtml(input.reference)}</span>` : ''}
                     </td>
                   </tr>
@@ -356,7 +376,16 @@ ${AJYN_EMAIL_MOBILE_STYLES}
             </tr>
             <tr>
               <td class="ajyn-footer" style="background:#f5f2ef;padding:22px 38px;text-align:center;color:#6b625c;font-size:11px;line-height:1.7;">
-                <div class="ajyn-footer-brand" style="letter-spacing:0.55em;color:#2a1710;font-weight:700;margin-bottom:8px;">AJYN</div>
+                <table role="presentation" cellspacing="0" cellpadding="0" align="center" class="ajyn-footer-brand" style="margin:0 auto 12px;border-collapse:collapse;">
+                  <tr>
+                    <td align="center" class="ajyn-footer-brand-word" style="padding:0 0 2px;padding-left:0.56em;color:#2a1710;font-size:12px;line-height:1;letter-spacing:0.56em;font-weight:700;">AJYN</td>
+                  </tr>
+                  <tr>
+                    <td align="center" style="padding:0;">
+                      <span class="ajyn-footer-brand-dot" style="display:inline-block;width:4px;height:4px;border-radius:999px;background:#b85b0e;line-height:4px;font-size:0;">&nbsp;</span>
+                    </td>
+                  </tr>
+                </table>
                 <div>Thank you for shopping with ${BRAND_NAME}.</div>
                 <div>&copy; 2026 ${BRAND_NAME}. All rights reserved.</div>
               </td>
