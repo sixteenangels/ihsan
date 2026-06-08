@@ -102,11 +102,11 @@ function replaceCssColorProperty(html: string, property: string, from: string, t
 
 function forceDarkOrderEmailPalette(html: string) {
   const forcedDarkCss = `
-      body, .ajyn-body-bg, .ajyn-shell { background:#09070d !important;background-color:#09070d !important; }
-      .ajyn-card, .ajyn-container, .ajyn-header-row, .ajyn-logo-cell, .ajyn-ref-cell, .ajyn-hero-wrap, .ajyn-title, .ajyn-body, .ajyn-divider-cell, .ajyn-help { background:#171514 !important;background-color:#171514 !important; }
-      .ajyn-soft-bg, .ajyn-status-card { background:#24201d !important;background-color:#24201d !important; }
-      .ajyn-footer-bg, .ajyn-footer { background:#211d1a !important;background-color:#211d1a !important; }
-      .ajyn-hero-bg, .ajyn-hero-icon { background:#302923 !important;background-color:#302923 !important; }
+      body, .ajyn-body-bg, .ajyn-shell { background:#09070d !important;background-color:#09070d !important;background-image:linear-gradient(#09070d,#09070d) !important; }
+      .ajyn-card, .ajyn-container, .ajyn-header-row, .ajyn-logo-cell, .ajyn-ref-cell, .ajyn-hero-wrap, .ajyn-title, .ajyn-body, .ajyn-divider-cell, .ajyn-help { background:#171514 !important;background-color:#171514 !important;background-image:linear-gradient(#171514,#171514) !important; }
+      .ajyn-soft-bg, .ajyn-status-card { background:#24201d !important;background-color:#24201d !important;background-image:linear-gradient(#24201d,#24201d) !important; }
+      .ajyn-footer-bg, .ajyn-footer { background:#211d1a !important;background-color:#211d1a !important;background-image:linear-gradient(#211d1a,#211d1a) !important; }
+      .ajyn-hero-bg, .ajyn-hero-icon { background:#302923 !important;background-color:#302923 !important;background-image:linear-gradient(#302923,#302923) !important; }
       .ajyn-text-dark, .ajyn-text-dark *, .ajyn-gmail-text, .ajyn-gmail-text *, .ajyn-copy, .ajyn-title, .ajyn-status-title, .ajyn-status-text, .ajyn-help-title, .ajyn-help-subtitle, .ajyn-contact, .ajyn-footer-brand, .ajyn-footer-copy, .ajyn-footer-legal, .ajyn-logo-word, .ajyn-ref-cell { color:#ffffff !important;-webkit-text-fill-color:#ffffff !important; }
       .ajyn-text-brand { color:#ff9d4d !important;-webkit-text-fill-color:#ff9d4d !important; }
       .ajyn-cta { background:#000000 !important;background-color:#000000 !important;background-image:linear-gradient(#000000,#000000) !important;color:#c47b43 !important;-webkit-text-fill-color:#c47b43 !important; }
