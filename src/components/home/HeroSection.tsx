@@ -79,7 +79,7 @@ export function HeroSection() {
   }, [heroSlides.length]);
 
   return (
-    <section className="relative flex min-h-[64dvh] items-center overflow-hidden sm:min-h-[80vh]">
+    <section className="relative flex min-h-[calc(100dvh-4rem)] items-start overflow-hidden sm:min-h-[80vh] sm:items-center">
       <div className="absolute inset-0 bg-foreground" aria-hidden="true">
         {heroSlides.map((slide, index) => (
           <img
