@@ -1,9 +1,25 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { ShoppingCart, Menu, User, LogOut, Settings, Package, Heart } from 'lucide-react';
+import {
+  ChevronRight,
+  CircleHelp,
+  FileText,
+  Headphones,
+  Heart,
+  Home,
+  Info,
+  LogOut,
+  Menu,
+  Package,
+  Settings,
+  ShoppingCart,
+  User,
+  UsersRound,
+  Zap,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetClose, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu,
@@ -30,10 +46,38 @@ export function Header() {
     { name: 'Group Buys', href: '/group-buys' },
     { name: 'Categories', href: '/categories' },
   ];
+  const mobilePrimaryLinks = [
+    { name: 'Home', href: '/', icon: Home },
+    { name: 'Flash Deals', href: '/flash-deals', icon: Zap },
+    { name: 'Group Buys', href: '/group-buys', icon: UsersRound },
+  ];
+  const mobileSupportLinks = [
+    { name: 'Contact Support', href: '/contact', icon: Headphones },
+    { name: 'Help Center', href: '/help', icon: CircleHelp },
+    { name: 'About AJYN', href: '/about', icon: Info },
+    { name: 'Terms & Policies', href: '/terms-of-service', icon: FileText },
+  ];
 
   const handleSignOut = async () => {
     await signOut();
     navigate('/');
+  };
+
+  const renderMobileMenuLink = (item: { name: string; href: string; icon: typeof Home }) => {
+    const Icon = item.icon;
+
+    return (
+      <SheetClose asChild key={item.name}>
+        <Link
+          to={item.href}
+          className="group flex h-11 items-center gap-3 rounded-xl px-2.5 text-sm font-medium text-[#ededed] transition-colors hover:bg-white/[0.04] hover:text-white"
+        >
+          <Icon className="h-5 w-5 shrink-0 text-[#ff8a33]" />
+          <span className="min-w-0 flex-1 truncate">{item.name}</span>
+          <ChevronRight className="h-4 w-4 shrink-0 text-[#d6d6d6] transition-transform group-hover:translate-x-0.5 group-hover:text-[#ffb56e]" />
+        </Link>
+      </SheetClose>
+    );
   };
 
   return (
@@ -150,43 +194,52 @@ export function Header() {
                 <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-[86vw] max-w-sm rounded-l-3xl border-l border-border/70 bg-background/95 px-5 backdrop-blur-xl">
-              <nav className="mt-8 flex flex-col gap-3">
-                {navLinks.map((link) => (
-                  <Link
-                    key={link.name}
-                    to={link.href}
-                    className="rounded-xl px-3 py-2 text-base font-medium text-foreground transition-colors hover:bg-muted hover:text-primary"
-                  >
-                    {link.name}
-                  </Link>
-                ))}
+            <SheetContent
+              side="right"
+              className="bottom-auto top-0 h-[calc(100dvh-1.25rem)] w-[76vw] min-w-[16.5rem] max-w-[18rem] rounded-bl-3xl rounded-tl-3xl border-l border-white/10 bg-[#151515]/95 p-0 text-white shadow-[0_28px_70px_-28px_rgba(0,0,0,0.95)] backdrop-blur-2xl [&>button]:right-4 [&>button]:top-4 [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:bg-white/10 [&>button]:focus:ring-[#ff8a33]"
+            >
+              <nav className="flex h-full flex-col px-4 pb-5 pt-12">
+                <div className="space-y-1">
+                  {mobilePrimaryLinks.map(renderMobileMenuLink)}
+                </div>
+
+                <div className="my-4 h-px bg-white/10" />
+
+                <div className="space-y-1">
+                  {mobileSupportLinks.map(renderMobileMenuLink)}
+                </div>
+
                 {isAdmin && (
-                  <Link
-                    to="/admin"
-                    className="rounded-xl px-3 py-2 text-base font-medium text-primary transition-colors hover:bg-primary/5 hover:text-primary/80"
-                  >
-                    Admin Dashboard
-                  </Link>
+                  <>
+                    <div className="my-4 h-px bg-white/10" />
+                    {renderMobileMenuLink({ name: 'Admin Dashboard', href: '/admin', icon: Settings })}
+                  </>
                 )}
-                <div className="border-t border-border pt-4 mt-4">
+
+                <div className="mt-auto border-t border-white/10 pt-5">
                   {user ? (
-                    <div className="space-y-2">
-                      <p className="text-sm text-muted-foreground truncate">
+                    <div className="space-y-3">
+                      <p className="truncate text-sm text-[#ededed]">
                         {user.email}
                       </p>
-                      <Button className="w-full" variant="outline" onClick={handleSignOut}>
-                        <LogOut className="h-4 w-4 mr-2" />
+                      <Button
+                        className="h-11 w-full rounded-lg border border-[#ff8a33]/80 bg-transparent text-sm font-medium text-[#ff8a33] hover:bg-[#ff8a33]/10 hover:text-[#ffb56e]"
+                        variant="outline"
+                        onClick={handleSignOut}
+                      >
+                        <LogOut className="mr-2 h-4 w-4" />
                         Sign Out
                       </Button>
                     </div>
                   ) : (
-                    <Link to="/auth">
-                      <Button className="w-full" variant="outline">
-                        <User className="h-4 w-4 mr-2" />
+                    <SheetClose asChild>
+                      <Link to="/auth">
+                        <Button className="h-11 w-full rounded-lg border border-[#ff8a33]/80 bg-transparent text-sm font-medium text-[#ff8a33] hover:bg-[#ff8a33]/10 hover:text-[#ffb56e]" variant="outline">
+                          <User className="mr-2 h-4 w-4" />
                         Sign In
-                      </Button>
-                    </Link>
+                        </Button>
+                      </Link>
+                    </SheetClose>
                   )}
                 </div>
               </nav>
