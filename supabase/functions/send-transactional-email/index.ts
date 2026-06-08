@@ -90,8 +90,9 @@ function sanitizeCustomHeaders(headers?: Record<string, string>) {
 
 function normalizeEmailHtmlForClients(html: string) {
   const lightLockedColors = ['#ffffff', '#f7f4f2', '#f8f4f1', '#f2e9e1']
+  const darkInkLockedColors = ['#111111', '#202124']
 
-  return lightLockedColors.reduce((output, color) => {
+  const withoutLightBackgroundLocks = lightLockedColors.reduce((output, color) => {
     const escapedColor = color.replace('#', '\\#')
     const lockPattern = new RegExp(
       `\\s*background-image\\s*:\\s*linear-gradient\\(\\s*${escapedColor}\\s*,\\s*${escapedColor}\\s*\\)\\s*!important\\s*;?`,
@@ -104,6 +105,45 @@ function normalizeEmailHtmlForClients(html: string) {
 
     return output.replace(lockPattern, '').replace(inlineLockPattern, '')
   }, html)
+
+  return darkInkLockedColors
+    .reduce((output, color) => {
+      const escapedColor = color.replace('#', '\\#')
+      const textFillPattern = new RegExp(
+        `\\s*-webkit-text-fill-color\\s*:\\s*${escapedColor}\\s*!important\\s*;?`,
+        'gi',
+      )
+      const inlineTextFillPattern = new RegExp(
+        `\\s*-webkit-text-fill-color\\s*:\\s*${escapedColor}\\s*;?`,
+        'gi',
+      )
+      const colorPattern = new RegExp(
+        `\\s*color\\s*:\\s*${escapedColor}\\s*!important\\s*;?`,
+        'gi',
+      )
+      const inlineColorPattern = new RegExp(
+        `\\s*color\\s*:\\s*${escapedColor}\\s*;?`,
+        'gi',
+      )
+      const fillPattern = new RegExp(
+        `\\s*fill\\s*:\\s*${escapedColor}\\s*!important\\s*;?`,
+        'gi',
+      )
+      const strokePattern = new RegExp(
+        `\\s*stroke\\s*:\\s*${escapedColor}\\s*!important\\s*;?`,
+        'gi',
+      )
+
+      return output
+        .replace(textFillPattern, '')
+        .replace(inlineTextFillPattern, '')
+        .replace(colorPattern, '')
+        .replace(inlineColorPattern, '')
+        .replace(fillPattern, '')
+        .replace(strokePattern, '')
+    }, withoutLightBackgroundLocks)
+    .replace(/\sfill="#202124"/gi, ' fill="currentColor"')
+    .replace(/\sstroke="#202124"/gi, ' stroke="currentColor"')
 }
 
 async function updateOutboxStatus(
