@@ -20,6 +20,7 @@ const DEFAULT_FROM_ADDRESS = 'no-reply@ajynworld.com'
 const DEFAULT_FROM_NAME = 'AJYN'
 const EMAIL_ADDRESS_PATTERN = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/
 const EMAIL_REDACTION = '[email redacted]'
+const FORCE_DARK_ORDER_EMAIL_TYPES = new Set(['order_status', 'order_note'])
 
 function extractEmailAddress(value?: string | null) {
   const trimmed = value?.trim()
@@ -88,7 +89,98 @@ function sanitizeCustomHeaders(headers?: Record<string, string>) {
   return Object.keys(sanitized).length > 0 ? sanitized : undefined
 }
 
-function normalizeEmailHtmlForClients(html: string) {
+function replaceCssColorProperty(html: string, property: string, from: string, to: string) {
+  const escapedProperty = property.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const escapedColor = from.replace('#', '\\#')
+  const pattern = new RegExp(
+    `(${escapedProperty}\\s*:\\s*)${escapedColor}(\\s*!important)?`,
+    'gi',
+  )
+
+  return html.replace(pattern, `$1${to}$2`)
+}
+
+function forceDarkOrderEmailPalette(html: string) {
+  const forcedDarkCss = `
+      body, .ajyn-body-bg, .ajyn-shell { background:#09070d !important;background-color:#09070d !important; }
+      .ajyn-card, .ajyn-container, .ajyn-header-row, .ajyn-logo-cell, .ajyn-ref-cell, .ajyn-hero-wrap, .ajyn-title, .ajyn-body, .ajyn-divider-cell, .ajyn-help { background:#171514 !important;background-color:#171514 !important; }
+      .ajyn-soft-bg, .ajyn-status-card { background:#24201d !important;background-color:#24201d !important; }
+      .ajyn-footer-bg, .ajyn-footer { background:#211d1a !important;background-color:#211d1a !important; }
+      .ajyn-hero-bg, .ajyn-hero-icon { background:#302923 !important;background-color:#302923 !important; }
+      .ajyn-text-dark, .ajyn-text-dark *, .ajyn-gmail-text, .ajyn-gmail-text *, .ajyn-copy, .ajyn-title, .ajyn-status-title, .ajyn-status-text, .ajyn-help-title, .ajyn-help-subtitle, .ajyn-contact, .ajyn-footer-brand, .ajyn-footer-copy, .ajyn-footer-legal, .ajyn-logo-word, .ajyn-ref-cell { color:#ffffff !important;-webkit-text-fill-color:#ffffff !important; }
+      .ajyn-text-brand { color:#ff9d4d !important;-webkit-text-fill-color:#ff9d4d !important; }
+      .ajyn-cta { background:#000000 !important;background-color:#000000 !important;background-image:linear-gradient(#000000,#000000) !important;color:#c47b43 !important;-webkit-text-fill-color:#c47b43 !important; }
+      .ajyn-logo-ink { fill:#ffffff !important; }
+      .ajyn-logo-stroke { stroke:#ffffff !important; }
+      .ajyn-logo-cutout { fill:#171514 !important; }
+`
+  const backgroundReplacements = [
+    ['#f5f5f5', '#09070d'],
+    ['#ffffff', '#171514'],
+    ['#f7f4f2', '#24201d'],
+    ['#f8f4f1', '#211d1a'],
+    ['#f2e9e1', '#302923'],
+  ] as const
+  const textColorReplacements = [
+    '#111111',
+    '#202124',
+    '#2a1710',
+    '#333333',
+    '#3f332d',
+    '#555555',
+    '#666666',
+    '#6b625c',
+  ]
+
+  const withDarkBackgrounds = backgroundReplacements.reduce((output, [from, to]) => {
+    const escapedColor = from.replace('#', '\\#')
+    const backgroundPattern = new RegExp(
+      `(\\bbackground(?:-color)?\\s*:\\s*)${escapedColor}(\\s*!important)?`,
+      'gi',
+    )
+    const bgcolorPattern = new RegExp(`(\\bbgcolor=["'])${escapedColor}(["'])`, 'gi')
+
+    return output
+      .replace(backgroundPattern, `$1${to}$2`)
+      .replace(bgcolorPattern, `$1${to}$2`)
+  }, html)
+
+  const withWhiteText = textColorReplacements.reduce((output, color) => {
+    const escapedColor = color.replace('#', '\\#')
+    const fillAttributePattern = new RegExp(`(\\sfill=["'])${escapedColor}(["'])`, 'gi')
+    const strokeAttributePattern = new RegExp(`(\\sstroke=["'])${escapedColor}(["'])`, 'gi')
+
+    return replaceCssColorProperty(
+      replaceCssColorProperty(
+        replaceCssColorProperty(
+          replaceCssColorProperty(output, 'color', color, '#ffffff'),
+          '-webkit-text-fill-color',
+          color,
+          '#ffffff',
+        ),
+        'fill',
+        color,
+        '#ffffff',
+      ),
+      'stroke',
+      color,
+      '#ffffff',
+    )
+      .replace(fillAttributePattern, '$1#ffffff$2')
+      .replace(strokeAttributePattern, '$1#ffffff$2')
+  }, withDarkBackgrounds)
+
+  const forcedHtml = withWhiteText
+    .replace(/fill="currentColor"/gi, 'fill="#ffffff"')
+    .replace(/stroke="currentColor"/gi, 'stroke="#ffffff"')
+    .replace(/(\bclass=["'][^"']*ajyn-logo-cutout[^"']*["'][^>]*\sfill=["'])#ffffff(["'])/gi, '$1#171514$2')
+
+  return forcedHtml.includes('</style>')
+    ? forcedHtml.replace('</style>', `${forcedDarkCss}</style>`)
+    : forcedHtml
+}
+
+function normalizeEmailHtmlForClients(html: string, emailType?: string) {
   const lightLockedColors = ['#ffffff', '#f7f4f2', '#f8f4f1', '#f2e9e1']
   const darkInkLockedColors = ['#111111', '#202124']
 
@@ -106,7 +198,7 @@ function normalizeEmailHtmlForClients(html: string) {
     return output.replace(lockPattern, '').replace(inlineLockPattern, '')
   }, html)
 
-  return darkInkLockedColors
+  const normalizedHtml = darkInkLockedColors
     .reduce((output, color) => {
       const escapedColor = color.replace('#', '\\#')
       const textFillPattern = new RegExp(
@@ -134,6 +226,12 @@ function normalizeEmailHtmlForClients(html: string) {
     }, withoutLightBackgroundLocks)
     .replace(/\sfill="#202124"/gi, ' fill="currentColor"')
     .replace(/\sstroke="#202124"/gi, ' stroke="currentColor"')
+
+  if (emailType && FORCE_DARK_ORDER_EMAIL_TYPES.has(emailType)) {
+    return forceDarkOrderEmailPalette(normalizedHtml)
+  }
+
+  return normalizedHtml
 }
 
 async function updateOutboxStatus(
@@ -246,7 +344,7 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'Missing required fields: to, subject, html' }, 400)
     }
 
-    payload.html = normalizeEmailHtmlForClients(payload.html)
+    payload.html = normalizeEmailHtmlForClients(payload.html, payload.type)
 
     const { data: outboxRow, error: outboxError } = await supabase
       .from('outgoing_emails')
