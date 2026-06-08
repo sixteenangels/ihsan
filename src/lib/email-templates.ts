@@ -24,33 +24,24 @@ const AJYN_EMAIL_MOBILE_STYLES = `
       table { border-spacing:0; }
       a { color:inherit; }
       @media only screen and (max-width: 600px) {
-        .ajyn-shell { padding:0 !important; background:#ffffff !important; }
-        .ajyn-card { width:100% !important; max-width:100% !important; border-left:0 !important; border-right:0 !important; border-radius:0 !important; box-shadow:none !important; }
-        .ajyn-header { padding:18px 28px 8px !important; text-align:center !important; }
-        .ajyn-reference { font-size:9px !important; line-height:1.35 !important; word-break:break-word !important; }
-        .ajyn-brand-cell { text-align:center !important; }
-        .ajyn-header .ajyn-logo-lockup { display:table !important; width:auto !important; margin:0 auto !important; }
-        .ajyn-header .ajyn-logo-lockup tr { display:table-row !important; width:auto !important; }
-        .ajyn-header .ajyn-logo-lockup td { display:table-cell !important; width:auto !important; }
-        .ajyn-logo-img { width:58px !important; height:58px !important; margin:0 auto !important; }
-        .ajyn-logo-word { font-size:10px !important; letter-spacing:0.34em !important; padding-left:0.34em !important; margin-top:2px !important; }
-        .ajyn-hero { border-top:0 !important; padding:13px 24px 17px !important; }
-        .ajyn-icon { width:52px !important; height:52px !important; margin-bottom:13px !important; font-size:26px !important; line-height:52px !important; }
-        .ajyn-title { font-size:20px !important; line-height:1.25 !important; }
-        .ajyn-content { padding:0 48px 20px !important; font-size:11px !important; line-height:1.55 !important; }
-        .ajyn-status { margin:16px 0 !important; border-radius:6px !important; }
-        .ajyn-status-icon-cell { width:50px !important; padding:14px 0 14px 14px !important; }
-        .ajyn-status-icon { width:38px !important; height:38px !important; font-size:20px !important; line-height:35px !important; }
-        .ajyn-status-copy { padding:13px 14px 13px 8px !important; }
-        .ajyn-status-title { font-size:14px !important; }
-        .ajyn-cta-wrap { margin:18px 0 0 !important; }
-        .ajyn-cta { display:block !important; width:100% !important; box-sizing:border-box !important; padding:14px 16px !important; text-align:center !important; border-radius:6px !important; }
-        .ajyn-help { padding:18px 48px !important; }
-        .ajyn-contact { display:block !important; margin:8px 0 !important; }
-        .ajyn-footer { padding:20px 24px !important; border-radius:6px !important; }
-        .ajyn-footer-brand { margin-bottom:10px !important; }
-        .ajyn-footer-brand-word { font-size:12px !important; letter-spacing:0.56em !important; padding-left:0.56em !important; }
-        .ajyn-footer-brand-dot { width:4px !important; height:4px !important; }
+        .ajyn-container { padding:24px 18px !important; }
+        .ajyn-logo { max-width:120px !important; }
+        .ajyn-reference { padding:24px 0 20px !important; font-size:14px !important; }
+        .ajyn-status-orb { width:72px !important; height:72px !important; }
+        .ajyn-status-symbol { font-size:34px !important; line-height:72px !important; }
+        .ajyn-title { font-size:34px !important; line-height:1.18 !important; }
+        .ajyn-copy { font-size:16px !important; line-height:1.7 !important; }
+        .ajyn-status-card { padding:18px !important; border-radius:14px !important; }
+        .ajyn-status-cell { display:block !important; width:100% !important; padding:0 0 14px !important; text-align:center !important; }
+        .ajyn-status-check { margin:0 auto !important; }
+        .ajyn-status-copy { display:block !important; width:100% !important; text-align:center !important; }
+        .ajyn-status-title { font-size:24px !important; }
+        .ajyn-cta { padding:17px 16px !important; font-size:15px !important; letter-spacing:2px !important; }
+        .ajyn-help-title { font-size:28px !important; }
+        .ajyn-contact-divider { display:none !important; }
+        .ajyn-contact { display:block !important; margin:10px 0 !important; }
+        .ajyn-footer { border-radius:14px !important; padding:28px 18px !important; }
+        .ajyn-footer-brand { font-size:19px !important; letter-spacing:9px !important; }
       }
 `;
 
@@ -286,9 +277,13 @@ export function buildRefundEmailText(input: {
 
 export function buildAjynEmailHtml(input: AjynEmailInput) {
   const preview = input.intro || input.statusText || input.title;
+  const referenceLine = input.reference
+    ? `${input.eyebrow ? escapeHtml(input.eyebrow) : 'Reference'} <span style="color:#B87432;font-weight:600;">${escapeHtml(input.reference)}</span>`
+    : escapeHtml(input.eyebrow || '');
+  const closingMessage = input.closing || 'We will keep you updated every step of the way.';
 
   return `<!doctype html>
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -298,96 +293,126 @@ export function buildAjynEmailHtml(input: AjynEmailInput) {
 ${AJYN_EMAIL_MOBILE_STYLES}
     </style>
   </head>
-  <body style="margin:0;padding:0;background:#f5f2ef;color:#2a1710;font-family:Arial,Helvetica,sans-serif;">
+  <body style="margin:0;padding:0;background:#ffffff;color:#111111;font-family:Arial,Helvetica,sans-serif;">
     <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${escapeHtml(preview)}</div>
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f5f2ef;border-collapse:collapse;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#ffffff;border-collapse:collapse;">
       <tr>
-        <td align="center" class="ajyn-shell" style="padding:28px 12px;">
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="ajyn-card" style="width:100%;max-width:640px;border-collapse:collapse;background:#ffffff;border:1px solid #ece6e1;border-radius:10px;overflow:hidden;box-shadow:0 18px 42px rgba(42,23,16,0.08);">
+        <td align="center">
+          <table role="presentation" width="600" cellspacing="0" cellpadding="0" class="ajyn-container" style="max-width:600px;width:100%;padding:30px 20px;border-collapse:collapse;">
             <tr>
-              <td class="ajyn-header" style="padding:30px 38px 16px;text-align:center;">
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
-                  <tr>
-                    <td align="center" class="ajyn-brand-cell" style="text-align:center;padding:0 0 12px;">
-                      <table role="presentation" cellspacing="0" cellpadding="0" align="center" class="ajyn-logo-lockup" style="margin:0 auto;border-collapse:collapse;">
-                        <tr>
-                          <td align="center" style="padding:0;">
-                            <img class="ajyn-logo-img" src="${escapeHtml(getEmailLogoUrl())}" width="64" height="64" alt="AJYN" style="display:block;width:64px;height:64px;margin:0 auto;border:0;outline:none;text-decoration:none;object-fit:contain;">
-                          </td>
-                        </tr>
-                        <tr>
-                          <td align="center" class="ajyn-logo-word" style="padding:2px 0 0 0;padding-left:0.4em;font-size:11px;line-height:1;letter-spacing:0.4em;font-weight:700;color:#2a1710;">AJYN</td>
-                        </tr>
-                      </table>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td align="center" class="ajyn-reference" style="border-top:1px solid #ece6e1;padding:10px 0 0;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#2a1710;text-align:center;">
-                      ${input.eyebrow ? escapeHtml(input.eyebrow) : ''}${input.reference ? ` <span style="color:#c46f35;">${escapeHtml(input.reference)}</span>` : ''}
-                    </td>
-                  </tr>
-                </table>
+              <td align="center" style="padding-bottom:25px;">
+                <img src="${escapeHtml(getEmailLogoUrl())}" alt="AJYN" class="ajyn-logo" style="max-width:150px;height:auto;border:0;outline:none;text-decoration:none;">
               </td>
             </tr>
             <tr>
-              <td class="ajyn-hero" style="border-top:1px solid #ece6e1;padding:34px 38px 26px;text-align:center;">
-                <div class="ajyn-icon" style="width:72px;height:72px;border-radius:50%;background:#eee4dc;margin:0 auto 18px;color:#b96a35;font-size:34px;line-height:72px;text-align:center;">${input.icon || '&#10003;'}</div>
-                <h1 class="ajyn-title" style="margin:0;color:#2a1710;font-size:27px;line-height:1.25;font-family:Georgia,'Times New Roman',serif;font-weight:700;">${escapeHtml(input.title)}</h1>
+              <td>
+                <hr style="border:none;border-top:1px solid #ece7e2;margin:0;">
+              </td>
+            </tr>
+            ${
+              referenceLine
+                ? `<tr>
+              <td align="center" class="ajyn-reference" style="padding:30px 0 25px 0;font-size:18px;text-transform:uppercase;color:#111111;">
+                ${referenceLine}
+              </td>
+            </tr>`
+                : ''
+            }
+            <tr>
+              <td align="center" style="padding-bottom:25px;">
+                <div class="ajyn-status-orb" style="width:90px;height:90px;border-radius:50%;background:#F5F0EB;display:inline-block;text-align:center;">
+                  <span class="ajyn-status-symbol" style="display:block;color:#B87432;font-size:42px;line-height:90px;">${input.icon || '&#10003;'}</span>
+                </div>
               </td>
             </tr>
             <tr>
-              <td class="ajyn-content" style="padding:0 68px 28px;color:#2a1710;font-size:14px;line-height:1.7;">
-                <p style="margin:0 0 14px;">Hello ${escapeHtml(input.greetingName || 'there')},</p>
-                ${input.intro ? `<p style="margin:0 0 14px;">${escapeHtml(input.intro)}</p>` : ''}
+              <td align="center" style="padding-bottom:30px;">
+                <h1 class="ajyn-title" style="margin:0;font-family:Georgia,'Times New Roman',serif;font-size:46px;line-height:1.2;color:#111111;font-weight:700;">${escapeHtml(input.title)}</h1>
+              </td>
+            </tr>
+            <tr>
+              <td class="ajyn-copy" style="font-size:18px;line-height:1.8;padding-bottom:15px;color:#111111;">
+                Hello ${escapeHtml(input.greetingName || 'there')},
+              </td>
+            </tr>
+            <tr>
+              <td class="ajyn-copy" style="font-size:18px;line-height:1.8;padding-bottom:15px;color:#111111;">
+                ${input.intro ? escapeHtml(input.intro) : `Thank you for shopping with ${BRAND_NAME}.`}
+              </td>
+            </tr>
+            ${
+              input.bodyHtml
+                ? `<tr>
+              <td class="ajyn-copy" style="font-size:18px;line-height:1.8;padding-bottom:30px;color:#111111;">
                 ${input.bodyHtml || ''}
-                ${
-                  input.statusTitle || input.statusText
-                    ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="ajyn-status" style="margin:22px 0;border-collapse:collapse;background:#f7f4f1;border-radius:9px;">
-                        <tr>
-                          <td width="58" valign="top" class="ajyn-status-icon-cell" style="padding:18px 0 18px 20px;">
-                            <div class="ajyn-status-icon" style="width:42px;height:42px;border:2px solid #c46f35;border-radius:50%;color:#c46f35;line-height:39px;text-align:center;font-size:24px;">&#10003;</div>
-                          </td>
-                          <td class="ajyn-status-copy" style="padding:17px 20px 17px 10px;">
-                            ${input.statusTitle ? `<div class="ajyn-status-title" style="font-weight:700;font-size:16px;color:#2a1710;margin-bottom:3px;">${escapeHtml(input.statusTitle)}</div>` : ''}
-                            ${input.statusText ? `<div style="font-size:12px;line-height:1.5;color:#3f332d;">${escapeHtml(input.statusText)}</div>` : ''}
-                          </td>
-                        </tr>
-                      </table>`
-                    : ''
-                }
-                ${input.closing ? `<p style="margin:0 0 18px;">${escapeHtml(input.closing)}</p>` : '<p style="margin:0 0 18px;">We will keep you updated every step of the way.</p>'}
-                ${
-                  input.ctaLabel && input.ctaUrl
-                    ? `<div class="ajyn-cta-wrap" style="text-align:center;margin:24px 0 4px;">
-                        <a href="${escapeHtml(input.ctaUrl)}" class="ajyn-cta" style="display:inline-block;background:#111111;color:#c46f35;text-decoration:none;border-radius:5px;padding:14px 42px;font-size:12px;letter-spacing:0.14em;font-weight:700;">${escapeHtml(input.ctaLabel)}</a>
-                      </div>`
-                    : ''
-                }
               </td>
-            </tr>
-            <tr>
-              <td class="ajyn-help" style="padding:22px 38px;border-top:1px solid #ece6e1;text-align:center;color:#2a1710;">
-                <div style="font-size:22px;color:#c46f35;line-height:1;">&#9681;</div>
-                <div style="font-size:15px;font-weight:700;margin-top:2px;">Need help?</div>
-                <div style="font-size:12px;color:#6b625c;margin:4px 0 14px;">We are here for you.</div>
-                <span class="ajyn-contact" style="display:inline-block;margin:0 12px;font-size:12px;color:#2a1710;">&#9993; ${SUPPORT_EMAIL}</span>
-                <span class="ajyn-contact" style="display:inline-block;margin:0 12px;font-size:12px;color:#2a1710;">&#9742; ${SUPPORT_PHONE}</span>
-              </td>
-            </tr>
-            <tr>
-              <td class="ajyn-footer" style="background:#f5f2ef;padding:22px 38px;text-align:center;color:#6b625c;font-size:11px;line-height:1.7;">
-                <table role="presentation" cellspacing="0" cellpadding="0" align="center" class="ajyn-footer-brand" style="margin:0 auto 12px;border-collapse:collapse;">
+            </tr>`
+                : ''
+            }
+            ${
+              input.statusTitle || input.statusText
+                ? `<tr>
+              <td style="padding-bottom:30px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="ajyn-status-card" style="background:#F7F4F2;border-radius:16px;padding:25px;border-collapse:separate;">
                   <tr>
-                    <td align="center" class="ajyn-footer-brand-word" style="padding:0 0 2px;padding-left:0.56em;color:#2a1710;font-size:12px;line-height:1;letter-spacing:0.56em;font-weight:700;">AJYN</td>
-                  </tr>
-                  <tr>
-                    <td align="center" style="padding:0;">
-                      <span class="ajyn-footer-brand-dot" style="display:inline-block;width:4px;height:4px;border-radius:999px;background:#b85b0e;line-height:4px;font-size:0;">&nbsp;</span>
+                    <td width="90" valign="top" class="ajyn-status-cell">
+                      <div class="ajyn-status-check" style="width:70px;height:70px;border:3px solid #B87432;border-radius:50%;text-align:center;line-height:70px;font-size:30px;color:#B87432;">&#10003;</div>
+                    </td>
+                    <td valign="middle" class="ajyn-status-copy">
+                      ${input.statusTitle ? `<div class="ajyn-status-title" style="font-size:30px;font-weight:700;color:#111111;padding-bottom:8px;">${escapeHtml(input.statusTitle)}</div>` : ''}
+                      ${input.statusText ? `<div style="font-size:18px;line-height:1.6;color:#333333;">${escapeHtml(input.statusText)}</div>` : ''}
                     </td>
                   </tr>
                 </table>
-                <div>Thank you for shopping with ${BRAND_NAME}.</div>
-                <div>&copy; 2026 ${BRAND_NAME}. All rights reserved.</div>
+              </td>
+            </tr>`
+                : ''
+            }
+            <tr>
+              <td class="ajyn-copy" style="font-size:18px;line-height:1.8;padding-bottom:30px;color:#111111;">
+                ${escapeHtml(closingMessage)}
+              </td>
+            </tr>
+            ${
+              input.ctaLabel && input.ctaUrl
+                ? `<tr>
+              <td align="center" style="padding-bottom:40px;">
+                <a href="${escapeHtml(input.ctaUrl)}" class="ajyn-cta" style="display:block;background:#000000;color:#C47B43;text-decoration:none;font-weight:700;letter-spacing:3px;padding:20px;border-radius:8px;font-size:18px;text-transform:uppercase;text-align:center;">${escapeHtml(input.ctaLabel)}</a>
+              </td>
+            </tr>`
+                : ''
+            }
+            <tr>
+              <td>
+                <hr style="border:none;border-top:1px solid #ece7e2;margin:0;">
+              </td>
+            </tr>
+            <tr>
+              <td align="center" class="ajyn-help" style="padding:40px 0 30px 0;">
+                <div style="padding-bottom:12px;color:#B87432;font-size:36px;line-height:1;">&#9681;</div>
+                <div class="ajyn-help-title" style="font-family:Georgia,'Times New Roman',serif;font-size:34px;font-weight:700;padding-bottom:10px;color:#111111;">Need help?</div>
+                <div style="font-size:18px;color:#555555;padding-bottom:25px;">We're here for you.</div>
+                <table role="presentation" cellspacing="0" cellpadding="0" align="center" style="border-collapse:collapse;">
+                  <tr>
+                    <td class="ajyn-contact" style="font-size:16px;color:#111111;">&#9993;&nbsp; ${SUPPORT_EMAIL}</td>
+                    <td class="ajyn-contact-divider" style="padding:0 18px;color:#cccccc;">|</td>
+                    <td class="ajyn-contact" style="font-size:16px;color:#111111;">&#9742;&nbsp; ${SUPPORT_PHONE}</td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="ajyn-footer" style="background:#F8F4F1;border-radius:18px;padding:35px 20px;border-collapse:separate;">
+                  <tr>
+                    <td align="center">
+                      <div class="ajyn-footer-brand" style="font-size:22px;letter-spacing:12px;font-weight:600;padding-bottom:4px;color:#111111;">AJYN</div>
+                      <div style="color:#B87432;font-size:20px;padding-bottom:18px;">&bull;</div>
+                      <div style="font-size:18px;padding-bottom:20px;color:#111111;">Thank you for shopping with ${BRAND_NAME}.</div>
+                      <div style="font-size:15px;color:#666666;">&copy; 2026 ${BRAND_NAME}. All rights reserved.</div>
+                    </td>
+                  </tr>
+                </table>
               </td>
             </tr>
           </table>

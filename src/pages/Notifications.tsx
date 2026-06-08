@@ -88,7 +88,7 @@ export default function Notifications() {
         <div className="mx-auto w-full max-w-3xl">
           <Link
             to="/"
-            className="mb-5 hidden items-center text-sm text-muted-foreground hover:text-primary md:inline-flex"
+            className="mb-4 inline-flex h-10 items-center rounded-full pr-3 text-sm font-semibold text-[#ff8a33] hover:text-[#ffac63] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff8a33] focus-visible:ring-offset-2 focus-visible:ring-offset-[#101010] md:mb-5 md:h-auto md:rounded-none md:pr-0 md:font-medium md:text-muted-foreground md:hover:text-primary md:focus-visible:ring-ring md:focus-visible:ring-offset-background"
           >
             <ArrowLeft className="mr-1 h-4 w-4" />
             Back to Home

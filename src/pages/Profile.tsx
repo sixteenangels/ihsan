@@ -25,7 +25,6 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { TwoFactorManage } from '@/components/auth/TwoFactorManage';
-import { SessionManagement } from '@/components/auth/SessionManagement';
 import { CompactOrderHistoryCard } from '@/components/orders/CompactOrderHistoryCard';
 import { OrderReviewDialog } from '@/components/orders/OrderReviewDialog';
 import { RefundRequestDialog } from '@/components/orders/RefundRequestDialog';
@@ -939,7 +938,6 @@ export default function Profile() {
             </Card>
 
             <TwoFactorManage />
-            <SessionManagement />
             <PushNotificationSettings />
           </TabsContent>
 
