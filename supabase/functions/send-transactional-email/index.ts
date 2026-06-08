@@ -117,14 +117,6 @@ function normalizeEmailHtmlForClients(html: string) {
         `\\s*-webkit-text-fill-color\\s*:\\s*${escapedColor}\\s*;?`,
         'gi',
       )
-      const colorPattern = new RegExp(
-        `\\s*color\\s*:\\s*${escapedColor}\\s*!important\\s*;?`,
-        'gi',
-      )
-      const inlineColorPattern = new RegExp(
-        `\\s*color\\s*:\\s*${escapedColor}\\s*;?`,
-        'gi',
-      )
       const fillPattern = new RegExp(
         `\\s*fill\\s*:\\s*${escapedColor}\\s*!important\\s*;?`,
         'gi',
@@ -137,8 +129,6 @@ function normalizeEmailHtmlForClients(html: string) {
       return output
         .replace(textFillPattern, '')
         .replace(inlineTextFillPattern, '')
-        .replace(colorPattern, '')
-        .replace(inlineColorPattern, '')
         .replace(fillPattern, '')
         .replace(strokePattern, '')
     }, withoutLightBackgroundLocks)
