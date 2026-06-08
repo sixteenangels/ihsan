@@ -125,17 +125,17 @@ export function HeroSection() {
           </p>
 
           <div className="mb-3 flex flex-col items-start gap-2 sm:mb-12 sm:flex-row sm:gap-4">
-            <Link to="/products" className="w-fit">
-              <Button size="sm" className="h-10 px-6 text-[10px] sm:h-11 sm:px-8 sm:text-lg">
+            <Link to="/products" className="w-36 sm:w-56">
+              <Button size="sm" className="h-10 w-full px-6 text-[10px] sm:h-11 sm:px-8 sm:text-lg">
                 Shop Now
                 <ArrowRight className="ml-1 h-3 w-3 sm:ml-2 sm:h-5 sm:w-5" />
               </Button>
             </Link>
-            <Link to="/group-buys" className="w-fit">
+            <Link to="/group-buys" className="w-36 sm:w-56">
               <Button
                 size="sm"
                 variant="outline"
-                className="h-10 border-[#ffd0a3]/90 bg-[#120a06]/35 px-6 text-[10px] text-[#ffd0a3] shadow-[0_10px_28px_-22px_rgba(255,138,51,0.75)] hover:border-[#ffe0c2] hover:bg-[#ffb066]/15 hover:text-[#ffe6cf] sm:h-11 sm:px-8 sm:text-lg"
+                className="h-10 w-full border-[#ffd0a3]/90 bg-[#120a06]/35 px-6 text-[10px] text-[#ffd0a3] shadow-[0_10px_28px_-22px_rgba(255,138,51,0.75)] hover:border-[#ffe0c2] hover:bg-[#ffb066]/15 hover:text-[#ffe6cf] sm:h-11 sm:px-8 sm:text-lg"
               >
                 Explore Group Buys
               </Button>
