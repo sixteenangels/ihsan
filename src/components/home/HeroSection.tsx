@@ -126,7 +126,7 @@ export function HeroSection() {
 
           <div className="mb-3 flex flex-col items-start gap-2 sm:mb-12 sm:flex-row sm:gap-4">
             <Link to="/products" className="w-fit">
-              <Button size="sm" className="h-8 px-4 text-[10px] sm:h-11 sm:px-8 sm:text-lg">
+              <Button size="sm" className="h-10 px-6 text-[10px] sm:h-11 sm:px-8 sm:text-lg">
                 Shop Now
                 <ArrowRight className="ml-1 h-3 w-3 sm:ml-2 sm:h-5 sm:w-5" />
               </Button>
@@ -135,7 +135,7 @@ export function HeroSection() {
               <Button
                 size="sm"
                 variant="outline"
-                className="h-8 border-[#ffd0a3]/90 bg-[#120a06]/35 px-4 text-[10px] text-[#ffd0a3] shadow-[0_10px_28px_-22px_rgba(255,138,51,0.75)] hover:border-[#ffe0c2] hover:bg-[#ffb066]/15 hover:text-[#ffe6cf] sm:h-11 sm:px-8 sm:text-lg"
+                className="h-10 border-[#ffd0a3]/90 bg-[#120a06]/35 px-6 text-[10px] text-[#ffd0a3] shadow-[0_10px_28px_-22px_rgba(255,138,51,0.75)] hover:border-[#ffe0c2] hover:bg-[#ffb066]/15 hover:text-[#ffe6cf] sm:h-11 sm:px-8 sm:text-lg"
               >
                 Explore Group Buys
               </Button>
@@ -145,21 +145,21 @@ export function HeroSection() {
           {/* Trust Badges */}
           <div className="grid justify-items-start gap-1.5 sm:flex sm:flex-wrap sm:gap-6">
             <div
-              className="flex w-fit max-w-full items-center gap-1.5 rounded-full bg-primary-foreground/10 px-2.5 py-0.5 text-[10px] leading-none backdrop-blur transition-colors duration-700 sm:bg-transparent sm:px-0 sm:py-0 sm:text-sm sm:backdrop-blur-0"
+              className="flex w-fit max-w-full items-center gap-1.5 rounded-full bg-primary-foreground/10 px-3 py-2 text-[10px] leading-none backdrop-blur transition-colors duration-700 sm:bg-transparent sm:px-0 sm:py-0 sm:text-sm sm:backdrop-blur-0"
               style={{ color: activeTextTheme.badge }}
             >
               <Globe className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
               <span>Ship from 20+ Countries</span>
             </div>
             <div
-              className="flex w-fit max-w-full items-center gap-1.5 rounded-full bg-primary-foreground/10 px-2.5 py-0.5 text-[10px] leading-none backdrop-blur transition-colors duration-700 sm:bg-transparent sm:px-0 sm:py-0 sm:text-sm sm:backdrop-blur-0"
+              className="flex w-fit max-w-full items-center gap-1.5 rounded-full bg-primary-foreground/10 px-3 py-2 text-[10px] leading-none backdrop-blur transition-colors duration-700 sm:bg-transparent sm:px-0 sm:py-0 sm:text-sm sm:backdrop-blur-0"
               style={{ color: activeTextTheme.badge }}
             >
               <Truck className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
               <span>Flexible Shipping Options</span>
             </div>
             <div
-              className="flex w-fit max-w-full items-center gap-1.5 rounded-full bg-primary-foreground/10 px-2.5 py-0.5 text-[10px] leading-none backdrop-blur transition-colors duration-700 sm:bg-transparent sm:px-0 sm:py-0 sm:text-sm sm:backdrop-blur-0"
+              className="flex w-fit max-w-full items-center gap-1.5 rounded-full bg-primary-foreground/10 px-3 py-2 text-[10px] leading-none backdrop-blur transition-colors duration-700 sm:bg-transparent sm:px-0 sm:py-0 sm:text-sm sm:backdrop-blur-0"
               style={{ color: activeTextTheme.badge }}
             >
               <Shield className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
