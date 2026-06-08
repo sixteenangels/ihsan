@@ -1,8 +1,9 @@
 import { BRAND_NAME, BRAND_SUPPORT_NAME } from '@/lib/brand';
 import type { PrintableReceipt } from '@/lib/receipt-utils';
 
-const SUPPORT_EMAIL = 'support@ajyn.com';
+const SUPPORT_EMAIL = 'support@ajynworld.com';
 const SUPPORT_PHONE = '+233 20 123 4567';
+const COPYRIGHT_YEAR = '2026';
 
 type AjynEmailInput = {
   eyebrow?: string;
@@ -25,31 +26,19 @@ const AJYN_EMAIL_MOBILE_STYLES = `
       img { border:0;outline:none;text-decoration:none; }
       a { color:inherit;text-decoration:none; }
       .ajyn-body-bg { color-scheme:light dark; }
-      .ajyn-light-bg { background:#ffffff !important;background-color:#ffffff !important; }
-      .ajyn-soft-bg { background:#f7f4f2 !important;background-color:#f7f4f2 !important; }
-      .ajyn-footer-bg { background:#f8f4f1 !important;background-color:#f8f4f1 !important; }
-      .ajyn-hero-bg { background:#f2e9e1 !important;background-color:#f2e9e1 !important; }
+      .ajyn-light-bg { background:#ffffff !important;background-color:#ffffff !important;background-image:linear-gradient(#ffffff,#ffffff) !important; }
+      .ajyn-soft-bg { background:#f7f4f2 !important;background-color:#f7f4f2 !important;background-image:linear-gradient(#f7f4f2,#f7f4f2) !important; }
+      .ajyn-footer-bg { background:#f8f4f1 !important;background-color:#f8f4f1 !important;background-image:linear-gradient(#f8f4f1,#f8f4f1) !important; }
+      .ajyn-hero-bg { background:#f2e9e1 !important;background-color:#f2e9e1 !important;background-image:linear-gradient(#f2e9e1,#f2e9e1) !important; }
       .ajyn-black-bg, .ajyn-cta { background:#000000 !important;background-color:#000000 !important;background-image:linear-gradient(#000000,#000000) !important; }
       .ajyn-text-dark { color:#111111 !important;-webkit-text-fill-color:#111111 !important; }
       .ajyn-text-orange, .ajyn-cta { color:#c47b43 !important;-webkit-text-fill-color:#c47b43 !important; }
       .ajyn-text-brand { color:#B87432 !important;-webkit-text-fill-color:#B87432 !important; }
-      .ajyn-logo-frame { width:78px !important;height:78px !important;border-radius:999px !important;overflow:hidden !important;background:#ffffff !important;background-color:#ffffff !important;border:1px solid #f1ebe6 !important;box-sizing:border-box !important;display:inline-flex !important;flex-direction:column !important;align-items:center !important;justify-content:center !important;text-align:center !important;line-height:1 !important; }
+      .ajyn-logo-frame { width:58px !important;height:58px !important;border-radius:0 !important;overflow:hidden !important;background:#f3eee9 !important;background-color:#f3eee9 !important;background-image:linear-gradient(#f3eee9,#f3eee9) !important;border:none !important;box-sizing:border-box !important;display:inline-block !important;text-align:center !important;line-height:1 !important; }
       .ajyn-logo-ink { fill:#202124 !important; }
       .ajyn-logo-cutout { fill:#ffffff !important; }
       .ajyn-logo-stroke { stroke:#202124 !important; }
       .ajyn-logo-dot { fill:#b85b0e !important; }
-      u + .body .ajyn-gmail-text {
-        color:#ffffff !important;
-        -webkit-text-fill-color:#ffffff !important;
-        mix-blend-mode:difference !important;
-      }
-      u + .body .ajyn-gmail-text p,
-      u + .body .ajyn-gmail-text strong,
-      u + .body .ajyn-gmail-text span {
-        color:#ffffff !important;
-        -webkit-text-fill-color:#ffffff !important;
-        mix-blend-mode:difference !important;
-      }
       @media (prefers-color-scheme: dark) {
         body, .ajyn-body-bg, .ajyn-shell { background:#09070d !important;background-color:#09070d !important;background-image:linear-gradient(#09070d,#09070d) !important; }
         .ajyn-card, .ajyn-container, .ajyn-header-row, .ajyn-logo-cell, .ajyn-ref-cell, .ajyn-hero-wrap, .ajyn-title, .ajyn-body, .ajyn-divider-cell, .ajyn-help { background:#171514 !important;background-color:#171514 !important;background-image:linear-gradient(#171514,#171514) !important; }
@@ -65,17 +54,17 @@ const AJYN_EMAIL_MOBILE_STYLES = `
         .ajyn-cta { background:#000000 !important;background-color:#000000 !important;background-image:linear-gradient(#000000,#000000) !important;color:#c47b43 !important;-webkit-text-fill-color:#c47b43 !important; }
       }
       @media only screen and (max-width: 600px) {
-        body { background:#09070d !important; }
-        .ajyn-shell { padding:10px 0 !important;background:#09070d !important; }
+        body { background:#ffffff !important;background-color:#ffffff !important;background-image:linear-gradient(#ffffff,#ffffff) !important; }
+        .ajyn-shell { padding:0 !important;background:#ffffff !important;background-color:#ffffff !important;background-image:linear-gradient(#ffffff,#ffffff) !important; }
         .ajyn-card { width:100% !important;max-width:100% !important;border-radius:6px !important;border:none !important; }
         .ajyn-container { padding:18px 28px 0 !important; }
         .ajyn-header-row, .ajyn-header-row tbody, .ajyn-header-row tr, .ajyn-logo-cell, .ajyn-ref-cell { display:block !important;width:100% !important;box-sizing:border-box !important; }
         .ajyn-logo-cell { text-align:center !important;padding:0 !important; }
         .ajyn-logo-lockup { margin:0 auto !important; }
-        .ajyn-logo-frame { display:flex !important;margin:0 auto 2px !important; }
-        .ajyn-logo-mark { width:58px !important;height:34px !important; }
-        .ajyn-logo-word { font-size:8px !important;letter-spacing:0.38em !important;padding-left:0.38em !important; }
-        .ajyn-desktop-divider { display:none !important; }
+        .ajyn-logo-frame { display:block !important;margin:0 auto 2px !important;width:58px !important;height:58px !important; }
+        .ajyn-logo-mark { width:54px !important;height:32px !important;margin:9px auto 0 !important; }
+        .ajyn-logo-word { font-size:9px !important;letter-spacing:0.42em !important;padding-top:5px !important;padding-left:0.42em !important; }
+        .ajyn-desktop-divider { margin-top:13px !important; }
         .ajyn-ref-cell { border-top:1px solid #ece7e2 !important;text-align:center !important;padding:9px 0 7px !important;font-size:8px !important;line-height:1.25 !important;letter-spacing:0.03em !important; }
         .ajyn-hero-wrap { padding:9px 28px 6px !important; }
         .ajyn-hero-icon { width:52px !important;height:52px !important; }
@@ -108,7 +97,11 @@ const AJYN_EMAIL_MOBILE_STYLES = `
         .ajyn-footer-legal { font-size:9px !important; }
       }
       @media only screen and (max-width: 600px) and (prefers-color-scheme: dark) {
-        .ajyn-logo-cell, .ajyn-ref-cell { background:#171514 !important;background-color:#171514 !important;background-image:linear-gradient(#171514,#171514) !important; }
+        body, .ajyn-body-bg, .ajyn-shell { background:#09070d !important;background-color:#09070d !important;background-image:linear-gradient(#09070d,#09070d) !important; }
+        .ajyn-card, .ajyn-container, .ajyn-header-row, .ajyn-logo-cell, .ajyn-ref-cell, .ajyn-hero-wrap, .ajyn-title, .ajyn-body, .ajyn-divider-cell, .ajyn-help { background:#171514 !important;background-color:#171514 !important;background-image:linear-gradient(#171514,#171514) !important; }
+        .ajyn-soft-bg, .ajyn-status-card { background:#24201d !important;background-color:#24201d !important;background-image:linear-gradient(#24201d,#24201d) !important; }
+        .ajyn-footer-bg, .ajyn-footer { background:#211d1a !important;background-color:#211d1a !important;background-image:linear-gradient(#211d1a,#211d1a) !important; }
+        .ajyn-hero-bg, .ajyn-hero-icon { background:#302923 !important;background-color:#302923 !important;background-image:linear-gradient(#302923,#302923) !important; }
         .ajyn-logo-frame { background:#171514 !important;background-color:#171514 !important;background-image:linear-gradient(#171514,#171514) !important;border-color:#171514 !important; }
         .ajyn-ref-cell { border-top-color:#3b332e !important; }
       }
@@ -364,25 +357,27 @@ export function buildAjynEmailHtml(input: AjynEmailInput) {
 ${AJYN_EMAIL_MOBILE_STYLES}
     </style>
   </head>
-  <body class="body ajyn-body-bg" style="margin:0;padding:0;background:#f5f5f5;background-color:#f5f5f5;color:#111111;font-family:Arial,Helvetica,sans-serif;color-scheme:light dark;">
+  <body class="body ajyn-body-bg" style="margin:0;padding:0;background:#f5f5f5;background-color:#f5f5f5;background-image:linear-gradient(#f5f5f5,#f5f5f5);color:#111111;font-family:Arial,Helvetica,sans-serif;color-scheme:light dark;">
     <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${escapeHtml(preview)}</div>
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="ajyn-body-bg" bgcolor="#f5f5f5" style="background:#f5f5f5;background-color:#f5f5f5;border-collapse:collapse;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="ajyn-body-bg" bgcolor="#f5f5f5" style="background:#f5f5f5;background-color:#f5f5f5;background-image:linear-gradient(#f5f5f5,#f5f5f5);border-collapse:collapse;">
       <tr>
-        <td align="center" class="ajyn-shell" bgcolor="#f5f5f5" style="padding:14px 0;background:#f5f5f5;background-color:#f5f5f5;">
-          <table role="presentation" width="600" cellspacing="0" cellpadding="0" class="ajyn-card ajyn-light-bg" bgcolor="#ffffff" style="max-width:600px;width:100%;background:#ffffff;background-color:#ffffff;border:1px solid #eeeeee;border-radius:4px;overflow:hidden;">
+        <td align="center" class="ajyn-shell" bgcolor="#f5f5f5" style="padding:14px 0;background:#f5f5f5;background-color:#f5f5f5;background-image:linear-gradient(#f5f5f5,#f5f5f5);">
+          <table role="presentation" width="600" cellspacing="0" cellpadding="0" class="ajyn-card ajyn-light-bg" bgcolor="#ffffff" style="max-width:600px;width:100%;background:#ffffff;background-color:#ffffff;background-image:linear-gradient(#ffffff,#ffffff);border:1px solid #eeeeee;border-radius:4px;overflow:hidden;">
             <tr>
-              <td class="ajyn-container ajyn-light-bg" bgcolor="#ffffff" style="padding:28px 44px 0;background:#ffffff;background-color:#ffffff;">
+              <td class="ajyn-container ajyn-light-bg" bgcolor="#ffffff" style="padding:28px 44px 0;background:#ffffff;background-color:#ffffff;background-image:linear-gradient(#ffffff,#ffffff);">
                 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="ajyn-header-row">
                   <tr>
-                    <td class="ajyn-logo-cell ajyn-light-bg" align="left" valign="middle" bgcolor="#ffffff" style="padding:0 0 14px;background:#ffffff;background-color:#ffffff;">
+                    <td class="ajyn-logo-cell ajyn-light-bg" align="center" valign="middle" bgcolor="#ffffff" style="padding:0 0 13px;background:#ffffff;background-color:#ffffff;background-image:linear-gradient(#ffffff,#ffffff);">
                       <div class="ajyn-logo-lockup" style="display:inline-block;text-align:center;">
-                        <div class="ajyn-logo-frame" style="width:78px;height:78px;border-radius:999px;overflow:hidden;background:#ffffff;background-color:#ffffff;border:1px solid #f1ebe6;box-sizing:border-box;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;line-height:1;">
+                        <div class="ajyn-logo-frame" style="width:58px;height:58px;border-radius:0;overflow:hidden;background:#f3eee9;background-color:#f3eee9;background-image:linear-gradient(#f3eee9,#f3eee9);border:none;box-sizing:border-box;display:block;text-align:center;line-height:1;">
                           ${getLogoMarkHtml()}
-                          <div class="ajyn-logo-word ajyn-text-dark ajyn-gmail-text" style="padding-top:0;padding-left:0.46em;color:#111111;-webkit-text-fill-color:#111111;font-size:11px;line-height:1;letter-spacing:0.46em;font-weight:700;">AJYN</div>
                         </div>
+                        <div class="ajyn-logo-word ajyn-text-dark ajyn-gmail-text" style="padding-top:5px;padding-left:0.42em;color:#111111;-webkit-text-fill-color:#111111;font-size:9px;line-height:1;letter-spacing:0.42em;font-weight:700;">AJYN</div>
                       </div>
                     </td>
-                    <td class="ajyn-ref-cell ajyn-text-dark ajyn-light-bg" align="right" valign="middle" bgcolor="#ffffff" style="padding:0 0 14px;background:#ffffff;background-color:#ffffff;color:#111111;-webkit-text-fill-color:#111111;font-size:11px;line-height:1.4;text-transform:uppercase;">
+                  </tr>
+                  <tr>
+                    <td class="ajyn-ref-cell ajyn-text-dark ajyn-light-bg" align="center" valign="middle" bgcolor="#ffffff" style="border-top:1px solid #ece7e2;padding:10px 0 11px;background:#ffffff;background-color:#ffffff;background-image:linear-gradient(#ffffff,#ffffff);color:#111111;-webkit-text-fill-color:#111111;font-size:11px;line-height:1.4;text-transform:uppercase;">
                       ${referenceLine}
                     </td>
                   </tr>
@@ -391,19 +386,19 @@ ${AJYN_EMAIL_MOBILE_STYLES}
               </td>
             </tr>
             <tr>
-              <td align="center" class="ajyn-hero-wrap ajyn-light-bg" bgcolor="#ffffff" style="padding:20px 44px 10px;background:#ffffff;background-color:#ffffff;">
-                <div class="ajyn-hero-icon ajyn-hero-bg" style="width:60px;height:60px;border-radius:50%;background:#f2e9e1;background-color:#f2e9e1;display:inline-block;text-align:center;">
+              <td align="center" class="ajyn-hero-wrap ajyn-light-bg" bgcolor="#ffffff" style="padding:20px 44px 10px;background:#ffffff;background-color:#ffffff;background-image:linear-gradient(#ffffff,#ffffff);">
+                <div class="ajyn-hero-icon ajyn-hero-bg" style="width:60px;height:60px;border-radius:50%;background:#f2e9e1;background-color:#f2e9e1;background-image:linear-gradient(#f2e9e1,#f2e9e1);display:inline-block;text-align:center;">
                   ${getPackageIconHtml()}
                 </div>
               </td>
             </tr>
             <tr>
-              <td align="center" class="ajyn-title ajyn-text-dark ajyn-light-bg" bgcolor="#ffffff" style="padding:0 44px 18px;background:#ffffff;background-color:#ffffff;font-family:Georgia,'Times New Roman',serif;font-size:21px;line-height:1.25;color:#111111;-webkit-text-fill-color:#111111;font-weight:700;">
+              <td align="center" class="ajyn-title ajyn-text-dark ajyn-light-bg" bgcolor="#ffffff" style="padding:0 44px 18px;background:#ffffff;background-color:#ffffff;background-image:linear-gradient(#ffffff,#ffffff);font-family:Georgia,'Times New Roman',serif;font-size:21px;line-height:1.25;color:#111111;-webkit-text-fill-color:#111111;font-weight:700;">
                 <span class="ajyn-gmail-text" style="color:#111111;-webkit-text-fill-color:#111111;">${escapeHtml(input.title)}</span>
               </td>
             </tr>
             <tr>
-              <td class="ajyn-body ajyn-light-bg" bgcolor="#ffffff" style="padding:0 104px 0;background:#ffffff;background-color:#ffffff;">
+              <td class="ajyn-body ajyn-light-bg" bgcolor="#ffffff" style="padding:0 104px 0;background:#ffffff;background-color:#ffffff;background-image:linear-gradient(#ffffff,#ffffff);">
                 <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                   <tr>
                     <td class="ajyn-copy ajyn-text-dark" style="font-size:12px;line-height:1.6;padding-bottom:11px;color:#111111;-webkit-text-fill-color:#111111;">
@@ -428,7 +423,7 @@ ${AJYN_EMAIL_MOBILE_STYLES}
                     input.statusTitle || input.statusText
                       ? `<tr>
                     <td class="ajyn-status-row" style="padding-bottom:19px;">
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="ajyn-status-card ajyn-soft-bg" bgcolor="#f7f4f2" style="background:#f7f4f2;background-color:#f7f4f2;border-radius:6px;padding:16px 19px;border-collapse:separate;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="ajyn-status-card ajyn-soft-bg" bgcolor="#f7f4f2" style="background:#f7f4f2;background-color:#f7f4f2;background-image:linear-gradient(#f7f4f2,#f7f4f2);border-radius:6px;padding:16px 19px;border-collapse:separate;">
                   <tr>
                     <td width="64" valign="middle" class="ajyn-status-icon-cell">
                       <div class="ajyn-status-check" style="width:48px;height:48px;border:2px solid #b87432;border-radius:50%;text-align:center;line-height:46px;font-size:24px;color:#b87432;">&#10003;</div>
@@ -461,12 +456,12 @@ ${AJYN_EMAIL_MOBILE_STYLES}
               </td>
             </tr>
             <tr>
-              <td class="ajyn-divider-cell ajyn-light-bg" bgcolor="#ffffff" style="padding:0 44px;background:#ffffff;background-color:#ffffff;">
+              <td class="ajyn-divider-cell ajyn-light-bg" bgcolor="#ffffff" style="padding:0 44px;background:#ffffff;background-color:#ffffff;background-image:linear-gradient(#ffffff,#ffffff);">
                 <hr style="border:none;border-top:1px solid #ece7e2;margin:0;">
               </td>
             </tr>
             <tr>
-              <td align="center" class="ajyn-help ajyn-light-bg" bgcolor="#ffffff" style="padding:17px 42px 15px;background:#ffffff;background-color:#ffffff;">
+              <td align="center" class="ajyn-help ajyn-light-bg" bgcolor="#ffffff" style="padding:17px 42px 15px;background:#ffffff;background-color:#ffffff;background-image:linear-gradient(#ffffff,#ffffff);">
                 <div class="ajyn-help-icon" style="padding-bottom:4px;color:#b87432;font-size:22px;line-height:1;">${getSupportIconHtml()}</div>
                 <div class="ajyn-help-title ajyn-text-dark ajyn-gmail-text" style="font-family:Georgia,'Times New Roman',serif;font-size:14px;line-height:1.25;font-weight:700;color:#111111;-webkit-text-fill-color:#111111;">Need help?</div>
                 <div class="ajyn-help-subtitle ajyn-text-dark ajyn-gmail-text" style="font-size:11px;line-height:1.35;color:#111111;-webkit-text-fill-color:#111111;padding-bottom:11px;">We're here for you.</div>
@@ -481,13 +476,13 @@ ${AJYN_EMAIL_MOBILE_STYLES}
             </tr>
             <tr>
               <td>
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="ajyn-footer ajyn-footer-bg" bgcolor="#f8f4f1" style="background:#f8f4f1;background-color:#f8f4f1;border-radius:0;padding:15px 20px 17px;border-collapse:separate;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="ajyn-footer ajyn-footer-bg" bgcolor="#f8f4f1" style="background:#f8f4f1;background-color:#f8f4f1;background-image:linear-gradient(#f8f4f1,#f8f4f1);border-radius:0;padding:15px 20px 17px;border-collapse:separate;">
                   <tr>
                     <td align="center">
                       <div class="ajyn-footer-brand ajyn-text-dark ajyn-gmail-text" style="font-size:12px;line-height:1;letter-spacing:10px;padding-left:10px;font-weight:700;padding-bottom:3px;color:#111111;-webkit-text-fill-color:#111111;">AJYN</div>
                       <div class="ajyn-footer-dot" style="color:#b87432;font-size:12px;line-height:1;padding-bottom:8px;">&bull;</div>
                       <div class="ajyn-footer-copy ajyn-text-dark ajyn-gmail-text" style="font-size:11px;line-height:1.4;padding-bottom:8px;color:#111111;-webkit-text-fill-color:#111111;">Thank you for shopping with ${BRAND_NAME}.</div>
-                      <div class="ajyn-footer-legal ajyn-text-dark ajyn-gmail-text" style="font-size:10px;line-height:1.5;color:#111111;-webkit-text-fill-color:#111111;">&copy; 2025 ${BRAND_NAME}. All rights reserved.</div>
+                      <div class="ajyn-footer-legal ajyn-text-dark ajyn-gmail-text" style="font-size:10px;line-height:1.5;color:#111111;-webkit-text-fill-color:#111111;">&copy; ${COPYRIGHT_YEAR} ${BRAND_NAME}. All rights reserved.</div>
                     </td>
                   </tr>
                 </table>
@@ -511,7 +506,7 @@ function getAppUrl() {
 
 function getLogoMarkHtml() {
   return `
-    <svg class="ajyn-logo-mark" width="78" height="46" viewBox="45 105 435 300" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="AJYN" style="display:block;margin:0 auto;">
+    <svg class="ajyn-logo-mark" width="54" height="32" viewBox="45 105 435 300" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="AJYN" style="display:block;margin:9px auto 0;">
       <path class="ajyn-logo-ink" fill="#202124" d="M58 158c48 54 133 54 219 102-70-21-154-7-209-74-6-8-9-17-10-28Z"/>
       <path class="ajyn-logo-ink" fill="#202124" d="M72 231c51 57 146 37 214 91-69-18-157 12-210-61-7-10-8-20-4-30Z"/>
       <path class="ajyn-logo-ink" fill="#202124" d="M220 392 328 118h27l111 274h-49L340 171 266 392h-46Z"/>
