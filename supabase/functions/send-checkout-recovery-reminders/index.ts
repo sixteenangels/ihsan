@@ -73,7 +73,7 @@ const AJYN_EMAIL_MOBILE_STYLES = `
         .ajyn-hero-wrap { padding:9px 28px 6px !important; }
         .ajyn-hero-icon { width:52px !important;height:52px !important; }
         .ajyn-package-icon { width:28px !important;height:28px !important;margin:11px auto 0 !important; }
-        .ajyn-title { font-size:16px !important;line-height:1.2 !important;padding:0 22px 10px !important;white-space:nowrap !important; }
+        .ajyn-title { font-size:16px !important;line-height:1.2 !important;padding:0 22px 10px !important;white-space:normal !important;overflow-wrap:break-word !important; }
         .ajyn-copy { font-size:10px !important;line-height:1.45 !important;padding-bottom:7px !important; }
         .ajyn-copy p { margin:0 0 5px !important; }
         .ajyn-body { padding:0 29px 4px !important; }
