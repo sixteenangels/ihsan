@@ -39,6 +39,7 @@ const AJYN_EMAIL_MOBILE_STYLES = `
       .ajyn-logo-cutout { fill:#ffffff !important; }
       .ajyn-logo-stroke { stroke:#202124 !important; }
       .ajyn-logo-dot { fill:#b85b0e !important; }
+      .ajyn-logo-mark-text { color:#111111 !important;-webkit-text-fill-color:#111111 !important; }
       @media (prefers-color-scheme: dark) {
         body, .ajyn-body-bg, .ajyn-shell { background:#09070d !important;background-color:#09070d !important;background-image:linear-gradient(#09070d,#09070d) !important; }
         .ajyn-card, .ajyn-container, .ajyn-header-row, .ajyn-logo-cell, .ajyn-ref-cell, .ajyn-hero-wrap, .ajyn-title, .ajyn-body, .ajyn-divider-cell, .ajyn-help { background:#171514 !important;background-color:#171514 !important;background-image:linear-gradient(#171514,#171514) !important; }
@@ -49,7 +50,7 @@ const AJYN_EMAIL_MOBILE_STYLES = `
         .ajyn-logo-ink { fill:#f8f4ef !important; }
         .ajyn-logo-cutout { fill:#171514 !important; }
         .ajyn-logo-stroke { stroke:#f8f4ef !important; }
-        .ajyn-text-dark, .ajyn-gmail-text, .ajyn-gmail-text p, .ajyn-gmail-text strong, .ajyn-gmail-text span, .ajyn-copy, .ajyn-title, .ajyn-status-title, .ajyn-status-text, .ajyn-help-title, .ajyn-help-subtitle, .ajyn-contact, .ajyn-footer-brand, .ajyn-footer-copy, .ajyn-footer-legal, .ajyn-logo-word, .ajyn-ref-cell { color:#f8f4ef !important;-webkit-text-fill-color:#f8f4ef !important; }
+        .ajyn-text-dark, .ajyn-gmail-text, .ajyn-gmail-text p, .ajyn-gmail-text strong, .ajyn-gmail-text span, .ajyn-copy, .ajyn-title, .ajyn-status-title, .ajyn-status-text, .ajyn-help-title, .ajyn-help-subtitle, .ajyn-contact, .ajyn-footer-brand, .ajyn-footer-copy, .ajyn-footer-legal, .ajyn-logo-word, .ajyn-logo-mark-text, .ajyn-ref-cell { color:#f8f4ef !important;-webkit-text-fill-color:#f8f4ef !important; }
         .ajyn-text-brand { color:#ff9d4d !important;-webkit-text-fill-color:#ff9d4d !important; }
         .ajyn-cta { background:#000000 !important;background-color:#000000 !important;background-image:linear-gradient(#000000,#000000) !important;color:#c47b43 !important;-webkit-text-fill-color:#c47b43 !important; }
       }
@@ -68,7 +69,7 @@ const AJYN_EMAIL_MOBILE_STYLES = `
         .ajyn-ref-cell { border-top:1px solid #ece7e2 !important;text-align:center !important;padding:9px 0 7px !important;font-size:8px !important;line-height:1.25 !important;letter-spacing:0.03em !important; }
         .ajyn-hero-wrap { padding:9px 28px 6px !important; }
         .ajyn-hero-icon { width:52px !important;height:52px !important; }
-        .ajyn-package-icon { width:28px !important;height:28px !important;margin:11px auto 0 !important; }
+        .ajyn-package-icon-text { font-size:25px !important;line-height:28px !important;margin:11px auto 0 !important; }
         .ajyn-title { font-size:16px !important;line-height:1.2 !important;padding:0 22px 10px !important;white-space:normal !important;overflow-wrap:break-word !important; }
         .ajyn-copy { font-size:10px !important;line-height:1.45 !important;padding-bottom:7px !important; }
         .ajyn-copy p { margin:0 0 5px !important; }
@@ -85,7 +86,7 @@ const AJYN_EMAIL_MOBILE_STYLES = `
         .ajyn-divider-cell { padding:0 43px !important; }
         .ajyn-help { padding:12px 0 12px !important; }
         .ajyn-help-icon { padding-bottom:3px !important; }
-        .ajyn-support-icon-img { width:20px !important;height:20px !important; }
+        .ajyn-support-icon-text { font-size:20px !important;line-height:20px !important; }
         .ajyn-help-title { font-size:12px !important; }
         .ajyn-help-subtitle { font-size:10px !important;padding-bottom:10px !important; }
         .ajyn-contact { font-size:8px !important;white-space:nowrap !important; }
@@ -506,51 +507,33 @@ function getAppUrl() {
 
 function getLogoMarkHtml() {
   return `
-    <svg class="ajyn-logo-mark" width="54" height="32" viewBox="45 105 435 300" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="AJYN" style="display:block;margin:9px auto 0;">
-      <path class="ajyn-logo-ink" fill="#202124" d="M58 158c48 54 133 54 219 102-70-21-154-7-209-74-6-8-9-17-10-28Z"/>
-      <path class="ajyn-logo-ink" fill="#202124" d="M72 231c51 57 146 37 214 91-69-18-157 12-210-61-7-10-8-20-4-30Z"/>
-      <path class="ajyn-logo-ink" fill="#202124" d="M220 392 328 118h27l111 274h-49L340 171 266 392h-46Z"/>
-      <path class="ajyn-logo-cutout" fill="#ffffff" d="M299 321 342 195l52 126H299Z"/>
-      <path class="ajyn-logo-stroke" fill="none" stroke="#202124" stroke-linecap="round" stroke-width="17" d="M264 262c47 17 90 45 139 70"/>
-      <circle class="ajyn-logo-dot" cx="430" cy="130" r="22" fill="#b85b0e"/>
-    </svg>
+    <div class="ajyn-logo-mark ajyn-logo-mark-text" role="img" aria-label="AJYN" style="display:block;width:54px;height:32px;margin:9px auto 0;text-align:center;color:#B87432;-webkit-text-fill-color:#B87432;font-family:Arial Black,Arial,Helvetica,sans-serif;font-size:32px;line-height:30px;font-weight:900;font-style:italic;letter-spacing:-3px;">
+      A<span style="color:#b85b0e;-webkit-text-fill-color:#b85b0e;font-size:9px;line-height:1;vertical-align:top;margin-left:1px;">&bull;</span>
+    </div>
   `;
 }
 
 function getPackageIconHtml() {
   return `
-    <svg class="ajyn-package-icon" width="32" height="32" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:14px auto 0;">
-      <path d="M11 16.5 24 9l13 7.5v15L24 39l-13-7.5v-15Z" stroke="#B87432" stroke-width="2.4" stroke-linejoin="round"/>
-      <path d="M11.8 16.8 24 24l12.2-7.2M24 24v14.2M17.4 12.6 30.6 20" stroke="#B87432" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
+    <span class="ajyn-package-icon-text" aria-hidden="true" style="display:block;margin:13px auto 0;color:#B87432;-webkit-text-fill-color:#B87432;font-family:Arial,Helvetica,sans-serif;font-size:30px;line-height:32px;">&#9633;</span>
   `;
 }
 
 function getSupportIconHtml() {
   return `
-    <svg class="ajyn-support-icon-img" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:0 auto;">
-      <path d="M4.75 12.75v-1.4a7.25 7.25 0 0 1 14.5 0v1.4" stroke="#B87432" stroke-width="1.8" stroke-linecap="round"/>
-      <path d="M5 12.5h2.25v5H5.8A2.3 2.3 0 0 1 3.5 15.2v-.4A2.3 2.3 0 0 1 5 12.5Zm14 0h-2.25v5h1.45a2.3 2.3 0 0 0 2.3-2.3v-.4a2.3 2.3 0 0 0-1.5-2.3Z" stroke="#B87432" stroke-width="1.8" stroke-linejoin="round"/>
-      <path d="M16.75 17.5c0 1.8-1.25 2.75-3.75 2.75" stroke="#B87432" stroke-width="1.8" stroke-linecap="round"/>
-    </svg>
+    <span class="ajyn-support-icon-text" aria-hidden="true" style="display:block;margin:0 auto;color:#B87432;-webkit-text-fill-color:#B87432;font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:22px;">?</span>
   `;
 }
 
 function getEmailIconHtml() {
   return `
-    <svg class="ajyn-contact-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:-2px;color:currentColor;">
-      <rect x="3.5" y="5.5" width="17" height="13" rx="1.5" stroke="currentColor" stroke-width="1.8"/>
-      <path d="M4.5 7 12 12.5 19.5 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
+    <span class="ajyn-contact-icon-text" aria-hidden="true" style="display:inline-block;vertical-align:0;color:#B87432;-webkit-text-fill-color:#B87432;font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:700;line-height:1;">@</span>
   `;
 }
 
 function getWhatsAppIconHtml() {
   return `
-    <svg class="ajyn-contact-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:-2px;color:currentColor;">
-      <path d="M5.2 18.7 6.1 15.5A7.2 7.2 0 1 1 8.7 18l-3.5.7Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-      <path d="M9.4 8.9c.2-.4.4-.4.7-.4h.5c.2 0 .4.1.5.4l.6 1.4c.1.3 0 .5-.1.7l-.4.5c.6 1.1 1.4 1.9 2.5 2.5l.5-.4c.2-.2.4-.2.7-.1l1.4.6c.3.1.4.3.4.6v.5c0 .3-.1.5-.4.7-.4.3-.9.4-1.5.4-3.2-.1-6.2-3.1-6.3-6.3 0-.6.1-1.1.4-1.5Z" fill="currentColor"/>
-    </svg>
+    <span class="ajyn-contact-icon-text" aria-hidden="true" style="display:inline-block;vertical-align:0;color:#B87432;-webkit-text-fill-color:#B87432;font-family:Arial,Helvetica,sans-serif;font-size:9px;font-weight:700;line-height:1;">WA</span>
   `;
 }
 

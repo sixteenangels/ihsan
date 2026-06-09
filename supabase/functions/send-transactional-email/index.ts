@@ -106,6 +106,46 @@ function stripLightBackgroundImageLocks(html: string) {
   }, html)
 }
 
+const LOGO_MARK_FALLBACK = `
+    <div class="ajyn-logo-mark ajyn-logo-mark-text" role="img" aria-label="AJYN" style="display:block;width:54px;height:32px;margin:9px auto 0;text-align:center;color:#B87432;-webkit-text-fill-color:#B87432;font-family:Arial Black,Arial,Helvetica,sans-serif;font-size:32px;line-height:30px;font-weight:900;font-style:italic;letter-spacing:-3px;">
+      A<span style="color:#b85b0e;-webkit-text-fill-color:#b85b0e;font-size:9px;line-height:1;vertical-align:top;margin-left:1px;">&bull;</span>
+    </div>
+`
+const PACKAGE_ICON_FALLBACK = `<span class="ajyn-package-icon-text" aria-hidden="true" style="display:block;margin:13px auto 0;color:#B87432;-webkit-text-fill-color:#B87432;font-family:Arial,Helvetica,sans-serif;font-size:30px;line-height:32px;">&#9633;</span>`
+const SUPPORT_ICON_FALLBACK = `<span class="ajyn-support-icon-text" aria-hidden="true" style="display:block;margin:0 auto;color:#B87432;-webkit-text-fill-color:#B87432;font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:22px;">?</span>`
+const EMAIL_ICON_FALLBACK = `<span class="ajyn-contact-icon-text" aria-hidden="true" style="display:inline-block;vertical-align:0;color:#B87432;-webkit-text-fill-color:#B87432;font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:700;line-height:1;">@</span>`
+const WHATSAPP_ICON_FALLBACK = `<span class="ajyn-contact-icon-text" aria-hidden="true" style="display:inline-block;vertical-align:0;color:#B87432;-webkit-text-fill-color:#B87432;font-family:Arial,Helvetica,sans-serif;font-size:9px;font-weight:700;line-height:1;">WA</span>`
+
+function replaceSvgEmailIcons(html: string) {
+  let contactIconIndex = 0
+
+  return html
+    .replace(
+      /<svg\b(?=[^>]*class=["'][^"']*ajyn-logo-mark[^"']*["'])[\s\S]*?<\/svg>/gi,
+      LOGO_MARK_FALLBACK,
+    )
+    .replace(
+      /<svg\b(?=[^>]*class=["'][^"']*ajyn-package-icon[^"']*["'])[\s\S]*?<\/svg>/gi,
+      PACKAGE_ICON_FALLBACK,
+    )
+    .replace(
+      /<svg\b(?=[^>]*class=["'][^"']*ajyn-support-icon-img[^"']*["'])[\s\S]*?<\/svg>/gi,
+      SUPPORT_ICON_FALLBACK,
+    )
+    .replace(
+      /<svg\b(?=[^>]*class=["'][^"']*ajyn-contact-icon[^"']*["'])[\s\S]*?<\/svg>/gi,
+      () => {
+        const fallback = contactIconIndex % 2 === 0 ? EMAIL_ICON_FALLBACK : WHATSAPP_ICON_FALLBACK
+        contactIconIndex += 1
+        return fallback
+      },
+    )
+}
+
+function normalizeEmailHtmlForDelivery(html: string) {
+  return replaceSvgEmailIcons(stripLightBackgroundImageLocks(html))
+}
+
 async function updateOutboxStatus(
   supabase: ReturnType<typeof createServiceSupabaseClient>,
   id: string,
@@ -216,7 +256,7 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'Missing required fields: to, subject, html' }, 400)
     }
 
-    payload.html = stripLightBackgroundImageLocks(payload.html)
+    payload.html = normalizeEmailHtmlForDelivery(payload.html)
 
     const { data: outboxRow, error: outboxError } = await supabase
       .from('outgoing_emails')
