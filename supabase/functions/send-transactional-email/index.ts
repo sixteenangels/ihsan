@@ -88,6 +88,24 @@ function sanitizeCustomHeaders(headers?: Record<string, string>) {
   return Object.keys(sanitized).length > 0 ? sanitized : undefined
 }
 
+function stripLightBackgroundImageLocks(html: string) {
+  const lightLockedColors = ['#ffffff', '#f5f5f5', '#f7f4f2', '#f8f4f1', '#f2e9e1', '#f3eee9']
+
+  return lightLockedColors.reduce((output, color) => {
+    const escapedColor = color.replace('#', '\\#')
+    const lockPattern = new RegExp(
+      `\\s*background-image\\s*:\\s*linear-gradient\\(\\s*${escapedColor}\\s*,\\s*${escapedColor}\\s*\\)\\s*!important\\s*;?`,
+      'gi',
+    )
+    const inlineLockPattern = new RegExp(
+      `\\s*background-image\\s*:\\s*linear-gradient\\(\\s*${escapedColor}\\s*,\\s*${escapedColor}\\s*\\)\\s*;?`,
+      'gi',
+    )
+
+    return output.replace(lockPattern, '').replace(inlineLockPattern, '')
+  }, html)
+}
+
 async function updateOutboxStatus(
   supabase: ReturnType<typeof createServiceSupabaseClient>,
   id: string,
@@ -197,6 +215,8 @@ Deno.serve(async (req) => {
     if (!payload.to || !payload.subject || !payload.html) {
       return jsonResponse({ error: 'Missing required fields: to, subject, html' }, 400)
     }
+
+    payload.html = stripLightBackgroundImageLocks(payload.html)
 
     const { data: outboxRow, error: outboxError } = await supabase
       .from('outgoing_emails')
