@@ -1,24 +1,23 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
-  <title id="title">AJYN favicon</title>
-  <desc id="desc">A winged black A mark with an orange dot on a warm ivory background.</desc>
-  <rect width="512" height="512" fill="#f4eee6" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="40 96 444 320" role="img" aria-labelledby="title desc">
+  <title id="title">AJYN logo</title>
+  <desc id="desc">A winged A mark with an orange dot.</desc>
   <path
-    fill="#202124"
+    fill="currentColor"
     d="M58 158c48 54 133 54 219 102-70-21-154-7-209-74-6-8-9-17-10-28Z"
   />
   <path
-    fill="#202124"
+    fill="currentColor"
     d="M72 231c51 57 146 37 214 91-69-18-157 12-210-61-7-10-8-20-4-30Z"
   />
   <path
-    fill="#202124"
+    fill="currentColor"
     fill-rule="evenodd"
     clip-rule="evenodd"
     d="M220 392 328 118h27l111 274h-49L340 171 266 392h-46ZM299 321h95l-52-126-43 126Z"
   />
   <path
     fill="none"
-    stroke="#202124"
+    stroke="currentColor"
     stroke-linecap="round"
     stroke-width="17"
     d="M264 262c47 17 90 45 139 70"

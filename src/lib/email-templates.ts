@@ -36,10 +36,8 @@ const AJYN_EMAIL_MOBILE_STYLES = `
       .ajyn-text-brand { color:#B87432 !important;-webkit-text-fill-color:#B87432 !important; }
       .ajyn-logo-frame { width:58px !important;height:58px !important;border-radius:0 !important;overflow:hidden !important;background:#f3eee9 !important;background-color:#f3eee9 !important;border:none !important;box-sizing:border-box !important;display:inline-block !important;text-align:center !important;line-height:1 !important; }
       .ajyn-logo-ink { fill:#202124 !important; }
-      .ajyn-logo-cutout { fill:#ffffff !important; }
       .ajyn-logo-stroke { stroke:#202124 !important; }
-      .ajyn-logo-dot { fill:#b85b0e !important; }
-      .ajyn-logo-mark-text { color:#111111 !important;-webkit-text-fill-color:#111111 !important; }
+      .ajyn-logo-dot { fill:#c96500 !important; }
       @media (prefers-color-scheme: dark) {
         body, .ajyn-body-bg, .ajyn-shell { background:#09070d !important;background-color:#09070d !important;background-image:linear-gradient(#09070d,#09070d) !important; }
         .ajyn-card, .ajyn-container, .ajyn-header-row, .ajyn-logo-cell, .ajyn-ref-cell, .ajyn-hero-wrap, .ajyn-title, .ajyn-body, .ajyn-divider-cell, .ajyn-help { background:#171514 !important;background-color:#171514 !important;background-image:linear-gradient(#171514,#171514) !important; }
@@ -48,9 +46,8 @@ const AJYN_EMAIL_MOBILE_STYLES = `
         .ajyn-hero-bg, .ajyn-hero-icon { background:#302923 !important;background-color:#302923 !important;background-image:linear-gradient(#302923,#302923) !important; }
         .ajyn-logo-frame { background:#171514 !important;background-color:#171514 !important;background-image:linear-gradient(#171514,#171514) !important;border-color:#171514 !important; }
         .ajyn-logo-ink { fill:#f8f4ef !important; }
-        .ajyn-logo-cutout { fill:#171514 !important; }
         .ajyn-logo-stroke { stroke:#f8f4ef !important; }
-        .ajyn-text-dark, .ajyn-gmail-text, .ajyn-gmail-text p, .ajyn-gmail-text strong, .ajyn-gmail-text span, .ajyn-copy, .ajyn-title, .ajyn-status-title, .ajyn-status-text, .ajyn-help-title, .ajyn-help-subtitle, .ajyn-contact, .ajyn-footer-brand, .ajyn-footer-copy, .ajyn-footer-legal, .ajyn-logo-word, .ajyn-logo-mark-text, .ajyn-ref-cell { color:#f8f4ef !important;-webkit-text-fill-color:#f8f4ef !important; }
+        .ajyn-text-dark, .ajyn-gmail-text, .ajyn-gmail-text p, .ajyn-gmail-text strong, .ajyn-gmail-text span, .ajyn-copy, .ajyn-title, .ajyn-status-title, .ajyn-status-text, .ajyn-help-title, .ajyn-help-subtitle, .ajyn-contact, .ajyn-footer-brand, .ajyn-footer-copy, .ajyn-footer-legal, .ajyn-logo-word, .ajyn-ref-cell { color:#f8f4ef !important;-webkit-text-fill-color:#f8f4ef !important; }
         .ajyn-text-brand { color:#ff9d4d !important;-webkit-text-fill-color:#ff9d4d !important; }
         .ajyn-cta { background:#000000 !important;background-color:#000000 !important;background-image:linear-gradient(#000000,#000000) !important;color:#c47b43 !important;-webkit-text-fill-color:#c47b43 !important; }
       }
@@ -63,7 +60,7 @@ const AJYN_EMAIL_MOBILE_STYLES = `
         .ajyn-logo-cell { text-align:center !important;padding:0 !important; }
         .ajyn-logo-lockup { margin:0 auto !important; }
         .ajyn-logo-frame { display:block !important;margin:0 auto 2px !important;width:58px !important;height:58px !important; }
-        .ajyn-logo-mark { width:54px !important;height:32px !important;margin:9px auto 0 !important; }
+        .ajyn-logo-mark { width:54px !important;height:42px !important;margin:7px auto 0 !important; }
         .ajyn-logo-word { font-size:9px !important;letter-spacing:0.42em !important;padding-top:5px !important;padding-left:0.42em !important; }
         .ajyn-desktop-divider { margin-top:13px !important; }
         .ajyn-ref-cell { border-top:1px solid #ece7e2 !important;text-align:center !important;padding:9px 0 7px !important;font-size:8px !important;line-height:1.25 !important;letter-spacing:0.03em !important; }
@@ -507,9 +504,13 @@ function getAppUrl() {
 
 function getLogoMarkHtml() {
   return `
-    <div class="ajyn-logo-mark ajyn-logo-mark-text" role="img" aria-label="AJYN" style="display:block;width:54px;height:32px;margin:9px auto 0;text-align:center;color:#B87432;-webkit-text-fill-color:#B87432;font-family:Arial Black,Arial,Helvetica,sans-serif;font-size:32px;line-height:30px;font-weight:900;font-style:italic;letter-spacing:-3px;">
-      A<span style="color:#b85b0e;-webkit-text-fill-color:#b85b0e;font-size:9px;line-height:1;vertical-align:top;margin-left:1px;">&bull;</span>
-    </div>
+    <svg class="ajyn-logo-mark" role="img" aria-label="AJYN" width="54" height="42" viewBox="40 96 444 320" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;width:54px;height:42px;margin:7px auto 0;">
+      <path class="ajyn-logo-ink" fill="#202124" d="M58 158c48 54 133 54 219 102-70-21-154-7-209-74-6-8-9-17-10-28Z" />
+      <path class="ajyn-logo-ink" fill="#202124" d="M72 231c51 57 146 37 214 91-69-18-157 12-210-61-7-10-8-20-4-30Z" />
+      <path class="ajyn-logo-ink" fill="#202124" fill-rule="evenodd" clip-rule="evenodd" d="M220 392 328 118h27l111 274h-49L340 171 266 392h-46ZM299 321h95l-52-126-43 126Z" />
+      <path class="ajyn-logo-stroke" fill="none" stroke="#202124" stroke-linecap="round" stroke-width="17" d="M264 262c47 17 90 45 139 70" />
+      <circle class="ajyn-logo-dot" cx="430" cy="130" r="22" fill="#c96500" />
+    </svg>
   `;
 }
 

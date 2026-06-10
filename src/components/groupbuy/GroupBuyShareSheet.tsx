@@ -67,7 +67,7 @@ export function GroupBuyShareSheet({
   const handleWhatsApp = async () => {
     const nextShareUrl = await getShareUrl('whatsapp');
     const nextShareText = shareText.replace(shareUrl, nextShareUrl);
-    window.open(`https://wa.me/?text=${encodeURIComponent(nextShareText)}`, '_blank');
+    window.open(`https://wa.me/?text=${encodeURIComponent(nextShareText)}`, '_blank', 'noopener,noreferrer');
   };
 
   return (

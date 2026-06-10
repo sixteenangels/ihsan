@@ -425,7 +425,7 @@ export default function ProductDetail() {
   const handleShareWhatsApp = () => {
     if (!product) return;
     const text = `Check out ${product.name} on AJYN! ${formatPrice(product.base_price)} - ${window.location.href}`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
   };
 
   const handleMobileShare = async () => {
@@ -762,7 +762,7 @@ export default function ProductDetail() {
               <div className="flex items-center justify-between gap-3">
                 <Link
                   to="/products"
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border/70 bg-card text-foreground transition-colors hover:border-primary/50 hover:text-primary"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-primary/20 bg-card text-primary transition-colors hover:border-primary/50 hover:text-primary"
                   aria-label="Back to products"
                 >
                   <ArrowLeft className="h-5 w-5" />
@@ -771,14 +771,14 @@ export default function ProductDetail() {
                   <Button
                     variant="outline"
                     size="icon"
-                    className="h-10 w-10 rounded-full"
+                    className="h-10 w-10 rounded-full border-primary/20 text-primary hover:text-primary"
                     onClick={handleMobileShare}
                     aria-label="Share product"
                   >
                     <Share2 className="h-4 w-4" />
                   </Button>
                   <Link to="/cart">
-                    <Button variant="outline" size="icon" className="relative h-10 w-10 rounded-full" aria-label="Open cart">
+                    <Button variant="outline" size="icon" className="relative h-10 w-10 rounded-full border-primary/20 text-primary hover:text-primary" aria-label="Open cart">
                       <ShoppingCart className="h-4 w-4" />
                       {totalItems > 0 ? (
                         <Badge className="absolute -right-1 -top-1 h-5 w-5 justify-center p-0 text-[11px]">
@@ -817,7 +817,7 @@ export default function ProductDetail() {
                     type="button"
                     variant="outline"
                     size="icon"
-                    className="h-9 w-9 rounded-full border-white/20 bg-background/75 backdrop-blur-md"
+                    className="h-9 w-9 rounded-full border-primary/20 bg-background/75 text-primary backdrop-blur-md hover:text-primary"
                     onClick={handlePreviewImage}
                   >
                     <Search className="h-4 w-4" />

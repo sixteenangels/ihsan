@@ -64,7 +64,7 @@ export function GroupBuyCard({ groupBuy }: GroupBuyCardProps) {
       }
     }
 
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
   };
 
   return (

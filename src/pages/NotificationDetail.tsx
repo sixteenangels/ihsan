@@ -54,7 +54,7 @@ export default function NotificationDetail() {
           <div className="mb-5 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
             <button
               type="button"
-              className="inline-flex h-10 items-center justify-self-start rounded-full px-1 text-sm font-medium text-[#ff8a33] hover:text-[#ffac63] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff8a33] focus-visible:ring-offset-2 focus-visible:ring-offset-[#101010] md:text-primary md:hover:text-primary/80 md:focus-visible:ring-ring md:focus-visible:ring-offset-background"
+              className="inline-flex h-10 items-center justify-self-start rounded-full px-1 text-sm font-medium text-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-[#101010] md:focus-visible:ring-ring md:focus-visible:ring-offset-background"
               onClick={goBack}
             >
               <ArrowLeft className="mr-1 h-4 w-4" />
@@ -66,7 +66,7 @@ export default function NotificationDetail() {
 
           {isLoading ? (
             <div className="flex min-h-[40vh] items-center justify-center">
-              <Bell className="h-8 w-8 animate-pulse text-[#ff8a33] md:text-primary" />
+              <Bell className="h-8 w-8 animate-pulse text-primary" />
             </div>
           ) : notification ? (
             <Card className="rounded-2xl border-[#2d2d2d] bg-[#1b1b1b] shadow-[0_22px_55px_-36px_hsl(0_0%_0%/0.9)] md:border-border/70 md:bg-card md:shadow-sm">
@@ -74,13 +74,13 @@ export default function NotificationDetail() {
                 <div className="flex flex-col items-center text-center">
                   <div
                     className={cn(
-                      'mb-4 flex h-16 w-16 items-center justify-center rounded-full text-[#ff8a33]',
+                      'mb-4 flex h-16 w-16 items-center justify-center rounded-full text-primary',
                       getNotificationColor(notification.type),
                     )}
                   >
                     {getNotificationIcon(notification.type)}
                   </div>
-                  <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#ff8a33] md:text-xs md:text-primary">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary md:text-xs">
                     {getNotificationEyebrow(notification).toUpperCase()}
                   </p>
                   <h2 className="mt-3 max-w-md break-words text-xl font-semibold leading-snug text-white md:text-foreground">
@@ -105,7 +105,7 @@ export default function NotificationDetail() {
                 {orderTarget ? (
                   <Button
                     asChild
-                    className="mt-16 h-12 w-full rounded-lg bg-[#ff8a33] text-sm font-semibold text-[#241006] shadow-sm hover:bg-[#ff9a45] md:mt-9 md:rounded-xl"
+                    className="mt-16 h-12 w-full rounded-lg bg-primary text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 md:mt-9 md:rounded-xl"
                   >
                     <Link to={orderTarget.href}>
                       <Package className="h-4 w-4" />

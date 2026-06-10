@@ -88,7 +88,7 @@ export default function Notifications() {
         <div className="mx-auto w-full max-w-3xl">
           <Link
             to="/"
-            className="mb-4 inline-flex h-10 items-center rounded-full pr-3 text-sm font-semibold text-[#ff8a33] hover:text-[#ffac63] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff8a33] focus-visible:ring-offset-2 focus-visible:ring-offset-[#101010] md:mb-5 md:h-auto md:rounded-none md:pr-0 md:font-medium md:text-muted-foreground md:hover:text-primary md:focus-visible:ring-ring md:focus-visible:ring-offset-background"
+            className="mb-4 inline-flex h-10 items-center rounded-full pr-3 text-sm font-semibold text-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-[#101010] md:mb-5 md:h-auto md:rounded-none md:pr-0 md:font-medium md:focus-visible:ring-ring md:focus-visible:ring-offset-background"
           >
             <ArrowLeft className="mr-1 h-4 w-4" />
             Back to Home
@@ -106,7 +106,7 @@ export default function Notifications() {
             {unreadCount > 0 ? (
               <Button
                 variant="ghost"
-                className="h-9 shrink-0 rounded-full px-2 text-xs font-semibold text-[#ff8a33] hover:bg-[#ff8a33]/10 hover:text-[#ff8a33] md:px-3 md:text-primary md:hover:text-primary"
+                className="h-9 shrink-0 rounded-full px-2 text-xs font-semibold text-primary hover:bg-primary/10 hover:text-primary md:px-3"
                 onClick={() => markAllAsRead()}
               >
                 Mark all as read
@@ -126,8 +126,8 @@ export default function Notifications() {
                     className={cn(
                       'inline-flex h-10 items-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors',
                       isActive
-                        ? 'border-[#ff8a33] bg-[#2b1708] text-[#ff8a33] shadow-sm md:bg-primary md:text-primary-foreground'
-                        : 'border-[#202020] bg-[#191919] text-[#a5a5a5] hover:border-[#ff8a33]/40 hover:text-white md:border-border md:bg-card md:text-muted-foreground md:hover:text-foreground',
+                        ? 'border-primary bg-primary/15 text-primary shadow-sm md:bg-primary md:text-primary-foreground'
+                        : 'border-[#202020] bg-[#191919] text-[#a5a5a5] hover:border-primary/40 hover:text-white md:border-border md:bg-card md:text-muted-foreground md:hover:text-foreground',
                     )}
                     onClick={() => setActiveFilter(filter.value)}
                   >
@@ -136,7 +136,7 @@ export default function Notifications() {
                       className={cn(
                         'rounded-full px-1.5 py-0.5 text-[10px]',
                         isActive
-                          ? 'bg-[#ff8a33]/15 text-[#ffb271] md:bg-primary-foreground/20 md:text-primary-foreground'
+                          ? 'bg-primary/15 text-primary md:bg-primary-foreground/20 md:text-primary-foreground'
                           : 'bg-[#252525] text-[#8d8d8d] md:bg-muted md:text-muted-foreground',
                       )}
                     >
@@ -150,7 +150,7 @@ export default function Notifications() {
 
           {isLoading ? (
             <div className="flex min-h-[40vh] items-center justify-center">
-              <Bell className="h-8 w-8 animate-pulse text-[#ff8a33] md:text-primary" />
+              <Bell className="h-8 w-8 animate-pulse text-primary" />
             </div>
           ) : notifications.length === 0 ? (
             <Card className="rounded-2xl border-[#262626] bg-[#181818] shadow-sm md:border-border/70 md:bg-card">
@@ -181,8 +181,8 @@ export default function Notifications() {
                     key={notification.id}
                     type="button"
                     className={cn(
-                      'group grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border bg-[#181818] p-3 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-[#ff8a33]/45 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff8a33] focus-visible:ring-offset-2 focus-visible:ring-offset-[#101010] md:rounded-2xl md:border-border md:bg-card md:p-3.5 md:focus-visible:ring-ring md:focus-visible:ring-offset-background',
-                      !notification.is_read && 'border-[#ff8a33]/65 bg-[#17120f] md:border-primary/45 md:bg-primary/5',
+                      'group grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border bg-[#181818] p-3 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/45 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-[#101010] md:rounded-2xl md:border-border md:bg-card md:p-3.5 md:focus-visible:ring-ring md:focus-visible:ring-offset-background',
+                      !notification.is_read && 'border-primary/65 bg-primary/5 md:border-primary/45',
                     )}
                     aria-label={`Open notification: ${title}`}
                     onClick={() => {
@@ -207,7 +207,7 @@ export default function Notifications() {
                       <div className="flex items-center gap-2">
                         <p className="truncate text-sm font-semibold text-white md:text-foreground">{title}</p>
                         {!notification.is_read ? (
-                          <span className="h-2 w-2 shrink-0 rounded-full bg-[#ff8a33] md:bg-primary" />
+                          <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />
                         ) : null}
                       </div>
                       <p className="mt-1 line-clamp-2 text-xs leading-5 text-[#b6b6b6] md:text-sm md:text-muted-foreground">
@@ -217,7 +217,7 @@ export default function Notifications() {
                         {format(new Date(notification.created_at), 'MMM d, yyyy h:mm a')}
                       </p>
                     </div>
-                    <ChevronRight className="h-4 w-4 shrink-0 text-[#8d8d8d] transition-transform group-hover:translate-x-0.5 group-hover:text-[#ff8a33] md:text-muted-foreground md:group-hover:text-primary" />
+                    <ChevronRight className="h-4 w-4 shrink-0 text-[#8d8d8d] transition-transform group-hover:translate-x-0.5 group-hover:text-primary md:text-muted-foreground" />
                   </button>
                 );
               })}

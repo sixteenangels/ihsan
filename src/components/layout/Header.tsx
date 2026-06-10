@@ -37,7 +37,7 @@ export function Header() {
   const { user, isAdmin, signOut } = useAuth();
   const navigate = useNavigate();
   const { isEnabled } = useFeatureFlags();
-  const mobileActionColor = '#ff8a33';
+  const mobileActionColor = 'hsl(var(--primary))';
 
   const navLinks = [
     { name: 'Home', href: '/' },
@@ -72,9 +72,9 @@ export function Header() {
           to={item.href}
           className="group flex h-11 items-center gap-3 rounded-xl px-2.5 text-sm font-medium text-[#ededed] transition-colors hover:bg-white/[0.04] hover:text-white"
         >
-          <Icon className="h-5 w-5 shrink-0 text-[#ff8a33]" />
+          <Icon className="h-5 w-5 shrink-0 text-primary" />
           <span className="min-w-0 flex-1 truncate">{item.name}</span>
-          <ChevronRight className="h-4 w-4 shrink-0 text-[#d6d6d6] transition-transform group-hover:translate-x-0.5 group-hover:text-[#ffb56e]" />
+          <ChevronRight className="h-4 w-4 shrink-0 text-primary/70 transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
         </Link>
       </SheetClose>
     );
@@ -111,7 +111,7 @@ export function Header() {
 
         {/* Right Side Actions */}
         <div
-          className="flex items-center gap-0.5 sm:gap-2 md:text-foreground [&_button]:hover:bg-white/10 md:[&_button]:text-foreground md:[&_button]:hover:bg-accent md:[&_button]:hover:text-accent-foreground"
+          className="flex items-center gap-0.5 sm:gap-2 md:text-primary [&_button]:hover:bg-white/10 md:[&_button]:text-primary md:[&_button]:hover:bg-accent md:[&_button]:hover:text-primary"
           style={{ color: mobileActionColor }}
         >
           {/* Notifications */}
@@ -170,7 +170,7 @@ export function Header() {
               variant="ghost"
               size="icon"
               aria-label="Open cart"
-              className="relative h-9 w-9 text-primary-foreground hover:bg-white/10 hover:text-primary-foreground sm:h-10 sm:w-10 md:text-foreground md:hover:bg-accent md:hover:text-accent-foreground"
+              className="relative h-9 w-9 text-primary hover:bg-white/10 hover:text-primary sm:h-10 sm:w-10 md:text-primary md:hover:bg-accent md:hover:text-primary"
             >
               <ShoppingCart className="h-4 w-4" />
               {totalItems > 0 && (
@@ -197,7 +197,7 @@ export function Header() {
             </SheetTrigger>
             <SheetContent
               side="right"
-              className="bottom-auto top-0 h-[calc(100dvh-1.25rem)] w-[76vw] min-w-[16.5rem] max-w-[18rem] rounded-bl-3xl rounded-tl-3xl border-l border-white/10 bg-[#151515]/95 p-0 text-white shadow-[0_28px_70px_-28px_rgba(0,0,0,0.95)] backdrop-blur-2xl [&>button]:right-4 [&>button]:top-4 [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:bg-white/10 [&>button]:focus:ring-[#ff8a33]"
+              className="bottom-auto top-0 h-[calc(100dvh-1.25rem)] w-[76vw] min-w-[16.5rem] max-w-[18rem] rounded-bl-3xl rounded-tl-3xl border-l border-white/10 bg-[#151515]/95 p-0 text-white shadow-[0_28px_70px_-28px_rgba(0,0,0,0.95)] backdrop-blur-2xl [&>button]:right-4 [&>button]:top-4 [&>button]:text-primary [&>button]:opacity-90 [&>button]:hover:bg-white/10 [&>button]:focus:ring-primary"
             >
               <nav className="flex h-full flex-col px-4 pb-5 pt-12">
                 <div className="space-y-1">
@@ -224,7 +224,7 @@ export function Header() {
                         {user.email}
                       </p>
                       <Button
-                        className="h-11 w-full rounded-lg border border-[#ff8a33]/80 bg-transparent text-sm font-medium text-[#ff8a33] hover:bg-[#ff8a33]/10 hover:text-[#ffb56e]"
+                        className="h-11 w-full rounded-lg border border-primary/80 bg-transparent text-sm font-medium text-primary hover:bg-primary/10 hover:text-primary"
                         variant="outline"
                         onClick={handleSignOut}
                       >
@@ -235,7 +235,7 @@ export function Header() {
                   ) : (
                     <SheetClose asChild>
                       <Link to="/auth">
-                        <Button className="h-11 w-full rounded-lg border border-[#ff8a33]/80 bg-transparent text-sm font-medium text-[#ff8a33] hover:bg-[#ff8a33]/10 hover:text-[#ffb56e]" variant="outline">
+                        <Button className="h-11 w-full rounded-lg border border-primary/80 bg-transparent text-sm font-medium text-primary hover:bg-primary/10 hover:text-primary" variant="outline">
                           <User className="mr-2 h-4 w-4" />
                         Sign In
                         </Button>

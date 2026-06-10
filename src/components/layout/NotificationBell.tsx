@@ -17,13 +17,13 @@ export function NotificationBell() {
     <Button
       variant="ghost"
       size="icon"
-      className="relative"
+      className="relative text-primary hover:text-primary"
       aria-label="Open notifications"
       onClick={() => navigate('/notifications')}
     >
       <Bell className="h-4 w-4" />
       {unreadCount > 0 ? (
-        <Badge className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center bg-destructive p-0 text-xs text-destructive-foreground">
+        <Badge className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center bg-primary p-0 text-xs text-primary-foreground">
           {unreadCount > 9 ? '9+' : unreadCount}
         </Badge>
       ) : null}

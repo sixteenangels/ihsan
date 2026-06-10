@@ -36,28 +36,40 @@ interface OrderInvoiceProps {
   order: InvoiceOrder;
 }
 
+function escapeHtml(value: unknown) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
 export function OrderInvoice({ order }: OrderInvoiceProps) {
   const { formatPrice } = useCurrency();
 
   const handlePrint = () => {
-    const printWindow = window.open('', '_blank');
+    const printWindow = window.open('', '_blank', 'noopener,noreferrer');
     if (!printWindow) return;
 
     const addr = order.shipping_address;
     const date = new Date(order.created_at).toLocaleDateString('en-US', {
       year: 'numeric', month: 'long', day: 'numeric',
     });
+    const formattedSubtotal = formatPrice(order.subtotal);
+    const formattedShipping = formatPrice(order.shipping_price || 0);
+    const formattedTotal = formatPrice(order.total_amount);
 
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Invoice - ${order.order_number}</title>
+        <title>Invoice - ${escapeHtml(order.order_number)}</title>
         <style>
           body { font-family: 'Segoe UI', sans-serif; padding: 40px; color: #1a1a1a; max-width: 800px; margin: 0 auto; }
           .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; border-bottom: 3px solid #1a1a1a; padding-bottom: 20px; }
-          .logo { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; min-width: 128px; background: #151515; padding: 14px 18px 12px; color: #d8cec4; font-family: 'Avenir Next', Montserrat, 'Segoe UI', sans-serif; font-size: 25px; font-weight: 700; letter-spacing: 10px; line-height: 1; }
-          .logo-dot { width: 7px; height: 7px; margin-top: 12px; border-radius: 999px; background: #d97822; }
+          .logo { display: inline-flex; align-items: center; justify-content: center; min-width: 128px; background: #ffffff; padding: 10px 16px; color: #202124; line-height: 1; }
+          .logo svg { display: block; width: 96px; height: 70px; }
           .invoice-info { text-align: right; }
           .invoice-info h2 { margin: 0; font-size: 24px; color: #666; }
           .addresses { display: flex; justify-content: space-between; margin-bottom: 30px; }
@@ -75,23 +87,31 @@ export function OrderInvoice({ order }: OrderInvoiceProps) {
       </head>
       <body>
         <div class="header">
-          <div class="logo"><span>${BRAND_NAME}</span><span class="logo-dot"></span></div>
+          <div class="logo" aria-label="${escapeHtml(BRAND_NAME)}">
+            <svg role="img" aria-label="${escapeHtml(BRAND_NAME)}" viewBox="40 96 444 320" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path fill="currentColor" d="M58 158c48 54 133 54 219 102-70-21-154-7-209-74-6-8-9-17-10-28Z" />
+              <path fill="currentColor" d="M72 231c51 57 146 37 214 91-69-18-157 12-210-61-7-10-8-20-4-30Z" />
+              <path fill="currentColor" fill-rule="evenodd" clip-rule="evenodd" d="M220 392 328 118h27l111 274h-49L340 171 266 392h-46ZM299 321h95l-52-126-43 126Z" />
+              <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="17" d="M264 262c47 17 90 45 139 70" />
+              <circle cx="430" cy="130" r="22" fill="#c96500" />
+            </svg>
+          </div>
           <div class="invoice-info">
             <h2>INVOICE</h2>
-            <p><strong>${order.order_number}</strong></p>
-            <p>${date}</p>
+            <p><strong>${escapeHtml(order.order_number)}</strong></p>
+            <p>${escapeHtml(date)}</p>
           </div>
         </div>
         ${addr ? `
         <div class="addresses">
           <div class="address-block">
             <h4>Ship To</h4>
-            <p><strong>${addr.full_name}</strong></p>
-            <p>${addr.address_line1}</p>
-            ${addr.address_line2 ? `<p>${addr.address_line2}</p>` : ''}
-            <p>${addr.city}${addr.state ? `, ${addr.state}` : ''}${addr.postal_code ? ` ${addr.postal_code}` : ''}</p>
-            <p>${addr.country}</p>
-            ${addr.phone ? `<p>Phone: ${addr.phone}</p>` : ''}
+            <p><strong>${escapeHtml(addr.full_name)}</strong></p>
+            <p>${escapeHtml(addr.address_line1)}</p>
+            ${addr.address_line2 ? `<p>${escapeHtml(addr.address_line2)}</p>` : ''}
+            <p>${escapeHtml(`${addr.city}${addr.state ? `, ${addr.state}` : ''}${addr.postal_code ? ` ${addr.postal_code}` : ''}`)}</p>
+            <p>${escapeHtml(addr.country)}</p>
+            ${addr.phone ? `<p>Phone: ${escapeHtml(addr.phone)}</p>` : ''}
           </div>
         </div>
         ` : ''}
@@ -108,23 +128,23 @@ export function OrderInvoice({ order }: OrderInvoiceProps) {
           <tbody>
             ${order.order_items.map(item => `
               <tr>
-                <td>${item.product_name}</td>
-                <td>${item.variant_details || '-'}</td>
-                <td style="text-align:center">${item.quantity}</td>
-                <td style="text-align:right">${formatPrice(item.unit_price)}</td>
-                <td style="text-align:right">${formatPrice(item.total_price)}</td>
+                <td>${escapeHtml(item.product_name)}</td>
+                <td>${escapeHtml(item.variant_details || '-')}</td>
+                <td style="text-align:center">${escapeHtml(item.quantity)}</td>
+                <td style="text-align:right">${escapeHtml(formatPrice(item.unit_price))}</td>
+                <td style="text-align:right">${escapeHtml(formatPrice(item.total_price))}</td>
               </tr>
             `).join('')}
           </tbody>
         </table>
         <div class="totals">
-          <div class="row"><span>Subtotal</span><span>${formatPrice(order.subtotal)}</span></div>
-          <div class="row"><span>Shipping</span><span>${formatPrice(order.shipping_price || 0)}</span></div>
-          <div class="row total"><span>Total</span><span>${formatPrice(order.total_amount)}</span></div>
+          <div class="row"><span>Subtotal</span><span>${escapeHtml(formattedSubtotal)}</span></div>
+          <div class="row"><span>Shipping</span><span>${escapeHtml(formattedShipping)}</span></div>
+          <div class="row total"><span>Total</span><span>${escapeHtml(formattedTotal)}</span></div>
         </div>
         <div style="clear:both"></div>
         <div class="footer">
-          <p>Thank you for shopping with ${BRAND_NAME}!</p>
+          <p>Thank you for shopping with ${escapeHtml(BRAND_NAME)}!</p>
           <p>This is a computer-generated invoice and does not require a signature.</p>
         </div>
       </body>

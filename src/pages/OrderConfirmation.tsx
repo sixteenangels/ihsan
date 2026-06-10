@@ -94,7 +94,7 @@ export default function OrderConfirmation() {
   const handleShareWhatsApp = () => {
     if (!order) return;
     const text = `I just placed an order on AJYN! Order #${order.order_number} - ${formatPrice(order.total_amount)}`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
   };
 
   const handleCopyLink = () => {

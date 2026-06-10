@@ -486,7 +486,7 @@ export function ProductReviews({ productId, productName }: ProductReviewsProps) 
                         src={review.image_url}
                         alt="Review photo"
                         className="mt-3 max-h-48 cursor-pointer rounded-2xl object-cover transition-opacity hover:opacity-90"
-                        onClick={() => window.open(review.image_url!, '_blank')}
+                        onClick={() => window.open(review.image_url!, '_blank', 'noopener,noreferrer')}
                       />
                     )}
                     {/* Admin Response */}
