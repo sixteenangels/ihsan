@@ -165,10 +165,11 @@ export function Header() {
           )}
 
           {/* Cart */}
-          <Link to="/cart" className="hidden md:block">
+          <Link to="/cart" className="block" aria-label="Open cart">
             <Button
               variant="ghost"
               size="icon"
+              aria-label="Open cart"
               className="relative h-9 w-9 text-primary-foreground hover:bg-white/10 hover:text-primary-foreground sm:h-10 sm:w-10 md:text-foreground md:hover:bg-accent md:hover:text-accent-foreground"
             >
               <ShoppingCart className="h-4 w-4" />
