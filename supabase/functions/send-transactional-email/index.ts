@@ -20,6 +20,7 @@ const DEFAULT_FROM_ADDRESS = 'no-reply@ajynworld.com'
 const DEFAULT_FROM_NAME = 'AJYN'
 const EMAIL_ADDRESS_PATTERN = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/
 const EMAIL_REDACTION = '[email redacted]'
+const AJYN_EMAIL_LOGO_URL = 'https://www.ajynworld.com/ajyn-logo.svg'
 
 function extractEmailAddress(value?: string | null) {
   const trimmed = value?.trim()
@@ -107,9 +108,7 @@ function stripLightBackgroundImageLocks(html: string) {
 }
 
 const LOGO_MARK_FALLBACK = `
-    <div class="ajyn-logo-mark ajyn-logo-mark-text" role="img" aria-label="AJYN" style="display:block;width:54px;height:32px;margin:9px auto 0;text-align:center;color:#B87432;-webkit-text-fill-color:#B87432;font-family:Arial Black,Arial,Helvetica,sans-serif;font-size:32px;line-height:30px;font-weight:900;font-style:italic;letter-spacing:-3px;">
-      A<span style="color:#b85b0e;-webkit-text-fill-color:#b85b0e;font-size:9px;line-height:1;vertical-align:top;margin-left:1px;">&bull;</span>
-    </div>
+    <img class="ajyn-logo-mark" src="${AJYN_EMAIL_LOGO_URL}" width="54" height="42" alt="AJYN" style="display:block;width:54px;height:42px;margin:7px auto 0;border:0;outline:none;text-decoration:none;object-fit:contain;">
 `
 const PACKAGE_ICON_FALLBACK = `<span class="ajyn-package-icon-text" aria-hidden="true" style="display:block;margin:13px auto 0;color:#B87432;-webkit-text-fill-color:#B87432;font-family:Arial,Helvetica,sans-serif;font-size:30px;line-height:32px;">&#9633;</span>`
 const SUPPORT_ICON_FALLBACK = `<span class="ajyn-support-icon-text" aria-hidden="true" style="display:block;margin:0 auto;color:#B87432;-webkit-text-fill-color:#B87432;font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:22px;">?</span>`

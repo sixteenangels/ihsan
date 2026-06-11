@@ -23,6 +23,7 @@ interface CustomerPreferenceRow {
 
 const SUPPORT_EMAIL = Deno.env.get('SUPPORT_EMAIL') || 'support@ajynworld.com'
 const COPYRIGHT_YEAR = '2026'
+const AJYN_EMAIL_LOGO_URL = 'https://www.ajynworld.com/ajyn-logo.svg'
 
 const AJYN_EMAIL_MOBILE_STYLES = `
       :root { color-scheme:light dark;supported-color-schemes:light dark; }
@@ -38,7 +39,7 @@ const AJYN_EMAIL_MOBILE_STYLES = `
       .ajyn-text-dark { color:#111111 !important;-webkit-text-fill-color:#111111 !important; }
       .ajyn-text-orange, .ajyn-cta { color:#c47b43 !important;-webkit-text-fill-color:#c47b43 !important; }
       .ajyn-text-brand { color:#B87432 !important;-webkit-text-fill-color:#B87432 !important; }
-      .ajyn-logo-frame { width:58px !important;height:58px !important;border-radius:0 !important;overflow:hidden !important;background:#f3eee9 !important;background-color:#f3eee9 !important;border:none !important;box-sizing:border-box !important;display:inline-block !important;text-align:center !important;line-height:1 !important; }
+      .ajyn-logo-frame { width:58px !important;height:58px !important;border-radius:0 !important;overflow:hidden !important;background:#ffffff !important;background-color:#ffffff !important;border:none !important;box-sizing:border-box !important;display:inline-block !important;text-align:center !important;line-height:1 !important; }
       .ajyn-logo-ink { fill:#202124 !important; }
       .ajyn-logo-cutout { fill:#ffffff !important; }
       .ajyn-logo-stroke { stroke:#202124 !important; }
@@ -50,7 +51,7 @@ const AJYN_EMAIL_MOBILE_STYLES = `
         .ajyn-soft-bg, .ajyn-status-card { background:#24201d !important;background-color:#24201d !important;background-image:linear-gradient(#24201d,#24201d) !important; }
         .ajyn-footer-bg, .ajyn-footer { background:#211d1a !important;background-color:#211d1a !important;background-image:linear-gradient(#211d1a,#211d1a) !important; }
         .ajyn-hero-bg, .ajyn-hero-icon { background:#302923 !important;background-color:#302923 !important;background-image:linear-gradient(#302923,#302923) !important; }
-        .ajyn-logo-frame { background:#171514 !important;background-color:#171514 !important;background-image:linear-gradient(#171514,#171514) !important;border-color:#171514 !important; }
+        .ajyn-logo-frame { background:#ffffff !important;background-color:#ffffff !important;background-image:linear-gradient(#ffffff,#ffffff) !important;border-color:#ffffff !important; }
         .ajyn-logo-ink { fill:#f8f4ef !important; }
         .ajyn-logo-cutout { fill:#171514 !important; }
         .ajyn-logo-stroke { stroke:#f8f4ef !important; }
@@ -107,7 +108,7 @@ const AJYN_EMAIL_MOBILE_STYLES = `
         .ajyn-soft-bg, .ajyn-status-card { background:#24201d !important;background-color:#24201d !important;background-image:linear-gradient(#24201d,#24201d) !important; }
         .ajyn-footer-bg, .ajyn-footer { background:#211d1a !important;background-color:#211d1a !important;background-image:linear-gradient(#211d1a,#211d1a) !important; }
         .ajyn-hero-bg, .ajyn-hero-icon { background:#302923 !important;background-color:#302923 !important;background-image:linear-gradient(#302923,#302923) !important; }
-        .ajyn-logo-frame { background:#171514 !important;background-color:#171514 !important;background-image:linear-gradient(#171514,#171514) !important;border-color:#171514 !important; }
+        .ajyn-logo-frame { background:#ffffff !important;background-color:#ffffff !important;background-image:linear-gradient(#ffffff,#ffffff) !important;border-color:#ffffff !important; }
         .ajyn-ref-cell { border-top-color:#3b332e !important; }
       }
 `
@@ -187,7 +188,7 @@ ${AJYN_EMAIL_MOBILE_STYLES}
                   <tr>
                     <td class="ajyn-logo-cell ajyn-light-bg" align="center" valign="middle" bgcolor="#ffffff" style="padding:0 0 13px;background:#ffffff;background-color:#ffffff;">
                       <div class="ajyn-logo-lockup" style="display:inline-block;text-align:center;">
-                        <div class="ajyn-logo-frame" style="width:58px;height:58px;border-radius:0;overflow:hidden;background:#f3eee9;background-color:#f3eee9;border:none;box-sizing:border-box;display:block;text-align:center;line-height:1;">
+                        <div class="ajyn-logo-frame" style="width:58px;height:58px;border-radius:0;overflow:hidden;background:#ffffff;background-color:#ffffff;border:none;box-sizing:border-box;display:block;text-align:center;line-height:1;">
                           ${getLogoMarkHtml()}
                         </div>
                         <div class="ajyn-logo-word ajyn-text-dark ajyn-gmail-text" style="padding-top:5px;padding-left:0.42em;color:#111111;-webkit-text-fill-color:#111111;font-size:9px;line-height:1;letter-spacing:0.42em;font-weight:700;">AJYN</div>
@@ -325,9 +326,7 @@ function escapeHtml(value: string) {
 
 function getLogoMarkHtml() {
   return `
-    <div class="ajyn-logo-mark ajyn-logo-mark-text" role="img" aria-label="AJYN" style="display:block;width:54px;height:32px;margin:9px auto 0;text-align:center;color:#B87432;-webkit-text-fill-color:#B87432;font-family:Arial Black,Arial,Helvetica,sans-serif;font-size:32px;line-height:30px;font-weight:900;font-style:italic;letter-spacing:-3px;">
-      A<span style="color:#b85b0e;-webkit-text-fill-color:#b85b0e;font-size:9px;line-height:1;vertical-align:top;margin-left:1px;">&bull;</span>
-    </div>
+    <img class="ajyn-logo-mark" src="${AJYN_EMAIL_LOGO_URL}" width="54" height="42" alt="AJYN" style="display:block;width:54px;height:42px;margin:7px auto 0;border:0;outline:none;text-decoration:none;object-fit:contain;">
   `
 }
 
