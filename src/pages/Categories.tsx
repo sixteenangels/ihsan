@@ -61,6 +61,8 @@ export default function Categories() {
     return products?.filter((p) => p.category_id === categoryId).slice(0, 3) || [];
   };
 
+  const getCategoryPath = (categoryId: string) => `/products?category=${encodeURIComponent(categoryId)}`;
+
   const isLoading = categoriesLoading || productsLoading;
 
   if (isLoading) {
@@ -110,7 +112,7 @@ export default function Categories() {
                     </div>
                   </div>
                   <Link
-                    to={`/products?category=${encodeURIComponent(category.name)}`}
+                    to={getCategoryPath(category.id)}
                     className="flex items-center gap-1 text-sm text-primary hover:underline sm:text-base"
                   >
                     View All
@@ -154,9 +156,15 @@ export default function Categories() {
                       </Link>
                     ))
                   ) : (
-                      <Card className="col-span-full rounded-2xl p-8 text-center">
-                      <p className="text-muted-foreground">Products coming soon</p>
-                    </Card>
+                    <Link
+                      to={getCategoryPath(category.id)}
+                      className="col-span-full block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                      aria-label={`View ${category.name} products`}
+                    >
+                      <Card className="rounded-2xl p-8 text-center transition-colors hover:border-primary/70">
+                        <p className="text-muted-foreground">Products coming soon</p>
+                      </Card>
+                    </Link>
                   )}
                 </div>
               </div>

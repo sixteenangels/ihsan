@@ -30,7 +30,11 @@ export function CategorySection() {
                 </Card>
               ))
             : categories?.map((category) => (
-                <Link key={category.id} to={`/products?category=${category.name}`}>
+                <Link
+                  key={category.id}
+                  to={`/products?category=${encodeURIComponent(category.id)}`}
+                  aria-label={`View ${category.name} products`}
+                >
                   <Card className="group cursor-pointer rounded-2xl border-border/70 bg-card shadow-sm transition-all duration-300 hover:border-primary hover:shadow-md">
                     <CardContent className="p-3.5 text-center sm:p-6">
                       <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 transition-colors group-hover:bg-primary/20 sm:h-12 sm:w-12">
