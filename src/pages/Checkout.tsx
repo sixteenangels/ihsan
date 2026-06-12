@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, MapPin, Package, Plane, Plus, Ship, Tag, X, AlertTriangle, Shield } from 'lucide-react';
+import { ArrowLeft, Gift, MapPin, Package, Plane, Plus, Ship, Tag, X, AlertTriangle, Shield } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { isVariantPlaceholder, useCart } from '@/contexts/CartContext';
@@ -158,6 +159,7 @@ function hasCompleteDeliveryDetails(address: Address | undefined, email: string 
 
 export default function Checkout() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user, isLoading: authLoading } = useAuth();
   const {
     items,
@@ -181,6 +183,8 @@ export default function Checkout() {
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
+  const [giftCardCode, setGiftCardCode] = useState('');
+  const [isRedeemingGiftCard, setIsRedeemingGiftCard] = useState(false);
   const [userOrderCount, setUserOrderCount] = useState(0);
   const [pendingPaymentRef, setPendingPaymentRef] = useState<string | null>(null);
   const [showPaymentRecovery, setShowPaymentRecovery] = useState(false);
@@ -752,6 +756,42 @@ export default function Checkout() {
     setCouponCode('');
   };
 
+  const handleRedeemGiftCard = async () => {
+    const code = giftCardCode.trim();
+    if (!code) {
+      toast.error('Please enter a gift card code');
+      return;
+    }
+
+    setIsRedeemingGiftCard(true);
+
+    try {
+      const { data, error } = await supabase.rpc('redeem_gift_card' as never, {
+        input_code: code,
+      } as never);
+
+      if (error) {
+        throw error;
+      }
+
+      const redeemed = data as { amount?: number | string; code?: string } | null;
+      const amount = Number(redeemed?.amount || 0);
+      setGiftCardCode('');
+      await queryClient.invalidateQueries({ queryKey: ['wallet-transactions', user?.id] });
+      if (amount > 0) {
+        setUseWalletCredit(true);
+        toast.success(`Gift card redeemed: ${formatPrice(amount)} added to your wallet.`);
+      } else {
+        toast.success('Gift card redeemed and added to your wallet.');
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Gift card could not be redeemed.';
+      toast.error(message);
+    } finally {
+      setIsRedeemingGiftCard(false);
+    }
+  };
+
   useEffect(() => {
     if (!user || appliedCoupon || selectedSubtotal <= 0) return;
 
@@ -1229,7 +1269,30 @@ export default function Checkout() {
             payDisabled={isPaymentDisabled}
             onMakeChanges={() => navigate('/cart')}
             onPay={handlePaystackPayment}
-          />
+          >
+            <button
+              type="button"
+              className="w-full rounded-2xl border border-border/70 bg-card/90 p-4 text-left shadow-sm transition-colors hover:border-primary/45"
+              onClick={() => setIsSavingsDialogOpen(true)}
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/25 bg-primary/10 text-primary">
+                  <Tag className="h-5 w-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-foreground">Coupons & Gift Cards</p>
+                  <p className="mt-0.5 truncate text-xs font-medium text-muted-foreground">
+                    {savingsSummaryText}
+                  </p>
+                </div>
+                {totalSavings > 0 ? (
+                  <p className="shrink-0 text-xs font-semibold text-primary">
+                    -{formatPrice(totalSavings)}
+                  </p>
+                ) : null}
+              </div>
+            </button>
+          </PurchaseSummary>
         </div>
       </main>
 
@@ -1483,6 +1546,32 @@ export default function Checkout() {
                   </Button>
                 </div>
               )}
+            </div>
+
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Gift className="h-4 w-4" />
+                Gift Card
+              </Label>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Input
+                  placeholder="Enter gift card code"
+                  value={giftCardCode}
+                  onChange={(event) => setGiftCardCode(event.target.value.toUpperCase())}
+                  className="flex-1"
+                />
+                <Button
+                  variant="outline"
+                  onClick={handleRedeemGiftCard}
+                  disabled={isRedeemingGiftCard}
+                  className="w-full sm:w-auto"
+                >
+                  {isRedeemingGiftCard ? 'Redeeming...' : 'Redeem'}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Gift cards are added to your wallet, then wallet credit can be applied below.
+              </p>
             </div>
 
             {totalPoints > 0 ? (

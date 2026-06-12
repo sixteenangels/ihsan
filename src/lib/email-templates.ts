@@ -228,6 +228,7 @@ export function buildOrderStatusEmailHtml(input: {
       : 'We will keep you updated every step of the way.',
     ctaLabel: 'TRACK MY ORDER',
     ctaUrl: `${getAppUrl()}/track-order/${encodeURIComponent(input.orderNumber)}`,
+    closing: isOrderPlaced ? undefined : '',
   });
 }
 
@@ -341,7 +342,7 @@ export function buildAjynEmailHtml(input: AjynEmailInput) {
   const referenceLine = input.reference
     ? `${input.eyebrow ? escapeHtml(input.eyebrow.toUpperCase()) : 'REFERENCE'} <span class="ajyn-text-brand" style="color:#B87432;-webkit-text-fill-color:#B87432;">${escapeHtml(input.reference)}</span>`
     : escapeHtml(input.eyebrow || '');
-  const closingMessage = input.closing || 'We will keep you updated every step of the way.';
+  const closingMessage = input.closing ?? 'We will keep you updated every step of the way.';
 
   return `<!doctype html>
 <html lang="en">
@@ -437,11 +438,15 @@ ${AJYN_EMAIL_MOBILE_STYLES}
                   </tr>`
                       : ''
                   }
-                  <tr>
+                  ${
+                    closingMessage
+                      ? `<tr>
                     <td class="ajyn-copy ajyn-closing ajyn-text-dark" style="font-size:12px;line-height:1.6;padding-bottom:19px;color:#111111;-webkit-text-fill-color:#111111;">
                 <span class="ajyn-gmail-text" style="color:#111111;-webkit-text-fill-color:#111111;">${escapeHtml(closingMessage)}</span>
                     </td>
-                  </tr>
+                  </tr>`
+                      : ''
+                  }
                   ${
                     input.ctaLabel && input.ctaUrl
                       ? `<tr>
