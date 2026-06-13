@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { useNavigate, Routes, Route, Link, useLocation } from 'react-router-dom';
+import { useNavigate, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2, Package, FolderTree, Users, LayoutDashboard, ShoppingCart, Truck, Tag, Star, MessageCircle, FileText, Bell, Settings, AlertTriangle, RefreshCcw, HelpCircle, Award, Link2, Wallet, MessageSquare, Gift, ScrollText, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -59,21 +59,21 @@ const ALL_NAV_ITEMS = [
 ];
 
 export default function Admin() {
-  const { user, isAdmin, isLoading, userRole, managerPermissions } = useAuth();
+  const { user, isAdmin, isLoading, isRoleReady, userRole, managerPermissions } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const mainContentRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
-    if (!isLoading && (!user || !isAdmin)) {
+    if (!isLoading && isRoleReady && (!user || !isAdmin)) {
       navigate('/auth');
     }
-  }, [user, isAdmin, isLoading, navigate]);
+  }, [user, isAdmin, isLoading, isRoleReady, navigate]);
 
   // Redirect managers from routes they cannot access
   useEffect(() => {
-    if (!isLoading && userRole === 'manager') {
+    if (!isLoading && isRoleReady && userRole === 'manager') {
       const currentItem = ALL_NAV_ITEMS.find((item) => isActivePath(location.pathname, item.href));
       if (!currentItem) {
         return;
@@ -92,7 +92,7 @@ export default function Admin() {
         navigate('/admin');
       }
     }
-  }, [location.pathname, userRole, isLoading, navigate, managerPermissions]);
+  }, [location.pathname, userRole, isLoading, isRoleReady, navigate, managerPermissions]);
 
   const navItems = useMemo(() => {
     if (userRole === 'admin') return ALL_NAV_ITEMS;
@@ -118,7 +118,7 @@ export default function Admin() {
     return () => window.cancelAnimationFrame(frame);
   }, [location.pathname]);
 
-  if (isLoading) {
+  if (isLoading || !isRoleReady) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -266,6 +266,7 @@ export default function Admin() {
             <Route path="/notifications" element={<AdminPermissionRoute permission="notifications"><AdminNotifications /></AdminPermissionRoute>} />
             <Route path="/audit-logs" element={<AdminPermissionRoute permission="_admin_only"><AdminAuditLogs /></AdminPermissionRoute>} />
             <Route path="/settings" element={<AdminPermissionRoute permission="_admin_only"><AdminSettings /></AdminPermissionRoute>} />
+            <Route path="*" element={<Navigate to="/admin" replace />} />
           </Routes>
         </div>
       </main>
@@ -287,10 +288,14 @@ function AdminPermissionRoute({
   permission: string | null | '_admin_only';
   children: ReactNode;
 }) {
-  const { userRole, managerPermissions } = useAuth();
+  const { userRole, managerPermissions, isRoleReady } = useAuth();
   const navigate = useNavigate();
 
   const allowed = useMemo(() => {
+    if (!isRoleReady) {
+      return false;
+    }
+
     if (userRole === 'admin') {
       return true;
     }
@@ -304,13 +309,21 @@ function AdminPermissionRoute({
     }
 
     return managerPermissions.includes(permission);
-  }, [managerPermissions, permission, userRole]);
+  }, [isRoleReady, managerPermissions, permission, userRole]);
 
   useEffect(() => {
-    if (!allowed) {
+    if (isRoleReady && !allowed) {
       navigate('/admin');
     }
-  }, [allowed, navigate]);
+  }, [allowed, isRoleReady, navigate]);
+
+  if (!isRoleReady) {
+    return (
+      <div className="flex justify-center py-12">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   if (!allowed) {
     return null;

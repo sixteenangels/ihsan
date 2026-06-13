@@ -287,7 +287,7 @@ export default function ProductDetail() {
     if (restoredVariants.length > 0) {
       setSelectedVariants(restoredVariants);
       setMobileVariantId(restoredVariants[0].id);
-      setDesktopPreviewVariantId(restoredVariants[0].id);
+      setPreviewVariantId(restoredVariants[0].id);
     }
 
     if (pendingBuyNow.selectedShippingRuleId) {

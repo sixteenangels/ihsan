@@ -27,6 +27,13 @@ import { getSupabaseFunctionErrorMessage } from '@/lib/errors';
 import { trackRecommendationEvent } from '@/lib/recommendationEvents';
 import { PurchaseSummary } from '@/components/checkout/PurchaseSummary';
 import { toMoney } from '@/lib/money';
+import {
+  getCouponDiscountAmount,
+  getCouponIneligibilityMessage,
+  isCouponEligibleForOrder,
+  normalizeCoupon,
+  type CheckoutCoupon,
+} from '@/lib/coupons';
 
 interface Address {
   id: string;
@@ -63,21 +70,6 @@ interface VariantOption {
   size: string | null;
   price_override: number | null;
   stock: number | null;
-}
-
-interface Coupon {
-  id: string;
-  code: string;
-  type: 'percentage' | 'fixed_amount';
-  value: number;
-  min_order_amount: number | null;
-  current_uses: number | null;
-  max_uses?: number | null;
-  starts_at?: string | null;
-  expires_at?: string | null;
-  auto_apply?: boolean | null;
-  first_order_only?: boolean | null;
-  marketing_label?: string | null;
 }
 
 interface ShippingRuleRow {
@@ -182,7 +174,7 @@ export default function Checkout() {
   const [isShippingPickerOpen, setIsShippingPickerOpen] = useState(false);
   const [isSavingsDialogOpen, setIsSavingsDialogOpen] = useState(false);
   const [couponCode, setCouponCode] = useState('');
-  const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
+  const [appliedCoupon, setAppliedCoupon] = useState<CheckoutCoupon | null>(null);
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
   const [giftCardCode, setGiftCardCode] = useState('');
   const [isRedeemingGiftCard, setIsRedeemingGiftCard] = useState(false);
@@ -649,36 +641,12 @@ export default function Checkout() {
   const shippingCost = allFreeShipping ? 0 : rawShippingCost;
 
   // Calculate discount
-  const isCouponEligible = useCallback((coupon: Coupon) => {
-    if (coupon.starts_at && new Date(coupon.starts_at) > new Date()) {
-      return false;
-    }
-
-    if (coupon.expires_at && new Date(coupon.expires_at) < new Date()) {
-      return false;
-    }
-
-    if (coupon.min_order_amount && selectedSubtotal < coupon.min_order_amount) {
-      return false;
-    }
-
-    if (coupon.max_uses && (coupon.current_uses || 0) >= coupon.max_uses) {
-      return false;
-    }
-
-    if (coupon.first_order_only && userOrderCount > 0) {
-      return false;
-    }
-
-    return true;
+  const isCouponEligible = useCallback((coupon: CheckoutCoupon) => {
+    return isCouponEligibleForOrder(coupon, selectedSubtotal, userOrderCount);
   }, [selectedSubtotal, userOrderCount]);
 
-  const getCouponDiscount = useCallback((coupon: Coupon) => {
-    if (coupon.type === 'percentage') {
-      return toMoney((selectedSubtotal * coupon.value) / 100);
-    }
-
-    return toMoney(coupon.value);
+  const getCouponDiscount = useCallback((coupon: CheckoutCoupon) => {
+    return getCouponDiscountAmount(coupon, selectedSubtotal);
   }, [selectedSubtotal]);
 
   const calculateDiscount = () => {
@@ -729,7 +697,25 @@ export default function Checkout() {
         throw error;
       }
 
-      const typedCoupon = data as Coupon;
+      const { count: latestOrderCount } = await supabase
+        .from('orders')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .not('status', 'eq', 'cancelled');
+
+      const orderCount = latestOrderCount || 0;
+      setUserOrderCount(orderCount);
+
+      const typedCoupon = normalizeCoupon(data);
+      if (!typedCoupon) {
+        throw new Error('Invalid coupon response. Please try again.');
+      }
+
+      if (!isCouponEligibleForOrder(typedCoupon, selectedSubtotal, orderCount)) {
+        toast.error(getCouponIneligibilityMessage(typedCoupon, selectedSubtotal, orderCount));
+        return;
+      }
+
       setAppliedCoupon(typedCoupon);
       setCouponCode(typedCoupon.code);
       toast.success('Coupon applied successfully!');
@@ -808,13 +794,35 @@ export default function Checkout() {
         .eq('is_active', true)
         .eq('auto_apply', true);
 
-      if (error || cancelled) return;
+      if (error || cancelled || !data?.length) return;
 
-      const eligibleCoupons = ((data || []) as Coupon[])
-        .filter(isCouponEligible)
-        .sort((a, b) => getCouponDiscount(b) - getCouponDiscount(a));
+      const validatedCoupons: CheckoutCoupon[] = [];
 
-      const bestCoupon = eligibleCoupons[0];
+      for (const row of data) {
+        const normalized = normalizeCoupon(row);
+        if (!normalized) continue;
+
+        const { data: validated, error: validateError } = await supabase.rpc(
+          'validate_coupon_by_code' as never,
+          {
+            coupon_code_input: normalized.code,
+            order_subtotal_input: selectedSubtotal,
+          } as never,
+        );
+
+        if (validateError || cancelled) continue;
+
+        const typedCoupon = normalizeCoupon(validated);
+        if (typedCoupon) {
+          validatedCoupons.push(typedCoupon);
+        }
+      }
+
+      if (cancelled || validatedCoupons.length === 0) return;
+
+      const bestCoupon = validatedCoupons
+        .sort((a, b) => getCouponDiscount(b) - getCouponDiscount(a))[0];
+
       if (!bestCoupon) return;
 
       setAppliedCoupon(bestCoupon);
@@ -1261,8 +1269,14 @@ export default function Checkout() {
               ...(reinforcedPackagingCost > 0
                 ? [{ label: 'Reinforced Packaging', value: formatPrice(reinforcedPackagingCost) }]
                 : []),
-              ...(totalSavings > 0
-                ? [{ label: 'Savings', value: `-${formatPrice(totalSavings)}`, tone: 'primary' as const }]
+              ...(discount > 0
+                ? [{ label: 'Coupon', value: `-${formatPrice(discount)}`, tone: 'primary' as const }]
+                : []),
+              ...(loyaltyDiscount > 0
+                ? [{ label: 'Loyalty Points', value: `-${formatPrice(loyaltyDiscount)}`, tone: 'primary' as const }]
+                : []),
+              ...(walletApplied > 0
+                ? [{ label: 'Wallet Credit', value: `-${formatPrice(walletApplied)}`, tone: 'primary' as const }]
                 : []),
               { label: 'Total', value: formatPrice(total), emphasis: true },
             ]}

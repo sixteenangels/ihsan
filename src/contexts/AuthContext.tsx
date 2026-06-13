@@ -7,6 +7,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   isLoading: boolean;
+  isRoleReady: boolean;
   isAdmin: boolean;
   userRole: string;
   managerPermissions: string[];
@@ -93,6 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRoleReady, setIsRoleReady] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [userRole, setUserRole] = useState<string>('customer');
   const [managerPermissions, setManagerPermissions] = useState<string[]>([]);
@@ -112,6 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setIsAdmin(false);
           setUserRole('customer');
           setManagerPermissions([]);
+          setIsRoleReady(true);
         }
       }
     );
@@ -136,7 +139,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        checkUserRole(session.user.id);
+        await checkUserRole(session.user.id);
+      } else {
+        setIsRoleReady(true);
       }
       setIsLoading(false);
     });
@@ -174,6 +179,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } catch (err) {
       console.error('Error checking user role:', err);
+      setUserRole('customer');
+      setIsAdmin(false);
+      setManagerPermissions([]);
+    } finally {
+      setIsRoleReady(true);
     }
   };
 
@@ -261,6 +271,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsAdmin(false);
     setUserRole('customer');
     setManagerPermissions([]);
+    setIsRoleReady(true);
   };
 
   return (
@@ -269,6 +280,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         session,
         isLoading,
+        isRoleReady,
         isAdmin,
         userRole,
         managerPermissions,

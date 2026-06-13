@@ -715,6 +715,7 @@ Deno.serve(async (req) => {
         coupon_id_input: coupon.id,
         order_id_input: order.id,
         discount_amount_input: discount,
+        user_id_input: actor.id,
       });
       if (redemptionError) throw redemptionError;
     }

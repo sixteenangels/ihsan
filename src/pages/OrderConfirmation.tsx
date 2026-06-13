@@ -43,7 +43,7 @@ export default function OrderConfirmation() {
   const fetchOrder = useCallback(async () => {
     if (!orderId) return;
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('orders')
       .select(`
         *,
@@ -54,6 +54,16 @@ export default function OrderConfirmation() {
       `)
       .eq('id', orderId)
       .single();
+
+    if (error) {
+      console.error('Error fetching order confirmation:', error);
+      if (error.code !== 'PGRST116') {
+        toast.error('Could not load order details.');
+      }
+      setOrder(null);
+      setLoading(false);
+      return;
+    }
 
     if (data) {
       const orderItems = (data.order_items || []) as OrderProductSeed[];
