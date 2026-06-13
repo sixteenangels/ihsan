@@ -1,10 +1,38 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-export const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+const DEFAULT_ALLOWED_ORIGINS = [
+  'https://www.ajynworld.com',
+  'https://ajynworld.com',
+  'http://localhost:8080',
+  'http://127.0.0.1:8080',
+];
+
+function getAllowedOrigins() {
+  const configured = Deno.env.get('APP_ALLOWED_ORIGINS');
+  if (!configured) {
+    return DEFAULT_ALLOWED_ORIGINS;
+  }
+
+  return configured
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
+export function getCorsHeaders(req?: Request) {
+  const allowedOrigins = getAllowedOrigins();
+  const origin = req?.headers.get('Origin') || '';
+  const allowOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
+
+  return {
+    'Access-Control-Allow-Origin': allowOrigin,
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-internal-automation-key',
+    'Vary': 'Origin',
+  };
+}
+
+export const corsHeaders = getCorsHeaders();
 
 export const jsonHeaders = {
   ...corsHeaders,
@@ -29,10 +57,13 @@ export function createServiceSupabaseClient() {
   return createClient(supabaseUrl, serviceRoleKey);
 }
 
-export function jsonResponse(body: Record<string, unknown>, status = 200) {
+export function jsonResponse(body: Record<string, unknown>, status = 200, req?: Request) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: jsonHeaders,
+    headers: {
+      ...getCorsHeaders(req),
+      'Content-Type': 'application/json',
+    },
   });
 }
 
@@ -49,14 +80,17 @@ export function getApiKey(req: Request) {
 }
 
 export function isInternalAutomationRequest(req: Request) {
-  const apiKey = getApiKey(req);
-  const bearerToken = getBearerToken(req);
-  const knownSecrets = [
-    Deno.env.get('INTERNAL_AUTOMATIONS_KEY'),
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
-  ].filter((value): value is string => Boolean(value));
+  const configuredKey = Deno.env.get('INTERNAL_AUTOMATIONS_KEY');
+  if (!configuredKey) {
+    return false;
+  }
 
-  return knownSecrets.some((secret) => secret === apiKey || secret === bearerToken);
+  const providedKey =
+    req.headers.get('x-internal-automation-key') ||
+    getBearerToken(req) ||
+    getApiKey(req);
+
+  return providedKey === configuredKey;
 }
 
 export async function getRequestActor(
@@ -108,7 +142,7 @@ export async function requireAuthenticatedActor(
   if (!actor) {
     return {
       actor: null,
-      errorResponse: jsonResponse({ error: 'Authentication required' }, 401),
+      errorResponse: jsonResponse({ error: 'Authentication required' }, 401, req),
     };
   }
 
@@ -128,7 +162,7 @@ export async function requireAdminOrInternalRequest(
     return {
       actor: null,
       isInternal: false,
-      errorResponse: jsonResponse({ error: 'Authentication required' }, 401),
+      errorResponse: jsonResponse({ error: 'Authentication required' }, 401, req),
     };
   }
 
@@ -137,7 +171,7 @@ export async function requireAdminOrInternalRequest(
     return {
       actor: null,
       isInternal: false,
-      errorResponse: jsonResponse({ error: 'Admin or manager access required' }, 403),
+      errorResponse: jsonResponse({ error: 'Admin or manager access required' }, 403, req),
     };
   }
 

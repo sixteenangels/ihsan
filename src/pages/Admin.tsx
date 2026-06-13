@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2, Package, FolderTree, Users, LayoutDashboard, ShoppingCart, Truck, Tag, Star, MessageCircle, FileText, Bell, Settings, AlertTriangle, RefreshCcw, HelpCircle, Award, Link2, Wallet, MessageSquare, Gift, ScrollText, Menu } from 'lucide-react';
@@ -71,15 +71,28 @@ export default function Admin() {
     }
   }, [user, isAdmin, isLoading, navigate]);
 
-  // Redirect managers from admin-only routes
+  // Redirect managers from routes they cannot access
   useEffect(() => {
     if (!isLoading && userRole === 'manager') {
-      const adminOnlyPaths = ['/admin/users', '/admin/settings'];
-      if (adminOnlyPaths.some(p => location.pathname.startsWith(p))) {
+      const currentItem = ALL_NAV_ITEMS.find((item) => isActivePath(location.pathname, item.href));
+      if (!currentItem) {
+        return;
+      }
+
+      if (currentItem.permission === '_admin_only') {
+        navigate('/admin');
+        return;
+      }
+
+      if (
+        currentItem.permission &&
+        currentItem.permission !== '_admin_only' &&
+        !managerPermissions.includes(currentItem.permission)
+      ) {
         navigate('/admin');
       }
     }
-  }, [location.pathname, userRole, isLoading, navigate]);
+  }, [location.pathname, userRole, isLoading, navigate, managerPermissions]);
 
   const navItems = useMemo(() => {
     if (userRole === 'admin') return ALL_NAV_ITEMS;
@@ -230,29 +243,29 @@ export default function Admin() {
       >
         <div className="mx-auto w-full max-w-full">
           <Routes>
-            <Route path="/" element={<AdminDashboard />} />
-            <Route path="/products" element={<AdminProducts />} />
-            <Route path="/stock" element={<StockManagement />} />
-            <Route path="/orders" element={<AdminOrders />} />
-            <Route path="/refunds" element={<AdminRefunds />} />
-            <Route path="/shipping" element={<AdminShipping />} />
-            <Route path="/group-buys" element={<AdminGroupBuys />} />
-            <Route path="/categories" element={<AdminCategories />} />
-            <Route path="/promotions" element={<AdminPromotions />} />
-            <Route path="/bundles" element={<AdminBundles />} />
-            <Route path="/loyalty" element={<AdminLoyalty />} />
-            <Route path="/wallets" element={<AdminWallet />} />
-            <Route path="/gift-cards" element={<AdminGiftCards />} />
-            <Route path="/templates" element={<AdminMessageTemplates />} />
-            <Route path="/reviews" element={<AdminReviews />} />
-            <Route path="/qa" element={<AdminQA />} />
-            <Route path="/leaderboard" element={<CustomerLeaderboard />} />
-            <Route path="/support" element={<AdminSupport />} />
-            <Route path="/receipts" element={<AdminReceipts />} />
-            <Route path="/users" element={<AdminUsers />} />
-            <Route path="/notifications" element={<AdminNotifications />} />
-            <Route path="/audit-logs" element={<AdminAuditLogs />} />
-            <Route path="/settings" element={<AdminSettings />} />
+            <Route path="/" element={<AdminPermissionRoute permission={null}><AdminDashboard /></AdminPermissionRoute>} />
+            <Route path="/products" element={<AdminPermissionRoute permission="products"><AdminProducts /></AdminPermissionRoute>} />
+            <Route path="/stock" element={<AdminPermissionRoute permission="stock"><StockManagement /></AdminPermissionRoute>} />
+            <Route path="/orders" element={<AdminPermissionRoute permission="orders"><AdminOrders /></AdminPermissionRoute>} />
+            <Route path="/refunds" element={<AdminPermissionRoute permission="refunds"><AdminRefunds /></AdminPermissionRoute>} />
+            <Route path="/shipping" element={<AdminPermissionRoute permission="shipping"><AdminShipping /></AdminPermissionRoute>} />
+            <Route path="/group-buys" element={<AdminPermissionRoute permission="group-buys"><AdminGroupBuys /></AdminPermissionRoute>} />
+            <Route path="/categories" element={<AdminPermissionRoute permission="categories"><AdminCategories /></AdminPermissionRoute>} />
+            <Route path="/promotions" element={<AdminPermissionRoute permission="promotions"><AdminPromotions /></AdminPermissionRoute>} />
+            <Route path="/bundles" element={<AdminPermissionRoute permission="bundles"><AdminBundles /></AdminPermissionRoute>} />
+            <Route path="/loyalty" element={<AdminPermissionRoute permission="loyalty"><AdminLoyalty /></AdminPermissionRoute>} />
+            <Route path="/wallets" element={<AdminPermissionRoute permission="wallets"><AdminWallet /></AdminPermissionRoute>} />
+            <Route path="/gift-cards" element={<AdminPermissionRoute permission="wallets"><AdminGiftCards /></AdminPermissionRoute>} />
+            <Route path="/templates" element={<AdminPermissionRoute permission="templates"><AdminMessageTemplates /></AdminPermissionRoute>} />
+            <Route path="/reviews" element={<AdminPermissionRoute permission="reviews"><AdminReviews /></AdminPermissionRoute>} />
+            <Route path="/qa" element={<AdminPermissionRoute permission="qa"><AdminQA /></AdminPermissionRoute>} />
+            <Route path="/leaderboard" element={<AdminPermissionRoute permission="leaderboard"><CustomerLeaderboard /></AdminPermissionRoute>} />
+            <Route path="/support" element={<AdminPermissionRoute permission="support"><AdminSupport /></AdminPermissionRoute>} />
+            <Route path="/receipts" element={<AdminPermissionRoute permission="receipts"><AdminReceipts /></AdminPermissionRoute>} />
+            <Route path="/users" element={<AdminPermissionRoute permission="_admin_only"><AdminUsers /></AdminPermissionRoute>} />
+            <Route path="/notifications" element={<AdminPermissionRoute permission="notifications"><AdminNotifications /></AdminPermissionRoute>} />
+            <Route path="/audit-logs" element={<AdminPermissionRoute permission="_admin_only"><AdminAuditLogs /></AdminPermissionRoute>} />
+            <Route path="/settings" element={<AdminPermissionRoute permission="_admin_only"><AdminSettings /></AdminPermissionRoute>} />
           </Routes>
         </div>
       </main>
@@ -265,4 +278,43 @@ function isActivePath(pathname: string, href: string) {
     return pathname === '/admin';
   }
   return pathname.startsWith(href);
+}
+
+function AdminPermissionRoute({
+  permission,
+  children,
+}: {
+  permission: string | null | '_admin_only';
+  children: ReactNode;
+}) {
+  const { userRole, managerPermissions } = useAuth();
+  const navigate = useNavigate();
+
+  const allowed = useMemo(() => {
+    if (userRole === 'admin') {
+      return true;
+    }
+
+    if (permission === null) {
+      return true;
+    }
+
+    if (permission === '_admin_only') {
+      return false;
+    }
+
+    return managerPermissions.includes(permission);
+  }, [managerPermissions, permission, userRole]);
+
+  useEffect(() => {
+    if (!allowed) {
+      navigate('/admin');
+    }
+  }, [allowed, navigate]);
+
+  if (!allowed) {
+    return null;
+  }
+
+  return <>{children}</>;
 }

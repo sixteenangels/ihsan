@@ -1,4 +1,4 @@
-import { createServiceSupabaseClient, jsonResponse, requireAuthenticatedActor, corsHeaders, type ServiceSupabaseClient } from '../_shared/auth.ts';
+import { createServiceSupabaseClient, getCorsHeaders, jsonResponse, requireAuthenticatedActor, type ServiceSupabaseClient } from '../_shared/auth.ts';
 
 const REFERRAL_POINTS = 50;
 
@@ -167,7 +167,7 @@ async function ensureReferralReward(
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: getCorsHeaders(req) });
   }
 
   try {
@@ -181,11 +181,11 @@ Deno.serve(async (req) => {
     const normalizedReferralCode = normalizeReferralCode(referral_code);
 
     if (!normalizedReferralCode || !referred_user_id) {
-      return jsonResponse({ error: 'Missing referral_code or referred_user_id' }, 400);
+      return jsonResponse({ error: 'Missing referral_code or referred_user_id' }, 400, req);
     }
 
     if (actor.id !== referred_user_id) {
-      return jsonResponse({ error: 'Referral can only be processed for the signed-in user' }, 403);
+      return jsonResponse({ error: 'Referral can only be processed for the signed-in user' }, 403, req);
     }
 
     const { data: codeData, error: codeError } = await supabase
@@ -197,11 +197,11 @@ Deno.serve(async (req) => {
     if (codeError) throw codeError;
 
     if (!codeData) {
-      return jsonResponse({ error: 'Invalid referral code' }, 400);
+      return jsonResponse({ error: 'Invalid referral code' }, 400, req);
     }
 
     if (codeData.user_id === referred_user_id) {
-      return jsonResponse({ error: 'Cannot refer yourself' }, 400);
+      return jsonResponse({ error: 'Cannot refer yourself' }, 400, req);
     }
 
     const { data: existingTracking, error: existingTrackingError } = await supabase
@@ -253,7 +253,7 @@ Deno.serve(async (req) => {
         tracked: true,
         rewarded: false,
         total_referrals: totalReferrals,
-      });
+      }, 200, req);
     }
 
     const totalReferrals = await syncReferralTotal(supabase, codeData.user_id, codeData.id);
@@ -272,7 +272,7 @@ Deno.serve(async (req) => {
         rewarded: false,
         message: 'Referral programme disabled',
         total_referrals: totalReferrals,
-      });
+      }, 200, req);
     }
 
     const { data: settingsRows, error: settingsError } = await supabase
@@ -307,10 +307,10 @@ Deno.serve(async (req) => {
       rewarded: reward.rewarded,
       coupon_code: reward.couponCode,
       total_referrals: totalReferrals,
-    });
+    }, 200, req);
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('Referral reward error:', error);
-    return jsonResponse({ error: errorMessage }, 500);
+    return jsonResponse({ error: errorMessage }, 500, req);
   }
 });

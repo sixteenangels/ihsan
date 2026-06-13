@@ -7,9 +7,10 @@ import { cn } from '@/lib/utils';
 interface ProductImageGalleryProps {
   images: string[];
   productName: string;
+  featuredImageOverride?: string | null;
 }
 
-export function ProductImageGallery({ images, productName }: ProductImageGalleryProps) {
+export function ProductImageGallery({ images, productName, featuredImageOverride }: ProductImageGalleryProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isZoomOpen, setIsZoomOpen] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
@@ -20,6 +21,7 @@ export function ProductImageGallery({ images, productName }: ProductImageGallery
   const imageContainerRef = useRef<HTMLDivElement>(null);
 
   const displayImages = images.length > 0 ? images : ['https://via.placeholder.com/600'];
+  const activeImage = featuredImageOverride || displayImages[selectedIndex];
 
   const goToPrevious = () => {
     setSelectedIndex((prev) => (prev === 0 ? displayImages.length - 1 : prev - 1));
@@ -184,7 +186,7 @@ export function ProductImageGallery({ images, productName }: ProductImageGallery
         }}
       >
         <img
-          src={displayImages[selectedIndex]}
+          src={activeImage}
           alt={`${productName} - Image ${selectedIndex + 1}`}
           className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
         />
@@ -344,7 +346,7 @@ export function ProductImageGallery({ images, productName }: ProductImageGallery
               }}
             >
               <img
-                src={displayImages[selectedIndex]}
+                src={activeImage}
                 alt={`${productName} - Zoomed`}
                 className="max-w-full max-h-full object-contain select-none"
                 style={{

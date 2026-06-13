@@ -68,13 +68,13 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.check-birthdays]
-verify_jwt = false
+verify_jwt = true
 
 [functions.process-referral-reward]
 verify_jwt = true
 
 [functions.send-checkout-recovery-reminders]
-verify_jwt = false
+verify_jwt = true
 
 [functions.send-transactional-email]
-verify_jwt = false
+verify_jwt = true

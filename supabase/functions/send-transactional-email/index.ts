@@ -1,5 +1,5 @@
 import nodemailer from 'npm:nodemailer'
-import { corsHeaders, createServiceSupabaseClient, jsonResponse, requireAdminOrInternalRequest } from '../_shared/auth.ts'
+import { getCorsHeaders, createServiceSupabaseClient, jsonResponse, requireAdminOrInternalRequest } from '../_shared/auth.ts'
 
 interface EmailPayload {
   to: string
@@ -20,7 +20,7 @@ const DEFAULT_FROM_ADDRESS = 'no-reply@ajynworld.com'
 const DEFAULT_FROM_NAME = 'AJYN'
 const EMAIL_ADDRESS_PATTERN = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/
 const EMAIL_REDACTION = '[email redacted]'
-const AJYN_EMAIL_LOGO_URL = 'https://www.ajynworld.com/ajyn-logo.svg'
+const AJYN_EMAIL_LOGO_URL = 'https://www.ajynworld.com/ajyn-wordmark.svg'
 
 function extractEmailAddress(value?: string | null) {
   const trimmed = value?.trim()
@@ -108,7 +108,7 @@ function stripLightBackgroundImageLocks(html: string) {
 }
 
 const LOGO_MARK_FALLBACK = `
-    <img class="ajyn-logo-mark" src="${AJYN_EMAIL_LOGO_URL}" width="54" height="42" alt="AJYN" style="display:block;width:54px;height:42px;margin:7px auto 0;border:0;outline:none;text-decoration:none;object-fit:contain;">
+    <img class="ajyn-logo-mark" src="${AJYN_EMAIL_LOGO_URL}" width="110" height="48" alt="AJYN" style="display:block;width:110px;height:48px;margin:0 auto;border:0;outline:none;text-decoration:none;object-fit:contain;">
 `
 const PACKAGE_ICON_FALLBACK = `<span class="ajyn-package-icon-text" aria-hidden="true" style="display:block;margin:13px auto 0;color:#B87432;-webkit-text-fill-color:#B87432;font-family:Arial,Helvetica,sans-serif;font-size:30px;line-height:32px;">&#9633;</span>`
 const SUPPORT_ICON_FALLBACK = `<span class="ajyn-support-icon-text" aria-hidden="true" style="display:block;margin:0 auto;color:#B87432;-webkit-text-fill-color:#B87432;font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:22px;">?</span>`
@@ -237,7 +237,7 @@ async function sendWithGmailSmtp(payload: EmailPayload, fromEmail: string) {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+    return new Response(null, { headers: getCorsHeaders(req) })
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!

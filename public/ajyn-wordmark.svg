@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 132 58" role="img" aria-labelledby="title desc">
+  <title id="title">AJYN</title>
+  <desc id="desc">AJYN wordmark with orange dot.</desc>
+  <text
+    x="66"
+    y="23"
+    text-anchor="middle"
+    dominant-baseline="middle"
+    fill="#111111"
+    font-family="Montserrat, Avenir Next, Futura, Arial, sans-serif"
+    font-size="26"
+    font-weight="700"
+    letter-spacing="10"
+  >
+    AJYN
+  </text>
+  <circle cx="66" cy="45" r="3.8" fill="#c96500" />
+</svg>

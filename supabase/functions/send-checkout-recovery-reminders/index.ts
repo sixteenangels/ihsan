@@ -1,4 +1,4 @@
-import { corsHeaders, createServiceSupabaseClient, jsonResponse, requireAdminOrInternalRequest, type ServiceSupabaseClient } from '../_shared/auth.ts'
+import { getCorsHeaders, createServiceSupabaseClient, jsonResponse, requireAdminOrInternalRequest, type ServiceSupabaseClient } from '../_shared/auth.ts'
 
 interface RecoverySnapshot {
   id: string
@@ -23,7 +23,7 @@ interface CustomerPreferenceRow {
 
 const SUPPORT_EMAIL = Deno.env.get('SUPPORT_EMAIL') || 'support@ajynworld.com'
 const COPYRIGHT_YEAR = '2026'
-const AJYN_EMAIL_LOGO_URL = 'https://www.ajynworld.com/ajyn-logo.svg'
+const AJYN_EMAIL_LOGO_URL = 'https://www.ajynworld.com/ajyn-wordmark.svg'
 
 const AJYN_EMAIL_MOBILE_STYLES = `
       :root { color-scheme:light dark;supported-color-schemes:light dark; }
@@ -39,23 +39,14 @@ const AJYN_EMAIL_MOBILE_STYLES = `
       .ajyn-text-dark { color:#111111 !important;-webkit-text-fill-color:#111111 !important; }
       .ajyn-text-orange, .ajyn-cta { color:#c47b43 !important;-webkit-text-fill-color:#c47b43 !important; }
       .ajyn-text-brand { color:#B87432 !important;-webkit-text-fill-color:#B87432 !important; }
-      .ajyn-logo-frame { width:58px !important;height:58px !important;border-radius:0 !important;overflow:hidden !important;background:#ffffff !important;background-color:#ffffff !important;border:none !important;box-sizing:border-box !important;display:inline-block !important;text-align:center !important;line-height:1 !important; }
-      .ajyn-logo-ink { fill:#202124 !important; }
-      .ajyn-logo-cutout { fill:#ffffff !important; }
-      .ajyn-logo-stroke { stroke:#202124 !important; }
-      .ajyn-logo-dot { fill:#b85b0e !important; }
-      .ajyn-logo-mark-text { color:#111111 !important;-webkit-text-fill-color:#111111 !important; }
+      .ajyn-logo-mark { width:110px !important;height:48px !important;margin:0 auto !important; }
       @media (prefers-color-scheme: dark) {
         body, .ajyn-body-bg, .ajyn-shell { background:#09070d !important;background-color:#09070d !important;background-image:linear-gradient(#09070d,#09070d) !important; }
         .ajyn-card, .ajyn-container, .ajyn-header-row, .ajyn-logo-cell, .ajyn-ref-cell, .ajyn-hero-wrap, .ajyn-title, .ajyn-body, .ajyn-divider-cell, .ajyn-help { background:#171514 !important;background-color:#171514 !important;background-image:linear-gradient(#171514,#171514) !important; }
         .ajyn-soft-bg, .ajyn-status-card { background:#24201d !important;background-color:#24201d !important;background-image:linear-gradient(#24201d,#24201d) !important; }
         .ajyn-footer-bg, .ajyn-footer { background:#211d1a !important;background-color:#211d1a !important;background-image:linear-gradient(#211d1a,#211d1a) !important; }
         .ajyn-hero-bg, .ajyn-hero-icon { background:#302923 !important;background-color:#302923 !important;background-image:linear-gradient(#302923,#302923) !important; }
-        .ajyn-logo-frame { background:#ffffff !important;background-color:#ffffff !important;background-image:linear-gradient(#ffffff,#ffffff) !important;border-color:#ffffff !important; }
-        .ajyn-logo-ink { fill:#f8f4ef !important; }
-        .ajyn-logo-cutout { fill:#171514 !important; }
-        .ajyn-logo-stroke { stroke:#f8f4ef !important; }
-        .ajyn-text-dark, .ajyn-gmail-text, .ajyn-gmail-text p, .ajyn-gmail-text strong, .ajyn-gmail-text span, .ajyn-copy, .ajyn-title, .ajyn-status-title, .ajyn-status-text, .ajyn-help-title, .ajyn-help-subtitle, .ajyn-contact, .ajyn-footer-brand, .ajyn-footer-copy, .ajyn-footer-legal, .ajyn-logo-word, .ajyn-logo-mark-text, .ajyn-ref-cell { color:#f8f4ef !important;-webkit-text-fill-color:#f8f4ef !important; }
+        .ajyn-text-dark, .ajyn-gmail-text, .ajyn-gmail-text p, .ajyn-gmail-text strong, .ajyn-gmail-text span, .ajyn-copy, .ajyn-title, .ajyn-status-title, .ajyn-status-text, .ajyn-help-title, .ajyn-help-subtitle, .ajyn-contact, .ajyn-footer-brand, .ajyn-footer-copy, .ajyn-footer-legal, .ajyn-ref-cell { color:#f8f4ef !important;-webkit-text-fill-color:#f8f4ef !important; }
         .ajyn-text-brand { color:#ff9d4d !important;-webkit-text-fill-color:#ff9d4d !important; }
         .ajyn-cta { background:#000000 !important;background-color:#000000 !important;background-image:linear-gradient(#000000,#000000) !important;color:#c47b43 !important;-webkit-text-fill-color:#c47b43 !important; }
       }
@@ -67,9 +58,7 @@ const AJYN_EMAIL_MOBILE_STYLES = `
         .ajyn-header-row, .ajyn-header-row tbody, .ajyn-header-row tr, .ajyn-logo-cell, .ajyn-ref-cell { display:block !important;width:100% !important;box-sizing:border-box !important; }
         .ajyn-logo-cell { text-align:center !important;padding:0 !important; }
         .ajyn-logo-lockup { margin:0 auto !important; }
-        .ajyn-logo-frame { display:block !important;margin:0 auto 2px !important;width:58px !important;height:58px !important; }
-        .ajyn-logo-mark { width:54px !important;height:32px !important;margin:9px auto 0 !important; }
-        .ajyn-logo-word { font-size:9px !important;letter-spacing:0.42em !important;padding-top:5px !important;padding-left:0.42em !important; }
+        .ajyn-logo-mark { width:96px !important;height:42px !important;margin:0 auto !important; }
         .ajyn-desktop-divider { margin-top:13px !important; }
         .ajyn-ref-cell { border-top:1px solid #ece7e2 !important;text-align:center !important;padding:9px 0 7px !important;font-size:8px !important;line-height:1.25 !important;letter-spacing:0.03em !important; }
         .ajyn-hero-wrap { padding:9px 28px 6px !important; }
@@ -108,10 +97,26 @@ const AJYN_EMAIL_MOBILE_STYLES = `
         .ajyn-soft-bg, .ajyn-status-card { background:#24201d !important;background-color:#24201d !important;background-image:linear-gradient(#24201d,#24201d) !important; }
         .ajyn-footer-bg, .ajyn-footer { background:#211d1a !important;background-color:#211d1a !important;background-image:linear-gradient(#211d1a,#211d1a) !important; }
         .ajyn-hero-bg, .ajyn-hero-icon { background:#302923 !important;background-color:#302923 !important;background-image:linear-gradient(#302923,#302923) !important; }
-        .ajyn-logo-frame { background:#ffffff !important;background-color:#ffffff !important;background-image:linear-gradient(#ffffff,#ffffff) !important;border-color:#ffffff !important; }
         .ajyn-ref-cell { border-top-color:#3b332e !important; }
       }
 `
+
+function sanitizeInternalPath(path: string | null | undefined, fallback = '/checkout') {
+  const trimmed = String(path || '').trim()
+  if (!trimmed || !trimmed.startsWith('/') || trimmed.startsWith('//') || trimmed.includes('@')) {
+    return fallback
+  }
+
+  if (!/^\/[A-Za-z0-9][A-Za-z0-9/_?=&%.+-]*$/.test(trimmed)) {
+    return fallback
+  }
+
+  return trimmed
+}
+
+function buildSafeAppUrl(path: string, appOrigin: string) {
+  return new URL(sanitizeInternalPath(path), appOrigin).toString()
+}
 
 function formatGhs(amount: number) {
   return `GHS ${Number(amount || 0).toFixed(2)}`
@@ -121,7 +126,7 @@ function buildEmail(snapshot: RecoverySnapshot, profile?: ProfileRow) {
   const name = profile?.name || 'there'
   const productList = snapshot.product_names.slice(0, 4).join(', ')
   const appUrl = Deno.env.get('APP_URL') || 'https://www.ajynworld.com'
-  const checkoutUrl = `${appUrl}${snapshot.checkout_path || '/checkout'}`
+  const checkoutUrl = buildSafeAppUrl(snapshot.checkout_path || '/checkout', appUrl)
   const shippingLine = snapshot.shipping_label ? ` with ${snapshot.shipping_label}` : ''
 
   return {
@@ -188,10 +193,7 @@ ${AJYN_EMAIL_MOBILE_STYLES}
                   <tr>
                     <td class="ajyn-logo-cell ajyn-light-bg" align="center" valign="middle" bgcolor="#ffffff" style="padding:0 0 13px;background:#ffffff;background-color:#ffffff;">
                       <div class="ajyn-logo-lockup" style="display:inline-block;text-align:center;">
-                        <div class="ajyn-logo-frame" style="width:58px;height:58px;border-radius:0;overflow:hidden;background:#ffffff;background-color:#ffffff;border:none;box-sizing:border-box;display:block;text-align:center;line-height:1;">
-                          ${getLogoMarkHtml()}
-                        </div>
-                        <div class="ajyn-logo-word ajyn-text-dark ajyn-gmail-text" style="padding-top:5px;padding-left:0.42em;color:#111111;-webkit-text-fill-color:#111111;font-size:9px;line-height:1;letter-spacing:0.42em;font-weight:700;">AJYN</div>
+                        ${getLogoMarkHtml()}
                       </div>
                     </td>
                   </tr>
@@ -326,7 +328,7 @@ function escapeHtml(value: string) {
 
 function getLogoMarkHtml() {
   return `
-    <img class="ajyn-logo-mark" src="${AJYN_EMAIL_LOGO_URL}" width="54" height="42" alt="AJYN" style="display:block;width:54px;height:42px;margin:7px auto 0;border:0;outline:none;text-decoration:none;object-fit:contain;">
+    <img class="ajyn-logo-mark" src="${AJYN_EMAIL_LOGO_URL}" width="110" height="48" alt="AJYN" style="display:block;width:110px;height:48px;margin:0 auto;border:0;outline:none;text-decoration:none;object-fit:contain;">
   `
 }
 
@@ -368,7 +370,7 @@ async function markSnapshotReminded(supabase: ServiceSupabaseClient, snapshotId:
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+    return new Response(null, { headers: getCorsHeaders(req) })
   }
 
   try {
@@ -459,12 +461,17 @@ Deno.serve(async (req) => {
       }
 
       const email = buildEmail(snapshot, profile)
+      const internalAutomationKey = Deno.env.get('INTERNAL_AUTOMATIONS_KEY')
       const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-transactional-email`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${serviceRoleKey}`,
-          apikey: serviceRoleKey,
+          ...(internalAutomationKey
+            ? { 'x-internal-automation-key': internalAutomationKey }
+            : {
+                Authorization: `Bearer ${serviceRoleKey}`,
+                apikey: serviceRoleKey,
+              }),
         },
         body: JSON.stringify({
           to: profile.email,

@@ -77,7 +77,7 @@ export function OrderReviewDialog({
       user_id: user.id,
       rating,
       comment: comment || null,
-      is_verified: true,
+      is_verified: false,
       order_id: order.id,
     });
 

@@ -26,6 +26,7 @@ import {
 import { getSupabaseFunctionErrorMessage } from '@/lib/errors';
 import { trackRecommendationEvent } from '@/lib/recommendationEvents';
 import { PurchaseSummary } from '@/components/checkout/PurchaseSummary';
+import { toMoney } from '@/lib/money';
 
 interface Address {
   id: string;
@@ -674,10 +675,10 @@ export default function Checkout() {
 
   const getCouponDiscount = useCallback((coupon: Coupon) => {
     if (coupon.type === 'percentage') {
-      return (selectedSubtotal * coupon.value) / 100;
+      return toMoney((selectedSubtotal * coupon.value) / 100);
     }
 
-    return coupon.value;
+    return toMoney(coupon.value);
   }, [selectedSubtotal]);
 
   const calculateDiscount = () => {
@@ -686,7 +687,7 @@ export default function Checkout() {
   };
 
   const discount = calculateDiscount();
-  const subtotalBeforeCredits = Math.max(0, selectedSubtotal + shippingCost + reinforcedPackagingCost - discount);
+  const subtotalBeforeCredits = toMoney(Math.max(0, selectedSubtotal + shippingCost + reinforcedPackagingCost - discount));
   const loyaltyRate = typeof storeSettings?.loyaltyPointsToCurrencyRate === 'number'
     ? storeSettings.loyaltyPointsToCurrencyRate
     : 0.01;
@@ -699,13 +700,18 @@ export default function Checkout() {
   const loyaltyPointsApplied = useLoyaltyCredit && requestedLoyaltyPoints >= loyaltyMinRedeemPoints
     ? requestedLoyaltyPoints
     : 0;
-  const loyaltyDiscount = loyaltyPointsApplied * loyaltyRate;
-  const subtotalAfterLoyalty = Math.max(0, subtotalBeforeCredits - loyaltyDiscount);
-  const walletApplied = useWalletCredit ? Math.min(walletBalance, subtotalAfterLoyalty) : 0;
-  const total = Math.max(0, subtotalAfterLoyalty - walletApplied);
+  const loyaltyDiscount = toMoney(loyaltyPointsApplied * loyaltyRate);
+  const subtotalAfterLoyalty = toMoney(Math.max(0, subtotalBeforeCredits - loyaltyDiscount));
+  const walletApplied = useWalletCredit ? toMoney(Math.min(walletBalance, subtotalAfterLoyalty)) : 0;
+  const total = toMoney(Math.max(0, subtotalAfterLoyalty - walletApplied));
   const itemCount = selectedItems.reduce((sum, item) => sum + item.quantity, 0);
 
   const handleApplyCoupon = async () => {
+    if (!user) {
+      toast.error('Sign in to apply a coupon');
+      return;
+    }
+
     if (!couponCode.trim()) {
       toast.error('Please enter a coupon code');
       return;
@@ -713,42 +719,26 @@ export default function Checkout() {
     
     setIsApplyingCoupon(true);
     
-    const { data, error } = await supabase
-      .from('coupons')
-      .select('*')
-      .eq('code', couponCode.toUpperCase())
-      .eq('is_active', true)
-      .single();
-    
-    if (error || !data) {
-      toast.error('Invalid coupon code');
-      setIsApplyingCoupon(false);
-      return;
-    }
-    
-    const typedCoupon = data as Coupon;
+    try {
+      const { data, error } = await supabase.rpc('validate_coupon_by_code' as never, {
+        coupon_code_input: couponCode.trim(),
+        order_subtotal_input: selectedSubtotal,
+      } as never);
 
-    if (!isCouponEligible(typedCoupon)) {
-      if (typedCoupon.first_order_only && userOrderCount > 0) {
-        toast.error('This coupon is only available for first orders');
-      } else if (typedCoupon.starts_at && new Date(typedCoupon.starts_at) > new Date()) {
-        toast.error('This coupon is not active yet');
-      } else if (typedCoupon.expires_at && new Date(typedCoupon.expires_at) < new Date()) {
-        toast.error('This coupon has expired');
-      } else if (typedCoupon.min_order_amount && selectedSubtotal < typedCoupon.min_order_amount) {
-        toast.error(`Minimum order amount of ${formatPrice(typedCoupon.min_order_amount)} required`);
-      } else if (typedCoupon.max_uses && (typedCoupon.current_uses || 0) >= typedCoupon.max_uses) {
-        toast.error('This coupon has reached its usage limit');
-      } else {
-        toast.error('This coupon is not eligible for this order');
+      if (error) {
+        throw error;
       }
+
+      const typedCoupon = data as Coupon;
+      setAppliedCoupon(typedCoupon);
+      setCouponCode(typedCoupon.code);
+      toast.success('Coupon applied successfully!');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Invalid coupon code';
+      toast.error(message);
+    } finally {
       setIsApplyingCoupon(false);
-      return;
     }
-    
-    setAppliedCoupon(typedCoupon);
-    toast.success('Coupon applied successfully!');
-    setIsApplyingCoupon(false);
   };
 
   const removeCoupon = () => {
@@ -757,6 +747,11 @@ export default function Checkout() {
   };
 
   const handleRedeemGiftCard = async () => {
+    if (!user) {
+      toast.error('Sign in to redeem a gift card');
+      return;
+    }
+
     const code = giftCardCode.trim();
     if (!code) {
       toast.error('Please enter a gift card code');
@@ -775,9 +770,9 @@ export default function Checkout() {
       }
 
       const redeemed = data as { amount?: number | string; code?: string } | null;
-      const amount = Number(redeemed?.amount || 0);
+      const amount = toMoney(redeemed?.amount || 0);
       setGiftCardCode('');
-      await queryClient.invalidateQueries({ queryKey: ['wallet-transactions', user?.id] });
+      await queryClient.invalidateQueries({ queryKey: ['wallet-transactions'] });
       if (amount > 0) {
         setUseWalletCredit(true);
         toast.success(`Gift card redeemed: ${formatPrice(amount)} added to your wallet.`);
@@ -791,6 +786,15 @@ export default function Checkout() {
       setIsRedeemingGiftCard(false);
     }
   };
+
+  useEffect(() => {
+    if (!appliedCoupon) return;
+    if (!isCouponEligible(appliedCoupon)) {
+      setAppliedCoupon(null);
+      setCouponCode('');
+      toast.error('Your coupon is no longer eligible for this order.');
+    }
+  }, [appliedCoupon, isCouponEligible]);
 
   useEffect(() => {
     if (!user || appliedCoupon || selectedSubtotal <= 0) return;
@@ -1067,7 +1071,7 @@ export default function Checkout() {
           addressId: selectedAddress.id,
           shippingClassId: selectedShippingId,
           packagingChoice: hasFragile ? packagingChoice : null,
-          couponId: appliedCoupon?.id ?? null,
+          couponId: appliedCoupon && isCouponEligible(appliedCoupon) ? appliedCoupon.id : null,
           loyaltyPointsToRedeem: loyaltyPointsApplied,
           useWalletCredit,
           recoverySnapshotId: checkoutRecoverySnapshotIdRef.current,

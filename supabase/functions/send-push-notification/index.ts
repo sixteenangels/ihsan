@@ -1,10 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import webpush from 'npm:web-push'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import { getCorsHeaders } from '../_shared/auth.ts'
+import { sanitizeInternalPath, sanitizePushNavigationUrl } from '../_shared/security-url.ts'
 
 interface PushPayload {
   user_id: string
@@ -18,6 +15,13 @@ interface StoredSubscription {
   endpoint: string
   p256dh: string
   auth: string
+}
+
+function jsonResponse(body: Record<string, unknown>, status: number, req: Request) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+  })
 }
 
 function getStringDataValue(data: Record<string, unknown> | undefined, ...keys: string[]) {
@@ -35,20 +39,26 @@ function getStringDataValue(data: Record<string, unknown> | undefined, ...keys: 
 
 function getPushTargetUrl(data: Record<string, unknown> | undefined) {
   const explicitUrl = getStringDataValue(data, 'url')
-  if (explicitUrl) return explicitUrl
+  if (explicitUrl) {
+    return sanitizePushNavigationUrl(explicitUrl)
+  }
 
   const notificationId = getStringDataValue(data, 'notificationId', 'notification_id')
-  if (notificationId) return `/notifications/${encodeURIComponent(notificationId)}`
+  if (notificationId) {
+    return sanitizeInternalPath(`/notifications/${encodeURIComponent(notificationId)}`)
+  }
 
   const orderId = getStringDataValue(data, 'orderId', 'order_id')
-  if (orderId) return `/track-order/${encodeURIComponent(orderId)}`
+  if (orderId) {
+    return sanitizeInternalPath(`/track-order/${encodeURIComponent(orderId)}`)
+  }
 
   return '/notifications'
 }
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+    return new Response(null, { headers: getCorsHeaders(req) })
   }
 
   try {
@@ -60,10 +70,7 @@ Deno.serve(async (req) => {
     const accessToken = authHeader?.replace(/^Bearer\s+/i, '')
 
     if (!accessToken) {
-      return new Response(
-        JSON.stringify({ error: 'Missing authorization token' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      )
+      return jsonResponse({ error: 'Missing authorization token' }, 401, req)
     }
 
     const {
@@ -72,10 +79,7 @@ Deno.serve(async (req) => {
     } = await supabase.auth.getUser(accessToken)
 
     if (actorError || !actor) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid authorization token' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      )
+      return jsonResponse({ error: 'Invalid authorization token' }, 401, req)
     }
 
     const { data: roleRow, error: roleError } = await supabase
@@ -86,18 +90,12 @@ Deno.serve(async (req) => {
 
     if (roleError) {
       console.error('Error checking actor role:', roleError)
-      return new Response(
-        JSON.stringify({ error: 'Could not verify permissions' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      )
+      return jsonResponse({ error: 'Could not verify permissions' }, 500, req)
     }
 
     const actorRole = roleRow?.role
     if (actorRole !== 'admin' && actorRole !== 'manager') {
-      return new Response(
-        JSON.stringify({ error: 'Only admins and managers can send push notifications' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      )
+      return jsonResponse({ error: 'Only admins and managers can send push notifications' }, 403, req)
     }
 
     const { user_id, title, body, data } = await req.json() as PushPayload
@@ -107,10 +105,7 @@ Deno.serve(async (req) => {
         : {}
 
     if (!user_id || !title || !body) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required fields: user_id, title, body' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      )
+      return jsonResponse({ error: 'Missing required fields: user_id, title, body' }, 400, req)
     }
 
     const { data: subscriptions, error: subError } = await supabase
@@ -120,24 +115,18 @@ Deno.serve(async (req) => {
 
     if (subError) {
       console.error('Error fetching subscriptions:', subError)
-      return new Response(
-        JSON.stringify({ error: 'Failed to fetch subscriptions' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      )
+      return jsonResponse({ error: 'Failed to fetch subscriptions' }, 500, req)
     }
 
     const storedSubscriptions = (subscriptions || []) as StoredSubscription[]
     if (storedSubscriptions.length === 0) {
-      return new Response(
-        JSON.stringify({
-          success: true,
-          configured: true,
-          message: 'No push subscriptions found for this user',
-          sent: 0,
-          total: 0,
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      )
+      return jsonResponse({
+        success: true,
+        configured: true,
+        message: 'No push subscriptions found for this user',
+        sent: 0,
+        total: 0,
+      }, 200, req)
     }
 
     const vapidPublicKey = Deno.env.get('VAPID_PUBLIC_KEY')
@@ -146,16 +135,13 @@ Deno.serve(async (req) => {
 
     if (!vapidPublicKey || !vapidPrivateKey) {
       console.warn('VAPID keys are missing, skipping push delivery')
-      return new Response(
-        JSON.stringify({
-          success: true,
-          configured: false,
-          message: 'Web push is not configured. Add VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY secrets.',
-          sent: 0,
-          total: storedSubscriptions.length,
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      )
+      return jsonResponse({
+        success: true,
+        configured: false,
+        message: 'Web push is not configured. Add VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY secrets.',
+        sent: 0,
+        total: storedSubscriptions.length,
+      }, 200, req)
     }
 
     webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey)
@@ -213,25 +199,19 @@ Deno.serve(async (req) => {
         .in('id', failedSubscriptions)
     }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        configured: true,
-        sent: sentCount,
-        total: storedSubscriptions.length,
-        cleaned: failedSubscriptions.length,
-        message: sentCount > 0
-          ? 'Push notification sent'
-          : 'No active subscriptions accepted the notification',
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-    )
+    return jsonResponse({
+      success: true,
+      configured: true,
+      sent: sentCount,
+      total: storedSubscriptions.length,
+      cleaned: failedSubscriptions.length,
+      message: sentCount > 0
+        ? 'Push notification sent'
+        : 'No active subscriptions accepted the notification',
+    }, 200, req)
   } catch (error) {
     console.error('Error in send-push-notification:', error)
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-    )
+    return jsonResponse({ error: errorMessage }, 500, req)
   }
 })

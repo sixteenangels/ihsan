@@ -51,15 +51,12 @@ export function ProductQuickView({ product, open, onOpenChange }: ProductQuickVi
     [selectedVariant, variants],
   );
   const images = useMemo(() => {
-    const productImages = product?.images.length
+    return product?.images.length
       ? product.images
       : ['https://via.placeholder.com/400'];
-    const variantImage = selectedVariantData?.image_url;
+  }, [product?.images]);
 
-    return variantImage
-      ? [variantImage, ...productImages.filter((image) => image !== variantImage)]
-      : productImages;
-  }, [product?.images, selectedVariantData?.image_url]);
+  const featuredImageOverride = selectedVariantData?.image_url || null;
 
   // Get unique colors and sizes from variants
   const colors = useMemo(() => {
@@ -190,7 +187,7 @@ export function ProductQuickView({ product, open, onOpenChange }: ProductQuickVi
           {/* Image Section */}
           <div className="relative bg-muted aspect-square">
             <img
-              src={images[currentImageIndex]}
+              src={featuredImageOverride || images[currentImageIndex]}
               alt={product.name}
               className="w-full h-full object-cover"
             />

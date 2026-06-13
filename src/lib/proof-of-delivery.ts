@@ -1,6 +1,8 @@
 import { supabase } from '@/integrations/supabase/client';
 
 const PROOF_BUCKET = 'proof-of-delivery';
+const ALLOWED_PROOF_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const MAX_PROOF_SIZE_BYTES = 5 * 1024 * 1024;
 const PUBLIC_BUCKET_MARKER = `/storage/v1/object/public/${PROOF_BUCKET}/`;
 const SIGNED_BUCKET_MARKER = `/storage/v1/object/sign/${PROOF_BUCKET}/`;
 
@@ -42,8 +44,23 @@ export function normalizeProofOfDeliveryPath(value: string | null | undefined) {
   return trimmed.replace(new RegExp(`^${PROOF_BUCKET}/`), '');
 }
 
+export function validateProofUploadFile(file: File) {
+  if (!ALLOWED_PROOF_TYPES.includes(file.type)) {
+    throw new Error('Proof uploads must be JPG, PNG, or WebP images.');
+  }
+
+  if (file.size > MAX_PROOF_SIZE_BYTES) {
+    throw new Error('Proof uploads must be 5MB or smaller.');
+  }
+}
+
 export async function uploadProofOfDelivery(orderId: string, file: File) {
-  const fileExt = file.name.split('.').pop() || 'jpg';
+  validateProofUploadFile(file);
+
+  const fileExt = file.name.split('.').pop()?.toLowerCase();
+  if (!fileExt || !['jpg', 'jpeg', 'png', 'webp'].includes(fileExt)) {
+    throw new Error('Proof uploads must use a JPG, PNG, or WebP file extension.');
+  }
   const fileName = `${orderId}/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${fileExt}`;
 
   const { error: uploadError } = await supabase.storage

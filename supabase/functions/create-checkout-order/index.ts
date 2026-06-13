@@ -1,4 +1,4 @@
-import { corsHeaders, createServiceSupabaseClient, jsonResponse, requireAuthenticatedActor } from '../_shared/auth.ts';
+import { getCorsHeaders, createServiceSupabaseClient, jsonResponse, requireAuthenticatedActor } from '../_shared/auth.ts';
 
 type CheckoutFlow = 'cart' | 'buy_now';
 
@@ -273,7 +273,7 @@ async function verifyPaystackPayment(
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response('ok', { headers: getCorsHeaders(req) });
   }
 
   if (req.method !== 'POST') {
@@ -711,19 +711,12 @@ Deno.serve(async (req) => {
     }
 
     if (coupon) {
-      const { error: redemptionError } = await supabase.from('coupon_redemptions').insert({
-        coupon_id: coupon.id,
-        order_id: order.id,
-        user_id: actor.id,
-        discount_amount: discount,
+      const { error: redemptionError } = await supabase.rpc('mark_coupon_redeemed', {
+        coupon_id_input: coupon.id,
+        order_id_input: order.id,
+        discount_amount_input: discount,
       });
       if (redemptionError) throw redemptionError;
-
-      const { error: couponUpdateError } = await supabase
-        .from('coupons')
-        .update({ current_uses: Number(coupon.current_uses || 0) + 1 })
-        .eq('id', coupon.id);
-      if (couponUpdateError) throw couponUpdateError;
     }
 
     const recoveryPayload = {

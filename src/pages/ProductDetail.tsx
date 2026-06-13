@@ -150,12 +150,13 @@ export default function ProductDetail() {
 
   const [selectedVariants, setSelectedVariants] = useState<SelectedVariant[]>([]);
   const [selectedShipping, setSelectedShipping] = useState<ShippingRule | null>(null);
-  const [desktopPreviewVariantId, setDesktopPreviewVariantId] = useState<string | null>(null);
+  const [previewVariantId, setPreviewVariantId] = useState<string | null>(null);
   const [mobileVariantId, setMobileVariantId] = useState<string | null>(null);
   const [activeMobileImageIndex, setActiveMobileImageIndex] = useState(0);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const mobileGalleryRef = useRef<HTMLDivElement | null>(null);
   const variantSectionRef = useRef<HTMLElement | null>(null);
+  const initialVariantPreviewSkippedRef = useRef<string | null>(null);
   const preferredGroupBuyId = searchParams.get('groupBuy');
   const shouldFocusVariantSelector = searchParams.get('selectVariant') === '1';
 
@@ -332,6 +333,12 @@ export default function ProductDetail() {
   const selectedItemCount = selectedVariants.reduce((sum, variant) => sum + variant.quantity, 0);
 
   useEffect(() => {
+    initialVariantPreviewSkippedRef.current = null;
+    setPreviewVariantId(null);
+    setActiveMobileImageIndex(0);
+  }, [product?.id]);
+
+  useEffect(() => {
     if (!product) {
       return;
     }
@@ -355,23 +362,30 @@ export default function ProductDetail() {
     );
   }, [defaultMobileVariant, mobileVariantId, product]);
 
-  const desktopPreviewVariant = useMemo(() => {
-    if (!product) {
+  const previewVariant = useMemo(() => {
+    if (!product || !previewVariantId) {
       return null;
     }
 
-    return product.variants.find((variant) => variant.id === desktopPreviewVariantId) || null;
-  }, [desktopPreviewVariantId, product]);
+    return product.variants.find((variant) => variant.id === previewVariantId) || null;
+  }, [previewVariantId, product]);
 
-  const previewVariant = isMobile ? mobileActiveVariant : desktopPreviewVariant;
-  const heroImage = product
-    ? previewVariant?.image_url || selectedVariants[0]?.image_url || product.images[0] || '/placeholder.svg'
-    : '/placeholder.svg';
-  const galleryImages = product
-    ? heroImage
-      ? [heroImage, ...product.images.filter((image) => image !== heroImage)]
-      : product.images
-    : [];
+  const galleryImages = product?.images.length ? product.images : ['/placeholder.svg'];
+  const featuredImageOverride = previewVariant?.image_url || null;
+  const heroImage = featuredImageOverride || galleryImages[0] || '/placeholder.svg';
+
+  const handleVariantPreviewChange = useCallback((variant: ProductVariant | null) => {
+    if (!product) {
+      return;
+    }
+
+    if (initialVariantPreviewSkippedRef.current !== product.id) {
+      initialVariantPreviewSkippedRef.current = product.id;
+      return;
+    }
+
+    setPreviewVariantId(variant?.id || null);
+  }, [product]);
 
   const handleAddToCart = () => {
     if (!product) return;
@@ -448,7 +462,7 @@ export default function ProductDetail() {
   };
 
   const handlePreviewImage = () => {
-    const image = galleryImages[activeMobileImageIndex] || heroImage;
+    const image = featuredImageOverride || galleryImages[activeMobileImageIndex] || heroImage;
     if (!image) return;
     window.open(image, '_blank', 'noopener,noreferrer');
   };
@@ -792,6 +806,16 @@ export default function ProductDetail() {
             </div>
 
             <div className="overflow-hidden rounded-[1.8rem] border border-border/70 bg-card/80 shadow-sm">
+              {featuredImageOverride ? (
+                <div className="relative overflow-hidden rounded-[1.65rem] bg-muted">
+                  <img
+                    src={featuredImageOverride}
+                    alt={`${product.name} selected variant`}
+                    className="h-[320px] w-full object-cover"
+                    draggable={false}
+                  />
+                </div>
+              ) : null}
               <div className="relative overflow-hidden rounded-[1.65rem] bg-muted">
                 <div
                   ref={mobileGalleryRef}
@@ -923,6 +947,7 @@ export default function ProductDetail() {
                       setMobileVariantId(nextVariantId);
                       resetMobileGallery();
                     }
+                    handleVariantPreviewChange(variant);
                   }}
                 />
               )}
@@ -1004,6 +1029,7 @@ export default function ProductDetail() {
                 key={galleryImages[0] || product.id}
                 images={galleryImages}
                 productName={product.name}
+                featuredImageOverride={featuredImageOverride}
               />
 
               <div className="space-y-6">
@@ -1180,7 +1206,7 @@ export default function ProductDetail() {
                       onRemoveVariantSelection={handleRemoveSelectedVariant}
                       onQuantityChange={handleQuantityChange}
                       onClearAll={handleClearSelectedVariants}
-                      onCurrentVariantChange={(variant) => setDesktopPreviewVariantId(variant?.id || null)}
+                      onCurrentVariantChange={handleVariantPreviewChange}
                     />
                   )}
                 </section>

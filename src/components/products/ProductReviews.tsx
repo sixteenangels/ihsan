@@ -233,7 +233,7 @@ export function ProductReviews({ productId, productName }: ProductReviewsProps) 
         title: newReview.title || null,
         comment: newReview.comment || null,
         image_url: imageUrl,
-        is_verified: true,
+        is_verified: false,
       });
 
     if (error) {

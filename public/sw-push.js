@@ -49,7 +49,21 @@ self.addEventListener('notificationclick', function(event) {
     : orderId
       ? `/track-order/${encodeURIComponent(orderId)}`
       : '/notifications';
-  const urlToOpen = new URL(data.url || fallbackUrl, self.location.origin).href;
+  const requestedUrl = typeof data.url === 'string' ? data.url.trim() : '';
+  let urlToOpen = new URL(fallbackUrl, self.location.origin).href;
+
+  if (requestedUrl.startsWith('/')) {
+    urlToOpen = new URL(requestedUrl, self.location.origin).href;
+  } else if (requestedUrl) {
+    try {
+      const parsed = new URL(requestedUrl, self.location.origin);
+      if (parsed.origin === self.location.origin) {
+        urlToOpen = parsed.href;
+      }
+    } catch (error) {
+      console.warn('[SW] Ignoring invalid notification URL:', requestedUrl, error);
+    }
+  }
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true })
