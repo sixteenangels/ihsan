@@ -387,11 +387,15 @@ export function JoinGroupBuyDialog({
         throw new Error('Failed to initialize payment');
       }
 
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('email, name')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
+
+      if (profileError) {
+        throw new Error('Could not load your profile for payment.');
+      }
 
       const customerEmail = profile?.email || user.email;
       if (!customerEmail) {

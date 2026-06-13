@@ -24,6 +24,7 @@ interface CustomerPreferenceRow {
 const SUPPORT_EMAIL = Deno.env.get('SUPPORT_EMAIL') || 'support@ajynworld.com'
 const COPYRIGHT_YEAR = '2026'
 const AJYN_EMAIL_LOGO_URL = 'https://www.ajynworld.com/ajyn-wordmark.svg'
+const AJYN_EMAIL_LOGO_DARK_URL = 'https://www.ajynworld.com/ajyn-wordmark-dark.svg'
 
 const AJYN_EMAIL_MOBILE_STYLES = `
       :root { color-scheme:light dark;supported-color-schemes:light dark; }
@@ -33,22 +34,29 @@ const AJYN_EMAIL_MOBILE_STYLES = `
       .ajyn-body-bg { color-scheme:light dark; }
       .ajyn-light-bg { background:#ffffff !important;background-color:#ffffff !important; }
       .ajyn-soft-bg { background:#f7f4f2 !important;background-color:#f7f4f2 !important; }
-      .ajyn-footer-bg { background:#f8f4f1 !important;background-color:#f8f4f1 !important; }
+      .ajyn-footer-mark-bg { background:#f9f6f2 !important;background-color:#f9f6f2 !important;border-radius:10px !important; }
+      .ajyn-footer-bg { background:#ffffff !important;background-color:#ffffff !important; }
       .ajyn-hero-bg { background:#f2e9e1 !important;background-color:#f2e9e1 !important; }
       .ajyn-black-bg, .ajyn-cta { background:#000000 !important;background-color:#000000 !important;background-image:linear-gradient(#000000,#000000) !important; }
       .ajyn-text-dark { color:#111111 !important;-webkit-text-fill-color:#111111 !important; }
-      .ajyn-text-orange, .ajyn-cta { color:#c47b43 !important;-webkit-text-fill-color:#c47b43 !important; }
-      .ajyn-text-brand { color:#B87432 !important;-webkit-text-fill-color:#B87432 !important; }
-      .ajyn-logo-mark { width:110px !important;height:48px !important;margin:0 auto !important; }
+      .ajyn-text-muted { color:#6b625c !important;-webkit-text-fill-color:#6b625c !important; }
+      .ajyn-text-orange, .ajyn-cta { color:#c18c5d !important;-webkit-text-fill-color:#c18c5d !important; }
+      .ajyn-text-brand { color:#c18c5d !important;-webkit-text-fill-color:#c18c5d !important; }
+      .ajyn-logo-mark, .ajyn-footer-mark-img { width:96px !important;height:42px !important;margin:0 auto !important; }
+      .ajyn-wordmark-light { display:block !important;max-height:none !important;overflow:visible !important; }
+      .ajyn-wordmark-dark { display:none !important;max-height:0 !important;overflow:hidden !important; }
       @media (prefers-color-scheme: dark) {
         body, .ajyn-body-bg, .ajyn-shell { background:#09070d !important;background-color:#09070d !important;background-image:linear-gradient(#09070d,#09070d) !important; }
-        .ajyn-card, .ajyn-container, .ajyn-header-row, .ajyn-logo-cell, .ajyn-ref-cell, .ajyn-hero-wrap, .ajyn-title, .ajyn-body, .ajyn-divider-cell, .ajyn-help { background:#171514 !important;background-color:#171514 !important;background-image:linear-gradient(#171514,#171514) !important; }
+        .ajyn-card, .ajyn-container, .ajyn-header-row, .ajyn-logo-cell, .ajyn-ref-cell, .ajyn-hero-wrap, .ajyn-title, .ajyn-body, .ajyn-divider-cell, .ajyn-help, .ajyn-footer, .ajyn-footer-bg { background:#171514 !important;background-color:#171514 !important;background-image:linear-gradient(#171514,#171514) !important; }
         .ajyn-soft-bg, .ajyn-status-card { background:#24201d !important;background-color:#24201d !important;background-image:linear-gradient(#24201d,#24201d) !important; }
-        .ajyn-footer-bg, .ajyn-footer { background:#211d1a !important;background-color:#211d1a !important;background-image:linear-gradient(#211d1a,#211d1a) !important; }
+        .ajyn-footer-mark-bg { background:#302923 !important;background-color:#302923 !important;background-image:linear-gradient(#302923,#302923) !important; }
         .ajyn-hero-bg, .ajyn-hero-icon { background:#302923 !important;background-color:#302923 !important;background-image:linear-gradient(#302923,#302923) !important; }
-        .ajyn-text-dark, .ajyn-gmail-text, .ajyn-gmail-text p, .ajyn-gmail-text strong, .ajyn-gmail-text span, .ajyn-copy, .ajyn-title, .ajyn-status-title, .ajyn-status-text, .ajyn-help-title, .ajyn-help-subtitle, .ajyn-contact, .ajyn-footer-brand, .ajyn-footer-copy, .ajyn-footer-legal, .ajyn-ref-cell { color:#f8f4ef !important;-webkit-text-fill-color:#f8f4ef !important; }
+        .ajyn-text-dark, .ajyn-gmail-text, .ajyn-gmail-text p, .ajyn-gmail-text strong, .ajyn-gmail-text span, .ajyn-copy, .ajyn-title, .ajyn-status-title, .ajyn-status-text, .ajyn-help-title, .ajyn-help-subtitle, .ajyn-contact, .ajyn-ref-cell { color:#f8f4ef !important;-webkit-text-fill-color:#f8f4ef !important; }
+        .ajyn-text-muted, .ajyn-footer-copy, .ajyn-footer-legal { color:#a89a90 !important;-webkit-text-fill-color:#a89a90 !important; }
         .ajyn-text-brand { color:#ff9d4d !important;-webkit-text-fill-color:#ff9d4d !important; }
-        .ajyn-cta { background:#000000 !important;background-color:#000000 !important;background-image:linear-gradient(#000000,#000000) !important;color:#c47b43 !important;-webkit-text-fill-color:#c47b43 !important; }
+        .ajyn-cta { background:#000000 !important;background-color:#000000 !important;background-image:linear-gradient(#000000,#000000) !important;color:#c18c5d !important;-webkit-text-fill-color:#c18c5d !important; }
+        .ajyn-wordmark-light { display:none !important;max-height:0 !important;overflow:hidden !important; }
+        .ajyn-wordmark-dark { display:block !important;max-height:none !important;overflow:visible !important; }
       }
       @media only screen and (max-width: 600px) {
         body { background:#ffffff !important;background-color:#ffffff !important; }
@@ -85,19 +93,23 @@ const AJYN_EMAIL_MOBILE_STYLES = `
         .ajyn-help-subtitle { font-size:10px !important;padding-bottom:10px !important; }
         .ajyn-contact { font-size:8px !important;white-space:nowrap !important; }
         .ajyn-contact-divider { width:16px !important; }
-        .ajyn-footer { border-radius:6px !important;padding:12px 20px 14px !important; }
-        .ajyn-footer-brand { font-size:12px !important;letter-spacing:8px !important;padding-left:8px !important;padding-bottom:2px !important; }
-        .ajyn-footer-dot { padding-bottom:8px !important; }
-        .ajyn-footer-copy { font-size:10px !important;padding-bottom:8px !important; }
+        .ajyn-footer { padding:16px 24px 18px !important; }
+        .ajyn-footer-mark-wrap { width:100% !important;max-width:100% !important; }
+        .ajyn-footer-mark-bg td { padding:14px 24px !important; }
+        .ajyn-footer-mark-img, .ajyn-logo-mark { width:88px !important;height:38px !important; }
+        .ajyn-footer-copy { font-size:10px !important;padding-top:12px !important;padding-bottom:8px !important; }
         .ajyn-footer-legal { font-size:9px !important; }
       }
       @media only screen and (max-width: 600px) and (prefers-color-scheme: dark) {
         body, .ajyn-body-bg, .ajyn-shell { background:#09070d !important;background-color:#09070d !important;background-image:linear-gradient(#09070d,#09070d) !important; }
         .ajyn-card, .ajyn-container, .ajyn-header-row, .ajyn-logo-cell, .ajyn-ref-cell, .ajyn-hero-wrap, .ajyn-title, .ajyn-body, .ajyn-divider-cell, .ajyn-help { background:#171514 !important;background-color:#171514 !important;background-image:linear-gradient(#171514,#171514) !important; }
         .ajyn-soft-bg, .ajyn-status-card { background:#24201d !important;background-color:#24201d !important;background-image:linear-gradient(#24201d,#24201d) !important; }
-        .ajyn-footer-bg, .ajyn-footer { background:#211d1a !important;background-color:#211d1a !important;background-image:linear-gradient(#211d1a,#211d1a) !important; }
+        .ajyn-footer, .ajyn-footer-bg { background:#171514 !important;background-color:#171514 !important;background-image:linear-gradient(#171514,#171514) !important; }
+        .ajyn-footer-mark-bg { background:#302923 !important;background-color:#302923 !important;background-image:linear-gradient(#302923,#302923) !important; }
         .ajyn-hero-bg, .ajyn-hero-icon { background:#302923 !important;background-color:#302923 !important;background-image:linear-gradient(#302923,#302923) !important; }
         .ajyn-ref-cell { border-top-color:#3b332e !important; }
+        .ajyn-wordmark-light { display:none !important;max-height:0 !important;overflow:hidden !important; }
+        .ajyn-wordmark-dark { display:block !important;max-height:none !important;overflow:visible !important; }
       }
 `
 
@@ -296,15 +308,18 @@ ${AJYN_EMAIL_MOBILE_STYLES}
               </td>
             </tr>
             <tr>
-              <td>
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="ajyn-footer ajyn-footer-bg" bgcolor="#f8f4f1" style="background:#f8f4f1;background-color:#f8f4f1;border-radius:0;padding:15px 20px 17px;border-collapse:separate;">
+              <td class="ajyn-footer ajyn-footer-bg" bgcolor="#ffffff" style="padding:18px 44px 20px;background:#ffffff;background-color:#ffffff;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
                   <tr>
-                    <td align="center">
-                      <div class="ajyn-footer-brand ajyn-text-dark ajyn-gmail-text" style="font-size:12px;line-height:1;letter-spacing:10px;padding-left:10px;font-weight:700;padding-bottom:3px;color:#111111;-webkit-text-fill-color:#111111;">AJYN</div>
-                      <div class="ajyn-footer-dot" style="color:#b87432;font-size:12px;line-height:1;padding-bottom:8px;">&bull;</div>
-                      <div class="ajyn-footer-copy ajyn-text-dark ajyn-gmail-text" style="font-size:11px;line-height:1.4;padding-bottom:8px;color:#111111;-webkit-text-fill-color:#111111;">Thank you for shopping with AJYN.</div>
-                      <div class="ajyn-footer-legal ajyn-text-dark ajyn-gmail-text" style="font-size:10px;line-height:1.5;color:#111111;-webkit-text-fill-color:#111111;">&copy; ${COPYRIGHT_YEAR} AJYN. All rights reserved.</div>
+                    <td align="center" style="padding-bottom:14px;">
+                      ${getFooterBrandMarkHtml()}
                     </td>
+                  </tr>
+                  <tr>
+                    <td align="center" class="ajyn-footer-copy ajyn-text-muted" style="font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:1.5;padding-bottom:8px;color:#6b625c;-webkit-text-fill-color:#6b625c;">Thank you for shopping with AJYN.</td>
+                  </tr>
+                  <tr>
+                    <td align="center" class="ajyn-footer-legal ajyn-text-muted" style="font-family:Arial,Helvetica,sans-serif;font-size:10px;line-height:1.5;color:#6b625c;-webkit-text-fill-color:#6b625c;">&copy; ${COPYRIGHT_YEAR} AJYN. All rights reserved.</td>
                   </tr>
                 </table>
               </td>
@@ -328,7 +343,21 @@ function escapeHtml(value: string) {
 
 function getLogoMarkHtml() {
   return `
-    <img class="ajyn-logo-mark" src="${AJYN_EMAIL_LOGO_URL}" width="110" height="48" alt="AJYN" style="display:block;width:110px;height:48px;margin:0 auto;border:0;outline:none;text-decoration:none;object-fit:contain;">
+    <img class="ajyn-logo-mark ajyn-wordmark-light" src="${AJYN_EMAIL_LOGO_URL}" width="96" height="42" alt="AJYN" style="display:block;width:96px;height:42px;margin:0 auto;border:0;outline:none;text-decoration:none;object-fit:contain;">
+    <img class="ajyn-logo-mark ajyn-wordmark-dark" src="${AJYN_EMAIL_LOGO_DARK_URL}" width="96" height="42" alt="AJYN" style="display:none;width:96px;height:42px;margin:0 auto;border:0;outline:none;text-decoration:none;object-fit:contain;">
+  `
+}
+
+function getFooterBrandMarkHtml() {
+  return `
+    <table role="presentation" cellspacing="0" cellpadding="0" align="center" class="ajyn-footer-mark-wrap ajyn-footer-mark-bg" bgcolor="#f9f6f2" style="margin:0 auto;border-collapse:separate;border-radius:10px;background:#f9f6f2;background-color:#f9f6f2;">
+      <tr>
+        <td align="center" style="padding:16px 40px;">
+          <img class="ajyn-footer-mark-img ajyn-wordmark-light" src="${AJYN_EMAIL_LOGO_URL}" width="96" height="42" alt="AJYN" style="display:block;width:96px;height:42px;margin:0 auto;border:0;outline:none;text-decoration:none;object-fit:contain;">
+          <img class="ajyn-footer-mark-img ajyn-wordmark-dark" src="${AJYN_EMAIL_LOGO_DARK_URL}" width="96" height="42" alt="AJYN" style="display:none;width:96px;height:42px;margin:0 auto;border:0;outline:none;text-decoration:none;object-fit:contain;">
+        </td>
+      </tr>
+    </table>
   `
 }
 

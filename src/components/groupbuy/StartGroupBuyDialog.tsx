@@ -358,11 +358,15 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
       const { data: keyData, error: keyError } = await supabase.functions.invoke('get-paystack-key');
       if (keyError || !keyData?.publicKey) throw new Error('Failed to initialize payment');
 
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('email, name')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
+
+      if (profileError) {
+        throw new Error('Could not load your profile for payment.');
+      }
 
       const customerEmail = profile?.email || user.email;
       if (!customerEmail) {
@@ -516,7 +520,7 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
       return;
     }
 
-    await supabase.from('group_buy_tiers' as never).insert({
+    const { error: tierError } = await supabase.from('group_buy_tiers' as never).insert({
       group_buy_id: gbData.id,
       min_participants: normalizedParticipantCount,
       group_price: offeredUnitPrice,
@@ -524,6 +528,13 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
       reward_coupon_percent: 5,
       label: 'Base group price',
     } as never);
+
+    if (tierError) {
+      await supabase.from('group_buys').delete().eq('id', gbData.id).eq('created_by', user.id);
+      toast.error(tierError.message || 'Failed to create group buy pricing tier.');
+      setIsPaying(false);
+      return;
+    }
 
     const addressData = buildAddressPayload(selectedAddress, selectedShippingRule);
 

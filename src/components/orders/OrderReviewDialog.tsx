@@ -57,11 +57,17 @@ export function OrderReviewDialog({
     let productId = firstItem?.product_id || null;
 
     if (!productId && firstItem?.product_variant_id) {
-      const { data: variant } = await supabase
+      const { data: variant, error: variantError } = await supabase
         .from('product_variants')
         .select('product_id')
         .eq('id', firstItem.product_variant_id)
-        .single();
+        .maybeSingle();
+
+      if (variantError) {
+        setSubmitting(false);
+        toast.error('Could not load product details for this review.');
+        return;
+      }
 
       productId = variant?.product_id || null;
     }

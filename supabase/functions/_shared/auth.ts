@@ -32,13 +32,6 @@ export function getCorsHeaders(req?: Request) {
   };
 }
 
-export const corsHeaders = getCorsHeaders();
-
-export const jsonHeaders = {
-  ...corsHeaders,
-  'Content-Type': 'application/json',
-};
-
 export type ServiceSupabaseClient = ReturnType<typeof createClient>;
 
 export interface RequestActor {

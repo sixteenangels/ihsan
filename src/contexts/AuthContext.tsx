@@ -106,8 +106,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(session?.user ?? null);
         
         if (session?.user) {
+          setIsRoleReady(false);
           setTimeout(() => {
-            checkUserRole(session.user.id);
+            void checkUserRole(session.user.id);
           }, 0);
         } else {
           clearStoredSessionPreference();

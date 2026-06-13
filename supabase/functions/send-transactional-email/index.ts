@@ -90,7 +90,7 @@ function sanitizeCustomHeaders(headers?: Record<string, string>) {
 }
 
 function stripLightBackgroundImageLocks(html: string) {
-  const lightLockedColors = ['#ffffff', '#f5f5f5', '#f7f4f2', '#f8f4f1', '#f2e9e1', '#f3eee9']
+  const lightLockedColors = ['#ffffff', '#f5f5f5', '#f7f4f2', '#f8f4f1', '#f9f6f2', '#f2e9e1', '#f3eee9']
 
   return lightLockedColors.reduce((output, color) => {
     const escapedColor = color.replace('#', '\\#')
@@ -107,13 +107,16 @@ function stripLightBackgroundImageLocks(html: string) {
   }, html)
 }
 
+const AJYN_EMAIL_LOGO_DARK_URL = 'https://www.ajynworld.com/ajyn-wordmark-dark.svg'
+
 const LOGO_MARK_FALLBACK = `
-    <img class="ajyn-logo-mark" src="${AJYN_EMAIL_LOGO_URL}" width="110" height="48" alt="AJYN" style="display:block;width:110px;height:48px;margin:0 auto;border:0;outline:none;text-decoration:none;object-fit:contain;">
+    <img class="ajyn-logo-mark ajyn-wordmark-light" src="${AJYN_EMAIL_LOGO_URL}" width="96" height="42" alt="AJYN" style="display:block;width:96px;height:42px;margin:0 auto;border:0;outline:none;text-decoration:none;object-fit:contain;">
+    <img class="ajyn-logo-mark ajyn-wordmark-dark" src="${AJYN_EMAIL_LOGO_DARK_URL}" width="96" height="42" alt="AJYN" style="display:none;width:96px;height:42px;margin:0 auto;border:0;outline:none;text-decoration:none;object-fit:contain;">
 `
-const PACKAGE_ICON_FALLBACK = `<span class="ajyn-package-icon-text" aria-hidden="true" style="display:block;margin:13px auto 0;color:#B87432;-webkit-text-fill-color:#B87432;font-family:Arial,Helvetica,sans-serif;font-size:30px;line-height:32px;">&#9633;</span>`
-const SUPPORT_ICON_FALLBACK = `<span class="ajyn-support-icon-text" aria-hidden="true" style="display:block;margin:0 auto;color:#B87432;-webkit-text-fill-color:#B87432;font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:22px;">?</span>`
-const EMAIL_ICON_FALLBACK = `<span class="ajyn-contact-icon-text" aria-hidden="true" style="display:inline-block;vertical-align:0;color:#B87432;-webkit-text-fill-color:#B87432;font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:700;line-height:1;">@</span>`
-const WHATSAPP_ICON_FALLBACK = `<span class="ajyn-contact-icon-text" aria-hidden="true" style="display:inline-block;vertical-align:0;color:#B87432;-webkit-text-fill-color:#B87432;font-family:Arial,Helvetica,sans-serif;font-size:9px;font-weight:700;line-height:1;">WA</span>`
+const PACKAGE_ICON_FALLBACK = `<span class="ajyn-package-icon-text" aria-hidden="true" style="display:block;margin:13px auto 0;color:#c18c5d;-webkit-text-fill-color:#c18c5d;font-family:Arial,Helvetica,sans-serif;font-size:30px;line-height:32px;">&#9633;</span>`
+const SUPPORT_ICON_FALLBACK = `<span class="ajyn-support-icon-text" aria-hidden="true" style="display:block;margin:0 auto;color:#c18c5d;-webkit-text-fill-color:#c18c5d;font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:22px;">?</span>`
+const EMAIL_ICON_FALLBACK = `<span class="ajyn-contact-icon-text" aria-hidden="true" style="display:inline-block;vertical-align:0;color:#c18c5d;-webkit-text-fill-color:#c18c5d;font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:700;line-height:1;">@</span>`
+const WHATSAPP_ICON_FALLBACK = `<span class="ajyn-contact-icon-text" aria-hidden="true" style="display:inline-block;vertical-align:0;color:#c18c5d;-webkit-text-fill-color:#c18c5d;font-family:Arial,Helvetica,sans-serif;font-size:9px;font-weight:700;line-height:1;">WA</span>`
 
 function replaceSvgEmailIcons(html: string) {
   let contactIconIndex = 0

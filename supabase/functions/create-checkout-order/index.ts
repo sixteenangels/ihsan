@@ -74,16 +74,6 @@ interface ShippingRuleRow {
   shipping_classes: ShippingClassRow | null;
 }
 
-interface LoyaltyLedgerRow {
-  points: number;
-  type: string;
-}
-
-interface WalletLedgerRow {
-  amount: number;
-  type: string;
-}
-
 interface StoreSettings {
   loyaltyEnabled: boolean;
   loyaltyPointsToCurrencyRate: number;
@@ -277,7 +267,7 @@ Deno.serve(async (req) => {
   }
 
   if (req.method !== 'POST') {
-    return jsonResponse({ error: 'Method not allowed' }, 405);
+    return jsonResponse({ error: 'Method not allowed' }, 405, req);
   }
 
   try {
@@ -311,17 +301,28 @@ Deno.serve(async (req) => {
       if (existingError) throw existingError;
       if (existingOrder) {
         if (existingOrder.user_id !== actor.id) {
-          return jsonResponse({ error: 'Payment reference already belongs to another order.' }, 409);
+          return jsonResponse({ error: 'Payment reference already belongs to another order.' }, 409, req);
         }
 
-        return jsonResponse({
-          order: {
-            id: existingOrder.id,
-            order_number: existingOrder.order_number,
-            total_amount: Number(existingOrder.total_amount || 0),
-          },
-          alreadyExists: true,
-        });
+        const { count: itemCount, error: itemCountError } = await supabase
+          .from('order_items')
+          .select('id', { count: 'exact', head: true })
+          .eq('order_id', existingOrder.id);
+
+        if (itemCountError) throw itemCountError;
+
+        if ((itemCount || 0) > 0) {
+          return jsonResponse({
+            order: {
+              id: existingOrder.id,
+              order_number: existingOrder.order_number,
+              total_amount: Number(existingOrder.total_amount || 0),
+            },
+            alreadyExists: true,
+          }, 200, req);
+        }
+
+        await supabase.from('orders').delete().eq('id', existingOrder.id).eq('user_id', actor.id);
       }
     }
 
@@ -538,6 +539,16 @@ Deno.serve(async (req) => {
         }
       }
 
+      const { count: priorRedemptions, error: priorRedemptionError } = await supabase
+        .from('coupon_redemptions')
+        .select('id', { count: 'exact', head: true })
+        .eq('coupon_id', couponId)
+        .eq('user_id', actor.id);
+      if (priorRedemptionError) throw priorRedemptionError;
+      if ((priorRedemptions || 0) > 0) {
+        throw new Error('You have already used this coupon.');
+      }
+
       discount =
         coupon.type === 'percentage'
           ? toMoney((subtotal * Number(coupon.value)) / 100)
@@ -553,15 +564,13 @@ Deno.serve(async (req) => {
       0,
       Math.floor(Number(body.loyaltyPointsToRedeem || 0)),
     );
-    const { data: loyaltyRows, error: loyaltyError } = await supabase
-      .from('loyalty_points')
-      .select('points, type')
-      .eq('user_id', actor.id);
+    const { data: loyaltyBalance, error: loyaltyError } = await supabase.rpc(
+      'get_checkout_loyalty_balance',
+      { p_user_id: actor.id },
+    );
     if (loyaltyError) throw loyaltyError;
 
-    const availablePoints = ((loyaltyRows || []) as LoyaltyLedgerRow[]).reduce((sum, row) => {
-      return row.type === 'earn' ? sum + Number(row.points || 0) : sum - Number(row.points || 0);
-    }, 0);
+    const availablePoints = Math.max(0, Math.floor(Number(loyaltyBalance || 0)));
     const maxPointsByOrderValue =
       settings.loyaltyPointsToCurrencyRate > 0
         ? Math.floor(totalBeforeCredits / settings.loyaltyPointsToCurrencyRate)
@@ -581,16 +590,13 @@ Deno.serve(async (req) => {
 
     let walletApplied = 0;
     if (body.useWalletCredit) {
-      const { data: walletRows, error: walletError } = await supabase
-        .from('wallet_transactions')
-        .select('amount, type')
-        .eq('user_id', actor.id);
+      const { data: walletBalance, error: walletError } = await supabase.rpc(
+        'get_checkout_wallet_balance',
+        { p_user_id: actor.id },
+      );
       if (walletError) throw walletError;
 
-      const walletBalance = ((walletRows || []) as WalletLedgerRow[]).reduce((sum, row) => {
-        return row.type === 'credit' ? sum + Number(row.amount || 0) : sum - Number(row.amount || 0);
-      }, 0);
-      walletApplied = toMoney(Math.min(Math.max(0, walletBalance), subtotalAfterLoyalty));
+      walletApplied = toMoney(Math.min(Math.max(0, Number(walletBalance || 0)), subtotalAfterLoyalty));
     }
 
     const total = Math.max(0, toMoney(subtotalAfterLoyalty - walletApplied));
@@ -656,13 +662,22 @@ Deno.serve(async (req) => {
 
     if (orderError) throw orderError;
 
+    const cleanupIncompleteOrder = async () => {
+      await supabase.from('order_tracking').delete().eq('order_id', order.id);
+      await supabase.from('order_items').delete().eq('order_id', order.id);
+      await supabase.from('orders').delete().eq('id', order.id).eq('user_id', actor.id);
+    };
+
     const { error: itemsError } = await supabase.from('order_items').insert(
       orderItems.map((item) => ({
         ...item,
         order_id: order.id,
       })),
     );
-    if (itemsError) throw itemsError;
+    if (itemsError) {
+      await cleanupIncompleteOrder();
+      throw itemsError;
+    }
 
     const { error: trackingError } = await supabase.from('order_tracking').insert({
       order_id: order.id,
@@ -670,7 +685,10 @@ Deno.serve(async (req) => {
       location_name: paymentReference ? 'Payment Gateway' : 'Checkout',
       notes: "We've successfully received your payment and your order is now being prepared.",
     });
-    if (trackingError) throw trackingError;
+    if (trackingError) {
+      await cleanupIncompleteOrder();
+      throw trackingError;
+    }
 
     if (walletApplied > 0) {
       const { error: walletError } = await supabase.from('wallet_transactions').insert({
@@ -767,10 +785,10 @@ Deno.serve(async (req) => {
         total_amount: Number(order.total_amount || total),
       },
       alreadyExists: false,
-    });
+    }, 200, req);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Could not create checkout order.';
     console.error('create-checkout-order failed:', error);
-    return jsonResponse({ error: message }, 400);
+    return jsonResponse({ error: message }, 400, req);
   }
 });
