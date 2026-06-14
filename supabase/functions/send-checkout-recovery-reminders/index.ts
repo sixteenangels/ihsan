@@ -34,7 +34,8 @@ const AJYN_EMAIL_MOBILE_STYLES = `
       .ajyn-body-bg { color-scheme:light dark; }
       .ajyn-light-bg { background:#ffffff !important;background-color:#ffffff !important; }
       .ajyn-soft-bg { background:#f7f4f2 !important;background-color:#f7f4f2 !important; }
-      .ajyn-footer-mark-bg { background:#f9f6f2 !important;background-color:#f9f6f2 !important;border-radius:10px !important; }
+      .ajyn-footer-mark-bg { background:#f7f4f2 !important;background-color:#f7f4f2 !important;border-radius:8px !important; }
+      .ajyn-footer-mark-wrap { width:100% !important;max-width:100% !important; }
       .ajyn-footer-bg { background:#ffffff !important;background-color:#ffffff !important; }
       .ajyn-hero-bg { background:#f2e9e1 !important;background-color:#f2e9e1 !important; }
       .ajyn-black-bg, .ajyn-cta { background:#000000 !important;background-color:#000000 !important;background-image:linear-gradient(#000000,#000000) !important; }
@@ -42,7 +43,8 @@ const AJYN_EMAIL_MOBILE_STYLES = `
       .ajyn-text-muted { color:#6b625c !important;-webkit-text-fill-color:#6b625c !important; }
       .ajyn-text-orange, .ajyn-cta { color:#c18c5d !important;-webkit-text-fill-color:#c18c5d !important; }
       .ajyn-text-brand { color:#c18c5d !important;-webkit-text-fill-color:#c18c5d !important; }
-      .ajyn-logo-mark, .ajyn-footer-mark-img { width:96px !important;height:42px !important;margin:0 auto !important; }
+      .ajyn-logo-mark { width:110px !important;height:48px !important;margin:0 auto !important; }
+      .ajyn-footer-mark-img { width:110px !important;height:48px !important;margin:0 auto !important; }
       .ajyn-wordmark-light { display:block !important;max-height:none !important;overflow:visible !important; }
       .ajyn-wordmark-dark { display:none !important;max-height:0 !important;overflow:hidden !important; }
       @media (prefers-color-scheme: dark) {
@@ -343,18 +345,18 @@ function escapeHtml(value: string) {
 
 function getLogoMarkHtml() {
   return `
-    <img class="ajyn-logo-mark ajyn-wordmark-light" src="${AJYN_EMAIL_LOGO_URL}" width="96" height="42" alt="AJYN" style="display:block;width:96px;height:42px;margin:0 auto;border:0;outline:none;text-decoration:none;object-fit:contain;">
-    <img class="ajyn-logo-mark ajyn-wordmark-dark" src="${AJYN_EMAIL_LOGO_DARK_URL}" width="96" height="42" alt="AJYN" style="display:none;width:96px;height:42px;margin:0 auto;border:0;outline:none;text-decoration:none;object-fit:contain;">
+    <img class="ajyn-logo-mark ajyn-wordmark-light" src="${AJYN_EMAIL_LOGO_URL}" width="110" height="48" alt="AJYN" style="display:block;width:110px;height:48px;margin:0 auto;border:0;outline:none;text-decoration:none;object-fit:contain;">
+    <img class="ajyn-logo-mark ajyn-wordmark-dark" src="${AJYN_EMAIL_LOGO_DARK_URL}" width="110" height="48" alt="AJYN" style="display:none;width:110px;height:48px;margin:0 auto;border:0;outline:none;text-decoration:none;object-fit:contain;">
   `
 }
 
 function getFooterBrandMarkHtml() {
   return `
-    <table role="presentation" cellspacing="0" cellpadding="0" align="center" class="ajyn-footer-mark-wrap ajyn-footer-mark-bg" bgcolor="#f9f6f2" style="margin:0 auto;border-collapse:separate;border-radius:10px;background:#f9f6f2;background-color:#f9f6f2;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="ajyn-footer-mark-wrap ajyn-footer-mark-bg ajyn-soft-bg" bgcolor="#f7f4f2" style="width:100%;max-width:100%;margin:0 auto;border-collapse:separate;border-radius:8px;background:#f7f4f2;background-color:#f7f4f2;">
       <tr>
-        <td align="center" style="padding:16px 40px;">
-          <img class="ajyn-footer-mark-img ajyn-wordmark-light" src="${AJYN_EMAIL_LOGO_URL}" width="96" height="42" alt="AJYN" style="display:block;width:96px;height:42px;margin:0 auto;border:0;outline:none;text-decoration:none;object-fit:contain;">
-          <img class="ajyn-footer-mark-img ajyn-wordmark-dark" src="${AJYN_EMAIL_LOGO_DARK_URL}" width="96" height="42" alt="AJYN" style="display:none;width:96px;height:42px;margin:0 auto;border:0;outline:none;text-decoration:none;object-fit:contain;">
+        <td align="center" style="padding:18px 24px;">
+          <img class="ajyn-footer-mark-img ajyn-wordmark-light" src="${AJYN_EMAIL_LOGO_URL}" width="110" height="48" alt="AJYN" style="display:block;width:110px;height:48px;margin:0 auto;border:0;outline:none;text-decoration:none;object-fit:contain;">
+          <img class="ajyn-footer-mark-img ajyn-wordmark-dark" src="${AJYN_EMAIL_LOGO_DARK_URL}" width="110" height="48" alt="AJYN" style="display:none;width:110px;height:48px;margin:0 auto;border:0;outline:none;text-decoration:none;object-fit:contain;">
         </td>
       </tr>
     </table>
