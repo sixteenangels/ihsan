@@ -22,7 +22,8 @@
     "test:e2e": "npm run build && playwright test",
     "test:e2e:mobile": "npm run build && playwright test --project=mobile-chromium",
     "test:e2e:headed": "npm run build && playwright test --headed",
-    "test:e2e:live": "playwright test tests/e2e/live-auth.spec.ts"
+    "test:e2e:live": "playwright test tests/e2e/live-auth.spec.ts",
+    "generate:auth-emails": "node scripts/generate-auth-email-templates.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.3.4",
