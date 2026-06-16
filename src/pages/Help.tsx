@@ -28,6 +28,12 @@ import {
 import { useEffect, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import {
+  SUPPORT_EMAIL,
+  getSupportPhoneTelUrl,
+  getSupportWhatsAppUrl,
+  resolveSupportPhone,
+} from '@/lib/support-contact';
 
 const faqs = [
   {
@@ -115,7 +121,10 @@ export default function Help() {
   const { toast } = useToast();
 
   const supportEmail = typeof storeSettings?.supportEmail === 'string' ? storeSettings.supportEmail.trim() : '';
-  const supportPhone = typeof storeSettings?.supportPhone === 'string' ? storeSettings.supportPhone.trim() : '';
+  const supportPhone = resolveSupportPhone(
+    typeof storeSettings?.supportPhone === 'string' ? storeSettings.supportPhone : null,
+  );
+  const resolvedSupportEmail = supportEmail || SUPPORT_EMAIL;
   const supportLocation = typeof storeSettings?.supportLocation === 'string'
     ? storeSettings.supportLocation.trim()
     : 'Accra, Ghana';
@@ -268,7 +277,7 @@ export default function Help() {
         </div>
 
         {/* Quick Contact Cards */}
-        <div className="mb-10 grid grid-cols-1 gap-3 md:mb-12 md:grid-cols-3 md:gap-4">
+        <div className="mb-10 grid grid-cols-1 gap-3 sm:grid-cols-2 md:mb-12 md:grid-cols-4 md:gap-4">
           <Card className="rounded-2xl border-border/70 text-center shadow-sm transition-shadow hover:shadow-md">
             <CardHeader className="pb-2">
               <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
@@ -296,11 +305,13 @@ export default function Help() {
             </CardHeader>
             <CardContent>
               <CardDescription className="mb-3">
-                {supportEmail || 'Use the contact form below'}
+                <a href={`mailto:${resolvedSupportEmail}`} className="text-foreground hover:text-primary">
+                  {resolvedSupportEmail}
+                </a>
               </CardDescription>
               <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                 <ShieldCheck className="h-4 w-4" />
-                <span>{supportEmail ? 'Response in 24 hours' : 'Fastest route for guest requests'}</span>
+                <span>{resolvedSupportEmail ? 'Response in 24 hours' : 'Fastest route for guest requests'}</span>
               </div>
             </CardContent>
           </Card>
@@ -310,15 +321,42 @@ export default function Help() {
               <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
                 <Phone className="h-6 w-6 text-primary" />
               </div>
-              <CardTitle className="text-lg">{supportPhone ? 'Call Us' : 'Support Base'}</CardTitle>
+              <CardTitle className="text-lg">Call Us</CardTitle>
             </CardHeader>
             <CardContent>
               <CardDescription className="mb-3">
-                {supportPhone || supportLocation}
+                <a href={getSupportPhoneTelUrl()} className="text-foreground hover:text-primary">
+                  {supportPhone}
+                </a>
               </CardDescription>
               <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                 <MapPin className="h-4 w-4" />
-                <span>{supportPhone ? supportLocation : supportHours}</span>
+                <span>{supportLocation}</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-2xl border-border/70 text-center shadow-sm transition-shadow hover:shadow-md">
+            <CardHeader className="pb-2">
+              <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-green-500/10">
+                <MessageCircle className="h-6 w-6 text-green-600" />
+              </div>
+              <CardTitle className="text-lg">WhatsApp</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CardDescription className="mb-3">
+                <a
+                  href={getSupportWhatsAppUrl('Hello AJYN support, I need help with my order.')}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-foreground hover:text-primary"
+                >
+                  {supportPhone}
+                </a>
+              </CardDescription>
+              <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                <Clock className="h-4 w-4" />
+                <span>{supportHours}</span>
               </div>
             </CardContent>
           </Card>

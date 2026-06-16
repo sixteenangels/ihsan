@@ -1,10 +1,16 @@
 import { Link, useLocation } from 'react-router-dom';
-import { ArrowLeft, Building2, HeartHandshake, Mail, RotateCcw, ShieldCheck, Scale } from 'lucide-react';
+import { ArrowLeft, Building2, HeartHandshake, Mail, MessageCircle, Phone, RotateCcw, ShieldCheck, Scale } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { BRAND_NAME, BRAND_SUPPORT_NAME } from '@/lib/brand';
+import {
+  SUPPORT_EMAIL,
+  SUPPORT_PHONE_DISPLAY,
+  getSupportPhoneTelUrl,
+  getSupportWhatsAppUrl,
+} from '@/lib/support-contact';
 
 type FooterPage = {
   eyebrow: string;
@@ -356,6 +362,35 @@ export default function FooterInfo() {
               </Button>
             ) : null}
           </section>
+
+          {location.pathname === '/contact' ? (
+            <section className="mt-6 rounded-[2rem] border border-border bg-card p-6 shadow-sm sm:p-8">
+              <h2 className="text-xl font-semibold text-foreground">Reach us directly</h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Email, call, or message us on WhatsApp and our team will assist you.
+              </p>
+              <div className="mt-5 flex flex-wrap gap-3">
+                <Button asChild variant="outline" className="rounded-xl">
+                  <a href={`mailto:${SUPPORT_EMAIL}`}>
+                    <Mail className="mr-2 h-4 w-4" />
+                    {SUPPORT_EMAIL}
+                  </a>
+                </Button>
+                <Button asChild variant="outline" className="rounded-xl">
+                  <a href={getSupportPhoneTelUrl()}>
+                    <Phone className="mr-2 h-4 w-4" />
+                    {SUPPORT_PHONE_DISPLAY}
+                  </a>
+                </Button>
+                <Button asChild variant="outline" className="rounded-xl">
+                  <a href={getSupportWhatsAppUrl()} target="_blank" rel="noopener noreferrer">
+                    <MessageCircle className="mr-2 h-4 w-4" />
+                    WhatsApp {SUPPORT_PHONE_DISPLAY}
+                  </a>
+                </Button>
+              </div>
+            </section>
+          ) : null}
 
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
             {page.sections.map((section) => (

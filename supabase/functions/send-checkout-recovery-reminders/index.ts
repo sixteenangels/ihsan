@@ -1,4 +1,5 @@
 import { getCorsHeaders, createServiceSupabaseClient, jsonResponse, requireAdminOrInternalRequest, type ServiceSupabaseClient } from '../_shared/auth.ts'
+import { SUPPORT_PHONE_DISPLAY, getSupportWhatsAppUrl } from '../_shared/support-contact.ts'
 
 interface RecoverySnapshot {
   id: string
@@ -304,7 +305,7 @@ ${AJYN_EMAIL_MOBILE_STYLES}
                   <tr>
                     <td class="ajyn-contact ajyn-text-dark" style="font-size:11px;line-height:1.3;color:#111111;-webkit-text-fill-color:#111111;">${getEmailIconHtml()}&nbsp; <span class="ajyn-gmail-text" style="color:#111111;-webkit-text-fill-color:#111111;">${escapeHtml(SUPPORT_EMAIL)}</span></td>
                     <td class="ajyn-contact-divider" width="28" style="font-size:0;line-height:0;">&nbsp;</td>
-                    <td class="ajyn-contact ajyn-text-dark" style="font-size:11px;line-height:1.3;color:#111111;-webkit-text-fill-color:#111111;">${getWhatsAppIconHtml()}&nbsp; <span class="ajyn-gmail-text" style="color:#111111;-webkit-text-fill-color:#111111;">+233 20 123 4567</span></td>
+                    <td class="ajyn-contact ajyn-text-dark" style="font-size:11px;line-height:1.3;color:#111111;-webkit-text-fill-color:#111111;">${getWhatsAppIconHtml()}&nbsp; <a href="${escapeHtml(getSupportWhatsAppUrl())}" class="ajyn-gmail-text" style="color:#111111;-webkit-text-fill-color:#111111;text-decoration:none;">${escapeHtml(SUPPORT_PHONE_DISPLAY)}</a></td>
                   </tr>
                 </table>
               </td>

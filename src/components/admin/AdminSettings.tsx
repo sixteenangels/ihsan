@@ -34,6 +34,7 @@ import {
   type HeroCarouselImage,
 } from '@/lib/heroCarousel';
 import { getErrorMessage } from '@/lib/errors';
+import { SUPPORT_PHONE_DISPLAY } from '@/lib/support-contact';
 
 interface SettingsState {
   heroCarouselImages: HeroCarouselImage[];
@@ -81,7 +82,7 @@ const DEFAULT_SETTINGS: SettingsState = {
   orderEmailsEnabled: true,
   marketingEmailsEnabled: false,
   supportEmail: '',
-  supportPhone: '',
+  supportPhone: SUPPORT_PHONE_DISPLAY,
   supportLocation: 'Accra, Ghana',
   supportHours: '9 AM - 6 PM GMT',
   mapProvider: 'openstreetmap',

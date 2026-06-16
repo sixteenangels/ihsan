@@ -2,8 +2,24 @@ import { Link } from 'react-router-dom';
 import { Plane, Ship, Package } from 'lucide-react';
 import { BrandMark } from '@/components/brand/BrandMark';
 import { BRAND_NAME, BRAND_TAGLINE } from '@/lib/brand';
+import {
+  SUPPORT_EMAIL,
+  getSupportPhoneTelUrl,
+  getSupportWhatsAppUrl,
+  resolveSupportPhone,
+} from '@/lib/support-contact';
+import { useStoreSettings } from '@/hooks/useStoreSettings';
 
 export function Footer() {
+  const { data: storeSettings } = useStoreSettings();
+  const supportPhone = resolveSupportPhone(
+    typeof storeSettings?.supportPhone === 'string' ? storeSettings.supportPhone : null,
+  );
+  const supportEmail =
+    typeof storeSettings?.supportEmail === 'string' && storeSettings.supportEmail.trim()
+      ? storeSettings.supportEmail.trim()
+      : SUPPORT_EMAIL;
+
   return (
     <footer className="mt-16 border-t border-border bg-card pb-24 md:pb-0">
       <div className="container px-4 py-10 sm:px-6 sm:py-12">
@@ -72,6 +88,23 @@ export function Footer() {
               <li><Link to="/returns-policy" className="text-sm text-muted-foreground transition-colors hover:text-primary">Shipping and Returns Policy</Link></li>
             </ul>
           </div>
+        </div>
+
+        <div className="mb-8 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 border-b border-border pb-8 text-sm text-muted-foreground">
+          <a href={`mailto:${supportEmail}`} className="transition-colors hover:text-primary">
+            {supportEmail}
+          </a>
+          <a href={getSupportPhoneTelUrl()} className="transition-colors hover:text-primary">
+            {supportPhone}
+          </a>
+          <a
+            href={getSupportWhatsAppUrl()}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="transition-colors hover:text-primary"
+          >
+            WhatsApp {supportPhone}
+          </a>
         </div>
 
         <div className="flex flex-col gap-4 border-t border-border pt-8 text-center md:flex-row md:items-center md:justify-between md:text-left">

@@ -1,9 +1,13 @@
 import { BRAND_NAME, BRAND_SUPPORT_NAME } from '@/lib/brand';
 import type { PrintableReceipt } from '@/lib/receipt-utils';
 import { sanitizeEmailUrl } from '@/lib/security-url';
+import {
+  SUPPORT_EMAIL,
+  SUPPORT_PHONE_DISPLAY,
+  getSupportWhatsAppUrl,
+} from '@/lib/support-contact';
 
-const SUPPORT_EMAIL = 'support@ajynworld.com';
-const SUPPORT_PHONE = '+233 20 123 4567';
+const SUPPORT_PHONE = SUPPORT_PHONE_DISPLAY;
 const COPYRIGHT_YEAR = '2026';
 const AJYN_EMAIL_LOGO_URL = 'https://www.ajynworld.com/ajyn-wordmark.svg';
 const AJYN_EMAIL_LOGO_DARK_URL = 'https://www.ajynworld.com/ajyn-wordmark-dark.svg';
@@ -476,9 +480,9 @@ ${AJYN_EMAIL_MOBILE_STYLES}
                 <div class="ajyn-help-subtitle ajyn-text-dark ajyn-gmail-text" style="font-size:11px;line-height:1.35;color:#111111;-webkit-text-fill-color:#111111;padding-bottom:11px;">We're here for you.</div>
                 <table role="presentation" cellspacing="0" cellpadding="0" align="center" style="border-collapse:collapse;">
                   <tr>
-                    <td class="ajyn-contact ajyn-text-dark" style="font-size:11px;line-height:1.3;color:#111111;-webkit-text-fill-color:#111111;">${getEmailIconHtml()}&nbsp; <span class="ajyn-gmail-text" style="color:#111111;-webkit-text-fill-color:#111111;">${SUPPORT_EMAIL}</span></td>
+                    <td class="ajyn-contact ajyn-text-dark" style="font-size:11px;line-height:1.3;color:#111111;-webkit-text-fill-color:#111111;">${getEmailIconHtml()}&nbsp; <a href="mailto:${escapeHtml(SUPPORT_EMAIL)}" class="ajyn-gmail-text" style="color:#111111;-webkit-text-fill-color:#111111;text-decoration:none;">${SUPPORT_EMAIL}</a></td>
                     <td class="ajyn-contact-divider" width="28" style="font-size:0;line-height:0;">&nbsp;</td>
-                    <td class="ajyn-contact ajyn-text-dark" style="font-size:11px;line-height:1.3;color:#111111;-webkit-text-fill-color:#111111;">${getWhatsAppIconHtml()}&nbsp; <span class="ajyn-gmail-text" style="color:#111111;-webkit-text-fill-color:#111111;">${SUPPORT_PHONE}</span></td>
+                    <td class="ajyn-contact ajyn-text-dark" style="font-size:11px;line-height:1.3;color:#111111;-webkit-text-fill-color:#111111;">${getWhatsAppIconHtml()}&nbsp; <a href="${escapeHtml(getSupportWhatsAppUrl())}" class="ajyn-gmail-text" style="color:#111111;-webkit-text-fill-color:#111111;text-decoration:none;">${SUPPORT_PHONE}</a></td>
                   </tr>
                 </table>
               </td>
