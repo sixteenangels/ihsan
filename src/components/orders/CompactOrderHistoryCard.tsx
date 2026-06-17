@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { format } from 'date-fns';
+import { formatStoreDate } from '@/lib/date-utils';
 import {
   CheckCircle2,
   Clock3,
@@ -154,7 +154,7 @@ export function CompactOrderHistoryCard({
             <div className="mt-3 flex items-end justify-between gap-2">
               <div className="min-w-0 space-y-1">
                 <p className="truncate text-[11px] text-muted-foreground">
-                  {format(new Date(order.created_at), 'MMM d, yyyy')} - {itemCountLabel}
+                  {formatStoreDate(order.created_at)} - {itemCountLabel}
                 </p>
                 <p className="truncate text-[10px] text-muted-foreground">
                   Delivery: <span className="font-medium text-foreground/80">{getDeliveryWindowLabel(order)}</span>

@@ -1,4 +1,4 @@
-import { format } from 'date-fns';
+import { formatStoreDateLong, formatStoreDateTime } from '@/lib/date-utils';
 import { BRAND_NAME } from '@/lib/brand';
 
 interface ReceiptItem {
@@ -73,10 +73,8 @@ export function buildReceiptQrUrl(payload: string) {
 
 export function buildReceiptHtml(receipt: PrintableReceipt) {
   const address = receipt.shippingAddress;
-  const orderDate = receipt.orderDate
-    ? format(new Date(receipt.orderDate), 'MMMM d, yyyy')
-    : 'N/A';
-  const receiptDate = format(new Date(receipt.generatedAt), 'MMMM d, yyyy');
+  const orderDate = receipt.orderDate ? formatStoreDateLong(receipt.orderDate) : 'N/A';
+  const receiptDate = formatStoreDateLong(receipt.generatedAt);
   const qrUrl = buildReceiptQrUrl(receipt.qrPayload);
   const verificationUrl = receipt.qrPayload;
 

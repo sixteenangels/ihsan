@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Package, MapPin, Truck, CheckCircle } from 'lucide-react';
 import { useStoreSettings } from '@/hooks/useStoreSettings';
+import { formatStoreDateTime } from '@/lib/date-utils';
 import {
   formatOfficialOrderStatusLabel,
   formatOrderTrackingDisplayNote,
@@ -162,7 +163,7 @@ export function OrderTrackingMap({
                     <div className="flex-1 pb-4">
                       <p className="text-sm font-medium">{formatOfficialOrderStatusLabel(point.status)}</p>
                       <p className="text-xs text-muted-foreground">
-                        {new Date(point.created_at).toLocaleString()}
+                        {formatStoreDateTime(point.created_at)}
                       </p>
                       {formatOrderTrackingDisplayNote(point.status, point.notes) && (
                         <p className="mt-1 whitespace-pre-line text-xs text-muted-foreground">
@@ -247,7 +248,7 @@ export function OrderTrackingMap({
                         </p>
                       )}
                       <p className="text-xs text-muted-foreground mt-2">
-                        {new Date(point.created_at).toLocaleString()}
+                        {formatStoreDateTime(point.created_at)}
                       </p>
                     </div>
                   </Popup>
@@ -272,7 +273,7 @@ export function OrderTrackingMap({
                 </p>
               )}
               <p className="text-xs text-muted-foreground mt-2">
-                Updated: {new Date(latestPoint.created_at).toLocaleString()}
+                Updated: {formatStoreDateTime(latestPoint.created_at)}
               </p>
             </div>
           </div>
@@ -293,7 +294,7 @@ export function OrderTrackingMap({
                 <div className="flex-1 pb-4">
                   <p className="text-sm font-medium">{formatOfficialOrderStatusLabel(point.status)}</p>
                   <p className="text-xs text-muted-foreground">
-                    {new Date(point.created_at).toLocaleString()}
+                    {formatStoreDateTime(point.created_at)}
                   </p>
                   {formatOrderTrackingDisplayNote(point.status, point.notes) && (
                     <p className="mt-1 whitespace-pre-line text-xs text-muted-foreground">

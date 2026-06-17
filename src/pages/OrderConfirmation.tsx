@@ -6,6 +6,7 @@ import { Footer } from '@/components/layout/Footer';
 import { RecommendedProductsSection } from '@/components/products/RecommendedProductsSection';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { formatStoreDeliveryWindow } from '@/lib/date-utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useCurrency } from '@/hooks/useCurrency';
 import { toast } from 'sonner';
@@ -180,15 +181,12 @@ export default function OrderConfirmation() {
                   <div>
                     <p className="mb-1 text-sm text-muted-foreground">Estimated Delivery</p>
                     <p className="font-medium text-foreground">
-                      {order.estimated_delivery_start && order.estimated_delivery_end ? (
-                        <>
-                          {new Date(order.estimated_delivery_start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                          {' - '}
-                          {new Date(order.estimated_delivery_end).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                        </>
-                      ) : (
-                        'Delivery date pending'
-                      )}
+                      {order.estimated_delivery_start && order.estimated_delivery_end
+                        ? formatStoreDeliveryWindow(
+                            order.estimated_delivery_start,
+                            order.estimated_delivery_end,
+                          )
+                        : 'Delivery date pending'}
                     </p>
                   </div>
                 </div>

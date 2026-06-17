@@ -17,7 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Loader2, Package, ArrowLeft, Search, CheckCircle, Clock, Truck, RefreshCcw, ShoppingBag, Star } from 'lucide-react';
-import { format } from 'date-fns';
+import { formatStoreDate, formatStoreDateTime, formatStoreDeliveryWindow } from '@/lib/date-utils';
 import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
 import {
@@ -490,7 +490,7 @@ export default function TrackOrder() {
 
   const getEstimatedDelivery = () => {
     if (!order?.estimated_delivery_start || !order?.estimated_delivery_end) return undefined;
-    return `${format(new Date(order.estimated_delivery_start), 'MMM d')} - ${format(new Date(order.estimated_delivery_end), 'MMM d, yyyy')}`;
+    return formatStoreDeliveryWindow(order.estimated_delivery_start, order.estimated_delivery_end);
   };
 
   const canManageOrder = Boolean(user && order?.user_id === user.id);
@@ -614,7 +614,7 @@ export default function TrackOrder() {
                   <div>
                     <p className="text-muted-foreground">Order Date</p>
                     <p className="font-medium">
-                      {format(new Date(order.created_at), 'MMM d, yyyy')}
+                      {formatStoreDate(order.created_at)}
                     </p>
                   </div>
                   <div>
@@ -825,7 +825,7 @@ export default function TrackOrder() {
                   <p>
                     <span className="text-muted-foreground">Courier confirmed at:</span>{' '}
                     <span className="font-medium text-foreground">
-                      {format(new Date(order.courier_confirmed_at), 'MMM d, yyyy h:mm a')}
+                      {formatStoreDateTime(order.courier_confirmed_at)}
                     </span>
                   </p>
                 )}
@@ -833,7 +833,7 @@ export default function TrackOrder() {
                   <p>
                     <span className="text-muted-foreground">Customer confirmed at:</span>{' '}
                     <span className="font-medium text-foreground">
-                      {format(new Date(order.customer_confirmed_at), 'MMM d, yyyy h:mm a')}
+                      {formatStoreDateTime(order.customer_confirmed_at)}
                     </span>
                   </p>
                 )}

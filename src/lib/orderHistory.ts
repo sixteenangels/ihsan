@@ -1,4 +1,4 @@
-import { format } from 'date-fns';
+import { formatStoreDateTime, formatStoreDeliveryWindow } from '@/lib/date-utils';
 
 export type OrderLifecycleSnapshot = {
   order_number: string;
@@ -127,7 +127,7 @@ export function getRefundButtonReason(
     return `Refund requests are only available during the ${getRefundWindowLabel(order)}.`;
   }
 
-  return `Refund window closed on ${format(getRefundWindowEnd(order), 'MMM d, yyyy h:mm a')}.`;
+  return `Refund window closed on ${formatStoreDateTime(getRefundWindowEnd(order))}.`;
 }
 
 export function getOrderReference(
@@ -143,8 +143,5 @@ export function getDeliveryWindowLabel(
     return 'Pending';
   }
 
-  return `${format(new Date(order.estimated_delivery_start), 'MMM d')} - ${format(
-    new Date(order.estimated_delivery_end),
-    'MMM d',
-  )}`;
+  return formatStoreDeliveryWindow(order.estimated_delivery_start, order.estimated_delivery_end);
 }

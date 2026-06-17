@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { format } from 'date-fns';
+import { formatStoreDateTime } from '@/lib/date-utils';
 import { ArrowLeft, Bell, ChevronRight, Package } from 'lucide-react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 
@@ -87,7 +87,7 @@ export default function NotificationDetail() {
                     {title}
                   </h2>
                   <p className="mt-2 text-sm text-[#a6a6a6] md:text-muted-foreground">
-                    {format(new Date(notification.created_at), 'MMM d, yyyy h:mm a')}
+                    {formatStoreDateTime(notification.created_at)}
                   </p>
                 </div>
 

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { format } from 'date-fns';
+import { formatStoreDateTime } from '@/lib/date-utils';
 import { ArrowLeft, Bell, ChevronRight } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
@@ -214,7 +214,7 @@ export default function Notifications() {
                         {message}
                       </p>
                       <p className="mt-2 text-xs text-[#9a9a9a] md:text-muted-foreground">
-                        {format(new Date(notification.created_at), 'MMM d, yyyy h:mm a')}
+                        {formatStoreDateTime(notification.created_at)}
                       </p>
                     </div>
                     <ChevronRight className="h-4 w-4 shrink-0 text-[#8d8d8d] transition-transform group-hover:translate-x-0.5 group-hover:text-primary md:text-muted-foreground" />

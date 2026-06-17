@@ -17,7 +17,13 @@ import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
 import { Loader2, Eye, MapPin, Package, Calendar, CreditCard, ShoppingBag, PackageCheck, Truck, Plane, MapPinned, Home, CheckCircle, XCircle, RotateCcw, Search, Download, StickyNote, CheckSquare, BellRing, MessageSquare, Plus, ChevronDown, type LucideIcon } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
-import { format } from 'date-fns';
+import {
+  formatStoreDate,
+  formatStoreDateIso,
+  formatStoreDateTime,
+  formatStoreDateTimeCompact,
+  formatStoreDeliveryWindow,
+} from '@/lib/date-utils';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useMessageTemplates, useSaveTemplate } from '@/hooks/useMessageTemplates';
 import { SwipeableOrderCard } from './SwipeableOrderCard';
@@ -1101,8 +1107,8 @@ export function AdminOrders() {
         throw error;
       }
 
-      const startDateLabel = format(new Date(startDate), 'PP');
-      const endDateLabel = format(new Date(endDate), 'PP');
+      const startDateLabel = formatStoreDate(startDate);
+      const endDateLabel = formatStoreDate(endDate);
       let notificationResult: CustomerNotificationResult | undefined;
 
       if (userId) {
@@ -1805,9 +1811,8 @@ export function AdminOrders() {
                     card.kind === 'group' ? card.cluster.totalAmount : card.order.total_amount,
                   ).toFixed(2),
                 'Date':
-                  format(
-                    new Date(card.kind === 'group' ? card.cluster.createdAt : card.order.created_at),
-                    'yyyy-MM-dd HH:mm',
+                  formatStoreDateTime(
+                    card.kind === 'group' ? card.cluster.createdAt : card.order.created_at,
                   ),
               }));
               const headers = Object.keys(data[0] || {}).join(',');
@@ -1817,7 +1822,7 @@ export function AdminOrders() {
               const url = URL.createObjectURL(blob);
               const a = document.createElement('a');
               a.href = url;
-              a.download = `orders-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+              a.download = `orders-${formatStoreDateIso()}.csv`;
               a.click();
               URL.revokeObjectURL(url);
             }}
@@ -1964,7 +1969,7 @@ export function AdminOrders() {
                                       </span>
                                       <span>{cluster.participantCount} participants</span>
                                       <span>{formatPrice(Number(cluster.totalAmount))}</span>
-                                      <span>{format(new Date(cluster.createdAt), 'MMM d, yyyy')}</span>
+                                      <span>{formatStoreDate(cluster.createdAt)}</span>
                                     </div>
                                   </div>
                                 </div>
@@ -2188,7 +2193,7 @@ export function AdminOrders() {
                                   {order.profiles?.name || 'Unknown customer'}
                                 </span>
                                 <span>{formatPrice(Number(order.total_amount))}</span>
-                                <span>{format(new Date(order.created_at), 'MMM d, yyyy')}</span>
+                                <span>{formatStoreDate(order.created_at)}</span>
                                 {order.refund_request && (
                                   <span>Refund: {getRefundStatusLabel(order.refund_request.status)}</span>
                                 )}
@@ -2215,7 +2220,7 @@ export function AdminOrders() {
                       <div>
                         <p className="text-sm text-muted-foreground">Order Date</p>
                         <p className="font-medium text-foreground">
-                          {format(new Date(order.created_at), 'PPp')}
+                          {formatStoreDateTime(order.created_at)}
                         </p>
                       </div>
                       <div>
@@ -2228,7 +2233,7 @@ export function AdminOrders() {
                         <p className="text-sm text-muted-foreground">Est. Delivery</p>
                         {order.estimated_delivery_start && order.estimated_delivery_end ? (
                           <p className="font-medium text-foreground text-sm">
-                            {format(new Date(order.estimated_delivery_start), 'PP')} - {format(new Date(order.estimated_delivery_end), 'PP')}
+                            {formatStoreDeliveryWindow(order.estimated_delivery_start, order.estimated_delivery_end)}
                           </p>
                         ) : (
                           <p className="text-sm text-muted-foreground italic">Not set</p>
@@ -2313,7 +2318,7 @@ export function AdminOrders() {
                                     {STATUS_LABELS[track.status as OrderStatus] || track.status.replaceAll('_', ' ')}
                                   </p>
                                   <p className="text-xs text-muted-foreground">
-                                    {format(new Date(track.created_at), 'MMM d, h:mm a')}
+                                    {formatStoreDateTimeCompact(track.created_at)}
                                   </p>
                                   <p className="mt-1 whitespace-pre-line text-xs text-muted-foreground">
                                     {formatOrderTrackingDisplayNote(track.status, track.notes) || getAutoNote(track.status, primaryProductName)}
@@ -2704,7 +2709,7 @@ export function AdminOrders() {
                                         </p>
                                       )}
                                       <p className="text-xs text-muted-foreground">
-                                        {format(new Date(track.created_at), 'PPp')}
+                                        {formatStoreDateTime(track.created_at)}
                                       </p>
                                     </div>
                                   ))
