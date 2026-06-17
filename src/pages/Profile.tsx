@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -36,6 +37,7 @@ import { AlertsSection } from '@/components/profile/AlertsSection';
 import { PushNotificationSettings } from '@/components/profile/PushNotificationSettings';
 import { SupportCenterSection } from '@/components/profile/SupportCenterSection';
 import { canRequestRefund, getRefundAvailabilityLabel, getRefundButtonReason } from '@/lib/orderHistory';
+import { fetchCustomerOrdersForUser, type CustomerOrder } from '@/lib/fetch-user-orders';
 import { reAddOrderItemsToCart } from '@/lib/reorderOrder';
 
 interface Profile {
@@ -68,46 +70,7 @@ function getSafeInternalReturnPath(value: string | null) {
   return value;
 }
 
-interface OrderItem {
-  id: string;
-  product_name: string;
-  variant_details: string;
-  quantity: number;
-  unit_price: number;
-  total_price: number;
-  product_id: string | null;
-  product_variant_id: string | null;
-  image_url?: string | null;
-}
-
-interface ProductVariantLookupRow {
-  id: string;
-  product_id: string;
-}
-
-interface ProductImageLookupRow {
-  product_id: string;
-  image_url: string;
-  order_index: number | null;
-}
-
-interface Order {
-  id: string;
-  order_number: string;
-  status: string | null;
-  total_amount: number;
-  created_at: string;
-  updated_at: string;
-  estimated_delivery_start: string | null;
-  estimated_delivery_end: string | null;
-  courier_tracking_number: string | null;
-  payment_reference: string | null;
-  customer_confirmed_at: string | null;
-  group_buy_id: string | null;
-  is_group_buy_master?: boolean | null;
-  parent_order_id?: string | null;
-  order_items: OrderItem[];
-}
+type Order = CustomerOrder;
 
 const PROFILE_AVATAR_BUCKET = 'profile-avatars';
 const MAX_AVATAR_FILE_SIZE_BYTES = 2 * 1024 * 1024;
@@ -306,6 +269,7 @@ export default function Profile() {
   });
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [ordersLoadError, setOrdersLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editingProfile, setEditingProfile] = useState(false);
@@ -380,100 +344,16 @@ export default function Profile() {
   const fetchOrders = useCallback(async () => {
     if (!user) return;
 
-    const { data, error } = await supabase
-      .from('orders')
-      .select(`
-        id,
-        order_number,
-        status,
-        total_amount,
-        created_at,
-        updated_at,
-        estimated_delivery_start,
-        estimated_delivery_end,
-        courier_tracking_number,
-        payment_reference,
-        customer_confirmed_at,
-        group_buy_id,
-        is_group_buy_master,
-        parent_order_id,
-        order_items (*)
-      `)
-      .eq('user_id', user.id)
-      .or('is_group_buy_master.is.null,is_group_buy_master.eq.false')
-      .order('created_at', { ascending: false });
+    setOrdersLoadError(null);
 
-    if (error) {
-      console.error('Error fetching orders:', error);
-    } else {
-      const safeOrders = data || [];
-      const orderItems = safeOrders.flatMap((order) => order.order_items || []);
-      const directProductIds = [
-        ...new Set(
-          orderItems
-            .map((item) => item.product_id)
-            .filter((productId): productId is string => Boolean(productId)),
-        ),
-      ];
-      const variantIds = [
-        ...new Set(
-          orderItems
-            .map((item) => item.product_variant_id)
-            .filter((variantId): variantId is string => Boolean(variantId)),
-        ),
-      ];
-
-      let variantProductMap = new Map<string, string>();
-      if (variantIds.length > 0) {
-        const { data: variants } = await supabase
-          .from('product_variants')
-          .select('id, product_id')
-          .in('id', variantIds);
-
-        variantProductMap = new Map(
-          ((variants as ProductVariantLookupRow[] | null) || []).map((variant) => [variant.id, variant.product_id]),
-        );
-      }
-
-      const imageProductIds = [
-        ...new Set([
-          ...directProductIds,
-          ...variantIds
-            .map((variantId) => variantProductMap.get(variantId))
-            .filter((productId): productId is string => Boolean(productId)),
-        ]),
-      ];
-
-      const productImageMap = new Map<string, string>();
-      if (imageProductIds.length > 0) {
-        const { data: images } = await supabase
-          .from('product_images')
-          .select('product_id, image_url, order_index')
-          .in('product_id', imageProductIds)
-          .order('order_index', { ascending: true });
-
-        ((images as ProductImageLookupRow[] | null) || []).forEach((image) => {
-          if (!productImageMap.has(image.product_id)) {
-            productImageMap.set(image.product_id, image.image_url);
-          }
-        });
-      }
-
-      const mappedOrders = safeOrders.map((order) => ({
-        ...order,
-        order_items: (order.order_items || []).map((item) => {
-          const resolvedProductId =
-            item.product_id ||
-            (item.product_variant_id ? variantProductMap.get(item.product_variant_id) || null : null);
-
-          return {
-            ...item,
-            image_url: resolvedProductId ? productImageMap.get(resolvedProductId) || null : null,
-          };
-        }),
-      }));
-
+    try {
+      const mappedOrders = await fetchCustomerOrdersForUser(user.id);
       setOrders(mappedOrders);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to load orders.';
+      setOrdersLoadError(message);
+      setOrders([]);
+      toast.error(message);
     }
   }, [user]);
 
@@ -1139,7 +1019,18 @@ export default function Profile() {
               </Link>
             </div>
 
-            {orders.length === 0 ? (
+            {ordersLoadError ? (
+              <Alert variant="destructive">
+                <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <span>{ordersLoadError}</span>
+                  <Button variant="outline" size="sm" onClick={() => void fetchOrders()}>
+                    Try again
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
+            {!ordersLoadError && orders.length === 0 ? (
               <Card className="rounded-2xl border-border/70 shadow-sm">
                 <CardContent className="py-12 text-center">
                   <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">

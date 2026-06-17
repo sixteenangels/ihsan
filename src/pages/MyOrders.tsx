@@ -22,56 +22,23 @@ import { AfterSalesServiceDialog } from '@/components/support/AfterSalesServiceD
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import { supabase } from '@/integrations/supabase/client';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useCurrency } from '@/hooks/useCurrency';
+import {
+  ensureAuthenticatedUser,
+  fetchCustomerOrdersForUser,
+  type CustomerOrder,
+} from '@/lib/fetch-user-orders';
 import { canRequestRefund, getRefundAvailabilityLabel, getRefundButtonReason } from '@/lib/orderHistory';
 import { reAddOrderItemsToCart } from '@/lib/reorderOrder';
 import { toast } from 'sonner';
 
-interface OrderItem {
-  id: string;
-  product_name: string;
-  variant_details: string;
-  quantity: number;
-  unit_price: number;
-  total_price: number;
-  product_id: string | null;
-  product_variant_id: string | null;
-  image_url?: string | null;
-}
-
-interface Order {
-  id: string;
-  order_number: string;
-  status: string | null;
-  total_amount: number;
-  created_at: string;
-  updated_at: string;
-  estimated_delivery_start: string | null;
-  estimated_delivery_end: string | null;
-  courier_tracking_number: string | null;
-  payment_reference: string | null;
-  customer_confirmed_at: string | null;
-  group_buy_id: string | null;
-  is_group_buy_master?: boolean | null;
-  parent_order_id?: string | null;
-  order_items: OrderItem[];
-}
-
-interface ProductVariantLookupRow {
-  id: string;
-  product_id: string;
-}
-
-interface ProductImageLookupRow {
-  product_id: string;
-  image_url: string;
-  order_index: number | null;
-}
+type Order = CustomerOrder;
 
 const CUSTOMER_STATUS_TABS: ReadonlyArray<{
   value: string;
@@ -118,6 +85,7 @@ export default function MyOrders() {
   const { formatPrice } = useCurrency();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('all');
   const [reviewDialogOrder, setReviewDialogOrder] = useState<Order | null>(null);
   const [reviewDialogMode, setReviewDialogMode] = useState<ReviewDialogMode>(null);
@@ -131,115 +99,34 @@ export default function MyOrders() {
   }, [authLoading, navigate, user]);
 
   const fetchOrders = useCallback(async () => {
-    if (!user) return;
-
     setLoading(true);
+    setLoadError(null);
 
-    const { data, error } = await supabase
-      .from('orders')
-      .select(`
-        id,
-        order_number,
-        status,
-        total_amount,
-        created_at,
-        updated_at,
-        estimated_delivery_start,
-        estimated_delivery_end,
-        courier_tracking_number,
-        payment_reference,
-        customer_confirmed_at,
-        group_buy_id,
-        is_group_buy_master,
-        parent_order_id,
-        order_items (*)
-      `)
-      .eq('user_id', user.id)
-      .or('is_group_buy_master.is.null,is_group_buy_master.eq.false')
-      .order('created_at', { ascending: false });
+    try {
+      const activeUser = user ?? (await ensureAuthenticatedUser());
+      const mappedOrders = await fetchCustomerOrdersForUser(activeUser.id);
+      setOrders(mappedOrders);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to load orders.';
+      setLoadError(message);
+      setOrders([]);
 
-    if (error) {
-      toast.error('Failed to load orders');
+      if (/sign in again/i.test(message)) {
+        toast.error(message);
+        navigate('/auth');
+      } else {
+        toast.error(message);
+      }
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const safeOrders = data || [];
-    const orderItems = safeOrders.flatMap((order) => order.order_items || []);
-    const directProductIds = [
-      ...new Set(
-        orderItems
-          .map((item) => item.product_id)
-          .filter((productId): productId is string => Boolean(productId)),
-      ),
-    ];
-    const variantIds = [
-      ...new Set(
-        orderItems
-          .map((item) => item.product_variant_id)
-          .filter((variantId): variantId is string => Boolean(variantId)),
-      ),
-    ];
-
-    let variantProductMap = new Map<string, string>();
-    if (variantIds.length > 0) {
-      const { data: variants } = await supabase
-        .from('product_variants')
-        .select('id, product_id')
-        .in('id', variantIds);
-
-      variantProductMap = new Map(
-        ((variants as ProductVariantLookupRow[] | null) || []).map((variant) => [variant.id, variant.product_id]),
-      );
-    }
-
-    const imageProductIds = [
-      ...new Set([
-        ...directProductIds,
-        ...variantIds
-          .map((variantId) => variantProductMap.get(variantId))
-          .filter((productId): productId is string => Boolean(productId)),
-      ]),
-    ];
-
-    const productImageMap = new Map<string, string>();
-    if (imageProductIds.length > 0) {
-      const { data: images } = await supabase
-        .from('product_images')
-        .select('product_id, image_url, order_index')
-        .in('product_id', imageProductIds)
-        .order('order_index', { ascending: true });
-
-      ((images as ProductImageLookupRow[] | null) || []).forEach((image) => {
-        if (!productImageMap.has(image.product_id)) {
-          productImageMap.set(image.product_id, image.image_url);
-        }
-      });
-    }
-
-    const mappedOrders: Order[] = safeOrders.map((order) => ({
-      ...order,
-      order_items: (order.order_items || []).map((item) => {
-        const resolvedProductId =
-          item.product_id ||
-          (item.product_variant_id ? variantProductMap.get(item.product_variant_id) || null : null);
-
-        return {
-          ...item,
-          image_url: resolvedProductId ? productImageMap.get(resolvedProductId) || null : null,
-        };
-      }),
-    }));
-
-    setOrders(mappedOrders);
-    setLoading(false);
-  }, [user]);
+  }, [navigate, user]);
 
   useEffect(() => {
-    if (user) {
-      fetchOrders();
+    if (!authLoading && user) {
+      void fetchOrders();
     }
-  }, [fetchOrders, user]);
+  }, [authLoading, fetchOrders, user]);
 
   const filteredOrders = orders.filter((order) => {
     if (activeTab === 'all') return true;
@@ -388,6 +275,17 @@ export default function MyOrders() {
             </Button>
           </Link>
         </div>
+
+        {loadError ? (
+          <Alert variant="destructive" className="mb-5">
+            <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <span>{loadError}</span>
+              <Button variant="outline" size="sm" onClick={() => void fetchOrders()}>
+                Try again
+              </Button>
+            </AlertDescription>
+          </Alert>
+        ) : null}
 
         <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
           <ScrollArea className="mobile-scroll-pills mb-5 w-full whitespace-nowrap">

@@ -30,22 +30,6 @@ type OrderSummaryRow = Pick<
   | 'updated_at'
   | 'user_id'
 >;
-const ADMIN_VISIBLE_ORDER_STATUSES = [
-  'payment_received',
-  'order_placed',
-  'order_processed',
-  'confirmed',
-  'processing',
-  'shipped',
-  'in_transit',
-  'in_ghana',
-  'ready_for_delivery',
-  'handed_to_courier',
-  'out_for_delivery',
-  'delivered',
-  'cancelled',
-  'refunded',
-] as const;
 const ADMIN_PICK_PACK_ORDER_STATUSES = [
   'payment_received',
   'order_placed',
@@ -207,7 +191,6 @@ export function AdminDashboard() {
       const { data } = await supabase
         .from('orders')
         .select('id, order_number, status, total_amount, created_at, updated_at, group_buy_id, is_group_buy_master, parent_order_id, user_id')
-        .in('status', ADMIN_VISIBLE_ORDER_STATUSES)
         .order('created_at', { ascending: false });
       return data || [];
     },

@@ -64,7 +64,12 @@ import {
 const ORDER_STATUSES = OFFICIAL_ORDER_TRACKING_STATUSES;
 
 type OrderStatus = OfficialOrderTrackingStatus;
-const ADMIN_VISIBLE_ORDER_STATUSES: OrderStatus[] = [...ORDER_STATUSES];
+const ADMIN_QUERY_STATUSES = [
+  'pending',
+  'packed_for_delivery',
+  ...ORDER_STATUSES,
+] as const;
+const ADMIN_VISIBLE_ORDER_STATUSES: readonly string[] = ADMIN_QUERY_STATUSES;
 type OrderRow = Database['public']['Tables']['orders']['Row'];
 type OrderItemRow = Database['public']['Tables']['order_items']['Row'];
 type OrderTrackingRow = Database['public']['Tables']['order_tracking']['Row'];
@@ -149,7 +154,7 @@ interface StatusTabConfig {
   value: string;
   label: string;
   icon: LucideIcon;
-  statuses: OrderStatus[];
+  statuses: readonly string[];
 }
 
 const STATUS_TABS: StatusTabConfig[] = [
@@ -598,7 +603,7 @@ export function AdminOrders() {
     };
   }, [isDocumentVisible, queryClient]);
 
-  const { data: orders, isLoading } = useQuery({
+  const { data: orders, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['admin-orders'],
     queryFn: async (): Promise<AdminOrder[]> => {
       const { data: ordersData, error: ordersError } = await supabase
@@ -625,7 +630,6 @@ export function AdminOrders() {
             created_at
           )
         `)
-        .in('status', ADMIN_VISIBLE_ORDER_STATUSES)
         .order('created_at', { ascending: false });
 
       if (ordersError) throw ordersError;
@@ -1732,6 +1736,21 @@ export function AdminOrders() {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="space-y-4 py-8">
+        <Alert variant="destructive">
+          <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <span>{error instanceof Error ? error.message : 'Failed to load orders.'}</span>
+            <Button variant="outline" size="sm" onClick={() => void refetch()}>
+              Try again
+            </Button>
+          </AlertDescription>
+        </Alert>
       </div>
     );
   }
