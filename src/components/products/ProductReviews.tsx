@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { formatStoreDate } from '@/lib/date-utils';
 
 interface Review {
   id: string;
@@ -468,11 +469,7 @@ export function ProductReviews({ productId, productName }: ProductReviewsProps) 
                         ))}
                       </div>
                       <span className="text-sm text-muted-foreground">
-                        {new Date(review.created_at).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric',
-                        })}
+                        {formatStoreDate(review.created_at)}
                       </span>
                     </div>
                     {review.title && (
@@ -496,7 +493,7 @@ export function ProductReviews({ productId, productName }: ProductReviewsProps) 
                           <Badge variant="secondary" className="text-xs">AJYN Team</Badge>
                           {review.admin_response_at && (
                             <span className="text-xs text-muted-foreground">
-                              {new Date(review.admin_response_at).toLocaleDateString()}
+                              {formatStoreDate(review.admin_response_at)}
                             </span>
                           )}
                         </div>

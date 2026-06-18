@@ -10,7 +10,8 @@ import { useCurrency } from '@/hooks/useCurrency';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { Progress } from '@/components/ui/progress';
 import { useMemo, useState } from 'react';
-import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
+import { subMonths, startOfMonth, endOfMonth } from 'date-fns';
+import { formatStoreDate, formatStoreDateTimeCompact } from '@/lib/date-utils';
 import type { Database } from '@/integrations/supabase/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { AFTER_SALES_CATEGORY, AFTER_SALES_SUPPORT_OPTIONS, getAfterSalesSupportLabel } from '@/lib/afterSalesSupport';
@@ -1123,7 +1124,7 @@ export function AdminDashboard() {
                 <div className="flex items-center justify-between gap-3">
                   <Badge variant="outline">{log.action}</Badge>
                   <span className="text-xs text-muted-foreground">
-                    {format(new Date(log.created_at), 'MMM d, p')}
+                    {formatStoreDateTimeCompact(log.created_at)}
                   </span>
                 </div>
                 <p className="mt-2 text-sm text-foreground">{log.summary}</p>
@@ -1173,7 +1174,7 @@ export function AdminDashboard() {
                 </div>
                 {item.expectedRestockDate && (
                   <p className="text-xs text-muted-foreground">
-                    Expected restock: {format(new Date(item.expectedRestockDate), 'MMM d, yyyy')}
+                    Expected restock: {formatStoreDate(item.expectedRestockDate)}
                   </p>
                 )}
                 {item.procurementNotes && (
@@ -1367,9 +1368,9 @@ export function AdminDashboard() {
                     Qty {reservation.desired_quantity} | {reservation.intent.replace(/_/g, ' ')}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Requested {format(new Date(reservation.created_at), 'MMM d, p')}
+                    Requested {formatStoreDateTimeCompact(reservation.created_at)}
                     {reservation.expected_restock_date
-                      ? ` | Expected ${format(new Date(reservation.expected_restock_date), 'MMM d, yyyy')}`
+                      ? ` | Expected ${formatStoreDate(reservation.expected_restock_date)}`
                       : ''}
                   </p>
                 </div>

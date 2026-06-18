@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { formatStoreDate } from '@/lib/date-utils';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -152,7 +153,7 @@ export function TwoFactorManage() {
                       {factor.friendly_name || 'Authenticator App'}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Added {new Date(factor.created_at).toLocaleDateString()}
+                      Added {formatStoreDate(factor.created_at)}
                     </p>
                   </div>
                 </div>

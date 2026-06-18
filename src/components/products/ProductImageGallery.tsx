@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -7,10 +7,9 @@ import { cn } from '@/lib/utils';
 interface ProductImageGalleryProps {
   images: string[];
   productName: string;
-  featuredImageOverride?: string | null;
 }
 
-export function ProductImageGallery({ images, productName, featuredImageOverride }: ProductImageGalleryProps) {
+export function ProductImageGallery({ images, productName }: ProductImageGalleryProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isZoomOpen, setIsZoomOpen] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
@@ -21,7 +20,11 @@ export function ProductImageGallery({ images, productName, featuredImageOverride
   const imageContainerRef = useRef<HTMLDivElement>(null);
 
   const displayImages = images.length > 0 ? images : ['https://via.placeholder.com/600'];
-  const activeImage = featuredImageOverride || displayImages[selectedIndex];
+  const activeImage = displayImages[selectedIndex];
+
+  useEffect(() => {
+    setSelectedIndex(0);
+  }, [images]);
 
   const goToPrevious = () => {
     setSelectedIndex((prev) => (prev === 0 ? displayImages.length - 1 : prev - 1));

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { formatStoreDate } from '@/lib/date-utils';
 import { supabase } from '@/integrations/supabase/client';
 import type { Json, Tables } from '@/integrations/supabase/types';
 import { Badge } from '@/components/ui/badge';
@@ -165,7 +166,7 @@ export function GroupBuyParticipantList({ groupBuyId }: GroupBuyParticipantListP
                 ) : <span className="text-muted-foreground">Not provided</span>}
               </TableCell>
               <TableCell className="text-xs text-muted-foreground">
-                {new Date(participant.joined_at).toLocaleDateString()}
+                {formatStoreDate(participant.joined_at)}
               </TableCell>
             </TableRow>
           );

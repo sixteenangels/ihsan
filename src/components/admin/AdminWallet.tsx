@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Wallet, Plus, Search, ArrowDownCircle, ArrowUpCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
+import { formatStoreDate } from '@/lib/date-utils';
 import { useCreditWallet, useWalletTransactions } from '@/hooks/useWallet';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useAuth } from '@/contexts/AuthContext';
@@ -226,7 +226,7 @@ export function AdminWallet() {
                               {formatPrice(Number(t.amount))}
                             </Badge>
                             <span className="text-xs text-muted-foreground">
-                              {format(new Date(t.created_at), 'MMM d, yyyy')}
+                              {formatStoreDate(t.created_at)}
                             </span>
                           </div>
                           <p className="text-sm text-foreground mt-1">{t.description}</p>

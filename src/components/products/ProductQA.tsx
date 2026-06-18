@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { formatStoreDate } from '@/lib/date-utils';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables } from '@/integrations/supabase/types';
@@ -145,7 +146,7 @@ export function ProductQA({ productId }: ProductQAProps) {
                         {q.profiles?.name || 'Customer'}
                       </span>
                       <span className="text-xs text-muted-foreground">
-                        {new Date(q.created_at).toLocaleDateString()}
+                        {formatStoreDate(q.created_at)}
                       </span>
                     </div>
                     <p className="text-foreground mt-1">{q.question}</p>
@@ -157,7 +158,7 @@ export function ProductQA({ productId }: ProductQAProps) {
                       <Badge variant="secondary" className="text-xs">AJYN Team</Badge>
                       {q.answered_at && (
                         <span className="text-xs text-muted-foreground">
-                          {new Date(q.answered_at).toLocaleDateString()}
+                          {formatStoreDate(q.answered_at)}
                         </span>
                       )}
                     </div>

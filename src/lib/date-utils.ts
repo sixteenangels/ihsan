@@ -122,3 +122,35 @@ export function formatStoreDateLong(value: string | Date | null | undefined): st
 export function formatStoreLocaleString(value: string | Date | null | undefined): string {
   return formatStoreDateTime(value);
 }
+
+export function formatStoreTime(value: string | Date | null | undefined): string {
+  const date = toValidDate(value);
+  if (!date) return '';
+
+  return new Intl.DateTimeFormat(STORE_LOCALE, {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+    timeZone: STORE_TIMEZONE,
+  }).format(date);
+}
+
+/** Month and day only — useful for birthdays without year shift. */
+export function formatStoreMonthDay(value: string | Date | null | undefined): string {
+  if (typeof value === 'string' && shouldParseAsDateOnly(value)) {
+    return new Intl.DateTimeFormat(STORE_LOCALE, {
+      day: 'numeric',
+      month: 'long',
+      timeZone: STORE_TIMEZONE,
+    }).format(parseDateOnly(value));
+  }
+
+  const date = toValidDate(value);
+  if (!date) return '';
+
+  return new Intl.DateTimeFormat(STORE_LOCALE, {
+    day: 'numeric',
+    month: 'long',
+    timeZone: STORE_TIMEZONE,
+  }).format(date);
+}

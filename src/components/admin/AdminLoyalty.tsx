@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { Loader2, Award, Users, TrendingUp, TrendingDown, Gift, Cake } from 'lucide-react';
-import { format } from 'date-fns';
+import { formatStoreDateTime } from '@/lib/date-utils';
 
 export function AdminLoyalty() {
   const queryClient = useQueryClient();
@@ -358,7 +358,7 @@ export function AdminLoyalty() {
                             {p.type === 'earn' ? '+' : '-'}{p.points}
                           </span>
                         </TableCell>
-                        <TableCell className="text-muted-foreground text-sm">{format(new Date(p.created_at), 'PP p')}</TableCell>
+                        <TableCell className="text-muted-foreground text-sm">{formatStoreDateTime(p.created_at)}</TableCell>
                       </TableRow>
                     );
                   })}

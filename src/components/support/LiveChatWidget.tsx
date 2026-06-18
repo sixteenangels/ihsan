@@ -8,6 +8,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MessageCircle, X, Send, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatStoreTime } from '@/lib/date-utils';
 import { toast } from 'sonner';
 import { useDocumentVisibility } from '@/hooks/useDocumentVisibility';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -269,10 +270,7 @@ export function LiveChatWidget({
                             msg.is_from_admin ? 'text-muted-foreground' : 'opacity-70'
                           )}
                         >
-                          {new Date(msg.created_at).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
+                          {formatStoreTime(msg.created_at)}
                         </p>
                       </div>
                     </div>

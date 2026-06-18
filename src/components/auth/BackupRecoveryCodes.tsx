@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { toast } from 'sonner';
 import { Loader2, Copy, Check, Download, RefreshCw, Key } from 'lucide-react';
 import { getErrorMessage } from '@/lib/errors';
+import { formatStoreDateTime } from '@/lib/date-utils';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -82,7 +83,7 @@ export function BackupRecoveryCodes({ codes: initialCodes, onComplete, showAsSet
   };
 
   const downloadCodes = () => {
-    const codesText = `AJYN Backup Recovery Codes\n${'='.repeat(30)}\n\nKeep these codes safe. Each code can only be used once.\n\n${codes.join('\n')}\n\nGenerated: ${new Date().toLocaleString()}`;
+    const codesText = `AJYN Backup Recovery Codes\n${'='.repeat(30)}\n\nKeep these codes safe. Each code can only be used once.\n\n${codes.join('\n')}\n\nGenerated: ${formatStoreDateTime(new Date())}`;
     const blob = new Blob([codesText], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');

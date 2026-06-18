@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Star, Trash2, Eye, EyeOff, Send } from 'lucide-react';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
+import { formatStoreDate } from '@/lib/date-utils';
 import type { Tables } from '@/integrations/supabase/types';
 
 type ReviewRow = Tables<'reviews'>;
@@ -162,7 +162,7 @@ export function AdminReviews() {
                 <div className="flex items-center gap-2">
                   <div className="flex">{renderStars(review.rating)}</div>
                   <span className="text-sm text-muted-foreground">
-                    {format(new Date(review.created_at), 'MMM d, yyyy')}
+                    {formatStoreDate(review.created_at)}
                   </span>
                 </div>
                 

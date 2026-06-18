@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Copy, Gift, Loader2, Plus, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
+import { formatStoreDateTime } from '@/lib/date-utils';
 import { useCurrency } from '@/hooks/useCurrency';
 import { logAdminAction } from '@/lib/audit-log';
 import type { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
@@ -312,7 +312,7 @@ export function AdminGiftCards() {
                         {redeemer?.name || redeemer?.email || (card.redeemed_by ? 'Redeemed' : '-')}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {card.expires_at ? format(new Date(card.expires_at), 'PP p') : 'No expiry'}
+                        {card.expires_at ? formatStoreDateTime(card.expires_at) : 'No expiry'}
                       </TableCell>
                       <TableCell>
                         {card.redeemed_by ? (

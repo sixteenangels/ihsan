@@ -44,7 +44,7 @@ import {
 } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { Loader2, Eye, Check, X, RefreshCcw } from 'lucide-react';
-import { format } from 'date-fns';
+import { formatStoreDate } from '@/lib/date-utils';
 import { useCurrency } from '@/hooks/useCurrency';
 
 async function upsertRefundTrackingNote(orderId: string, note: string) {
@@ -364,7 +364,7 @@ export function AdminRefunds() {
                   </TableCell>
                   <TableCell>{getStatusBadge(request.status)}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {format(new Date(request.created_at), 'MMM d, yyyy')}
+                    {formatStoreDate(request.created_at)}
                   </TableCell>
                   <TableCell className="text-right">
                     <Button

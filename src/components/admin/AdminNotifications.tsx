@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Switch } from '@/components/ui/switch';
 import { Loader2, Bell, Send, Trash2, Users, User } from 'lucide-react';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
+import { formatStoreDate, formatStoreDateTime } from '@/lib/date-utils';
 
 const NOTIFICATION_TYPES = [
   { value: 'general', label: 'General' },
@@ -518,7 +518,7 @@ export function AdminNotifications() {
                           ) : (
                             <span>Recipient: {formatRecipient(recipient)}</span>
                           )}
-                          <span>{format(new Date(notification.created_at), 'MMM d, yyyy h:mm a')}</span>
+                          <span>{formatStoreDateTime(notification.created_at)}</span>
                         </div>
                       </div>
                     </div>

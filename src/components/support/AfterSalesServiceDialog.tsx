@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { format } from 'date-fns';
+import { formatStoreDate } from '@/lib/date-utils';
 import { CheckCircle2, ImagePlus, Loader2, ShieldCheck, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -79,7 +79,7 @@ export function AfterSalesServiceDialog({
     [order.order_items],
   );
   const deliveryDate = order.customer_confirmed_at || order.updated_at || order.created_at || null;
-  const formattedDeliveryDate = deliveryDate ? format(new Date(deliveryDate), 'MMM d, yyyy') : 'Delivered recently';
+  const formattedDeliveryDate = deliveryDate ? formatStoreDate(deliveryDate) : 'Delivered recently';
   const customerName =
     order.shipping_address?.full_name?.trim() ||
     (user?.user_metadata?.full_name as string | undefined)?.trim() ||

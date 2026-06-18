@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button';
 import { FileText } from 'lucide-react';
 import { useCurrency } from '@/hooks/useCurrency';
 import { BRAND_NAME } from '@/lib/brand';
+import { formatStoreDateLong } from '@/lib/date-utils';
 
 interface InvoiceItem {
   product_name: string;
@@ -53,9 +54,7 @@ export function OrderInvoice({ order }: OrderInvoiceProps) {
     if (!printWindow) return;
 
     const addr = order.shipping_address;
-    const date = new Date(order.created_at).toLocaleDateString('en-US', {
-      year: 'numeric', month: 'long', day: 'numeric',
-    });
+    const date = formatStoreDateLong(order.created_at);
     const formattedSubtotal = formatPrice(order.subtotal);
     const formattedShipping = formatPrice(order.shipping_price || 0);
     const formattedTotal = formatPrice(order.total_amount);

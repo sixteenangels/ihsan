@@ -10,6 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import { useCurrency } from '@/hooks/useCurrency';
 import { toast } from 'sonner';
+import { buildDetailGalleryImages } from '@/lib/product-images';
 import { Product, ProductVariant } from '@/types';
 
 interface ExtendedProduct extends Product {
@@ -51,12 +52,16 @@ export function ProductQuickView({ product, open, onOpenChange }: ProductQuickVi
     [selectedVariant, variants],
   );
   const images = useMemo(() => {
-    return product?.images.length
-      ? product.images
-      : ['https://via.placeholder.com/400'];
-  }, [product?.images]);
+    if (!product) {
+      return ['https://via.placeholder.com/400'];
+    }
 
-  const featuredImageOverride = selectedVariantData?.image_url || null;
+    return buildDetailGalleryImages(
+      product.images,
+      product.variants,
+      selectedVariantData?.image_url,
+    );
+  }, [product, selectedVariantData?.image_url]);
 
   // Get unique colors and sizes from variants
   const colors = useMemo(() => {
@@ -187,7 +192,7 @@ export function ProductQuickView({ product, open, onOpenChange }: ProductQuickVi
           {/* Image Section */}
           <div className="relative bg-muted aspect-square">
             <img
-              src={featuredImageOverride || images[currentImageIndex]}
+              src={images[currentImageIndex] || images[0]}
               alt={product.name}
               className="w-full h-full object-cover"
             />

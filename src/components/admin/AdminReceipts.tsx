@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/table';
 import { Loader2, Download, Plus, Printer, QrCode, Copy } from 'lucide-react';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
+import { formatStoreDate, formatStoreDateTime } from '@/lib/date-utils';
 import {
   buildReceiptHtml,
   buildReceiptQrPayload,
@@ -453,7 +453,7 @@ export function AdminReceipts() {
                         ₵{Number(receipt.orders?.total_amount || 0).toFixed(2)}
                       </TableCell>
                       <TableCell>
-                        {format(new Date(receipt.generated_at), 'MMM d, yyyy')}
+                        {formatStoreDate(receipt.generated_at)}
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-2">

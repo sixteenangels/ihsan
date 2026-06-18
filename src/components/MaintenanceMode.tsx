@@ -2,6 +2,7 @@ import { useStoreSettings } from '@/hooks/useStoreSettings';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLocation } from 'react-router-dom';
 import { Construction, Clock } from 'lucide-react';
+import { formatStoreDateTime } from '@/lib/date-utils';
 
 interface MaintenanceModeProps {
   children: React.ReactNode;
@@ -33,7 +34,7 @@ export function MaintenanceMode({ children }: MaintenanceModeProps) {
           <span>Maintenance mode is active — the store is currently hidden from customers.</span>
           {scheduledActive && endTime && (
             <span className="opacity-80">
-              (Until {endTime.toLocaleString()})
+              (Until {formatStoreDateTime(endTime)})
             </span>
           )}
         </div>
@@ -55,7 +56,7 @@ export function MaintenanceMode({ children }: MaintenanceModeProps) {
         {scheduledActive && endTime && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
             <Clock className="h-4 w-4" />
-            <span>Expected back: {endTime.toLocaleString()}</span>
+            <span>Expected back: {formatStoreDateTime(endTime)}</span>
           </div>
         )}
         <p className="text-sm text-muted-foreground">

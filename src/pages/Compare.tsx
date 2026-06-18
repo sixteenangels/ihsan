@@ -10,7 +10,7 @@ import { X, Star, Truck, Zap, Users, History, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
-import { format } from 'date-fns';
+import { formatStoreDateTime } from '@/lib/date-utils';
 
 export default function Compare() {
   const { user } = useAuth();
@@ -62,7 +62,7 @@ export default function Compare() {
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex-1">
                         <p className="text-sm text-muted-foreground">
-                          {format(new Date(entry.compared_at), 'MMM d, yyyy h:mm a')}
+                          {formatStoreDateTime(entry.compared_at)}
                         </p>
                         <p className="line-clamp-1 text-sm">{getProductNames(entry.product_ids)}</p>
                       </div>

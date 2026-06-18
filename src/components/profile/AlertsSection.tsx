@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { formatStoreDate } from '@/lib/date-utils';
 import { useNavigate } from 'react-router-dom';
 import {
   Bell,
@@ -369,17 +370,17 @@ export function AlertsSection() {
                       </Badge>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      Added on {new Date(alert.created_at).toLocaleDateString()}
+                      Added on {formatStoreDate(alert.created_at)}
                     </p>
                     {alert.product?.expected_restock_date && (
                       <p className="text-sm text-muted-foreground">
                         Expected restock on{' '}
-                        {new Date(alert.product.expected_restock_date).toLocaleDateString()}
+                        {formatStoreDate(alert.product.expected_restock_date)}
                       </p>
                     )}
                     {alert.last_notified_at && (
                       <p className="text-sm text-muted-foreground">
-                        Last notified on {new Date(alert.last_notified_at).toLocaleDateString()}
+                        Last notified on {formatStoreDate(alert.last_notified_at)}
                       </p>
                     )}
                   </div>

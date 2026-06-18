@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { formatStoreDateTime } from '@/lib/date-utils';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -424,8 +425,8 @@ export function AdminSettings() {
                 {settings.maintenanceStartTime && settings.maintenanceEndTime && (
                   <p className="text-xs text-muted-foreground">
                     Maintenance will auto-activate from{' '}
-                    <strong>{new Date(settings.maintenanceStartTime).toLocaleString()}</strong> to{' '}
-                    <strong>{new Date(settings.maintenanceEndTime).toLocaleString()}</strong>.
+                    <strong>{formatStoreDateTime(settings.maintenanceStartTime)}</strong> to{' '}
+                    <strong>{formatStoreDateTime(settings.maintenanceEndTime)}</strong>.
                     {new Date(settings.maintenanceEndTime) < new Date() && (
                       <span className="text-destructive ml-1">This schedule has already passed.</span>
                     )}

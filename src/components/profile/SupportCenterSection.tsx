@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+import { formatStoreDateTime } from '@/lib/date-utils';
 import { useDocumentVisibility } from '@/hooks/useDocumentVisibility';
 
 type SupportConversation = Tables<'chat_support_conversations'>;
@@ -336,7 +337,7 @@ export function SupportCenterSection() {
                         </Badge>
                       </div>
                       <p className="mt-2 text-xs text-muted-foreground">
-                        Updated {new Date(conversation.updated_at).toLocaleString()}
+                        Updated {formatStoreDateTime(conversation.updated_at)}
                       </p>
                     </button>
                   ))}
@@ -396,7 +397,7 @@ export function SupportCenterSection() {
                               : 'text-primary-foreground/70',
                           )}
                         >
-                          {new Date(message.created_at).toLocaleString()}
+                          {formatStoreDateTime(message.created_at)}
                         </p>
                       </div>
                     </div>
@@ -467,7 +468,7 @@ export function SupportCenterSection() {
                         {request.source.replaceAll('_', ' ')}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        Submitted {new Date(request.created_at).toLocaleString()}
+                        Submitted {formatStoreDateTime(request.created_at)}
                       </p>
                     </div>
                     <Badge variant={getRequestStatusVariant(request.status)}>

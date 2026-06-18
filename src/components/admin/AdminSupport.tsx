@@ -11,7 +11,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Send, MessageCircle, User, Circle, Clock, CheckCircle, XCircle, AlertTriangle, Inbox, TimerReset } from 'lucide-react';
 import { toast } from 'sonner';
-import { differenceInHours, format } from 'date-fns';
+import { differenceInHours } from 'date-fns';
+import { formatStoreDate, formatStoreDateTime, formatStoreDateTimeCompact, formatStoreTime } from '@/lib/date-utils';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   AFTER_SALES_ATTACHMENT_BUCKET,
@@ -658,7 +659,7 @@ export function AdminSupport() {
                               {conv.status}
                             </span>
                             <span className="text-xs text-muted-foreground">
-                              - {format(new Date(conv.updated_at), 'MMM d, h:mm a')}
+                              - {formatStoreDateTimeCompact(conv.updated_at)}
                             </span>
                           </div>
                         </div>
@@ -757,7 +758,7 @@ export function AdminSupport() {
                                   : 'text-muted-foreground'
                               )}
                             >
-                              {format(new Date(msg.created_at), 'h:mm a')}
+                              {formatStoreTime(msg.created_at)}
                             </p>
                           </div>
                         </div>
@@ -959,7 +960,7 @@ export function AdminSupport() {
                           {request.email}
                         </button>
                         <p className="text-xs text-muted-foreground">
-                          {format(new Date(request.created_at), 'MMM d, yyyy h:mm a')} via {request.source.replaceAll('_', ' ')}
+                          {formatStoreDateTime(request.created_at)} via {request.source.replaceAll('_', ' ')}
                         </p>
                       </div>
                       <div className="flex flex-wrap gap-2">
@@ -1012,7 +1013,7 @@ export function AdminSupport() {
                             Delivery Date
                           </p>
                           <p className="mt-1 text-sm font-medium text-foreground">
-                            {request.delivery_date ? format(new Date(request.delivery_date), 'MMM d, yyyy') : 'Not provided'}
+                            {request.delivery_date ? formatStoreDate(request.delivery_date) : 'Not provided'}
                           </p>
                         </div>
                         <div>

@@ -17,7 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
+import { formatStoreDate, formatStoreDateTime, formatStoreMonthDay } from '@/lib/date-utils';
 import {
   Dialog,
   DialogContent,
@@ -177,7 +177,7 @@ function ReferralTab() {
                     <div key={referral.id} className="rounded-2xl border border-border/70 bg-muted/40 p-3">
                       <p className="text-sm font-medium text-foreground">Referral #{index + 1}</p>
                       <p className="text-xs text-muted-foreground">
-                        Joined {format(new Date(referral.created_at), 'MMM d, yyyy')}
+                        Joined {formatStoreDate(referral.created_at)}
                       </p>
                     </div>
                   ))
@@ -235,7 +235,7 @@ function LoyaltyTab() {
                     {entry.description}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {new Date(entry.created_at).toLocaleDateString()}
+                    {formatStoreDate(entry.created_at)}
                   </p>
                 </div>
                 <Badge
@@ -812,7 +812,7 @@ export default function Profile() {
                     ) : (
                       <p className="text-foreground">
                         {profile.birthday
-                          ? new Date(profile.birthday).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
+                          ? formatStoreMonthDay(profile.birthday)
                           : 'Not set'}
                       </p>
                     )}
@@ -1140,11 +1140,7 @@ export default function Profile() {
                               Order {request.order?.order_number || 'Unknown'}
                             </p>
                             <p className="text-sm text-muted-foreground">
-                              Requested on {new Date(request.created_at).toLocaleDateString('en-US', {
-                                month: 'short',
-                                day: 'numeric',
-                                year: 'numeric',
-                              })}
+                              Requested on {formatStoreDate(request.created_at)}
                             </p>
                           </div>
                           <Badge

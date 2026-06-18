@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { formatStoreDate } from '@/lib/date-utils';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, BadgeCheck, Download, Loader2, Printer } from 'lucide-react';
@@ -152,7 +153,7 @@ export default function ReceiptVerify() {
                   </p>
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  Generated {new Date(printableReceipt.generatedAt).toLocaleDateString()}
+                  Generated {formatStoreDate(printableReceipt.generatedAt)}
                 </div>
               </CardContent>
             </Card>

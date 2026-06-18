@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { toast } from 'sonner';
 import { Loader2, Users, Shield, User, Crown, ChevronDown, ChevronRight } from 'lucide-react';
-import { format } from 'date-fns';
+import { formatStoreDate } from '@/lib/date-utils';
 import type { Enums, Tables } from '@/integrations/supabase/types';
 
 type AppRole = Enums<'app_role'>;
@@ -270,7 +270,7 @@ export function AdminUsers() {
                         <p className="truncate font-medium text-foreground">{user.name || 'No name'}</p>
                         <p className="truncate text-sm text-muted-foreground">{user.email}</p>
                         <p className="text-xs text-muted-foreground">
-                          Joined: {format(new Date(user.created_at), 'PP')}
+                          Joined: {formatStoreDate(user.created_at)}
                         </p>
                       </div>
                     </div>

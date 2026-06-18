@@ -9,6 +9,7 @@ import {
   loadCheckoutRecoverySnapshot,
   type CheckoutRecoverySnapshot,
 } from '@/lib/checkoutRecovery';
+import { formatStoreDateTime } from '@/lib/date-utils';
 
 export function ResumeCheckoutBanner() {
   const { formatPrice } = useCurrency();
@@ -46,7 +47,7 @@ export function ResumeCheckoutBanner() {
           {snapshot.shippingLabel ? <span>{snapshot.shippingLabel}</span> : null}
           <span className="inline-flex items-center gap-1 text-muted-foreground">
             <Clock3 className="h-3.5 w-3.5" />
-            Updated {new Date(snapshot.updatedAt).toLocaleString()}
+            Updated {formatStoreDateTime(snapshot.updatedAt)}
           </span>
         </div>
 

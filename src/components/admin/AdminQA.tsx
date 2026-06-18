@@ -9,7 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { Loader2, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { useState } from 'react';
-import { format } from 'date-fns';
+import { formatStoreDate } from '@/lib/date-utils';
 import type { Tables } from '@/integrations/supabase/types';
 
 type ProductQuestionRow = Tables<'product_questions'> & {
@@ -107,7 +107,7 @@ export function AdminQA() {
                       {' · by '}
                       {q.profiles?.name || q.profiles?.email || 'Unknown'}
                       {' · '}
-                      {format(new Date(q.created_at), 'MMM d, yyyy')}
+                      {formatStoreDate(q.created_at)}
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">

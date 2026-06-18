@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { Loader2, Plus, Trash2, Tag, Zap, Percent, DollarSign, Gift, Save } from 'lucide-react';
-import { format } from 'date-fns';
+import { formatStoreDate } from '@/lib/date-utils';
 import { couponSchema, validateForm } from '@/lib/validations/admin';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useAuth } from '@/contexts/AuthContext';
@@ -487,8 +487,8 @@ export function AdminPromotions() {
                     )}
                     <p className="text-xs text-muted-foreground">
                       Uses: {coupon.current_uses || 0}{coupon.max_uses ? `/${coupon.max_uses}` : ''}
-                      {coupon.starts_at && ` | Starts: ${format(new Date(coupon.starts_at), 'PP')}`}
-                      {coupon.expires_at && ` | Expires: ${format(new Date(coupon.expires_at), 'PP')}`}
+                      {coupon.starts_at && ` | Starts: ${formatStoreDate(coupon.starts_at)}`}
+                      {coupon.expires_at && ` | Expires: ${formatStoreDate(coupon.expires_at)}`}
                     </p>
                   </div>
                 </div>

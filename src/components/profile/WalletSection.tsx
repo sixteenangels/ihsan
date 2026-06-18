@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Wallet, ArrowDownCircle, ArrowUpCircle, Loader2, Gift } from 'lucide-react';
-import { format } from 'date-fns';
+import { formatStoreDate } from '@/lib/date-utils';
 import { useWalletTransactions, useWalletBalance } from '@/hooks/useWallet';
 import { useCurrency } from '@/hooks/useCurrency';
 import { Input } from '@/components/ui/input';
@@ -122,7 +122,7 @@ export function WalletSection() {
                         {formatPrice(Number(t.amount))}
                       </Badge>
                       <span className="text-xs text-muted-foreground">
-                        {format(new Date(t.created_at), 'MMM d, yyyy')}
+                        {formatStoreDate(t.created_at)}
                       </span>
                     </div>
                     <p className="text-sm text-foreground mt-1">{t.description}</p>

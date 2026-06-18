@@ -58,6 +58,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { buildDetailGalleryImages } from '@/lib/product-images';
+import { formatStoreMonthDay } from '@/lib/date-utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 // Convert DB product to legacy Product type for cart
@@ -156,7 +158,6 @@ export default function ProductDetail() {
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const mobileGalleryRef = useRef<HTMLDivElement | null>(null);
   const variantSectionRef = useRef<HTMLElement | null>(null);
-  const initialVariantPreviewSkippedRef = useRef<string | null>(null);
   const preferredGroupBuyId = searchParams.get('groupBuy');
   const shouldFocusVariantSelector = searchParams.get('selectVariant') === '1';
 
@@ -333,7 +334,6 @@ export default function ProductDetail() {
   const selectedItemCount = selectedVariants.reduce((sum, variant) => sum + variant.quantity, 0);
 
   useEffect(() => {
-    initialVariantPreviewSkippedRef.current = null;
     setPreviewVariantId(null);
     setActiveMobileImageIndex(0);
   }, [product?.id]);
@@ -362,30 +362,36 @@ export default function ProductDetail() {
     );
   }, [defaultMobileVariant, mobileVariantId, product]);
 
-  const previewVariant = useMemo(() => {
-    if (!product || !previewVariantId) {
+  const activeGalleryVariant = useMemo(() => {
+    if (!product) {
       return null;
     }
 
-    return product.variants.find((variant) => variant.id === previewVariantId) || null;
-  }, [previewVariantId, product]);
+    const activeVariantId = previewVariantId || mobileVariantId;
+    return (
+      product.variants.find((variant) => variant.id === activeVariantId) ||
+      defaultMobileVariant ||
+      null
+    );
+  }, [defaultMobileVariant, mobileVariantId, previewVariantId, product]);
 
-  const galleryImages = product?.images.length ? product.images : ['/placeholder.svg'];
-  const featuredImageOverride = previewVariant?.image_url || null;
-  const heroImage = featuredImageOverride || galleryImages[0] || '/placeholder.svg';
+  const displayGalleryImages = useMemo(() => {
+    if (!product) {
+      return ['/placeholder.svg'];
+    }
+
+    return buildDetailGalleryImages(
+      product.images,
+      product.variants,
+      activeGalleryVariant?.image_url,
+    );
+  }, [activeGalleryVariant?.image_url, product]);
+
+  const heroImage = displayGalleryImages[0] || '/placeholder.svg';
 
   const handleVariantPreviewChange = useCallback((variant: ProductVariant | null) => {
-    if (!product) {
-      return;
-    }
-
-    if (initialVariantPreviewSkippedRef.current !== product.id) {
-      initialVariantPreviewSkippedRef.current = product.id;
-      return;
-    }
-
     setPreviewVariantId(variant?.id || null);
-  }, [product]);
+  }, []);
 
   const handleAddToCart = () => {
     if (!product) return;
@@ -462,7 +468,7 @@ export default function ProductDetail() {
   };
 
   const handlePreviewImage = () => {
-    const image = featuredImageOverride || galleryImages[activeMobileImageIndex] || heroImage;
+    const image = displayGalleryImages[activeMobileImageIndex] || heroImage;
     if (!image) return;
     window.open(image, '_blank', 'noopener,noreferrer');
   };
@@ -472,7 +478,9 @@ export default function ProductDetail() {
     if (!container || container.clientWidth === 0) return;
 
     const nextIndex = Math.round(container.scrollLeft / container.clientWidth);
-    setActiveMobileImageIndex(Math.min(Math.max(nextIndex, 0), Math.max(0, galleryImages.length - 1)));
+    setActiveMobileImageIndex(
+      Math.min(Math.max(nextIndex, 0), Math.max(0, displayGalleryImages.length - 1)),
+    );
   };
 
   const resetMobileGallery = () => {
@@ -481,7 +489,7 @@ export default function ProductDetail() {
   };
 
   useEffect(() => {
-    if (!isMobile || galleryImages.length <= 1) return;
+    if (!isMobile || displayGalleryImages.length <= 1) return;
 
     const container = mobileGalleryRef.current;
     if (!container) return;
@@ -522,7 +530,7 @@ export default function ProductDetail() {
 
       const nextIndex = Math.min(
         Math.max(Math.round(container.scrollLeft / container.clientWidth), 0),
-        Math.max(0, galleryImages.length - 1),
+        Math.max(0, displayGalleryImages.length - 1),
       );
 
       setActiveMobileImageIndex(nextIndex);
@@ -582,7 +590,7 @@ export default function ProductDetail() {
       container.removeEventListener('touchend', finishSwipe);
       container.removeEventListener('touchcancel', finishSwipe);
     };
-  }, [galleryImages.length, isMobile]);
+  }, [displayGalleryImages.length, isMobile]);
 
   const getShippingIcon = (typeName: string | undefined) => {
     if (!typeName) return <Plane className="h-5 w-5" />;
@@ -625,11 +633,7 @@ export default function ProductDetail() {
   }
 
   const expectedRestockDateLabel = product.expected_restock_date
-    ? new Date(product.expected_restock_date).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-      })
+    ? formatStoreMonthDay(product.expected_restock_date)
     : null;
   const groupBuySavings = product.group_buy_price != null && product.base_price > 0
     ? Math.max(0, Math.round(((product.base_price - product.group_buy_price) / product.base_price) * 100))
@@ -806,23 +810,13 @@ export default function ProductDetail() {
             </div>
 
             <div className="overflow-hidden rounded-[1.8rem] border border-border/70 bg-card/80 shadow-sm">
-              {featuredImageOverride ? (
-                <div className="relative overflow-hidden rounded-[1.65rem] bg-muted">
-                  <img
-                    src={featuredImageOverride}
-                    alt={`${product.name} selected variant`}
-                    className="h-[320px] w-full object-cover"
-                    draggable={false}
-                  />
-                </div>
-              ) : null}
               <div className="relative overflow-hidden rounded-[1.65rem] bg-muted">
                 <div
                   ref={mobileGalleryRef}
                   className="no-scrollbar flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [touch-action:pan-x]"
                   onScroll={handleMobileGalleryScroll}
                 >
-                  {galleryImages.map((image, index) => (
+                  {displayGalleryImages.map((image, index) => (
                     <div key={`${image}-${index}`} className="w-full flex-none snap-center">
                       <img
                         src={image}
@@ -835,7 +829,7 @@ export default function ProductDetail() {
                 </div>
                 <div className="absolute inset-x-0 bottom-0 flex items-end justify-between p-3">
                   <span className="rounded-full border border-white/15 bg-background/75 px-2.5 py-1 text-[11px] font-medium text-foreground backdrop-blur-md">
-                    {Math.min(activeMobileImageIndex + 1, Math.max(1, galleryImages.length))}/{Math.max(1, galleryImages.length)}
+                    {Math.min(activeMobileImageIndex + 1, Math.max(1, displayGalleryImages.length))}/{Math.max(1, displayGalleryImages.length)}
                   </span>
                   <Button
                     type="button"
@@ -1026,10 +1020,9 @@ export default function ProductDetail() {
 
             <div className="grid gap-5 lg:grid-cols-2 lg:gap-12">
               <ProductImageGallery
-                key={galleryImages[0] || product.id}
-                images={galleryImages}
+                key={`${product.id}-${activeGalleryVariant?.id || 'default'}`}
+                images={displayGalleryImages}
                 productName={product.name}
-                featuredImageOverride={featuredImageOverride}
               />
 
               <div className="space-y-6">

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { formatStoreDate } from '@/lib/date-utils';
 import { useMutation } from '@tanstack/react-query';
 import { CalendarClock, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -79,11 +80,7 @@ export function RestockReservationDialog({
   );
 
   const expectedRestockLabel = expectedRestockDate
-    ? new Date(expectedRestockDate).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-      })
+    ? formatStoreDate(expectedRestockDate)
     : null;
 
   const submitMutation = useMutation({

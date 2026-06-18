@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { formatStoreDate } from '@/lib/date-utils';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -1837,7 +1838,7 @@ export function AdminGroupBuys() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        {new Date(groupBuy.expires_at).toLocaleDateString()}
+                        {formatStoreDate(groupBuy.expires_at)}
                       </TableCell>
                       <TableCell>{getStatusBadge(groupBuy.status)}</TableCell>
                       <TableCell className="text-right">
