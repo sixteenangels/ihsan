@@ -11,7 +11,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Progress } from '@/components/ui/progress';
 import { useMemo, useState } from 'react';
 import { subMonths, startOfMonth, endOfMonth } from 'date-fns';
-import { formatStoreDate, formatStoreDateTimeCompact } from '@/lib/date-utils';
+import { formatStoreDate, formatStoreDateTimeCompact, STORE_LOCALE, STORE_TIMEZONE } from '@/lib/date-utils';
 import type { Database } from '@/integrations/supabase/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { AFTER_SALES_CATEGORY, AFTER_SALES_SUPPORT_OPTIONS, getAfterSalesSupportLabel } from '@/lib/afterSalesSupport';
@@ -565,7 +565,10 @@ export function AdminDashboard() {
         return d >= start && d <= end;
       });
       return {
-        month: format(date, 'MMM'),
+        month: new Intl.DateTimeFormat(STORE_LOCALE, {
+          month: 'short',
+          timeZone: STORE_TIMEZONE,
+        }).format(date),
         revenue: monthOrders.reduce((sum, order) => sum + Number(order.total_amount), 0),
         orders: monthOrders.length,
       };
