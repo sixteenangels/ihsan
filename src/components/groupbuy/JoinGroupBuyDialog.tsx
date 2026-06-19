@@ -35,8 +35,13 @@ import {
   hasRequiredGroupBuyDeliveryDetails,
 } from '@/lib/groupBuyCheckout';
 import { useGroupBuySettings } from '@/hooks/useGroupBuySettings';
+import { buildCheckoutSavingsTotalRows, useCheckoutSavings } from '@/hooks/useCheckoutSavings';
 import { resolveGroupBuySettings } from '@/lib/groupBuyConfig';
 import { PurchaseSummary } from '@/components/checkout/PurchaseSummary';
+import {
+  CheckoutSavingsCard,
+  CheckoutSavingsDialog,
+} from '@/components/checkout/CheckoutSavingsControls';
 
 interface JoinGroupBuyDialogProps {
   inviteCode?: string | null;
@@ -319,6 +324,16 @@ export function JoinGroupBuyDialog({
   const averageUnitPrice = totalSelectedQuantity > 0
     ? totalAmount / totalSelectedQuantity
     : discountedPrice;
+  const savings = useCheckoutSavings({ subtotal: totalAmount, shippingCost: 0 });
+  const checkoutTotals = buildCheckoutSavingsTotalRows(
+    savings,
+    formatPrice,
+    [
+      ...(activeTier ? [{ label: 'Tier', value: activeTier.label }] : []),
+      { label: 'Total items', value: String(totalSelectedQuantity) },
+      { label: 'Subtotal', value: formatPrice(totalAmount) },
+    ],
+  );
   const existingQuantity = Math.max(0, Number(existingParticipation?.quantity || 0));
   const desiredTotalQuantity =
     existingParticipation && resolvedGroupBuySettings.allowDuplicateParticipation
@@ -403,7 +418,12 @@ export function JoinGroupBuyDialog({
       }
 
       const reference = `GB-${groupBuy.id.slice(0, 8)}-${Date.now()}`;
-      const amountInPesewas = Math.round(totalAmount * 100);
+      if (savings.total <= 0) {
+        toast.error('Group buy checkout requires a card payment. Reduce wallet or loyalty credit applied.');
+        setPayingWithPaystack(false);
+        return;
+      }
+      const amountInPesewas = Math.round(savings.total * 100);
       if (amountInPesewas <= 0) {
         throw new Error('Choose a paid group buy quantity before continuing');
       }
@@ -877,22 +897,21 @@ export function JoinGroupBuyDialog({
                         },
                       ]
                 }
-                totals={[
-                  ...(activeTier ? [{ label: 'Tier', value: activeTier.label }] : []),
-                  { label: 'Total items', value: String(totalSelectedQuantity) },
-                  { label: 'Total', value: formatPrice(totalAmount), emphasis: true },
-                ]}
+                totals={checkoutTotals}
                 makeChangesLabel="Back"
                 payLabel="Pay Now"
                 isProcessing={payingWithPaystack}
                 onMakeChanges={() => setStep('select')}
                 onPay={handlePaystackPayment}
-              />
+              >
+                <CheckoutSavingsCard savings={savings} />
+              </PurchaseSummary>
             </div>
           )}
         </div>
       </DialogContent>
     </Dialog>
+    <CheckoutSavingsDialog savings={savings} loyaltyPointsInputId="join-group-buy-loyalty-points" />
     <Dialog open={isAddressPickerOpen} onOpenChange={setIsAddressPickerOpen}>
       <DialogContent className="max-h-[85vh] overflow-y-auto rounded-2xl sm:max-w-md">
         <DialogHeader>

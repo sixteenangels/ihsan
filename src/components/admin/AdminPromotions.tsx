@@ -17,6 +17,7 @@ import { couponSchema, validateForm } from '@/lib/validations/admin';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useAuth } from '@/contexts/AuthContext';
 import { logAdminAction } from '@/lib/audit-log';
+import { parseBooleanStoreSetting } from '@/lib/storeSettingFlags';
 import type { Enums, Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
 
 type CouponType = Enums<'coupon_type'>;
@@ -76,6 +77,8 @@ export function AdminPromotions() {
   const [refDiscount, setRefDiscount] = useState('10');
   const [refMaxUses, setRefMaxUses] = useState('1');
   const [refExpiryDays, setRefExpiryDays] = useState('14');
+  const [couponsEnabled, setCouponsEnabled] = useState(true);
+  const [giftCardsEnabled, setGiftCardsEnabled] = useState(true);
 
   const { data: coupons, isLoading: couponsLoading } = useQuery({
     queryKey: ['admin-coupons'],
@@ -124,6 +127,8 @@ export function AdminPromotions() {
       if (discount != null) setRefDiscount(String(discount));
       if (maxUses != null) setRefMaxUses(String(maxUses));
       if (expiryDays != null) setRefExpiryDays(String(expiryDays));
+      setCouponsEnabled(parseBooleanStoreSetting(storeSettings.couponsEnabled, true));
+      setGiftCardsEnabled(parseBooleanStoreSetting(storeSettings.giftCardsEnabled, true));
     }
   }, [storeSettings]);
 
@@ -327,6 +332,41 @@ export function AdminPromotions() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const saveCheckoutSavingsSettings = useMutation({
+    mutationFn: async () => {
+      const entries = [
+        { key: 'couponsEnabled', value: couponsEnabled },
+        { key: 'giftCardsEnabled', value: giftCardsEnabled },
+      ];
+
+      for (const { key, value } of entries) {
+        const { data: existing } = await supabase.from('store_settings').select('id').eq('key', key).maybeSingle();
+        if (existing) {
+          await supabase
+            .from('store_settings')
+            .update({ value: JSON.parse(JSON.stringify(value)), updated_at: new Date().toISOString() })
+            .eq('key', key);
+        } else {
+          await supabase.from('store_settings').insert({ key, value: JSON.parse(JSON.stringify(value)) });
+        }
+      }
+
+      await logAdminAction({
+        actorUserId: user?.id,
+        action: 'checkout_savings_settings.updated',
+        entityType: 'store_settings',
+        summary: 'Updated checkout coupon and gift card toggles.',
+        metadata: { couponsEnabled, giftCardsEnabled },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-store-settings-promotions'] });
+      queryClient.invalidateQueries({ queryKey: ['store-settings'] });
+      toast.success('Checkout savings settings saved');
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
   if (couponsLoading || flashDealsLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -338,6 +378,49 @@ export function AdminPromotions() {
   return (
     <div className="space-y-6 pb-24 md:pb-0">
       <h1 className="text-2xl font-bold font-serif text-foreground md:text-3xl">Promotions</h1>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Gift className="h-5 w-5" />
+            Checkout Savings
+          </CardTitle>
+          <CardDescription>
+            Turn coupons and gift cards on or off across cart checkout, buy now, and group buy.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between gap-4 rounded-2xl border border-border/70 bg-muted/20 p-4">
+            <div>
+              <p className="font-medium text-foreground">Coupons at checkout</p>
+              <p className="text-sm text-muted-foreground">
+                Allow shoppers to apply coupon codes during checkout.
+              </p>
+            </div>
+            <Switch checked={couponsEnabled} onCheckedChange={setCouponsEnabled} />
+          </div>
+          <div className="flex items-center justify-between gap-4 rounded-2xl border border-border/70 bg-muted/20 p-4">
+            <div>
+              <p className="font-medium text-foreground">Gift cards at checkout</p>
+              <p className="text-sm text-muted-foreground">
+                Allow shoppers to redeem gift cards into wallet credit during checkout.
+              </p>
+            </div>
+            <Switch checked={giftCardsEnabled} onCheckedChange={setGiftCardsEnabled} />
+          </div>
+          <Button
+            onClick={() => saveCheckoutSavingsSettings.mutate()}
+            disabled={saveCheckoutSavingsSettings.isPending}
+          >
+            {saveCheckoutSavingsSettings.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="mr-2 h-4 w-4" />
+            )}
+            Save Checkout Settings
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* Coupons */}
       <Card>

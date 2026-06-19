@@ -18,6 +18,10 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { PurchaseSummary } from '@/components/checkout/PurchaseSummary';
 import {
+  CheckoutSavingsCard,
+  CheckoutSavingsDialog,
+} from '@/components/checkout/CheckoutSavingsControls';
+import {
   Sheet,
   SheetContent,
   SheetHeader,
@@ -27,6 +31,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { buildCheckoutSavingsTotalRows, useCheckoutSavings } from '@/hooks/useCheckoutSavings';
 import type { ProductWithDetails } from '@/hooks/useProducts';
 import { savePendingBuyNowSession } from '@/lib/buyNowSession';
 import { getErrorMessage, getSupabaseFunctionErrorMessage } from '@/lib/errors';
@@ -221,7 +226,20 @@ export function BuyNowSheet({
   const shippingUnitCost =
     product.is_free_shipping || !resolvedShippingRule ? 0 : Number(resolvedShippingRule.price || 0);
   const effectiveShippingCost = shippingUnitCost * Math.max(1, totalQuantity);
-  const total = subtotal + effectiveShippingCost;
+  const savings = useCheckoutSavings({ subtotal, shippingCost: effectiveShippingCost });
+  const checkoutTotals = buildCheckoutSavingsTotalRows(savings, formatPrice, [
+    { label: `Subtotal (${formatItemCount(totalQuantity)})`, value: formatPrice(subtotal) },
+    {
+      label: 'Shipping',
+      value: product.is_free_shipping ? 'FREE' : formatPrice(effectiveShippingCost),
+    },
+  ]);
+  const requiresPayment = savings.total > 0;
+  const payLabel = isProcessing ? 'Processing...' : requiresPayment ? 'Pay Now' : 'Place Order';
+  const secureText = requiresPayment
+    ? 'Secure encrypted payment'
+    : 'Covered fully by wallet and loyalty credits';
+
   const primarySelection = checkoutSelections[0];
   const addressLabel = resolvedAddress
     ? [resolvedAddress.full_name, resolvedAddress.city, resolvedAddress.country]
@@ -466,7 +484,10 @@ export function BuyNowSheet({
           paymentReference,
           addressId: orderAddress.id,
           shippingClassId: shippingRule?.shipping_class_id || null,
-          expectedTotal: total,
+          couponId: savings.couponId,
+          loyaltyPointsToRedeem: savings.loyaltyPointsApplied,
+          useWalletCredit: savings.useWalletCredit,
+          expectedTotal: savings.total,
           items: checkoutSelections.map((item) => ({
             productId: product.id,
             productVariantId: item.variantId,
@@ -593,7 +614,7 @@ export function BuyNowSheet({
     setIsProcessing(true);
 
     try {
-      if (total <= 0) {
+      if (savings.total <= 0) {
         await finalizeOrder(null, address, shippingRule);
         return;
       }
@@ -622,7 +643,7 @@ export function BuyNowSheet({
       const handler = paystack.setup({
         key: keyData.publicKey,
         email: customerEmail,
-        amount: Math.round(total * 100),
+        amount: Math.round(savings.total * 100),
         currency: 'GHS',
         ref: reference,
         metadata: {
@@ -977,22 +998,21 @@ export function BuyNowSheet({
                     </div>
                   ),
               }))}
-              totals={[
-                { label: `Subtotal (${formatItemCount(totalQuantity)})`, value: formatPrice(subtotal) },
-                {
-                  label: 'Shipping',
-                  value: product.is_free_shipping ? 'FREE' : formatPrice(effectiveShippingCost),
-                },
-                { label: 'Total', value: formatPrice(total), emphasis: true },
-              ]}
+              totals={checkoutTotals}
+              payLabel={payLabel}
+              secureText={secureText}
               onMakeChanges={() => setIsOpen(false)}
               onPay={() => void handlePayNow()}
               isProcessing={isProcessing}
               payDisabled={hasMissingRequirements}
-            />
+            >
+              <CheckoutSavingsCard savings={savings} />
+            </PurchaseSummary>
           </div>
         </SheetContent>
       </Sheet>
+
+      <CheckoutSavingsDialog savings={savings} loyaltyPointsInputId="buy-now-loyalty-points" />
 
       <Dialog open={isAddressPickerOpen} onOpenChange={setIsAddressPickerOpen}>
         <DialogContent className="max-h-[85vh] overflow-y-auto bg-background sm:max-w-md">

@@ -36,7 +36,12 @@ import {
   hasRequiredGroupBuyDeliveryDetails,
 } from '@/lib/groupBuyCheckout';
 import { useGroupBuySettings } from '@/hooks/useGroupBuySettings';
+import { buildCheckoutSavingsTotalRows, useCheckoutSavings } from '@/hooks/useCheckoutSavings';
 import { PurchaseSummary } from '@/components/checkout/PurchaseSummary';
+import {
+  CheckoutSavingsCard,
+  CheckoutSavingsDialog,
+} from '@/components/checkout/CheckoutSavingsControls';
 import {
   buildGroupBuySettingsSnapshot,
   formatGroupBuyDuration,
@@ -252,6 +257,16 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
   const averageUnitPrice = totalSelectedQuantity > 0
     ? totalAmount / totalSelectedQuantity
     : offeredUnitPrice;
+  const savings = useCheckoutSavings({ subtotal: totalAmount, shippingCost: 0 });
+  const checkoutTotals = buildCheckoutSavingsTotalRows(
+    savings,
+    formatPrice,
+    [
+      { label: 'Participants needed', value: String(normalizedParticipantCount) },
+      { label: 'Total items', value: String(totalSelectedQuantity) },
+      { label: 'Subtotal', value: formatPrice(totalAmount) },
+    ],
+  );
   const exceedsParticipantLimitPerUser = totalSelectedQuantity > groupBuySettings.participantLimitPerUser;
   const hasDeliveryDetails = hasRequiredGroupBuyDeliveryDetails({
     address: selectedAddress,
@@ -374,7 +389,12 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
       }
 
       const reference = `GB-NEW-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      const amountInPesewas = Math.round(totalAmount * 100);
+      if (savings.total <= 0) {
+        toast.error('Group buy checkout requires a card payment. Reduce wallet or loyalty credit applied.');
+        setIsPaying(false);
+        return;
+      }
+      const amountInPesewas = Math.round(savings.total * 100);
       if (amountInPesewas <= 0) {
         throw new Error('Choose a paid group buy quantity before continuing');
       }
@@ -754,22 +774,21 @@ export function StartGroupBuyDialog({ product, triggerClassName }: StartGroupBuy
                         },
                       ]
                 }
-                totals={[
-                  { label: 'Participants needed', value: String(normalizedParticipantCount) },
-                  { label: 'Total items', value: String(totalSelectedQuantity) },
-                  { label: 'Total', value: formatPrice(totalAmount), emphasis: true },
-                ]}
+                totals={checkoutTotals}
                 makeChangesLabel="Back"
                 payLabel="Pay Now and Start Group Buy"
                 isProcessing={isPaying}
                 onMakeChanges={() => setStep('setup')}
                 onPay={handlePayAndCreate}
-              />
+              >
+                <CheckoutSavingsCard savings={savings} />
+              </PurchaseSummary>
             </div>
           )}
         </div>
       </DialogContent>
     </Dialog>
+    <CheckoutSavingsDialog savings={savings} loyaltyPointsInputId="start-group-buy-loyalty-points" />
     <Dialog open={isAddressPickerOpen} onOpenChange={setIsAddressPickerOpen}>
       <DialogContent className="max-h-[85vh] overflow-y-auto rounded-2xl sm:max-w-md">
         <DialogHeader>

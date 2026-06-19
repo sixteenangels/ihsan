@@ -81,6 +81,8 @@ interface StoreSettings {
   loyaltyPointsPerOrder: number;
   loyaltyMinOrderAmount: number;
   reinforcedPackagingCost: number;
+  couponsEnabled: boolean;
+  giftCardsEnabled: boolean;
 }
 
 interface VerifiedPayment {
@@ -191,6 +193,8 @@ async function getStoreSettings(supabase: ReturnType<typeof createServiceSupabas
     loyaltyPointsPerOrder: 1,
     loyaltyMinOrderAmount: 0,
     reinforcedPackagingCost: 0,
+    couponsEnabled: true,
+    giftCardsEnabled: true,
   };
 
   const { data, error } = await supabase.from('store_settings').select('key, value');
@@ -501,6 +505,10 @@ Deno.serve(async (req) => {
     let discount = 0;
     let coupon: CouponRow | null = null;
     if (body.couponId) {
+      if (!settings.couponsEnabled) {
+        throw new Error('Coupons are currently disabled.');
+      }
+
       const couponId = assertString(body.couponId, 'Invalid coupon.');
       const { data: couponData, error: couponError } = await supabase
         .from('coupons')

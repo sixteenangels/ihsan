@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 import { useWalletBalance } from '@/hooks/useWallet';
 import { useLoyaltyPoints } from '@/hooks/useLoyaltyPoints';
 import { useStoreSettings } from '@/hooks/useStoreSettings';
+import { useCheckoutFeatureFlags } from '@/hooks/useCheckoutFeatureFlags';
 import { loadPaystack, type PaystackTransactionResponse } from '@/lib/paystack';
 import {
   clearCheckoutRecoverySnapshot,
@@ -193,6 +194,7 @@ export default function Checkout() {
   const [useWalletCredit, setUseWalletCredit] = useState(false);
   const { totalPoints } = useLoyaltyPoints();
   const { data: storeSettings } = useStoreSettings();
+  const { couponsEnabled, giftCardsEnabled, loyaltyEnabled } = useCheckoutFeatureFlags();
   const [useLoyaltyCredit, setUseLoyaltyCredit] = useState(false);
   const [loyaltyPointsToRedeem, setLoyaltyPointsToRedeem] = useState('');
 
@@ -675,6 +677,11 @@ export default function Checkout() {
   const itemCount = selectedItems.reduce((sum, item) => sum + item.quantity, 0);
 
   const handleApplyCoupon = async () => {
+    if (!couponsEnabled) {
+      toast.error('Coupons are currently disabled.');
+      return;
+    }
+
     if (!user) {
       toast.error('Sign in to apply a coupon');
       return;
@@ -733,6 +740,11 @@ export default function Checkout() {
   };
 
   const handleRedeemGiftCard = async () => {
+    if (!giftCardsEnabled) {
+      toast.error('Gift card redemption is currently disabled.');
+      return;
+    }
+
     if (!user) {
       toast.error('Sign in to redeem a gift card');
       return;
@@ -783,7 +795,7 @@ export default function Checkout() {
   }, [appliedCoupon, isCouponEligible]);
 
   useEffect(() => {
-    if (!user || appliedCoupon || selectedSubtotal <= 0) return;
+    if (!couponsEnabled || !user || appliedCoupon || selectedSubtotal <= 0) return;
 
     let cancelled = false;
 
@@ -837,7 +849,7 @@ export default function Checkout() {
     return () => {
       cancelled = true;
     };
-  }, [user, appliedCoupon, selectedSubtotal, userOrderCount, getCouponDiscount, isCouponEligible]);
+  }, [couponsEnabled, user, appliedCoupon, selectedSubtotal, userOrderCount, getCouponDiscount, isCouponEligible]);
 
   const getShippingIcon = (typeName?: string | null) => {
     const lower = typeName?.toLowerCase() || '';
@@ -853,7 +865,8 @@ export default function Checkout() {
   const isCheckingVariantRequirements =
     isCheckoutCatalogLoading && selectedItems.some((item) => isVariantPlaceholder(item.variant.id));
   const firstUnresolvedVariantItem = unresolvedVariantItems[0];
-  const showSavingsSection = true;
+  const showSavingsSection =
+    couponsEnabled || giftCardsEnabled || loyaltyEnabled || walletBalance > 0 || totalPoints > 0;
   const accordionDefaultSections = [
     'items',
     unresolvedVariantItems.length > 0 ? 'variants' : null,
@@ -1287,6 +1300,7 @@ export default function Checkout() {
             onMakeChanges={() => navigate('/cart')}
             onPay={handlePaystackPayment}
           >
+          {showSavingsSection ? (
             <button
               type="button"
               className="w-full rounded-2xl border border-border/70 bg-card/90 p-4 text-left shadow-sm transition-colors hover:border-primary/45"
@@ -1309,6 +1323,7 @@ export default function Checkout() {
                 ) : null}
               </div>
             </button>
+          ) : null}
           </PurchaseSummary>
         </div>
       </main>
@@ -1526,6 +1541,7 @@ export default function Checkout() {
               </div>
             ) : null}
 
+            {couponsEnabled ? (
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
                 <Tag className="h-4 w-4" />
@@ -1571,7 +1587,9 @@ export default function Checkout() {
                 </div>
               )}
             </div>
+            ) : null}
 
+            {giftCardsEnabled ? (
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
                 <Gift className="h-4 w-4" />
@@ -1604,8 +1622,9 @@ export default function Checkout() {
                 Gift cards are added to your wallet, then wallet credit can be applied below.
               </p>
             </div>
+            ) : null}
 
-            {totalPoints > 0 ? (
+            {loyaltyEnabled && totalPoints > 0 ? (
               <div className="space-y-4 rounded-2xl border border-border/70 bg-muted/20 p-4">
                 <label className="flex cursor-pointer items-start gap-3">
                   <Checkbox
