@@ -154,3 +154,14 @@ export function formatStoreMonthDay(value: string | Date | null | undefined): st
     timeZone: STORE_TIMEZONE,
   }).format(date);
 }
+
+/** Short month label for charts. */
+export function formatStoreMonthShort(value: string | Date | null | undefined): string {
+  const date = toValidDate(value);
+  if (!date) return '';
+
+  return new Intl.DateTimeFormat(STORE_LOCALE, {
+    month: 'short',
+    timeZone: STORE_TIMEZONE,
+  }).format(date);
+}

@@ -27,6 +27,7 @@ import { AdminMessageTemplates } from '@/components/admin/AdminMessageTemplates'
 import { AdminGiftCards } from '@/components/admin/AdminGiftCards';
 import { AdminAuditLogs } from '@/components/admin/AdminAuditLogs';
 import { cn } from '@/lib/utils';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { BrandMark } from '@/components/brand/BrandMark';
@@ -242,32 +243,34 @@ export default function Admin() {
         className="min-w-0 px-3 pb-24 pt-20 sm:px-4 md:min-h-0 md:flex-1 md:overflow-x-auto md:overflow-y-auto md:p-8"
       >
         <div className="mx-auto w-full max-w-full">
-          <Routes>
-            <Route path="/" element={<AdminPermissionRoute permission={null}><AdminDashboard /></AdminPermissionRoute>} />
-            <Route path="/products" element={<AdminPermissionRoute permission="products"><AdminProducts /></AdminPermissionRoute>} />
-            <Route path="/stock" element={<AdminPermissionRoute permission="stock"><StockManagement /></AdminPermissionRoute>} />
-            <Route path="/orders" element={<AdminPermissionRoute permission="orders"><AdminOrders /></AdminPermissionRoute>} />
-            <Route path="/refunds" element={<AdminPermissionRoute permission="refunds"><AdminRefunds /></AdminPermissionRoute>} />
-            <Route path="/shipping" element={<AdminPermissionRoute permission="shipping"><AdminShipping /></AdminPermissionRoute>} />
-            <Route path="/group-buys" element={<AdminPermissionRoute permission="group-buys"><AdminGroupBuys /></AdminPermissionRoute>} />
-            <Route path="/categories" element={<AdminPermissionRoute permission="categories"><AdminCategories /></AdminPermissionRoute>} />
-            <Route path="/promotions" element={<AdminPermissionRoute permission="promotions"><AdminPromotions /></AdminPermissionRoute>} />
-            <Route path="/bundles" element={<AdminPermissionRoute permission="bundles"><AdminBundles /></AdminPermissionRoute>} />
-            <Route path="/loyalty" element={<AdminPermissionRoute permission="loyalty"><AdminLoyalty /></AdminPermissionRoute>} />
-            <Route path="/wallets" element={<AdminPermissionRoute permission="wallets"><AdminWallet /></AdminPermissionRoute>} />
-            <Route path="/gift-cards" element={<AdminPermissionRoute permission="wallets"><AdminGiftCards /></AdminPermissionRoute>} />
-            <Route path="/templates" element={<AdminPermissionRoute permission="templates"><AdminMessageTemplates /></AdminPermissionRoute>} />
-            <Route path="/reviews" element={<AdminPermissionRoute permission="reviews"><AdminReviews /></AdminPermissionRoute>} />
-            <Route path="/qa" element={<AdminPermissionRoute permission="qa"><AdminQA /></AdminPermissionRoute>} />
-            <Route path="/leaderboard" element={<AdminPermissionRoute permission="leaderboard"><CustomerLeaderboard /></AdminPermissionRoute>} />
-            <Route path="/support" element={<AdminPermissionRoute permission="support"><AdminSupport /></AdminPermissionRoute>} />
-            <Route path="/receipts" element={<AdminPermissionRoute permission="receipts"><AdminReceipts /></AdminPermissionRoute>} />
-            <Route path="/users" element={<AdminPermissionRoute permission="_admin_only"><AdminUsers /></AdminPermissionRoute>} />
-            <Route path="/notifications" element={<AdminPermissionRoute permission="notifications"><AdminNotifications /></AdminPermissionRoute>} />
-            <Route path="/audit-logs" element={<AdminPermissionRoute permission="_admin_only"><AdminAuditLogs /></AdminPermissionRoute>} />
-            <Route path="/settings" element={<AdminPermissionRoute permission="_admin_only"><AdminSettings /></AdminPermissionRoute>} />
+          <ErrorBoundary>
+            <Routes>
+            <Route index element={<AdminPermissionRoute permission={null}><AdminDashboard /></AdminPermissionRoute>} />
+            <Route path="products" element={<AdminPermissionRoute permission="products"><AdminProducts /></AdminPermissionRoute>} />
+            <Route path="stock" element={<AdminPermissionRoute permission="stock"><StockManagement /></AdminPermissionRoute>} />
+            <Route path="orders" element={<AdminPermissionRoute permission="orders"><AdminOrders /></AdminPermissionRoute>} />
+            <Route path="refunds" element={<AdminPermissionRoute permission="refunds"><AdminRefunds /></AdminPermissionRoute>} />
+            <Route path="shipping" element={<AdminPermissionRoute permission="shipping"><AdminShipping /></AdminPermissionRoute>} />
+            <Route path="group-buys" element={<AdminPermissionRoute permission="group-buys"><AdminGroupBuys /></AdminPermissionRoute>} />
+            <Route path="categories" element={<AdminPermissionRoute permission="categories"><AdminCategories /></AdminPermissionRoute>} />
+            <Route path="promotions" element={<AdminPermissionRoute permission="promotions"><AdminPromotions /></AdminPermissionRoute>} />
+            <Route path="bundles" element={<AdminPermissionRoute permission="bundles"><AdminBundles /></AdminPermissionRoute>} />
+            <Route path="loyalty" element={<AdminPermissionRoute permission="loyalty"><AdminLoyalty /></AdminPermissionRoute>} />
+            <Route path="wallets" element={<AdminPermissionRoute permission="wallets"><AdminWallet /></AdminPermissionRoute>} />
+            <Route path="gift-cards" element={<AdminPermissionRoute permission="wallets"><AdminGiftCards /></AdminPermissionRoute>} />
+            <Route path="templates" element={<AdminPermissionRoute permission="templates"><AdminMessageTemplates /></AdminPermissionRoute>} />
+            <Route path="reviews" element={<AdminPermissionRoute permission="reviews"><AdminReviews /></AdminPermissionRoute>} />
+            <Route path="qa" element={<AdminPermissionRoute permission="qa"><AdminQA /></AdminPermissionRoute>} />
+            <Route path="leaderboard" element={<AdminPermissionRoute permission="leaderboard"><CustomerLeaderboard /></AdminPermissionRoute>} />
+            <Route path="support" element={<AdminPermissionRoute permission="support"><AdminSupport /></AdminPermissionRoute>} />
+            <Route path="receipts" element={<AdminPermissionRoute permission="receipts"><AdminReceipts /></AdminPermissionRoute>} />
+            <Route path="users" element={<AdminPermissionRoute permission="_admin_only"><AdminUsers /></AdminPermissionRoute>} />
+            <Route path="notifications" element={<AdminPermissionRoute permission="notifications"><AdminNotifications /></AdminPermissionRoute>} />
+            <Route path="audit-logs" element={<AdminPermissionRoute permission="_admin_only"><AdminAuditLogs /></AdminPermissionRoute>} />
+            <Route path="settings" element={<AdminPermissionRoute permission="_admin_only"><AdminSettings /></AdminPermissionRoute>} />
             <Route path="*" element={<Navigate to="/admin" replace />} />
-          </Routes>
+            </Routes>
+          </ErrorBoundary>
         </div>
       </main>
     </div>
