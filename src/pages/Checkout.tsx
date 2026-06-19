@@ -23,7 +23,7 @@ import {
   clearCheckoutRecoverySnapshot,
   saveCheckoutRecoverySnapshot,
 } from '@/lib/checkoutRecovery';
-import { getSupabaseFunctionErrorMessage } from '@/lib/errors';
+import { getErrorMessage, getSupabaseFunctionErrorMessage } from '@/lib/errors';
 import { trackRecommendationEvent } from '@/lib/recommendationEvents';
 import { PurchaseSummary } from '@/components/checkout/PurchaseSummary';
 import { toMoney } from '@/lib/money';
@@ -719,9 +719,9 @@ export default function Checkout() {
       setAppliedCoupon(typedCoupon);
       setCouponCode(typedCoupon.code);
       toast.success('Coupon applied successfully!');
+      setIsSavingsDialogOpen(false);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Invalid coupon code';
-      toast.error(message);
+      toast.error(getErrorMessage(error, 'Invalid coupon code'));
     } finally {
       setIsApplyingCoupon(false);
     }
@@ -758,16 +758,16 @@ export default function Checkout() {
       const redeemed = data as { amount?: number | string; code?: string } | null;
       const amount = toMoney(redeemed?.amount || 0);
       setGiftCardCode('');
-      await queryClient.invalidateQueries({ queryKey: ['wallet-transactions'] });
+      await queryClient.refetchQueries({ queryKey: ['wallet-transactions', user.id] });
       if (amount > 0) {
         setUseWalletCredit(true);
         toast.success(`Gift card redeemed: ${formatPrice(amount)} added to your wallet.`);
       } else {
         toast.success('Gift card redeemed and added to your wallet.');
       }
+      setIsSavingsDialogOpen(false);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Gift card could not be redeemed.';
-      toast.error(message);
+      toast.error(getErrorMessage(error, 'Gift card could not be redeemed.'));
     } finally {
       setIsRedeemingGiftCard(false);
     }
@@ -1212,8 +1212,7 @@ export default function Checkout() {
           </div>
 
           <PurchaseSummary
-            title="Instant Checkout"
-            subtitle="Review your order details and pay in one step."
+            showTitle={false}
             shipping={{
               title: 'Shipping Method',
               detail: selectedShipping
@@ -1552,9 +1551,16 @@ export default function Checkout() {
                     placeholder="Enter code"
                     value={couponCode}
                     onChange={(event) => setCouponCode(event.target.value.toUpperCase())}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault();
+                        void handleApplyCoupon();
+                      }
+                    }}
                     className="flex-1"
                   />
                   <Button
+                    type="button"
                     variant="outline"
                     onClick={handleApplyCoupon}
                     disabled={isApplyingCoupon}
@@ -1576,9 +1582,16 @@ export default function Checkout() {
                   placeholder="Enter gift card code"
                   value={giftCardCode}
                   onChange={(event) => setGiftCardCode(event.target.value.toUpperCase())}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      void handleRedeemGiftCard();
+                    }
+                  }}
                   className="flex-1"
                 />
                 <Button
+                  type="button"
                   variant="outline"
                   onClick={handleRedeemGiftCard}
                   disabled={isRedeemingGiftCard}

@@ -35,6 +35,7 @@ export interface PurchaseSummaryTotalRow {
 interface PurchaseSummaryProps {
   title?: string;
   subtitle?: string;
+  showTitle?: boolean;
   shipping?: PurchaseSummaryInfoCard | null;
   address?: PurchaseSummaryInfoCard | null;
   itemsTitle?: string;
@@ -109,6 +110,7 @@ function InfoCard({ card }: { card: PurchaseSummaryInfoCard }) {
 export function PurchaseSummary({
   title = 'Instant Checkout',
   subtitle = 'Review your order details and pay in one step.',
+  showTitle = true,
   shipping,
   address,
   itemsTitle = 'Selected Items',
@@ -128,10 +130,12 @@ export function PurchaseSummary({
 }: PurchaseSummaryProps) {
   return (
     <div className={cn('space-y-3', className)}>
-      <div className="space-y-0.5">
-        <h2 className="text-xl font-semibold tracking-tight text-foreground">{title}</h2>
-        {subtitle ? <p className="text-xs text-muted-foreground">{subtitle}</p> : null}
-      </div>
+      {showTitle ? (
+        <div className="space-y-0.5">
+          <h2 className="text-xl font-semibold tracking-tight text-foreground">{title}</h2>
+          {subtitle ? <p className="text-xs text-muted-foreground">{subtitle}</p> : null}
+        </div>
+      ) : null}
 
       {shipping ? <InfoCard card={shipping} /> : null}
       {address ? <InfoCard card={address} /> : null}

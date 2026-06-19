@@ -924,8 +924,7 @@ export function BuyNowSheet({
             )}
 
             <PurchaseSummary
-              title="Instant Checkout"
-              subtitle="Review your order details and pay in one step."
+              showTitle={false}
               shipping={{
                 title: 'Shipping Method',
                 detail: shippingLabel,

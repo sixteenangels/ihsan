@@ -3,6 +3,16 @@ export function getErrorMessage(error: unknown, fallback = "Something went wrong
     return error.message;
   }
 
+  if (error && typeof error === "object") {
+    const record = error as Record<string, unknown>;
+    if (typeof record.message === "string" && record.message.trim()) {
+      return record.message;
+    }
+    if (typeof record.error_description === "string" && record.error_description.trim()) {
+      return record.error_description;
+    }
+  }
+
   if (typeof error === "string" && error.trim()) {
     return error;
   }

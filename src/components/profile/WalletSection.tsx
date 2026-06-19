@@ -9,6 +9,7 @@ import { useCurrency } from '@/hooks/useCurrency';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
+import { getErrorMessage } from '@/lib/errors';
 import { toast } from 'sonner';
 
 type RpcError = {
@@ -49,13 +50,13 @@ export function WalletSection() {
       if (error) throw error;
       return data;
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['wallet-transactions'] });
+    onSuccess: async (data) => {
+      await queryClient.refetchQueries({ queryKey: ['wallet-transactions'] });
       toast.success(`Gift card redeemed. ${formatPrice(Number(data?.amount || 0))} added to your wallet.`);
       setGiftCardCode('');
     },
-    onError: (error: Error) => {
-      toast.error(error.message);
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error, 'Gift card could not be redeemed.'));
     },
   });
 

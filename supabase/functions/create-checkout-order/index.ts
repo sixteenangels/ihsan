@@ -552,7 +552,7 @@ Deno.serve(async (req) => {
       discount =
         coupon.type === 'percentage'
           ? toMoney((subtotal * Number(coupon.value)) / 100)
-          : toMoney(coupon.value);
+          : toMoney(Math.min(Number(coupon.value), subtotal));
     }
 
     const totalBeforeCredits = Math.max(
