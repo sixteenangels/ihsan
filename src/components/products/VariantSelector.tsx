@@ -105,9 +105,7 @@ export function VariantSelector({
   const { formatPrice } = useCurrency();
   const isMobile = mode === 'mobile';
   const visualScrollRef = useRef<HTMLDivElement>(null);
-  const sizeScrollRef = useRef<HTMLDivElement>(null);
   useHorizontalWheelScroll(visualScrollRef, !isMobile);
-  useHorizontalWheelScroll(sizeScrollRef, !isMobile);
 
   const uniqueColors = useMemo(
     () => getUniqueValues(variants.map((variant) => variant.color)),
@@ -276,10 +274,7 @@ export function VariantSelector({
           <p className="text-xs font-semibold text-foreground">
             Select Size
           </p>
-          <div
-            ref={sizeScrollRef}
-            className="horizontal-scroll -mx-1 flex snap-x snap-proximity gap-2 px-1 pb-2 md:snap-none [touch-action:pan-x_pan-y]"
-          >
+          <div className="flex flex-wrap gap-2">
             {sizeOptions.map((size) => {
               const variantForSize = variantsForSelectedVisual.find((variant) => variant.size === size);
               const isSelected = selectedSize === size;
@@ -292,18 +287,15 @@ export function VariantSelector({
                   disabled={!isAvailable}
                   onClick={() => setSelectedSize(size)}
                   className={cn(
-                    'snap-start overflow-hidden rounded-2xl border px-4 py-3 text-left transition-all',
-                    isMobile ? 'min-h-[74px] min-w-[132px] max-w-[150px]' : 'min-w-[96px]',
+                    'inline-flex h-10 min-w-[2.75rem] items-center justify-center rounded-xl border px-3 text-sm font-semibold transition-all',
                     isSelected
                       ? 'border-primary bg-primary/10 text-primary shadow-[0_0_0_1px_hsl(var(--primary))]'
                       : isAvailable
                         ? 'border-border/70 bg-card/70 text-foreground hover:border-primary/40'
-                        : 'cursor-not-allowed border-border/50 bg-muted text-muted-foreground',
+                        : 'cursor-not-allowed border-border/50 bg-muted text-muted-foreground line-through',
                   )}
                 >
-                  <p className="line-clamp-2 text-sm font-medium leading-5 [overflow-wrap:anywhere]">
-                    {size}
-                  </p>
+                  {size}
                 </button>
               );
             })}

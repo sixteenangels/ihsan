@@ -31,17 +31,14 @@ describe('product image gallery helpers', () => {
     ]);
   });
 
-  it('puts the selected variant image first without duplicating the carousel', () => {
-    expect(
-      buildDetailGalleryImages(productImages, variants, 'https://cdn.example.com/blue-variant.jpg'),
-    ).toEqual([
-      'https://cdn.example.com/blue-variant.jpg',
+  it('keeps variant images out of the product gallery even when a variant is selected', () => {
+    expect(buildDetailGalleryImages(productImages, variants)).toEqual([
       'https://cdn.example.com/lifestyle.jpg',
     ]);
   });
 
-  it('shows placeholder when only variant images exist and none is selected', () => {
-    expect(buildDetailGalleryImages(['https://cdn.example.com/tan-variant.jpg'], variants, null)).toEqual([
+  it('shows placeholder when only variant images exist in product_images', () => {
+    expect(buildDetailGalleryImages(['https://cdn.example.com/tan-variant.jpg'], variants)).toEqual([
       '/placeholder.svg',
     ]);
   });

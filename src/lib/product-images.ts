@@ -31,19 +31,12 @@ export function getSharedProductImages(productImages: string[], variants: Varian
   return productImages.filter((url) => !isVariantImageUrl(url, variantUrls));
 }
 
-/** Product detail gallery: selected variant first, then shared lifestyle/detail shots. */
+/** Product detail gallery: product/lifestyle shots only (never variant images). */
 export function buildDetailGalleryImages(
   productImages: string[],
   variants: VariantImageSource[],
-  selectedVariantImageUrl?: string | null,
 ): string[] {
   const sharedImages = getSharedProductImages(productImages, variants);
-
-  if (selectedVariantImageUrl) {
-    const selectedKey = normalizeImageUrl(selectedVariantImageUrl);
-    const remainingImages = sharedImages.filter((url) => normalizeImageUrl(url) !== selectedKey);
-    return uniqueNonEmpty([selectedVariantImageUrl, ...remainingImages]);
-  }
 
   if (sharedImages.length > 0) {
     return sharedImages;

@@ -56,12 +56,8 @@ export function ProductQuickView({ product, open, onOpenChange }: ProductQuickVi
       return ['https://via.placeholder.com/400'];
     }
 
-    return buildDetailGalleryImages(
-      product.images,
-      product.variants,
-      selectedVariantData?.image_url,
-    );
-  }, [product, selectedVariantData?.image_url]);
+    return buildDetailGalleryImages(product.images, product.variants);
+  }, [product]);
 
   // Get unique colors and sizes from variants
   const colors = useMemo(() => {

@@ -362,30 +362,13 @@ export default function ProductDetail() {
     );
   }, [defaultMobileVariant, mobileVariantId, product]);
 
-  const activeGalleryVariant = useMemo(() => {
-    if (!product) {
-      return null;
-    }
-
-    const activeVariantId = previewVariantId || mobileVariantId;
-    return (
-      product.variants.find((variant) => variant.id === activeVariantId) ||
-      defaultMobileVariant ||
-      null
-    );
-  }, [defaultMobileVariant, mobileVariantId, previewVariantId, product]);
-
   const displayGalleryImages = useMemo(() => {
     if (!product) {
       return ['/placeholder.svg'];
     }
 
-    return buildDetailGalleryImages(
-      product.images,
-      product.variants,
-      activeGalleryVariant?.image_url,
-    );
-  }, [activeGalleryVariant?.image_url, product]);
+    return buildDetailGalleryImages(product.images, product.variants);
+  }, [product]);
 
   useEffect(() => {
     setActiveMobileImageIndex(0);
@@ -494,12 +477,15 @@ export default function ProductDetail() {
   };
 
   const getShippingIcon = (typeName: string | undefined) => {
-    if (!typeName) return <Plane className="h-5 w-5" />;
+    if (!typeName) return <Plane className="h-4 w-4" />;
     const name = typeName.toLowerCase();
-    if (name.includes('sea')) return <Ship className="h-5 w-5" />;
-    if (name.includes('express')) return <Package className="h-5 w-5" />;
-    return <Plane className="h-5 w-5" />;
+    if (name.includes('sea')) return <Ship className="h-4 w-4" />;
+    if (name.includes('express')) return <Package className="h-4 w-4" />;
+    return <Plane className="h-4 w-4" />;
   };
+
+  const shippingIconClassName =
+    'flex h-9 w-9 shrink-0 items-center justify-center self-start rounded-xl bg-primary/10 text-primary';
 
   if (isLoading) {
     return (
@@ -888,22 +874,20 @@ export default function ProductDetail() {
                             <div className="h-5 w-5 rounded-full border border-border/70 bg-card" />
                           )}
                         </div>
-                        <div className="flex min-w-0 flex-1 flex-col gap-2 min-[420px]:flex-row min-[420px]:items-start min-[420px]:justify-between">
-                          <div className="flex min-w-0 gap-3">
-                            <div className="rounded-xl bg-primary/10 p-2 text-primary">
+                          <div className="flex min-w-0 flex-1 items-start gap-3">
+                            <div className={shippingIconClassName}>
                               {getShippingIcon(option.shipping_class?.shipping_type?.name)}
                             </div>
-                            <div className="min-w-0">
+                            <div className="min-w-0 flex-1">
                               <p className="line-clamp-2 font-medium text-foreground">{option.shipping_class?.name}</p>
                               <p className="line-clamp-2 text-xs text-muted-foreground">
                                 Typically takes {option.shipping_class?.estimated_days_min}-{option.shipping_class?.estimated_days_max} days.
                               </p>
                             </div>
+                            <p className="shrink-0 text-right text-sm font-semibold text-primary">
+                              {product.is_free_shipping ? 'Free' : formatPrice(option.price)}
+                            </p>
                           </div>
-                          <p className="shrink-0 text-right text-sm font-semibold text-primary">
-                            {product.is_free_shipping ? 'Free' : formatPrice(option.price)}
-                          </p>
-                        </div>
                       </button>
                     );
                   })}
@@ -921,7 +905,7 @@ export default function ProductDetail() {
 
             <div className="grid gap-5 lg:grid-cols-2 lg:gap-12">
               <ProductImageGallery
-                key={`${product.id}-${activeGalleryVariant?.id || 'default'}`}
+                key={product.id}
                 images={displayGalleryImages}
                 productName={product.name}
               />
@@ -1122,11 +1106,11 @@ export default function ProductDetail() {
                           onClick={() => setSelectedShipping(option)}
                         >
                           <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-                            <div className="flex min-w-0 items-center gap-3">
-                              <div className="rounded-xl bg-primary/10 p-2 text-primary">
+                            <div className="flex min-w-0 flex-1 items-start gap-3">
+                              <div className={shippingIconClassName}>
                                 {getShippingIcon(option.shipping_class?.shipping_type?.name)}
                               </div>
-                              <div className="min-w-0">
+                              <div className="min-w-0 flex-1">
                                 <p className="line-clamp-2 font-medium text-foreground">{option.shipping_class?.name}</p>
                                 <p className="line-clamp-2 text-sm text-muted-foreground">
                                   {option.shipping_class?.estimated_days_min}-{option.shipping_class?.estimated_days_max} days
