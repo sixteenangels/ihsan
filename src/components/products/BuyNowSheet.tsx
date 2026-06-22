@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Checkbox } from '@/components/ui/checkbox';
 import { PurchaseSummary } from '@/components/checkout/PurchaseSummary';
 import {
   CheckoutSavingsCard,
@@ -32,6 +33,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { buildCheckoutSavingsTotalRows, useCheckoutSavings } from '@/hooks/useCheckoutSavings';
+import { useCheckoutFeatureFlags } from '@/hooks/useCheckoutFeatureFlags';
 import type { ProductWithDetails } from '@/hooks/useProducts';
 import { savePendingBuyNowSession } from '@/lib/buyNowSession';
 import { getErrorMessage, getSupabaseFunctionErrorMessage } from '@/lib/errors';
@@ -131,6 +133,7 @@ export function BuyNowSheet({
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { formatPrice } = useCurrency();
+  const { deferShippingPaymentEnabled } = useCheckoutFeatureFlags();
   const isMobile = useIsMobile();
   const callbackFiredRef = useRef(false);
   const orderCreationInProgressRef = useRef(false);
@@ -155,6 +158,7 @@ export function BuyNowSheet({
   const [isAddressPickerOpen, setIsAddressPickerOpen] = useState(false);
   const [isShippingPickerOpen, setIsShippingPickerOpen] = useState(false);
   const [showAddressForm, setShowAddressForm] = useState(false);
+  const [deferShippingPayment, setDeferShippingPayment] = useState(false);
   const [newAddress, setNewAddress] = useState<NewAddressFormState>(EMPTY_ADDRESS_FORM);
 
   const {
@@ -226,12 +230,20 @@ export function BuyNowSheet({
   const shippingUnitCost =
     product.is_free_shipping || !resolvedShippingRule ? 0 : Number(resolvedShippingRule.price || 0);
   const effectiveShippingCost = shippingUnitCost * Math.max(1, totalQuantity);
-  const savings = useCheckoutSavings({ subtotal, shippingCost: effectiveShippingCost });
+  const checkoutShippingCost =
+    deferShippingPayment && deferShippingPaymentEnabled ? 0 : effectiveShippingCost;
+  const showDeferShippingOption =
+    deferShippingPaymentEnabled && !product.is_free_shipping && effectiveShippingCost > 0 && !!resolvedShippingRule;
+  const savings = useCheckoutSavings({ subtotal, shippingCost: checkoutShippingCost });
   const checkoutTotals = buildCheckoutSavingsTotalRows(savings, formatPrice, [
     { label: `Subtotal (${formatItemCount(totalQuantity)})`, value: formatPrice(subtotal) },
     {
-      label: 'Shipping',
-      value: product.is_free_shipping ? 'FREE' : formatPrice(effectiveShippingCost),
+      label: deferShippingPayment && deferShippingPaymentEnabled && effectiveShippingCost > 0 ? 'Shipping (pay later)' : 'Shipping',
+      value: product.is_free_shipping
+        ? 'FREE'
+        : deferShippingPayment && deferShippingPaymentEnabled
+          ? `Due later (est. ${formatPrice(effectiveShippingCost)})`
+          : formatPrice(effectiveShippingCost),
     },
   ]);
   const requiresPayment = savings.total > 0;
@@ -488,6 +500,7 @@ export function BuyNowSheet({
           loyaltyPointsToRedeem: savings.loyaltyPointsApplied,
           useWalletCredit: savings.useWalletCredit,
           expectedTotal: savings.total,
+          deferShippingPayment: deferShippingPayment && deferShippingPaymentEnabled,
           items: checkoutSelections.map((item) => ({
             productId: product.id,
             productVariantId: item.variantId,
@@ -952,7 +965,9 @@ export function BuyNowSheet({
                 amount: resolvedShippingRule
                   ? product.is_free_shipping
                     ? 'FREE'
-                    : formatPrice(effectiveShippingCost)
+                    : deferShippingPayment && deferShippingPaymentEnabled
+                      ? `Pay later (est. ${formatPrice(effectiveShippingCost)})`
+                      : formatPrice(effectiveShippingCost)
                   : null,
                 icon: getShippingIcon(resolvedShippingRule?.shipping_class?.shipping_type?.name),
                 onClick: availableShippingRules.length > 0 ? openShippingPicker : undefined,
@@ -1006,6 +1021,21 @@ export function BuyNowSheet({
               isProcessing={isProcessing}
               payDisabled={hasMissingRequirements}
             >
+              {showDeferShippingOption ? (
+                <label className="flex items-start gap-3 rounded-2xl border border-border/70 bg-card/90 p-4">
+                  <Checkbox
+                    checked={deferShippingPayment}
+                    onCheckedChange={(checked) => setDeferShippingPayment(checked === true)}
+                    className="mt-0.5"
+                  />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-foreground">Pay shipping later</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Pay for items now. AJYN will confirm your final shipping fee before dispatch.
+                    </p>
+                  </div>
+                </label>
+              ) : null}
               <CheckoutSavingsCard savings={savings} />
             </PurchaseSummary>
           </div>

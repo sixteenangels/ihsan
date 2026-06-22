@@ -387,6 +387,11 @@ export default function ProductDetail() {
     );
   }, [activeGalleryVariant?.image_url, product]);
 
+  useEffect(() => {
+    setActiveMobileImageIndex(0);
+    mobileGalleryRef.current?.scrollTo({ left: 0, behavior: 'auto' });
+  }, [displayGalleryImages]);
+
   const heroImage = displayGalleryImages[0] || '/placeholder.svg';
 
   const handleVariantPreviewChange = useCallback((variant: ProductVariant | null) => {
@@ -485,112 +490,8 @@ export default function ProductDetail() {
 
   const resetMobileGallery = () => {
     setActiveMobileImageIndex(0);
-    mobileGalleryRef.current?.scrollTo({ left: 0, behavior: 'smooth' });
+    mobileGalleryRef.current?.scrollTo({ left: 0, behavior: 'auto' });
   };
-
-  useEffect(() => {
-    if (!isMobile || displayGalleryImages.length <= 1) return;
-
-    const container = mobileGalleryRef.current;
-    if (!container) return;
-
-    let startX = 0;
-    let startY = 0;
-    let startScrollLeft = 0;
-    let isActive = false;
-    let isHorizontalSwipe = false;
-
-    const beginSwipe = (clientX: number, clientY: number) => {
-      startX = clientX;
-      startY = clientY;
-      startScrollLeft = container.scrollLeft;
-      isActive = true;
-      isHorizontalSwipe = false;
-    };
-
-    const moveSwipe = (clientX: number, clientY: number) => {
-      if (!isActive) return false;
-
-      const deltaX = clientX - startX;
-      const deltaY = clientY - startY;
-
-      if (!isHorizontalSwipe) {
-        isHorizontalSwipe = Math.abs(deltaX) > 8 && Math.abs(deltaX) > Math.abs(deltaY);
-      }
-
-      if (!isHorizontalSwipe) return false;
-
-      container.scrollLeft = startScrollLeft - deltaX;
-      return true;
-    };
-
-    const finishSwipe = () => {
-      if (!isActive || container.clientWidth === 0) return;
-      isActive = false;
-
-      const nextIndex = Math.min(
-        Math.max(Math.round(container.scrollLeft / container.clientWidth), 0),
-        Math.max(0, displayGalleryImages.length - 1),
-      );
-
-      setActiveMobileImageIndex(nextIndex);
-      container.scrollTo({
-        left: nextIndex * container.clientWidth,
-        behavior: 'smooth',
-      });
-    };
-
-    const handlePointerDown = (event: globalThis.PointerEvent) => {
-      if (event.pointerType === 'mouse' && event.button !== 0) return;
-      beginSwipe(event.clientX, event.clientY);
-      container.setPointerCapture?.(event.pointerId);
-    };
-
-    const handlePointerMove = (event: globalThis.PointerEvent) => {
-      if (moveSwipe(event.clientX, event.clientY)) {
-        event.preventDefault();
-      }
-    };
-
-    const handlePointerEnd = (event: globalThis.PointerEvent) => {
-      container.releasePointerCapture?.(event.pointerId);
-      finishSwipe();
-    };
-
-    const handleTouchStart = (event: globalThis.TouchEvent) => {
-      const touch = event.touches[0];
-      if (!touch) return;
-      beginSwipe(touch.clientX, touch.clientY);
-    };
-
-    const handleTouchMove = (event: globalThis.TouchEvent) => {
-      const touch = event.touches[0];
-      if (!touch) return;
-      if (moveSwipe(touch.clientX, touch.clientY)) {
-        event.preventDefault();
-      }
-    };
-
-    container.addEventListener('pointerdown', handlePointerDown);
-    container.addEventListener('pointermove', handlePointerMove, { passive: false });
-    container.addEventListener('pointerup', handlePointerEnd);
-    container.addEventListener('pointercancel', handlePointerEnd);
-    container.addEventListener('touchstart', handleTouchStart);
-    container.addEventListener('touchmove', handleTouchMove, { passive: false });
-    container.addEventListener('touchend', finishSwipe);
-    container.addEventListener('touchcancel', finishSwipe);
-
-    return () => {
-      container.removeEventListener('pointerdown', handlePointerDown);
-      container.removeEventListener('pointermove', handlePointerMove);
-      container.removeEventListener('pointerup', handlePointerEnd);
-      container.removeEventListener('pointercancel', handlePointerEnd);
-      container.removeEventListener('touchstart', handleTouchStart);
-      container.removeEventListener('touchmove', handleTouchMove);
-      container.removeEventListener('touchend', finishSwipe);
-      container.removeEventListener('touchcancel', finishSwipe);
-    };
-  }, [displayGalleryImages.length, isMobile]);
 
   const getShippingIcon = (typeName: string | undefined) => {
     if (!typeName) return <Plane className="h-5 w-5" />;
@@ -813,11 +714,11 @@ export default function ProductDetail() {
               <div className="relative overflow-hidden rounded-[1.65rem] bg-muted">
                 <div
                   ref={mobileGalleryRef}
-                  className="no-scrollbar flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [touch-action:pan-x]"
+                  className="no-scrollbar flex snap-x snap-proximity overflow-x-auto overscroll-x-auto [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [touch-action:pan-x_pan-y]"
                   onScroll={handleMobileGalleryScroll}
                 >
                   {displayGalleryImages.map((image, index) => (
-                    <div key={`${image}-${index}`} className="w-full flex-none snap-center">
+                    <div key={`${image}-${index}`} className="w-full flex-none snap-start">
                       <img
                         src={image}
                         alt={`${product.name} image ${index + 1}`}

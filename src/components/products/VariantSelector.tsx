@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, CheckCircle2, Minus, Plus, ShoppingBag, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useCurrency } from '@/hooks/useCurrency';
+import { useHorizontalWheelScroll } from '@/hooks/useHorizontalWheelScroll';
 
 interface Variant {
   id: string;
@@ -103,6 +104,10 @@ export function VariantSelector({
 }: VariantSelectorProps) {
   const { formatPrice } = useCurrency();
   const isMobile = mode === 'mobile';
+  const visualScrollRef = useRef<HTMLDivElement>(null);
+  const sizeScrollRef = useRef<HTMLDivElement>(null);
+  useHorizontalWheelScroll(visualScrollRef, !isMobile);
+  useHorizontalWheelScroll(sizeScrollRef, !isMobile);
 
   const uniqueColors = useMemo(
     () => getUniqueValues(variants.map((variant) => variant.color)),
@@ -220,7 +225,10 @@ export function VariantSelector({
           <p className="text-xs font-semibold text-foreground">
             {hasColorDimension ? 'Select Color' : 'Select Style'}
           </p>
-          <div className="no-scrollbar -mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto overscroll-x-contain px-1 pb-2 scroll-smooth [scrollbar-width:none] [touch-action:pan-x_pan-y]">
+          <div
+            ref={visualScrollRef}
+            className="horizontal-scroll -mx-1 flex snap-x snap-proximity gap-2 px-1 pb-2 md:snap-none [touch-action:pan-x_pan-y]"
+          >
             {visualOptions.map((option) => {
               const isSelected = selectedVisualKey === option.key;
 
@@ -268,7 +276,10 @@ export function VariantSelector({
           <p className="text-xs font-semibold text-foreground">
             Select Size
           </p>
-          <div className="no-scrollbar -mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto overscroll-x-contain px-1 pb-2 scroll-smooth [scrollbar-width:none] [touch-action:pan-x_pan-y]">
+          <div
+            ref={sizeScrollRef}
+            className="horizontal-scroll -mx-1 flex snap-x snap-proximity gap-2 px-1 pb-2 md:snap-none [touch-action:pan-x_pan-y]"
+          >
             {sizeOptions.map((size) => {
               const variantForSize = variantsForSelectedVisual.find((variant) => variant.size === size);
               const isSelected = selectedSize === size;

@@ -8,5 +8,6 @@ export function useCheckoutFeatureFlags() {
     couponsEnabled: parseBooleanStoreSetting(storeSettings?.couponsEnabled, true),
     giftCardsEnabled: parseBooleanStoreSetting(storeSettings?.giftCardsEnabled, true),
     loyaltyEnabled: parseBooleanStoreSetting(storeSettings?.loyaltyEnabled, true),
+    deferShippingPaymentEnabled: parseBooleanStoreSetting(storeSettings?.deferShippingPaymentEnabled, false),
   };
 }

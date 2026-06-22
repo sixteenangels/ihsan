@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,6 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { Loader2, Plus, Pencil, Trash2, Ship, Plane, Package } from 'lucide-react';
 import { shippingClassSchema, shippingTypeSchema, validateForm } from '@/lib/validations/admin';
+import { parseBooleanStoreSetting } from '@/lib/storeSettingFlags';
+import { upsertStoreSetting } from '@/lib/storeSettings';
 
 type ShippingTypeRow = Database['public']['Tables']['shipping_types']['Row'];
 type ShippingClassRow = Database['public']['Tables']['shipping_classes']['Row'];
@@ -282,6 +284,39 @@ export function AdminShipping() {
     is_active: shippingType.is_active,
   });
 
+  const { data: checkoutSettings } = useQuery({
+    queryKey: ['admin-shipping-checkout-settings'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('store_settings')
+        .select('key, value')
+        .eq('key', 'deferShippingPaymentEnabled')
+        .maybeSingle();
+      if (error) throw error;
+      return data?.value;
+    },
+  });
+
+  const [deferShippingPaymentEnabled, setDeferShippingPaymentEnabled] = useState(false);
+
+  useEffect(() => {
+    setDeferShippingPaymentEnabled(parseBooleanStoreSetting(checkoutSettings, false));
+  }, [checkoutSettings]);
+
+  const saveCheckoutSettingsMutation = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      await upsertStoreSetting('deferShippingPaymentEnabled', enabled);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-shipping-checkout-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['store-settings'] });
+      toast.success('Checkout shipping settings saved');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to save checkout shipping settings');
+    },
+  });
+
   if (typesLoading || classesLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -293,6 +328,36 @@ export function AdminShipping() {
   return (
     <div>
       <h1 className="mb-6 text-2xl font-bold font-serif text-foreground md:mb-8 md:text-3xl">Shipping Management</h1>
+
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Checkout Shipping</CardTitle>
+          <CardDescription>
+            Let customers pay for items now and settle shipping fees later after you confirm the final amount.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <Label htmlFor="defer-shipping-payment">Pay shipping later</Label>
+            <p className="text-sm text-muted-foreground">
+              When enabled, checkout can skip shipping charges and you set the final fee on each order.
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Switch
+              id="defer-shipping-payment"
+              checked={deferShippingPaymentEnabled}
+              onCheckedChange={setDeferShippingPaymentEnabled}
+            />
+            <Button
+              onClick={() => saveCheckoutSettingsMutation.mutate(deferShippingPaymentEnabled)}
+              disabled={saveCheckoutSettingsMutation.isPending}
+            >
+              {saveCheckoutSettingsMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="mb-8">
         <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

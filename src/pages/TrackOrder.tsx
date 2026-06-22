@@ -20,6 +20,8 @@ import { Loader2, Package, ArrowLeft, Search, CheckCircle, Clock, Truck, Refresh
 import { formatStoreDate, formatStoreDateTime, formatStoreDeliveryWindow } from '@/lib/date-utils';
 import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
+import { hasUnpaidDeferredShipping, getDeferredShippingStatusLabel } from '@/lib/deferredShipping';
+import { PayDeferredShippingButton } from '@/components/orders/PayDeferredShippingButton';
 import {
   canRequestRefund,
   getRefundAvailabilityLabel,
@@ -89,6 +91,9 @@ interface TrackedOrder {
   total_amount: number;
   subtotal: number;
   shipping_price: number | null;
+  shipping_payment_deferred: boolean | null;
+  estimated_shipping_price: number | null;
+  shipping_fee_paid_at: string | null;
   status: string | null;
   estimated_delivery_start: string | null;
   estimated_delivery_end: string | null;
@@ -757,9 +762,37 @@ export default function TrackOrder() {
                     <p>{formatPrice(Number(order.subtotal))}</p>
                   </div>
                   <div className="flex justify-between items-center">
-                    <p className="text-muted-foreground">Shipping</p>
-                    <p>{formatPrice(Number(order.shipping_price || 0))}</p>
+                    <p className="text-muted-foreground">
+                      {order.shipping_payment_deferred ? 'Shipping (deferred)' : 'Shipping'}
+                    </p>
+                    <p>
+                      {order.shipping_payment_deferred
+                        ? order.shipping_fee_paid_at
+                          ? formatPrice(Number(order.shipping_price || 0))
+                          : Number(order.shipping_price || 0) > 0
+                            ? formatPrice(Number(order.shipping_price || 0))
+                            : 'Awaiting admin quote'
+                        : formatPrice(Number(order.shipping_price || 0))}
+                    </p>
                   </div>
+                  {order.shipping_payment_deferred ? (
+                    <p className="text-xs text-muted-foreground">
+                      {getDeferredShippingStatusLabel(order)}
+                      {order.estimated_shipping_price
+                        ? ` · Checkout estimate ${formatPrice(Number(order.estimated_shipping_price))}`
+                        : ''}
+                    </p>
+                  ) : null}
+                  {hasUnpaidDeferredShipping(order) ? (
+                    <PayDeferredShippingButton
+                      orderId={order.id}
+                      orderNumber={order.order_number}
+                      amount={Number(order.shipping_price || 0)}
+                      formatPrice={formatPrice}
+                      onPaid={() => void refetch()}
+                      className="w-full rounded-xl"
+                    />
+                  ) : null}
                   <Separator />
                   <div className="flex justify-between items-center font-semibold">
                     <p>Total</p>

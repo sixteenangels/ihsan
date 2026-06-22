@@ -530,6 +530,7 @@ export function AdminOrders() {
   const [newOrderAlert, setNewOrderAlert] = useState(false);
   const [statusNotes, setStatusNotes] = useState<Record<string, string>>({});
   const [adminNotes, setAdminNotes] = useState<Record<string, string>>({});
+  const [deferredShippingFees, setDeferredShippingFees] = useState<Record<string, string>>({});
   const [selectedFulfillmentOrder, setSelectedFulfillmentOrder] = useState<AdminOrder | null>(null);
   const [selectedRefundOrder, setSelectedRefundOrder] = useState<AdminOrder | null>(null);
   const [refundDraft, setRefundDraft] = useState<{
@@ -1429,6 +1430,26 @@ export function AdminOrders() {
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to save admin note');
+    },
+  });
+
+  const saveDeferredShippingFeeMutation = useMutation({
+    mutationFn: async ({ orderId, shippingPrice }: { orderId: string; shippingPrice: number }) => {
+      const { error } = await supabase
+        .from('orders')
+        .update({
+          shipping_price: shippingPrice,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', orderId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
+      toast.success('Shipping fee updated');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to update shipping fee');
     },
   });
 
@@ -2381,12 +2402,71 @@ export function AdminOrders() {
                           <span className="text-muted-foreground">Subtotal</span>
                           <span className="font-medium">{formatPrice(Number(order.subtotal))}</span>
                         </div>
-                        {order.shipping_price && (
+                        {order.shipping_price && !order.shipping_payment_deferred ? (
                           <div className="flex justify-between text-sm mt-1">
                             <span className="text-muted-foreground">Shipping</span>
                             <span className="font-medium">{formatPrice(Number(order.shipping_price))}</span>
                           </div>
-                        )}
+                        ) : null}
+                        {order.shipping_payment_deferred ? (
+                          <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div>
+                                <p className="text-sm font-medium text-foreground">Deferred shipping payment</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {order.estimated_shipping_price
+                                    ? `Checkout estimate: ${formatPrice(Number(order.estimated_shipping_price))}`
+                                    : 'No estimate recorded at checkout'}
+                                  {order.shipping_fee_paid_at ? ' · Paid' : ''}
+                                </p>
+                              </div>
+                              <Badge variant="outline" className="border-amber-500/40 text-amber-700">
+                                {order.shipping_fee_paid_at ? 'Shipping paid' : 'Awaiting payment'}
+                              </Badge>
+                            </div>
+                            {!order.shipping_fee_paid_at ? (
+                              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={
+                                    deferredShippingFees[order.id] ??
+                                    (order.shipping_price ? String(order.shipping_price) : '')
+                                  }
+                                  placeholder="Set final shipping fee"
+                                  onChange={(event) =>
+                                    setDeferredShippingFees((prev) => ({
+                                      ...prev,
+                                      [order.id]: event.target.value,
+                                    }))
+                                  }
+                                />
+                                <Button
+                                  size="sm"
+                                  onClick={() => {
+                                    const rawValue =
+                                      deferredShippingFees[order.id] ??
+                                      (order.shipping_price ? String(order.shipping_price) : '');
+                                    const shippingPrice = Number.parseFloat(rawValue);
+                                    if (!Number.isFinite(shippingPrice) || shippingPrice < 0) {
+                                      toast.error('Enter a valid shipping fee.');
+                                      return;
+                                    }
+                                    saveDeferredShippingFeeMutation.mutate({ orderId: order.id, shippingPrice });
+                                  }}
+                                  disabled={saveDeferredShippingFeeMutation.isPending}
+                                >
+                                  Save shipping fee
+                                </Button>
+                              </div>
+                            ) : (
+                              <p className="mt-2 text-sm font-medium text-foreground">
+                                Paid shipping: {formatPrice(Number(order.shipping_price || 0))}
+                              </p>
+                            )}
+                          </div>
+                        ) : null}
                         <div className="flex justify-between text-lg font-bold mt-2 pt-2 border-t border-border">
                           <span>Total</span>
                           <span className="text-primary">{formatPrice(Number(order.total_amount))}</span>

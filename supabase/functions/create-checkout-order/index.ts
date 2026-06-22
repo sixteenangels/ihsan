@@ -20,6 +20,7 @@ interface CreateCheckoutOrderBody {
   useWalletCredit?: boolean;
   recoverySnapshotId?: string | null;
   expectedTotal?: number | null;
+  deferShippingPayment?: boolean;
 }
 
 interface ProductRow {
@@ -83,6 +84,7 @@ interface StoreSettings {
   reinforcedPackagingCost: number;
   couponsEnabled: boolean;
   giftCardsEnabled: boolean;
+  deferShippingPaymentEnabled: boolean;
 }
 
 interface VerifiedPayment {
@@ -195,6 +197,7 @@ async function getStoreSettings(supabase: ReturnType<typeof createServiceSupabas
     reinforcedPackagingCost: 0,
     couponsEnabled: true,
     giftCardsEnabled: true,
+    deferShippingPaymentEnabled: false,
   };
 
   const { data, error } = await supabase.from('store_settings').select('key, value');
@@ -486,6 +489,14 @@ Deno.serve(async (req) => {
       }
     }
 
+    const deferShippingPayment = body.deferShippingPayment === true;
+    if (deferShippingPayment && !settings.deferShippingPaymentEnabled) {
+      throw new Error('Pay shipping later is not available right now.');
+    }
+
+    const estimatedShippingPrice = shippingPrice;
+    const chargedShippingPrice = deferShippingPayment ? 0 : shippingPrice;
+
     const { data: address, error: addressError } = await supabase
       .from('addresses')
       .select('*')
@@ -565,7 +576,7 @@ Deno.serve(async (req) => {
 
     const totalBeforeCredits = Math.max(
       0,
-      toMoney(subtotal + shippingPrice + fragilePackagingCost - discount),
+      toMoney(subtotal + chargedShippingPrice + fragilePackagingCost - discount),
     );
 
     const requestedLoyaltyPoints = Math.max(
@@ -647,18 +658,22 @@ Deno.serve(async (req) => {
         order_number: orderNumber,
         user_id: actor.id,
         subtotal,
-        shipping_price: shippingPrice,
+        shipping_price: deferShippingPayment ? 0 : shippingPrice,
+        estimated_shipping_price: deferShippingPayment ? estimatedShippingPrice : null,
+        shipping_payment_deferred: deferShippingPayment,
         total_amount: total,
         shipping_class_id: shippingClassId,
         shipping_address: JSON.parse(JSON.stringify(address)),
         status: 'payment_received',
         payment_reference: paymentReference,
         notes:
-          flow === 'buy_now'
-            ? 'Instant checkout via Buy Now'
-            : loyaltyPointsApplied > 0
-              ? `Loyalty redeemed: ${loyaltyPointsApplied} points`
-              : null,
+          deferShippingPayment
+            ? `Shipping payment deferred. Estimated shipping: GHS ${estimatedShippingPrice.toFixed(2)}.`
+            : flow === 'buy_now'
+              ? 'Instant checkout via Buy Now'
+              : loyaltyPointsApplied > 0
+                ? `Loyalty redeemed: ${loyaltyPointsApplied} points`
+                : null,
         estimated_delivery_start: addDays(estimatedMin),
         estimated_delivery_end: addDays(estimatedMax),
         packaging_type: fragilePackagingCost > 0 ? packagingChoice : null,

@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import { useHorizontalWheelScroll } from '@/hooks/useHorizontalWheelScroll';
 
 interface ProductImageGalleryProps {
   images: string[];
@@ -18,6 +19,10 @@ export function ProductImageGallery({ images, productName }: ProductImageGallery
   const dragStart = useRef({ x: 0, y: 0 });
   const swipeStart = useRef<{ x: number; y: number; time: number } | null>(null);
   const imageContainerRef = useRef<HTMLDivElement>(null);
+  const thumbnailScrollRef = useRef<HTMLDivElement>(null);
+  const galleryRootRef = useRef<HTMLDivElement>(null);
+  const isGalleryHoveredRef = useRef(false);
+  useHorizontalWheelScroll(thumbnailScrollRef);
 
   const displayImages = images.length > 0 ? images : ['https://via.placeholder.com/600'];
   const activeImage = displayImages[selectedIndex];
@@ -33,6 +38,28 @@ export function ProductImageGallery({ images, productName }: ProductImageGallery
   const goToNext = () => {
     setSelectedIndex((prev) => (prev === displayImages.length - 1 ? 0 : prev + 1));
   };
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (displayImages.length <= 1) return;
+      if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+      if (isZoomOpen) return;
+      if (!isGalleryHoveredRef.current) return;
+
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+
+      event.preventDefault();
+      if (event.key === 'ArrowLeft') {
+        goToPrevious();
+      } else {
+        goToNext();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [displayImages.length, isZoomOpen]);
 
   const handleZoomIn = () => {
     setZoomLevel((prev) => Math.min(prev + 0.5, 3));
@@ -103,8 +130,9 @@ export function ProductImageGallery({ images, productName }: ProductImageGallery
   };
 
   const handleMainImagePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (displayImages.length <= 1 || event.pointerType === 'mouse') return;
+    if (displayImages.length <= 1) return;
     if ((event.target as HTMLElement).closest('button')) return;
+    if (event.pointerType === 'mouse' && zoomLevel > 1) return;
 
     swipeStart.current = {
       x: event.clientX,
@@ -114,7 +142,7 @@ export function ProductImageGallery({ images, productName }: ProductImageGallery
   };
 
   const handleMainImagePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (event.pointerType === 'mouse') return;
+    if (event.pointerType === 'mouse' && zoomLevel > 1) return;
     handleSwipeEnd(event.clientX, event.clientY);
   };
 
@@ -171,10 +199,22 @@ export function ProductImageGallery({ images, productName }: ProductImageGallery
   };
 
   return (
-    <div className="space-y-4">
+    <div
+      ref={galleryRootRef}
+      className="space-y-4"
+      onMouseEnter={() => {
+        isGalleryHoveredRef.current = true;
+      }}
+      onMouseLeave={() => {
+        isGalleryHoveredRef.current = false;
+      }}
+    >
       {/* Main Image */}
       <div
-        className="relative aspect-square touch-pan-y overflow-hidden rounded-xl bg-card border border-border group"
+        className={cn(
+          'relative aspect-square touch-pan-y overflow-hidden rounded-xl bg-card border border-border group',
+          zoomLevel <= 1 && displayImages.length > 1 ? 'cursor-grab active:cursor-grabbing' : '',
+        )}
         onTouchStart={handleMainImageTouchStart}
         onTouchEnd={(event) => {
           handleMainImageTouchEnd(event);
@@ -211,7 +251,7 @@ export function ProductImageGallery({ images, productName }: ProductImageGallery
             <Button
               variant="secondary"
               size="icon"
-              className="absolute left-4 top-1/2 -translate-y-1/2 opacity-100 transition-opacity bg-background/80 backdrop-blur-sm sm:opacity-0 sm:group-hover:opacity-100"
+              className="absolute left-4 top-1/2 -translate-y-1/2 bg-background/80 opacity-100 backdrop-blur-sm transition-opacity md:opacity-100"
               onClick={goToPrevious}
               aria-label="Previous product image"
             >
@@ -220,7 +260,7 @@ export function ProductImageGallery({ images, productName }: ProductImageGallery
             <Button
               variant="secondary"
               size="icon"
-              className="absolute right-4 top-1/2 -translate-y-1/2 opacity-100 transition-opacity bg-background/80 backdrop-blur-sm sm:opacity-0 sm:group-hover:opacity-100"
+              className="absolute right-4 top-1/2 -translate-y-1/2 bg-background/80 opacity-100 backdrop-blur-sm transition-opacity md:opacity-100"
               onClick={goToNext}
               aria-label="Next product image"
             >
@@ -239,7 +279,7 @@ export function ProductImageGallery({ images, productName }: ProductImageGallery
 
       {/* Thumbnail Gallery */}
       {displayImages.length > 1 && (
-        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
+        <div ref={thumbnailScrollRef} className="horizontal-scroll flex gap-2 pb-2">
           {displayImages.map((img, idx) => (
             <button
               key={idx}

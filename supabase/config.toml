@@ -67,6 +67,9 @@ verify_jwt = true
 [functions.create-checkout-order]
 verify_jwt = true
 
+[functions.pay-deferred-shipping]
+verify_jwt = true
+
 [functions.check-birthdays]
 verify_jwt = true
 

@@ -7,6 +7,11 @@ const CUSTOMER_ORDER_SELECT = `
   order_number,
   status,
   total_amount,
+  subtotal,
+  shipping_price,
+  shipping_payment_deferred,
+  estimated_shipping_price,
+  shipping_fee_paid_at,
   created_at,
   updated_at,
   estimated_delivery_start,
@@ -47,6 +52,11 @@ export type CustomerOrder = {
   order_number: string;
   status: string | null;
   total_amount: number;
+  subtotal?: number | null;
+  shipping_price?: number | null;
+  shipping_payment_deferred?: boolean | null;
+  estimated_shipping_price?: number | null;
+  shipping_fee_paid_at?: string | null;
   created_at: string;
   updated_at: string;
   estimated_delivery_start: string | null;

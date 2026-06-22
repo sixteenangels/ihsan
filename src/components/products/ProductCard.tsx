@@ -62,8 +62,8 @@ export function ProductCard({ product, onQuickView, viewMode = 'grid' }: Product
 
   if (viewMode === 'list') {
     return (
-      <Link to={`/product/${product.id}`} className="block h-full">
-        <Card className="group h-full overscroll-contain rounded-2xl border-border/70 bg-card shadow-sm transition-all duration-300 hover:shadow-md">
+      <Link to={`/product/${product.id}`} className="block h-full min-w-0">
+        <Card className="group h-full min-w-0 overflow-hidden rounded-2xl border-border/70 bg-card shadow-sm transition-all duration-300 hover:shadow-md">
           <div className="flex flex-col min-[420px]:flex-row">
             {/* Image - horizontal layout */}
             <div className="relative aspect-[1.8/1] w-full shrink-0 overflow-hidden bg-muted min-[420px]:h-28 min-[420px]:w-28 sm:h-auto sm:w-48">
@@ -88,10 +88,10 @@ export function ProductCard({ product, onQuickView, viewMode = 'grid' }: Product
               </div>
             </div>
             {/* Content */}
-            <CardContent className="flex min-w-0 flex-1 flex-col justify-between p-3 sm:p-4">
-              <div>
-                <p className="mb-1 text-xs text-muted-foreground">{product.category}</p>
-                <h3 className="mb-1.5 line-clamp-2 text-sm font-semibold leading-tight text-foreground transition-colors group-hover:text-primary sm:mb-2 sm:text-lg">
+            <CardContent className="flex min-w-0 flex-1 flex-col justify-between overflow-hidden p-3 sm:p-4">
+              <div className="min-w-0">
+                <p className="mb-1 truncate text-xs text-muted-foreground">{product.category}</p>
+                <h3 className="mb-1.5 line-clamp-2 overflow-hidden break-words text-sm font-semibold leading-snug text-foreground transition-colors group-hover:text-primary sm:mb-2 sm:text-lg">
                   {product.name}
                 </h3>
                 <p className="mb-2 hidden text-sm text-muted-foreground sm:line-clamp-2">
@@ -130,9 +130,9 @@ export function ProductCard({ product, onQuickView, viewMode = 'grid' }: Product
 
   // Grid view - 2 columns on mobile with compact cards
   return (
-    <Link to={`/product/${product.id}`} className="block h-full">
-      <Card className="group h-full overscroll-contain rounded-2xl border-border/70 bg-card shadow-sm transition-all duration-300 hover:shadow-md">
-        <div className="relative aspect-[1/1.04] overflow-hidden bg-muted">
+    <Link to={`/product/${product.id}`} className="block h-full min-w-0">
+      <Card className="group flex h-full min-w-0 flex-col overflow-hidden rounded-2xl border-border/70 bg-card shadow-sm transition-all duration-300 hover:shadow-md">
+        <div className="relative aspect-[1/1.04] shrink-0 overflow-hidden bg-muted">
           <img
             src={product.images[0]}
             alt={product.name}
@@ -195,16 +195,16 @@ export function ProductCard({ product, onQuickView, viewMode = 'grid' }: Product
             )}
           </div>
         </div>
-        <CardContent className="p-2.5 sm:p-4">
-          <p className="mb-1 text-[11px] text-muted-foreground sm:text-xs">{product.category}</p>
-          <h3 className="mb-2 line-clamp-2 min-h-[2.4rem] text-[13px] font-semibold leading-tight text-foreground transition-colors group-hover:text-primary sm:text-sm">
+        <CardContent className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-2.5 sm:p-4">
+          <p className="truncate text-[11px] text-muted-foreground sm:text-xs">{product.category}</p>
+          <h3 className="mt-1 line-clamp-2 overflow-hidden break-words text-[13px] font-semibold leading-snug text-foreground transition-colors group-hover:text-primary sm:text-sm">
             {product.name}
           </h3>
-          <div className="flex items-center justify-between">
-            <p className="text-base font-bold text-primary sm:text-lg">
+          <div className="mt-2 flex min-w-0 items-center justify-between gap-2">
+            <p className="min-w-0 truncate text-base font-bold text-primary sm:text-lg">
               {formatPrice(product.basePrice)}
             </p>
-            <div className="flex items-center gap-0.5">
+            <div className="flex shrink-0 items-center gap-0.5">
               <Star className="h-3 w-3 sm:h-4 sm:w-4 fill-accent-foreground text-accent-foreground" />
               <span className="text-[10px] sm:text-sm text-muted-foreground">
                 {product.rating}

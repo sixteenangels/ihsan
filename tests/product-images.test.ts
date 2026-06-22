@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildDetailGalleryImages, getSharedProductImages } from '@/lib/product-images';
+import { buildDetailGalleryImages, getSharedProductImages, normalizeImageUrl } from '@/lib/product-images';
 
 describe('product image gallery helpers', () => {
   const productImages = [
@@ -20,6 +20,17 @@ describe('product image gallery helpers', () => {
     ]);
   });
 
+  it('matches variant URLs even when query params differ', () => {
+    const imagesWithCacheBust = [
+      'https://cdn.example.com/lifestyle.jpg',
+      'https://cdn.example.com/tan-variant.jpg?v=2',
+    ];
+
+    expect(getSharedProductImages(imagesWithCacheBust, variants)).toEqual([
+      'https://cdn.example.com/lifestyle.jpg',
+    ]);
+  });
+
   it('puts the selected variant image first without duplicating the carousel', () => {
     expect(
       buildDetailGalleryImages(productImages, variants, 'https://cdn.example.com/blue-variant.jpg'),
@@ -29,9 +40,15 @@ describe('product image gallery helpers', () => {
     ]);
   });
 
-  it('falls back to product images when no shared shots exist', () => {
+  it('shows placeholder when only variant images exist and none is selected', () => {
     expect(buildDetailGalleryImages(['https://cdn.example.com/tan-variant.jpg'], variants, null)).toEqual([
-      'https://cdn.example.com/tan-variant.jpg',
+      '/placeholder.svg',
     ]);
+  });
+
+  it('normalizes image URLs for stable comparison', () => {
+    expect(normalizeImageUrl('https://CDN.example.com/path/file.jpg?token=abc')).toBe(
+      'https://cdn.example.com/path/file.jpg',
+    );
   });
 });

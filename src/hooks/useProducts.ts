@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { getSharedProductImages } from '@/lib/product-images';
 
 export interface ProductWithDetails {
   id: string;
@@ -155,6 +156,15 @@ async function fetchProducts(): Promise<ProductWithDetails[]> {
 
   return (products || []).map((product) => {
     const recommendationScore = scoreMap.get(product.id);
+    const productVariants = (variantsMap.get(product.id) || []).map((v) => ({
+      id: v.id,
+      size: v.size,
+      color: v.color,
+      price: v.price_override ? Number(v.price_override) : Number(product.base_price),
+      stock: v.stock,
+      sku: v.sku,
+      image_url: v.variant_image_url,
+    }));
 
     return {
     id: product.id,
@@ -181,16 +191,8 @@ async function fetchProducts(): Promise<ProductWithDetails[]> {
     recommendation_revenue_score: Number(recommendationScore?.revenue_score || 0),
     category_id: product.category_id,
     category_name: (product.categories as { name: string } | null)?.name || null,
-    images: imagesMap.get(product.id) || [],
-    variants: (variantsMap.get(product.id) || []).map((v) => ({
-      id: v.id,
-      size: v.size,
-      color: v.color,
-      price: v.price_override ? Number(v.price_override) : Number(product.base_price),
-      stock: v.stock,
-      sku: v.sku,
-      image_url: v.variant_image_url,
-    })),
+    images: getSharedProductImages(imagesMap.get(product.id) || [], productVariants),
+    variants: productVariants,
     shipping_rules: (shippingMap.get(product.id) || []).map((rule) => ({
       id: rule.id,
       shipping_class_id: rule.shipping_class_id,
@@ -269,6 +271,16 @@ async function fetchProductById(id: string): Promise<ProductWithDetails | null> 
     .maybeSingle();
 
   const typedScore = recommendationScore as unknown as Omit<RecommendationScoreRow, 'product_id'> | null;
+  const mappedVariants = (variants || []).map((v) => ({
+    id: v.id,
+    size: v.size,
+    color: v.color,
+    price: v.price_override ? Number(v.price_override) : Number(product.base_price),
+    stock: v.stock,
+    sku: v.sku,
+    image_url: v.variant_image_url,
+  }));
+  const rawImages = (images || []).map((img) => img.image_url);
 
   return {
     id: product.id,
@@ -295,16 +307,8 @@ async function fetchProductById(id: string): Promise<ProductWithDetails | null> 
     recommendation_revenue_score: Number(typedScore?.revenue_score || 0),
     category_id: product.category_id,
     category_name: (product.categories as { name: string } | null)?.name || null,
-    images: (images || []).map((img) => img.image_url),
-    variants: (variants || []).map((v) => ({
-      id: v.id,
-      size: v.size,
-      color: v.color,
-      price: v.price_override ? Number(v.price_override) : Number(product.base_price),
-      stock: v.stock,
-      sku: v.sku,
-      image_url: v.variant_image_url,
-    })),
+    images: getSharedProductImages(rawImages, mappedVariants),
+    variants: mappedVariants,
     shipping_rules: (shippingRules || []).map((rule) => ({
       id: rule.id,
       shipping_class_id: rule.shipping_class_id,

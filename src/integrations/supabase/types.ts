@@ -824,6 +824,10 @@ export type Database = {
           shipping_address: Json | null
           shipping_class_id: string | null
           shipping_price: number | null
+          shipping_payment_deferred: boolean
+          estimated_shipping_price: number | null
+          shipping_fee_paid_at: string | null
+          shipping_payment_reference: string | null
           status: Database["public"]["Enums"]["order_status"] | null
           subtotal: number
           total_amount: number
@@ -863,6 +867,10 @@ export type Database = {
           shipping_address?: Json | null
           shipping_class_id?: string | null
           shipping_price?: number | null
+          shipping_payment_deferred?: boolean
+          estimated_shipping_price?: number | null
+          shipping_fee_paid_at?: string | null
+          shipping_payment_reference?: string | null
           status?: Database["public"]["Enums"]["order_status"] | null
           subtotal: number
           total_amount: number
@@ -902,6 +910,10 @@ export type Database = {
           shipping_address?: Json | null
           shipping_class_id?: string | null
           shipping_price?: number | null
+          shipping_payment_deferred?: boolean
+          estimated_shipping_price?: number | null
+          shipping_fee_paid_at?: string | null
+          shipping_payment_reference?: string | null
           status?: Database["public"]["Enums"]["order_status"] | null
           subtotal?: number
           total_amount?: number

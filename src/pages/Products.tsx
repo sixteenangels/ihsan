@@ -768,7 +768,7 @@ export default function Products() {
             <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-muted-foreground">
               Featured Filters
             </p>
-            <div className="no-scrollbar -mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none]">
+            <div className="mobile-scroll-pills -mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [touch-action:pan-x_pan-y] md:horizontal-scroll md:snap-x md:snap-proximity">
               {quickDiscoveryActions.map((action) => {
                 const Icon = action.icon;
                 return (
@@ -794,7 +794,7 @@ export default function Products() {
             <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-muted-foreground">
               Categories
             </p>
-            <div className="no-scrollbar -mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none]">
+            <div className="mobile-scroll-pills -mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [touch-action:pan-x_pan-y] md:horizontal-scroll md:snap-x md:snap-proximity">
               <button
                 type="button"
                 className={`inline-flex h-8 shrink-0 snap-start items-center gap-1.5 rounded-full border px-3 text-[11px] font-medium transition-colors ${
@@ -896,8 +896,8 @@ export default function Products() {
           <div
             className={
               viewMode === 'grid'
-                ? 'grid grid-cols-1 gap-3 min-[380px]:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4'
-                : 'flex flex-col gap-3 sm:gap-4'
+                ? 'grid min-w-0 grid-cols-1 gap-3 min-[380px]:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4'
+                : 'flex min-w-0 flex-col gap-3 sm:gap-4'
             }
           >
             {filteredProducts.map((product) => {

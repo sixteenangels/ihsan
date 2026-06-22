@@ -185,6 +185,7 @@ export default function Checkout() {
   const [courierAcknowledged, setCourierAcknowledged] = useState(false);
   const [showCourierDialog, setShowCourierDialog] = useState(false);
   const [pendingCourierShippingId, setPendingCourierShippingId] = useState<string | null>(null);
+  const [deferShippingPayment, setDeferShippingPayment] = useState(false);
   const callbackFiredRef = useRef(false);
   const [orderCreationInProgress, setOrderCreationInProgress] = useState(false);
   const checkoutRecoverySnapshotIdRef = useRef<string | null>(null);
@@ -194,7 +195,7 @@ export default function Checkout() {
   const [useWalletCredit, setUseWalletCredit] = useState(false);
   const { totalPoints } = useLoyaltyPoints();
   const { data: storeSettings } = useStoreSettings();
-  const { couponsEnabled, giftCardsEnabled, loyaltyEnabled } = useCheckoutFeatureFlags();
+  const { couponsEnabled, giftCardsEnabled, loyaltyEnabled, deferShippingPaymentEnabled } = useCheckoutFeatureFlags();
   const [useLoyaltyCredit, setUseLoyaltyCredit] = useState(false);
   const [loyaltyPointsToRedeem, setLoyaltyPointsToRedeem] = useState('');
 
@@ -641,6 +642,9 @@ export default function Checkout() {
     })();
   }, [selectedItems, selectedShipping?.name, selectedSubtotal, user]);
   const shippingCost = allFreeShipping ? 0 : rawShippingCost;
+  const checkoutShippingCost = deferShippingPayment && deferShippingPaymentEnabled ? 0 : shippingCost;
+  const showDeferShippingOption =
+    deferShippingPaymentEnabled && !allFreeShipping && shippingCost > 0 && !!selectedShippingId;
 
   // Calculate discount
   const isCouponEligible = useCallback((coupon: CheckoutCoupon) => {
@@ -657,7 +661,7 @@ export default function Checkout() {
   };
 
   const discount = calculateDiscount();
-  const subtotalBeforeCredits = toMoney(Math.max(0, selectedSubtotal + shippingCost + reinforcedPackagingCost - discount));
+  const subtotalBeforeCredits = toMoney(Math.max(0, selectedSubtotal + checkoutShippingCost + reinforcedPackagingCost - discount));
   const loyaltyRate = typeof storeSettings?.loyaltyPointsToCurrencyRate === 'number'
     ? storeSettings.loyaltyPointsToCurrencyRate
     : 0.01;
@@ -888,7 +892,9 @@ export default function Checkout() {
       label: 'Shipping',
       complete: !!selectedShippingId,
       detail: selectedShipping
-        ? `${selectedShipping.name} · ${formatPrice(shippingCost)}`
+        ? deferShippingPayment && deferShippingPaymentEnabled && shippingCost > 0
+          ? `${selectedShipping.name} · Pay shipping later (est. ${formatPrice(shippingCost)})`
+          : `${selectedShipping.name} · ${formatPrice(shippingCost)}`
         : 'Pick the delivery speed and method.',
     },
     {
@@ -1097,6 +1103,7 @@ export default function Checkout() {
           useWalletCredit,
           recoverySnapshotId: checkoutRecoverySnapshotIdRef.current,
           expectedTotal: total,
+          deferShippingPayment: deferShippingPayment && deferShippingPaymentEnabled,
           items: selectedItems.map((item) => ({
             productId: item.product.id,
             productVariantId: isVariantPlaceholder(item.variant.id) ? null : item.variant.id,
@@ -1231,7 +1238,13 @@ export default function Checkout() {
               detail: selectedShipping
                 ? `${selectedShipping.name} (${selectedShipping.estimated_days_min}-${selectedShipping.estimated_days_max} days)`
                 : 'Choose a shipping method',
-              amount: selectedShipping ? (shippingCost === 0 ? 'FREE' : formatPrice(shippingCost)) : null,
+              amount: selectedShipping
+                ? deferShippingPayment && deferShippingPaymentEnabled && shippingCost > 0
+                  ? `Pay later (est. ${formatPrice(shippingCost)})`
+                  : shippingCost === 0
+                    ? 'FREE'
+                    : formatPrice(shippingCost)
+                : null,
               icon: selectedShipping
                 ? getShippingIcon(selectedShipping.shipping_type?.name || selectedShipping.name)
                 : Package,
@@ -1277,7 +1290,15 @@ export default function Checkout() {
             })}
             totals={[
               { label: `Subtotal (${itemCount} items)`, value: formatPrice(selectedSubtotal) },
-              { label: 'Shipping', value: shippingCost === 0 ? 'FREE' : formatPrice(shippingCost) },
+              {
+                label: deferShippingPayment && deferShippingPaymentEnabled && shippingCost > 0 ? 'Shipping (pay later)' : 'Shipping',
+                value:
+                  shippingCost === 0
+                    ? 'FREE'
+                    : deferShippingPayment && deferShippingPaymentEnabled
+                      ? `Due later (est. ${formatPrice(shippingCost)})`
+                      : formatPrice(shippingCost),
+              },
               ...(reinforcedPackagingCost > 0
                 ? [{ label: 'Reinforced Packaging', value: formatPrice(reinforcedPackagingCost) }]
                 : []),
@@ -1300,6 +1321,21 @@ export default function Checkout() {
             onMakeChanges={() => navigate('/cart')}
             onPay={handlePaystackPayment}
           >
+          {showDeferShippingOption ? (
+            <label className="flex items-start gap-3 rounded-2xl border border-border/70 bg-card/90 p-4">
+              <Checkbox
+                checked={deferShippingPayment}
+                onCheckedChange={(checked) => setDeferShippingPayment(checked === true)}
+                className="mt-0.5"
+              />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-foreground">Pay shipping later</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Pay for items now. AJYN will confirm your final shipping fee and you can pay it before dispatch.
+                </p>
+              </div>
+            </label>
+          ) : null}
           {showSavingsSection ? (
             <button
               type="button"

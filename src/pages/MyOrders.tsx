@@ -34,6 +34,8 @@ import {
   fetchCustomerOrdersForUser,
   type CustomerOrder,
 } from '@/lib/fetch-user-orders';
+import { hasUnpaidDeferredShipping, getDeferredShippingStatusLabel } from '@/lib/deferredShipping';
+import { PayDeferredShippingButton } from '@/components/orders/PayDeferredShippingButton';
 import { canRequestRefund, getRefundAvailabilityLabel, getRefundButtonReason } from '@/lib/orderHistory';
 import { reAddOrderItemsToCart } from '@/lib/reorderOrder';
 import { toast } from 'sonner';
@@ -362,12 +364,29 @@ export default function MyOrders() {
                         />
                       }
                       footerSlot={
-                        order.group_buy_id ? (
-                          <Badge variant="outline" className="rounded-full text-[10px] uppercase tracking-[0.12em]">
-                            <Users className="mr-1 h-3 w-3" />
-                            Group Buy
-                          </Badge>
-                        ) : null
+                        <div className="flex flex-col gap-2">
+                          {order.group_buy_id ? (
+                            <Badge variant="outline" className="rounded-full text-[10px] uppercase tracking-[0.12em]">
+                              <Users className="mr-1 h-3 w-3" />
+                              Group Buy
+                            </Badge>
+                          ) : null}
+                          {getDeferredShippingStatusLabel(order) ? (
+                            <Badge variant="outline" className="w-fit rounded-full text-[10px] uppercase tracking-[0.12em]">
+                              {getDeferredShippingStatusLabel(order)}
+                            </Badge>
+                          ) : null}
+                          {hasUnpaidDeferredShipping(order) ? (
+                            <PayDeferredShippingButton
+                              orderId={order.id}
+                              orderNumber={order.order_number}
+                              amount={Number(order.shipping_price || 0)}
+                              formatPrice={formatPrice}
+                              onPaid={() => void fetchOrders()}
+                              className="h-9 w-full rounded-xl"
+                            />
+                          ) : null}
+                        </div>
                       }
                     />
                   );
