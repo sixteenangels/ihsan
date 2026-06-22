@@ -16,6 +16,7 @@ import { WelcomeModal } from "@/components/onboarding/WelcomeModal";
 import { MaintenanceMode } from "@/components/MaintenanceMode";
 import { missingSupabaseEnvVars, supabaseConfigError } from "@/integrations/supabase/client";
 import { useProductCatalogSync } from "@/hooks/useProductCatalogSync";
+import { APP_BACKGROUND_REFRESH_MS } from "@/lib/backgroundRefresh";
 import { NOTIFICATIONS_SCROLL_KEY } from "@/lib/notification-display";
 import { ThemeProvider } from "next-themes";
 import { lazy, Suspense, useEffect, useState } from "react";
@@ -48,7 +49,15 @@ const NotificationDetail = lazy(() => import("./pages/NotificationDetail"));
 const FooterInfo = lazy(() => import("./pages/FooterInfo"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: APP_BACKGROUND_REFRESH_MS,
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
+    },
+  },
+});
 
 function PageLoader() {
   return (

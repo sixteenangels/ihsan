@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { QueryClient, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { createBackgroundVisibilityRefresh } from '@/lib/backgroundRefresh';
 
 const CATALOG_TABLES = [
   'products',
@@ -34,13 +35,8 @@ export function useProductCatalogSync() {
 
   useEffect(() => {
     const refreshCatalog = () => invalidateProductCatalogQueries(queryClient);
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        refreshCatalog();
-      }
-    };
+    const { handleVisibilityChange } = createBackgroundVisibilityRefresh(refreshCatalog);
 
-    window.addEventListener('focus', refreshCatalog);
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     const channel = supabase.channel('product-catalog-sync');
@@ -59,7 +55,6 @@ export function useProductCatalogSync() {
     });
 
     return () => {
-      window.removeEventListener('focus', refreshCatalog);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       void supabase.removeChannel(channel);
     };
