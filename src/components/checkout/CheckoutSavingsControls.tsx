@@ -20,11 +20,11 @@ interface CheckoutSavingsCardProps {
 }
 
 export function CheckoutSavingsCard({ savings }: CheckoutSavingsCardProps) {
+  const { formatPrice } = useCurrency();
+
   if (!savings.showSavingsSection) {
     return null;
   }
-
-  const { formatPrice } = useCurrency();
 
   return (
     <button

@@ -50,11 +50,13 @@ export function ProductImageGallery({ images, productName }: ProductImageGallery
       if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
 
       event.preventDefault();
-      if (event.key === 'ArrowLeft') {
-        goToPrevious();
-      } else {
-        goToNext();
-      }
+      setSelectedIndex((prev) => {
+        if (event.key === 'ArrowLeft') {
+          return prev === 0 ? displayImages.length - 1 : prev - 1;
+        }
+
+        return prev === displayImages.length - 1 ? 0 : prev + 1;
+      });
     };
 
     window.addEventListener('keydown', handleKeyDown);
